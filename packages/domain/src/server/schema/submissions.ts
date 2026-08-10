@@ -35,6 +35,14 @@ export const TshirtSize = Schema.Literals(["XS", "S", "M", "L", "XL", "XXL"]);
 export type TshirtSize = typeof TshirtSize.Type;
 export const ReviewDecision = Schema.Literals(["approve", "maybe", "deny"]);
 export type ReviewDecision = typeof ReviewDecision.Type;
+export const SpeakerWorkflowStatus = Schema.Literals([
+  "invited",
+  "onboarding",
+  "confirmed",
+  "ready",
+  "declined",
+]);
+export type SpeakerWorkflowStatus = typeof SpeakerWorkflowStatus.Type;
 
 const contactFields = {
   eventId: Schema.String,
@@ -61,6 +69,7 @@ const contactFields = {
   custom: JsonObject,
   approvedProfile: JsonObject,
   profileReviewStatus: ContentApprovalStatus,
+  workflowStatus: SpeakerWorkflowStatus,
 };
 
 export const Contact = Schema.Struct({ ...EntityFields, ...contactFields });

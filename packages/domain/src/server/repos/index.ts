@@ -2,6 +2,7 @@ import { Layer } from "effect";
 
 import { makeDbLive } from "../db";
 import { ContactsLive } from "./contacts";
+import { CrmLive } from "./crm";
 import { AgendaLive } from "./agenda";
 import { EmailLogLive } from "./email-log";
 import { EventsLive } from "./events";
@@ -18,6 +19,7 @@ import { TasksLive } from "./tasks";
 import { WidgetsLive } from "./widgets";
 
 import type { Contacts } from "./contacts";
+import type { Crm } from "./crm";
 import type { Agenda } from "./agenda";
 import type { EmailLog } from "./email-log";
 import type { Events } from "./events";
@@ -34,6 +36,7 @@ import type { Tasks } from "./tasks";
 import type { Widgets } from "./widgets";
 
 export * from "./contacts";
+export * from "./crm";
 export * from "./agenda";
 export * from "./email-log";
 export * from "./events";
@@ -52,6 +55,7 @@ export * from "./widgets";
 export type RepositoryServices =
   | Agenda
   | Contacts
+  | Crm
   | EmailLog
   | Events
   | Files
@@ -69,6 +73,7 @@ export type RepositoryServices =
 const RepositoriesLive = Layer.mergeAll(
   AgendaLive,
   ContactsLive,
+  CrmLive,
   EmailLogLive,
   EventsLive,
   FilesLive,

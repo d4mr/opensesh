@@ -164,6 +164,10 @@ export const EventsLive = Layer.effect(
               rows.map((row) => row.event),
             ),
           ),
+          Effect.map((decoded) => [
+            ...decoded.filter((event) => event.slug === eventSlug),
+            ...decoded.filter((event) => event.slug !== eventSlug),
+          ]),
         ),
       get: (id) => find(events.id, id),
       getBySlug: (slug) => find(events.slug, slug),

@@ -15,6 +15,7 @@ import {
   dietaryRequirement,
   id,
   reviewDecision,
+  speakerWorkflowStatus,
   submissionKind,
   submissionStatus,
   timestamps,
@@ -61,6 +62,7 @@ export const contacts = pgTable(
     profileReviewStatus: contentApprovalStatus("profile_review_status")
       .notNull()
       .default("approved"),
+    workflowStatus: speakerWorkflowStatus("workflow_status").notNull().default("invited"),
     ...timestamps,
   },
   (table) => [

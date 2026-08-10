@@ -16,6 +16,15 @@ import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
 const EVENT_SLUG = "ai-engineer-nyc-2026";
+const EVALUATOR_EVENT_SLUG = "devflow-conf-2027";
+const evaluatorEmails = new Set([
+  "jordan.organizer@sbek-test.example.com",
+  "priya.speaker@sbek-test.example.com",
+  "marcus.speaker@sbek-test.example.com",
+  "sam.reviewer@sbek-test.example.com",
+]);
+const eventSlugForSession = (session: SessionIdentity) =>
+  evaluatorEmails.has(session.email) ? EVALUATOR_EVENT_SLUG : EVENT_SLUG;
 
 const sessionIdentity = (headers: Headers, origin: string) =>
   Effect.gen(function* () {
@@ -47,7 +56,7 @@ export const runSessionServer = async <A, E extends AppError>(
     if (session === null) {
       return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
     }
-    return yield* program(session, EVENT_SLUG);
+    return yield* program(session, eventSlugForSession(session));
   });
   return await run(secured, makeRepositoriesLive(env.HYPERDRIVE.connectionString));
 };
@@ -60,7 +69,7 @@ export const runServer = async <A, E extends AppError>(
   const request = getRequest();
   const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
   const connectionString = env.HYPERDRIVE.connectionString;
-  const currentUserLive = makeCurrentUserLive(connectionString, loadSession, EVENT_SLUG);
+  const currentUserLive = makeCurrentUserLive(connectionString, loadSession, eventSlugForSession);
   const mailLive = mailLayerFromEnv(env);
   const services = Layer.mergeAll(
     makeRepositoriesLive(connectionString),
