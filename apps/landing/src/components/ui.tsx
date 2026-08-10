@@ -108,6 +108,30 @@ export function Reveal({
   );
 }
 
+/** Vercel-style plus markers where a section rule meets the page frame. */
+export function Crosses() {
+  return (
+    <>
+      <CrossMark className="-bottom-[5.5px] -left-[5.5px]" />
+      <CrossMark className="-right-[5.5px] -bottom-[5.5px]" />
+    </>
+  );
+}
+
+function CrossMark({ className }: { readonly className?: string }) {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 11 11"
+      aria-hidden="true"
+      className={cn("pointer-events-none absolute z-10 text-foreground/25 select-none", className)}
+    >
+      <path d="M5.5 0v11M0 5.5h11" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
 export function BrandMark({ className }: { readonly className?: string }) {
   return <img src="/brand/logo.svg" alt="" aria-hidden="true" className={className ?? "size-6"} />;
 }

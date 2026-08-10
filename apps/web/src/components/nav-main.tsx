@@ -9,30 +9,50 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-function NavItemLink({ item }: { readonly item: AdminNavItem }) {
+// Must forward props: SidebarMenuButton asChild injects its styling className
+// (and data attributes) through Radix Slot — dropping them unstyles the row.
+function NavItemLink({
+  item,
+  ...props
+}: { readonly item: AdminNavItem } & Omit<React.ComponentPropsWithoutRef<"a">, "href">) {
   const content = (
     <>
       {item.icon}
       <span>{item.title}</span>
     </>
   );
-  if (item.section === undefined) return <Link to="/admin">{content}</Link>;
+  if (item.section === undefined)
+    return (
+      <Link to="/admin" {...props}>
+        {content}
+      </Link>
+    );
   if (item.section === "abstracts")
     return (
-      <Link to="/admin/abstracts" search={{ status: "all" }}>
+      <Link to="/admin/abstracts" search={{ status: "all" }} {...props}>
         {content}
       </Link>
     );
   if (item.section === "sessions")
     return (
-      <Link to="/admin/sessions" search={{ status: "all" }}>
+      <Link to="/admin/sessions" search={{ status: "all" }} {...props}>
         {content}
       </Link>
     );
-  if (item.section === "forms") return <Link to="/admin/forms">{content}</Link>;
-  if (item.section === "evaluation") return <Link to="/admin/evaluation">{content}</Link>;
+  if (item.section === "forms")
+    return (
+      <Link to="/admin/forms" {...props}>
+        {content}
+      </Link>
+    );
+  if (item.section === "evaluation")
+    return (
+      <Link to="/admin/evaluation" {...props}>
+        {content}
+      </Link>
+    );
   return (
-    <Link to="/admin/$section" params={{ section: item.section }}>
+    <Link to="/admin/$section" params={{ section: item.section }} {...props}>
       {content}
     </Link>
   );

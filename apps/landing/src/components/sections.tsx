@@ -6,7 +6,7 @@ import { EmbedDemo } from "./demos/embed-demo";
 import { FormDemo } from "./demos/form-demo";
 import { PortalDemo } from "./demos/portal-demo";
 import { ReviewDemo } from "./demos/review-demo";
-import { BrandMark, ButtonLink, cn, GithubIcon, Overline, Reveal } from "./ui";
+import { BrandMark, ButtonLink, cn, Crosses, GithubIcon, Overline, Reveal } from "./ui";
 
 /* ------------------------------------------------------------------ stats */
 
@@ -18,8 +18,8 @@ const stats = [
 
 export function Stats() {
   return (
-    <section className="border-y bg-paper">
-      <div className="mx-auto grid w-full max-w-6xl divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+    <section className="relative border-b bg-paper">
+      <div className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {stats.map((stat) => (
           <div key={stat.value} className="px-6 py-8 text-center">
             <p className="text-2xl font-semibold tracking-tight tabular-nums md:text-3xl">
@@ -29,6 +29,7 @@ export function Stats() {
           </div>
         ))}
       </div>
+      <Crosses />
     </section>
   );
 }
@@ -45,21 +46,30 @@ const loopSteps = [
 
 export function Loop() {
   return (
-    <section id="workflow" className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28">
-      <Reveal className="max-w-2xl">
-        <Overline>The workflow</Overline>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-          Five stages. One system. Zero re-keying.
-        </h2>
-        <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-          Everything downstream is created by the stage before it: acceptance opens the speaker
-          portal, completed profiles feed the agenda, the agenda feeds your public site. No exports,
-          no copy-paste, no spreadsheet glue.
-        </p>
-      </Reveal>
-      <div className="mt-10 grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 md:grid-cols-5">
+    <section id="workflow" className="border-b">
+      <div className="px-6 py-20 md:px-10 md:py-24">
+        <Reveal className="max-w-2xl">
+          <Overline>The workflow</Overline>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            Five stages. One system. Zero re-keying.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            Everything downstream is created by the stage before it: acceptance opens the speaker
+            portal, completed profiles feed the agenda, the agenda feeds your public site. No
+            exports, no copy-paste, no spreadsheet glue.
+          </p>
+        </Reveal>
+      </div>
+      <div className="grid border-t sm:grid-cols-2 md:grid-cols-5">
         {loopSteps.map((item, index) => (
-          <Reveal key={item.step} delay={index * 60} className="bg-background p-5">
+          <Reveal
+            key={item.step}
+            delay={index * 60}
+            className={cn(
+              "border-b p-5 sm:border-r md:border-b-0",
+              index === loopSteps.length - 1 && "border-b-0 md:border-r-0",
+            )}
+          >
             <p className="font-mono text-xs text-primary tabular-nums">{item.step}</p>
             <p className="mt-2.5 text-sm font-semibold">{item.name}</p>
             <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{item.detail}</p>
@@ -138,8 +148,8 @@ const features = [
 
 export function Features() {
   return (
-    <section id="product" className="border-t">
-      <div className="mx-auto w-full max-w-6xl px-6 pt-20 md:pt-28">
+    <section id="product" className="relative border-b">
+      <div className="border-b px-6 py-20 md:px-10 md:py-24">
         <Reveal className="max-w-2xl">
           <Overline>The product</Overline>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
@@ -151,36 +161,34 @@ export function Features() {
           </p>
         </Reveal>
       </div>
-      <div className="mx-auto w-full max-w-6xl space-y-20 px-6 py-16 md:space-y-28 md:py-24">
-        {features.map((feature, index) => (
-          <div
-            key={feature.id}
-            className={cn(
-              "grid items-center gap-10 md:grid-cols-2 md:gap-16",
-              index % 2 === 1 && "md:[&>*:first-child]:order-2",
-            )}
-          >
-            <Reveal>
-              <Overline>{feature.overline}</Overline>
-              <h3 className="mt-3 text-2xl font-semibold tracking-tight md:text-[28px] md:leading-snug">
-                {feature.title}
-              </h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-                {feature.body}
-              </p>
-              <ul className="mt-5 space-y-2">
-                {feature.bullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-2.5 text-sm">
-                    <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                    {bullet}
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-            <Reveal delay={100}>{feature.demo}</Reveal>
-          </div>
-        ))}
-      </div>
+      {features.map((feature, index) => (
+        <div
+          key={feature.id}
+          className={cn(
+            "grid items-center gap-10 px-6 py-16 md:grid-cols-2 md:gap-16 md:px-10 md:py-20",
+            index < features.length - 1 && "border-b",
+            index % 2 === 1 && "md:[&>*:first-child]:order-2",
+          )}
+        >
+          <Reveal>
+            <Overline>{feature.overline}</Overline>
+            <h3 className="mt-3 text-2xl font-semibold tracking-tight md:text-[28px] md:leading-snug">
+              {feature.title}
+            </h3>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">{feature.body}</p>
+            <ul className="mt-5 space-y-2">
+              {feature.bullets.map((bullet) => (
+                <li key={bullet} className="flex items-start gap-2.5 text-sm">
+                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                  {bullet}
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+          <Reveal delay={100}>{feature.demo}</Reveal>
+        </div>
+      ))}
+      <Crosses />
     </section>
   );
 }
@@ -189,16 +197,16 @@ export function Features() {
 
 export function GardenBand() {
   return (
-    <figure className="relative">
+    <figure className="relative border-b">
       <img
         src="/art/garden-congress.png"
         alt="Engraving of a large open-air congress in a classical garden"
-        className="h-[44svh] w-full object-cover object-center md:h-[58svh] [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)]"
+        className="h-[38svh] w-full object-cover object-center md:h-[52svh]"
       />
-      <figcaption className="absolute inset-0 grid place-items-center px-6">
-        <p className="max-w-3xl text-center font-display text-3xl italic text-white [text-shadow:0_1px_24px_rgba(10,20,14,0.55)] md:text-5xl">
-          Programs are better planned in the open.
-        </p>
+      <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
+      <div className="dither-down pointer-events-none absolute inset-x-0 bottom-0 h-40 -scale-y-100" />
+      <figcaption className="absolute right-4 bottom-4 border bg-white/90 px-2 py-1 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
+        Programs are better planned in the open
       </figcaption>
     </figure>
   );
@@ -228,15 +236,18 @@ const compareRows: ReadonlyArray<{
 
 export function Compare() {
   return (
-    <section id="compare" className="border-t bg-paper">
-      <div className="mx-auto w-full max-w-4xl px-6 py-20 md:py-28">
-        <Reveal className="text-center">
+    <section id="compare" className="relative border-b bg-paper">
+      <div className="px-6 py-20 md:px-10 md:py-24">
+        <Reveal className="mx-auto max-w-3xl text-center">
           <Overline>The comparison</Overline>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
             Feature for feature. Minus the invoice.
           </h2>
         </Reveal>
-        <Reveal delay={80} className="mt-10 overflow-x-auto rounded-xl border bg-background">
+        <Reveal
+          delay={80}
+          className="mx-auto mt-10 max-w-3xl overflow-x-auto rounded-lg border bg-background"
+        >
           <table className="w-full min-w-[540px] text-sm">
             <thead>
               <tr className="border-b bg-paper text-left">
@@ -281,10 +292,11 @@ export function Compare() {
             </tbody>
           </table>
         </Reveal>
-        <p className="mt-3 text-center text-xs text-muted-foreground">
-          Sessionboard capabilities per its public product pages and help center, August 2026.
+        <p className="mt-3 text-center font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+          Per Sessionboard's public product pages and help center, Aug 2026
         </p>
       </div>
+      <Crosses />
     </section>
   );
 }
@@ -295,8 +307,8 @@ const stack = ["Cloudflare Workers", "D1", "TanStack Start", "Drizzle", "Better 
 
 export function OpenSource() {
   return (
-    <section id="open-source" className="bg-ink text-ink-foreground">
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:gap-16 md:py-28">
+    <section id="open-source" className="relative border-b bg-ink text-ink-foreground">
+      <div className="grid items-center gap-12 px-6 py-20 md:grid-cols-2 md:gap-16 md:px-10 md:py-24">
         <Reveal>
           <Overline className="text-[#6bc796]">Open source</Overline>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
@@ -324,7 +336,7 @@ export function OpenSource() {
           </p>
         </Reveal>
         <Reveal delay={100}>
-          <div className="overflow-hidden rounded-xl border border-ink-border">
+          <div className="overflow-hidden rounded-lg border border-ink-border">
             <div className="flex h-9 items-center gap-1.5 border-b border-ink-border px-3.5">
               <span className="size-2.5 rounded-full bg-ink-border" />
               <span className="size-2.5 rounded-full bg-ink-border" />
@@ -348,6 +360,7 @@ export function OpenSource() {
           </p>
         </Reveal>
       </div>
+      <Crosses />
     </section>
   );
 }
@@ -363,11 +376,11 @@ export function FinalCta() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 h-full w-full scale-x-[-1] object-cover object-bottom"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-white via-white/55 to-white/30" />
-      <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-24 text-center md:py-32">
+      <div className="absolute inset-0 bg-white/45" />
+      <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
+      <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-24 text-center md:py-28">
         <h2 className="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
-          Run your next CFP{" "}
-          <em className="font-display font-normal italic text-primary">in the open</em>.
+          Run your next CFP in the open.
         </h2>
         <p className="mt-4 max-w-xl text-balance text-base text-muted-foreground">
           The demo is seeded with a full conference — 32 submissions, 3 tracks, a half-built agenda
@@ -391,7 +404,7 @@ export function FinalCta() {
 export function Footer() {
   return (
     <footer className="border-t bg-background">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-8 text-xs text-muted-foreground md:px-10">
         <div className="flex items-center gap-2">
           <BrandMark className="size-4" />
           <span>opensesh — built for the AI Engineer Kill My SaaS challenge, 2026</span>

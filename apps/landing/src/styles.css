@@ -64,6 +64,15 @@
   }
 }
 
+/* Bayer-dithered white fade — matches the halftone grain of the art assets.
+   White at the top, transparent at the bottom; flip with -scale-y-100. */
+.dither-down {
+  background-image: url("/dither-fade.png");
+  background-size: 16px 160px;
+  background-repeat: repeat-x;
+  image-rendering: pixelated;
+}
+
 /* Every clickable presses down. */
 .pressable {
   transition: transform 120ms var(--ease-out);

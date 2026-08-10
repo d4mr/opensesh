@@ -5,18 +5,19 @@ import { ButtonLink, GithubIcon, Overline } from "./ui";
 
 export function Hero() {
   return (
-    <section id="top" className="relative">
-      <div className="relative overflow-hidden">
-        {/* Full-bleed haze wash behind the headline. */}
+    <section id="top" className="border-b">
+      <div className="relative overflow-hidden border-b">
+        {/* Haze wash, frame to frame, dither-faded into white at the base. */}
         <img
           src="/art/renaissance-salon-full-green-haze.png"
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/55 to-white" />
+        <div className="absolute inset-0 bg-white/45" />
+        <div className="dither-down pointer-events-none absolute inset-x-0 bottom-0 h-40 -scale-y-100" />
 
-        <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center px-6 pt-36 pb-16 text-center md:pt-44 md:pb-20">
+        <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center px-6 pt-32 pb-16 text-center md:pt-40 md:pb-20">
           <Overline>Open-source conference program management</Overline>
           <h1 className="mt-4 text-balance text-5xl font-semibold tracking-tight md:text-7xl">
             The <em className="font-display font-normal italic text-primary">open</em> program OS
@@ -64,15 +65,17 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Full-bleed foreground piece, edge to edge, blended into the page. */}
+      {/* Foreground piece, frame to frame, dither-faded top and bottom. */}
       <figure className="relative">
         <img
           src="/art/ancient-agora-conference.png"
           alt="Engraving of a speaker addressing a seated crowd in an ancient Greek agora"
-          className="h-[46svh] w-full object-cover object-[center_30%] md:h-[62svh] [mask-image:linear-gradient(to_bottom,transparent,black_12%,black_88%,transparent)]"
+          className="h-[44svh] w-full object-cover object-[center_30%] md:h-[58svh]"
         />
-        <figcaption className="absolute right-6 bottom-6 rounded-md bg-white/80 px-2.5 py-1 font-display text-sm italic text-foreground/80 backdrop-blur-sm">
-          The call for speakers, as practiced since 400 BC.
+        <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
+        <div className="dither-down pointer-events-none absolute inset-x-0 bottom-0 h-40 -scale-y-100" />
+        <figcaption className="absolute right-4 bottom-4 border bg-white/90 px-2 py-1 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
+          The call for speakers, since 400 BC
         </figcaption>
       </figure>
     </section>
