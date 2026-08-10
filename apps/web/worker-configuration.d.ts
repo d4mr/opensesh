@@ -9,6 +9,7 @@ interface __BaseEnv_Env {
 	MAIL_FROM: "auth@opensesh.io";
 	BETTER_AUTH_SECRET: string;
 	DATABASE_URL: string;
+	ANTHROPIC_API_KEY?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
@@ -21,5 +22,5 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEMO_MODE" | "MAIL_PROVIDER" | "MAIL_FROM" | "BETTER_AUTH_SECRET" | "DATABASE_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEMO_MODE" | "MAIL_PROVIDER" | "MAIL_FROM" | "BETTER_AUTH_SECRET" | "DATABASE_URL" | "ANTHROPIC_API_KEY">> {}
 }

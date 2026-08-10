@@ -54,7 +54,11 @@ function NavItemLink({
     );
   if (item.section === "agenda")
     return (
-      <Link to="/admin/agenda" search={{ view: "rooms", day: undefined }} {...props}>
+      <Link
+        to="/admin/agenda"
+        search={{ view: "rooms", day: undefined, draft: undefined }}
+        {...props}
+      >
         {content}
       </Link>
     );

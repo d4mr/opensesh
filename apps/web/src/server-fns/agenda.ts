@@ -1,6 +1,10 @@
 import {
+  AcceptAgendaDraftRequest,
+  AgendaDraftActionRequest,
+  AgendaDraftsRequest,
   AgendaPublicationRequest,
   AgendaRequest,
+  GenerateAgendaDraftRequest,
   PublicAgendaRequest,
   ScheduleChange,
 } from "@opensesh/domain";
@@ -43,6 +47,58 @@ export const saveAgendaSchedule = createServerFn({ method: "POST" })
         const agenda = yield* Agenda;
         yield* requireAgendaEvent(data.eventId);
         return yield* agenda.saveSchedule(data);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const listAgendaDrafts = createServerFn({ method: "GET" })
+  .validator(Schema.toStandardSchemaV1(AgendaDraftsRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const agenda = yield* Agenda;
+        yield* requireAgendaEvent(data.eventId);
+        return yield* agenda.listDrafts(data.eventId);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const generateAgendaDraft = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(GenerateAgendaDraftRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const agenda = yield* Agenda;
+        yield* requireAgendaEvent(data.eventId);
+        return yield* agenda.generateDraft(data);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const changeAgendaDraft = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(AgendaDraftActionRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const agenda = yield* Agenda;
+        yield* requireAgendaEvent(data.eventId);
+        return yield* agenda.changeDraft(data);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const acceptAgendaDraft = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(AcceptAgendaDraftRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const agenda = yield* Agenda;
+        yield* requireAgendaEvent(data.eventId);
+        return yield* agenda.acceptDraft(data);
       }),
       { require: "admin" },
     ),

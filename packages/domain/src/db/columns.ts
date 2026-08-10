@@ -60,6 +60,12 @@ export const submissionStatus = pgEnum("submission_status", [
   "declined",
   "withdrawn",
 ]);
+export const agendaDraftStatus = pgEnum("agenda_draft_status", [
+  "draft",
+  "generated",
+  "committed",
+  "discarded",
+]);
 export const reviewDecision = pgEnum("review_decision", ["approve", "maybe", "deny"]);
 export const invitationStatus = pgEnum("invitation_status", [
   "pending",

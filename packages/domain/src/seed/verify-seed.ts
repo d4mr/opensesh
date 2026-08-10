@@ -3,6 +3,7 @@ import { alias, type PgTable } from "drizzle-orm/pg-core";
 
 import {
   accounts,
+  agendaDrafts,
   contacts,
   emailLog,
   eventMembers,
@@ -43,6 +44,7 @@ const expectedTables: ReadonlyArray<{
   { name: "organizations", table: organizations, expected: 1 },
   { name: "organization_members", table: organizationMembers, expected: 5 },
   { name: "events", table: events, expected: 1 },
+  { name: "agenda_drafts", table: agendaDrafts, expected: 0 },
   { name: "users", table: users, expected: 5 },
   { name: "accounts", table: accounts, expected: 5 },
   { name: "event_members", table: eventMembers, expected: 2 },

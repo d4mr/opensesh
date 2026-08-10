@@ -2,12 +2,21 @@ import {
   detectAgendaConflicts,
   type AgendaAdminData,
   type AgendaConflict,
+  type AgendaDraft,
+  type AgendaDraftActionRequest,
   type AgendaView,
+  type GenerateAgendaDraftRequest,
   type ScheduleChange,
   validateScheduleChange,
 } from "@opensesh/domain";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { CalendarCheckIcon, ChevronDownIcon, CircleDotIcon, EyeOffIcon } from "lucide-react";
+import {
+  CalendarCheckIcon,
+  ChevronDownIcon,
+  CircleDotIcon,
+  EyeOffIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,30 +31,45 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { agendaQuery } from "@/lib/agenda-queries";
-import { changeAgendaPublication, getAgenda, saveAgendaSchedule } from "@/server-fns/agenda";
+import { agendaDraftsQuery, agendaQuery } from "@/lib/agenda-queries";
+import {
+  acceptAgendaDraft,
+  changeAgendaDraft,
+  changeAgendaPublication,
+  generateAgendaDraft,
+  getAgenda,
+  listAgendaDrafts,
+  saveAgendaSchedule,
+} from "@/server-fns/agenda";
 import { deleteLibraryItem, saveLibraryItem } from "@/server-fns/admin";
 import { ConflictsView } from "./conflicts-view";
+import { AgendaDraftCompare } from "./agenda-draft-compare";
+import { AgendaDraftsSheet } from "./agenda-drafts-sheet";
 import { dateKeyFor, eventDateKeys } from "./date-utils";
 import { AgendaListView } from "./list-view";
 import { RoomsView } from "./rooms-view";
 
 type AgendaResult = Awaited<ReturnType<typeof getAgenda>>;
+type AgendaDraftsResult = Awaited<ReturnType<typeof listAgendaDrafts>>;
 
 export function AgendaPage({
   view,
   day,
+  draftId,
   navigate,
 }: {
   readonly view: AgendaView;
   readonly day: string | undefined;
-  readonly navigate: (view: AgendaView, day: string) => void;
+  readonly draftId: string | undefined;
+  readonly navigate: (view: AgendaView, day: string, draftId?: string) => void;
 }) {
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
   const queryClient = useQueryClient();
   const agenda = useSuspenseQuery(agendaQuery(eventId));
+  const drafts = useSuspenseQuery(agendaDraftsQuery(eventId));
   const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string>>(new Set());
+  const [draftsOpen, setDraftsOpen] = useState(false);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -66,11 +90,20 @@ export function AgendaPage({
   const days = eventDateKeys(data.event.startsAt, data.event.endsAt, data.event.timezone);
   const selectedDay = day !== undefined && days.includes(day) ? day : (days[0] ?? "");
   const queryKey = agendaQuery(eventId).queryKey;
+  const draftsQueryKey = agendaDraftsQuery(eventId).queryKey;
 
   const setAgenda = (next: AgendaAdminData) =>
     queryClient.setQueryData<AgendaResult>(queryKey, (current) =>
       current?.ok ? { ...current, data: next } : current,
     );
+
+  const setDrafts = (next: ReadonlyArray<AgendaDraft>) =>
+    queryClient.setQueryData<AgendaDraftsResult>(draftsQueryKey, (current) =>
+      current?.ok ? { ...current, data: next } : current,
+    );
+
+  const draftRows = drafts.data.ok ? drafts.data.data : [];
+  const selectedDraft = draftRows.find((draft) => draft.id === draftId);
 
   const save = useCallback(
     async (change: ScheduleChange, announce = true) => {
@@ -209,6 +242,158 @@ export function AgendaPage({
     highlightTimer.current = setTimeout(() => setHighlightedIds(new Set()), 2000);
   };
 
+  const generateDraft = async (input: GenerateAgendaDraftRequest) => {
+    const result = await generateAgendaDraft({ data: input });
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    setDrafts([result.data, ...draftRows]);
+    setDraftsOpen(false);
+    navigate(view, selectedDay, result.data.id);
+    toast.success("Agenda draft ready to compare");
+  };
+
+  const draftAction = async (draft: AgendaDraft, action: AgendaDraftActionRequest["action"]) => {
+    const previous = queryClient.getQueryData<AgendaDraftsResult>(draftsQueryKey);
+    const now = new Date().toISOString();
+    const optimisticId = `optimistic-${draft.id}`;
+    setDrafts(
+      action === "discard"
+        ? draftRows.map((item) =>
+            item.id === draft.id ? { ...item, status: "discarded", updatedAt: now } : item,
+          )
+        : [
+            {
+              ...draft,
+              id: optimisticId,
+              name: `${draft.name} copy`,
+              status: "draft",
+              proposal: { placements: [] },
+              generatedAt: null,
+              committedAt: null,
+              createdAt: now,
+              updatedAt: now,
+            },
+            ...draftRows,
+          ],
+    );
+    const result = await changeAgendaDraft({
+      data: { eventId, draftId: draft.id, action },
+    });
+    if (!result.ok) {
+      queryClient.setQueryData(draftsQueryKey, previous);
+      toast.error(result.error.message);
+      return;
+    }
+    const current = queryClient.getQueryData<AgendaDraftsResult>(draftsQueryKey);
+    const rows = current?.ok === true ? current.data : draftRows;
+    setDrafts(
+      action === "duplicate"
+        ? rows.map((item) => (item.id === optimisticId ? result.data : item))
+        : rows.map((item) => (item.id === result.data.id ? result.data : item)),
+    );
+    toast.success(action === "duplicate" ? "Draft duplicated" : "Draft discarded");
+  };
+
+  const discardComparedDraft = async () => {
+    if (selectedDraft === undefined) return;
+    const previous = queryClient.getQueryData<AgendaDraftsResult>(draftsQueryKey);
+    setDrafts(
+      draftRows.map((draft) =>
+        draft.id === selectedDraft.id ? { ...draft, status: "discarded" } : draft,
+      ),
+    );
+    navigate(view, selectedDay);
+    const result = await changeAgendaDraft({
+      data: { eventId, draftId: selectedDraft.id, action: "discard" },
+    });
+    if (!result.ok) {
+      queryClient.setQueryData(draftsQueryKey, previous);
+      navigate(view, selectedDay, selectedDraft.id);
+      toast.error(result.error.message);
+      return;
+    }
+    setDrafts(draftRows.map((draft) => (draft.id === result.data.id ? result.data : draft)));
+    toast.success("Draft discarded");
+  };
+
+  const acceptDraftChanges = async (submissionIds: ReadonlyArray<string>) => {
+    if (selectedDraft === undefined) return;
+    const selectedIds = new Set(submissionIds);
+    const selectedPlacements = selectedDraft.proposal.placements.filter((placement) =>
+      selectedIds.has(placement.submissionId),
+    );
+    const optimisticAgenda: AgendaAdminData = {
+      ...data,
+      event: { ...data.event, agendaDirty: true },
+      sessions: data.sessions.map((session) => {
+        const placement = selectedPlacements.find((item) => item.submissionId === session.id);
+        return placement === undefined
+          ? session
+          : {
+              ...session,
+              roomId: placement.roomId,
+              startsAt: placement.startsAt,
+              endsAt: placement.endsAt,
+              scheduleDirty: true,
+            };
+      }),
+    };
+    if (detectAgendaConflicts(optimisticAgenda.sessions).length > 0) {
+      toast.error("Those selected changes conflict with the current live agenda");
+      return;
+    }
+    const previousAgenda = queryClient.getQueryData<AgendaResult>(queryKey);
+    const previousDrafts = queryClient.getQueryData<AgendaDraftsResult>(draftsQueryKey);
+    setAgenda(optimisticAgenda);
+    setDrafts(
+      draftRows.map((draft) =>
+        draft.id === selectedDraft.id ? { ...draft, status: "committed" } : draft,
+      ),
+    );
+    const targetDay =
+      selectedPlacements[0] === undefined
+        ? selectedDay
+        : dateKeyFor(selectedPlacements[0].startsAt, data.event.timezone);
+    setHighlightedIds(selectedIds);
+    navigate("rooms", targetDay);
+    if (highlightTimer.current !== null) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightedIds(new Set()), 2000);
+
+    const result = await acceptAgendaDraft({
+      data: { eventId, draftId: selectedDraft.id, submissionIds: [...selectedIds] },
+    });
+    if (!result.ok) {
+      queryClient.setQueryData(queryKey, previousAgenda);
+      queryClient.setQueryData(draftsQueryKey, previousDrafts);
+      setHighlightedIds(new Set());
+      navigate(view, selectedDay, selectedDraft.id);
+      toast.error(result.error.message);
+      return;
+    }
+    setAgenda(result.data.agenda);
+    setDrafts(
+      draftRows.map((draft) => (draft.id === result.data.draft.id ? result.data.draft : draft)),
+    );
+    toast.success(
+      `${result.data.changedSubmissionIds.length} ${result.data.changedSubmissionIds.length === 1 ? "change" : "changes"} accepted`,
+    );
+  };
+
+  if (selectedDraft !== undefined) {
+    return (
+      <AgendaDraftCompare
+        key={selectedDraft.id}
+        agenda={data}
+        draft={selectedDraft}
+        back={() => navigate(view, selectedDay)}
+        accept={acceptDraftChanges}
+        discard={discardComparedDraft}
+      />
+    );
+  }
+
   return (
     <main className="flex min-h-0 flex-1 flex-col gap-3 p-4 text-sm lg:p-5">
       <div className="flex items-start justify-between gap-4">
@@ -229,6 +414,14 @@ export function AgendaPage({
               <CircleDotIcon className="size-3" /> Unpublished changes
             </Badge>
           ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            className="pressable"
+            onClick={() => setDraftsOpen(true)}
+          >
+            <SparklesIcon /> AI drafts
+          </Button>
           <CalendarInviteAction />
           <div className="flex">
             <Button
@@ -313,6 +506,18 @@ export function AgendaPage({
           <ConflictsView agenda={data} conflicts={conflicts} jump={jump} />
         </TabsContent>
       </Tabs>
+      <AgendaDraftsSheet
+        open={draftsOpen}
+        onOpenChange={setDraftsOpen}
+        agenda={data}
+        drafts={draftRows}
+        generate={generateDraft}
+        compare={(nextDraftId) => {
+          setDraftsOpen(false);
+          navigate(view, selectedDay, nextDraftId);
+        }}
+        action={(draft, action) => void draftAction(draft, action)}
+      />
     </main>
   );
 }

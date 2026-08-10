@@ -82,7 +82,7 @@ export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
           <Link
             key={card.label}
             to="/admin/agenda"
-            search={{ view: "rooms", day: undefined }}
+            search={{ view: "rooms", day: undefined, draft: undefined }}
             className="group/stat block"
           >
             {content}

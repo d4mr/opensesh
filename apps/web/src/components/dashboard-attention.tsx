@@ -91,7 +91,11 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
                   <Link
                     key={item.label}
                     to="/admin/agenda"
-                    search={{ view: item.destructive ? "conflicts" : "rooms", day: undefined }}
+                    search={{
+                      view: item.destructive ? "conflicts" : "rooms",
+                      day: undefined,
+                      draft: undefined,
+                    }}
                     className={className}
                   >
                     {content}
@@ -149,7 +153,7 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
               : "Draft — not published"}
           </span>
           <Button variant="outline" size="sm" asChild>
-            <Link to="/admin/agenda" search={{ view: "rooms", day: undefined }}>
+            <Link to="/admin/agenda" search={{ view: "rooms", day: undefined, draft: undefined }}>
               Open builder
             </Link>
           </Button>

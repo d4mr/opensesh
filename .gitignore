@@ -18,3 +18,4 @@ vendor/
 research/video/*.webm
 .dev.vars
 .dev.vars.*
+codex-wp9.log

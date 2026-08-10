@@ -1,3 +1,4 @@
+CREATE TYPE "agenda_draft_status" AS ENUM('draft', 'generated', 'committed', 'discarded');--> statement-breakpoint
 CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rejected');--> statement-breakpoint
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
@@ -14,6 +15,19 @@ CREATE TYPE "submission_status" AS ENUM('draft', 'pending', 'maybe', 'accepted',
 CREATE TYPE "target_type" AS ENUM('contact', 'submission');--> statement-breakpoint
 CREATE TYPE "task_status" AS ENUM('todo', 'done', 'waived');--> statement-breakpoint
 CREATE TYPE "tshirt_size" AS ENUM('XS', 'S', 'M', 'L', 'XL', 'XXL');--> statement-breakpoint
+CREATE TABLE "agenda_drafts" (
+	"id" text PRIMARY KEY,
+	"event_id" text NOT NULL,
+	"name" text NOT NULL,
+	"status" "agenda_draft_status" DEFAULT 'draft'::"agenda_draft_status" NOT NULL,
+	"criteria" jsonb NOT NULL,
+	"proposal" jsonb DEFAULT '{"placements":[]}' NOT NULL,
+	"generated_at" timestamp with time zone,
+	"committed_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "accounts" (
 	"id" text PRIMARY KEY,
 	"account_id" text NOT NULL,
@@ -468,6 +482,7 @@ CREATE TABLE "submissions" (
 	CONSTRAINT "submissions_event_code_unique" UNIQUE("event_id","code")
 );
 --> statement-breakpoint
+CREATE INDEX "agenda_drafts_event_created_idx" ON "agenda_drafts" ("event_id","created_at");--> statement-breakpoint
 CREATE INDEX "accounts_user_id_idx" ON "accounts" ("user_id");--> statement-breakpoint
 CREATE INDEX "organization_invitations_org_idx" ON "organization_invitations" ("organization_id");--> statement-breakpoint
 CREATE INDEX "organization_invitations_email_idx" ON "organization_invitations" ("email");--> statement-breakpoint
@@ -504,6 +519,7 @@ CREATE INDEX "submission_tags_tag_idx" ON "submission_tags" ("tag_id");--> state
 CREATE INDEX "submission_tracks_track_idx" ON "submission_tracks" ("track_id");--> statement-breakpoint
 CREATE INDEX "submissions_event_status_idx" ON "submissions" ("event_id","status");--> statement-breakpoint
 CREATE INDEX "submissions_schedule_idx" ON "submissions" ("event_id","room_id","starts_at");--> statement-breakpoint
+ALTER TABLE "agenda_drafts" ADD CONSTRAINT "agenda_drafts_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_invitations" ADD CONSTRAINT "organization_invitations_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_invitations" ADD CONSTRAINT "organization_invitations_inviter_id_users_id_fkey" FOREIGN KEY ("inviter_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
