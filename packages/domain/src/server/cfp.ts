@@ -80,6 +80,7 @@ const contactInput = (
   twitterUrl: null,
   facebookUrl: null,
   websiteUrl: null,
+  confirmedAt: null,
   custom: customAnswers(answers, fields),
 });
 
@@ -237,6 +238,7 @@ export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (input: CfpS
     yield* emailLog.create({
       eventId: bundle.event.id,
       contactId: submitter.id,
+      submissionId: submission.id,
       type: "confirmation",
       subject: `We received “${submission.title}”`,
       body,

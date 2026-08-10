@@ -17,11 +17,15 @@ import { Route as PortalRouteImport } from './routes/portal'
 import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
+import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
+import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
+import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as ESplatRouteImport } from './routes/e.$'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
+import { Route as AdminAbstractsIdRouteImport } from './routes/admin.abstracts.$id'
 import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms.$formId'
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
@@ -68,9 +72,24 @@ const AdminSectionRoute = AdminSectionRouteImport.update({
   path: '/$section',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAbstractsRoute = AdminAbstractsRouteImport.update({
+  id: '/abstracts',
+  path: '/abstracts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEvaluationRoute = AdminEvaluationRouteImport.update({
+  id: '/evaluation',
+  path: '/evaluation',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminFormsRoute = AdminFormsRouteImport.update({
   id: '/forms',
   path: '/forms',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSessionsRoute = AdminSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => AdminRoute,
 } as any)
 const ESplatRoute = ESplatRouteImport.update({
@@ -92,6 +111,11 @@ const SubmitSplatRoute = SubmitSplatRouteImport.update({
   id: '/$',
   path: '/$',
   getParentRoute: () => SubmitRoute,
+} as any)
+const AdminAbstractsIdRoute = AdminAbstractsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminAbstractsRoute,
 } as any)
 const AdminFormsFormIdRoute = AdminFormsFormIdRouteImport.update({
   id: '/$formId',
@@ -127,12 +151,16 @@ export interface FileRoutesByFullPath {
   '/portal': typeof PortalRouteWithChildren
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
+  '/admin/abstracts': typeof AdminAbstractsRouteWithChildren
+  '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
+  '/admin/sessions': typeof AdminSessionsRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
@@ -145,12 +173,16 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
+  '/admin/abstracts': typeof AdminAbstractsRouteWithChildren
+  '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
+  '/admin/sessions': typeof AdminSessionsRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin': typeof AdminIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
@@ -166,12 +198,16 @@ export interface FileRoutesById {
   '/portal': typeof PortalRouteWithChildren
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
+  '/admin/abstracts': typeof AdminAbstractsRouteWithChildren
+  '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
+  '/admin/sessions': typeof AdminSessionsRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
@@ -188,12 +224,16 @@ export interface FileRouteTypes {
     | '/portal'
     | '/submit'
     | '/admin/$section'
+    | '/admin/abstracts'
+    | '/admin/evaluation'
     | '/admin/forms'
+    | '/admin/sessions'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
     | '/admin/'
     | '/portal/'
+    | '/admin/abstracts/$id'
     | '/admin/forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
@@ -206,12 +246,16 @@ export interface FileRouteTypes {
     | '/login'
     | '/submit'
     | '/admin/$section'
+    | '/admin/abstracts'
+    | '/admin/evaluation'
     | '/admin/forms'
+    | '/admin/sessions'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
     | '/admin'
     | '/portal'
+    | '/admin/abstracts/$id'
     | '/admin/forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
@@ -226,12 +270,16 @@ export interface FileRouteTypes {
     | '/portal'
     | '/submit'
     | '/admin/$section'
+    | '/admin/abstracts'
+    | '/admin/evaluation'
     | '/admin/forms'
+    | '/admin/sessions'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
     | '/admin/'
     | '/portal/'
+    | '/admin/abstracts/$id'
     | '/admin/forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
@@ -307,11 +355,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSectionRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/abstracts': {
+      id: '/admin/abstracts'
+      path: '/abstracts'
+      fullPath: '/admin/abstracts'
+      preLoaderRoute: typeof AdminAbstractsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/evaluation': {
+      id: '/admin/evaluation'
+      path: '/evaluation'
+      fullPath: '/admin/evaluation'
+      preLoaderRoute: typeof AdminEvaluationRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/forms': {
       id: '/admin/forms'
       path: '/forms'
       fullPath: '/admin/forms'
       preLoaderRoute: typeof AdminFormsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/sessions': {
+      id: '/admin/sessions'
+      path: '/sessions'
+      fullPath: '/admin/sessions'
+      preLoaderRoute: typeof AdminSessionsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/e/$': {
@@ -341,6 +410,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/submit/$'
       preLoaderRoute: typeof SubmitSplatRouteImport
       parentRoute: typeof SubmitRoute
+    }
+    '/admin/abstracts/$id': {
+      id: '/admin/abstracts/$id'
+      path: '/$id'
+      fullPath: '/admin/abstracts/$id'
+      preLoaderRoute: typeof AdminAbstractsIdRouteImport
+      parentRoute: typeof AdminAbstractsRoute
     }
     '/admin/forms/$formId': {
       id: '/admin/forms/$formId'
@@ -380,6 +456,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminAbstractsRouteChildren {
+  AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
+}
+
+const AdminAbstractsRouteChildren: AdminAbstractsRouteChildren = {
+  AdminAbstractsIdRoute: AdminAbstractsIdRoute,
+}
+
+const AdminAbstractsRouteWithChildren = AdminAbstractsRoute._addFileChildren(
+  AdminAbstractsRouteChildren,
+)
+
 interface AdminFormsRouteChildren {
   AdminFormsFormIdRoute: typeof AdminFormsFormIdRoute
 }
@@ -394,7 +482,10 @@ const AdminFormsRouteWithChildren = AdminFormsRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
+  AdminAbstractsRoute: typeof AdminAbstractsRouteWithChildren
+  AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
+  AdminSessionsRoute: typeof AdminSessionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
   AdminSettingsLibraryRoute: typeof AdminSettingsLibraryRoute
@@ -402,7 +493,10 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
+  AdminAbstractsRoute: AdminAbstractsRouteWithChildren,
+  AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,
+  AdminSessionsRoute: AdminSessionsRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
   AdminSettingsLibraryRoute: AdminSettingsLibraryRoute,

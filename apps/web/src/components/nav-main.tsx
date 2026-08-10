@@ -9,6 +9,35 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+function NavItemLink({ item }: { readonly item: AdminNavItem }) {
+  const content = (
+    <>
+      {item.icon}
+      <span>{item.title}</span>
+    </>
+  );
+  if (item.section === undefined) return <Link to="/admin">{content}</Link>;
+  if (item.section === "abstracts")
+    return (
+      <Link to="/admin/abstracts" search={{ status: "all" }}>
+        {content}
+      </Link>
+    );
+  if (item.section === "sessions")
+    return (
+      <Link to="/admin/sessions" search={{ status: "all" }}>
+        {content}
+      </Link>
+    );
+  if (item.section === "forms") return <Link to="/admin/forms">{content}</Link>;
+  if (item.section === "evaluation") return <Link to="/admin/evaluation">{content}</Link>;
+  return (
+    <Link to="/admin/$section" params={{ section: item.section }}>
+      {content}
+    </Link>
+  );
+}
+
 export interface AdminNavItem {
   readonly title: string;
   readonly section?: string;
@@ -33,22 +62,13 @@ export function NavMain({
             const active =
               item.section === undefined
                 ? pathname === "/admin"
-                : pathname === `/admin/${item.section}`;
+                : pathname === `/admin/${item.section}` ||
+                  pathname.startsWith(`/admin/${item.section}/`);
 
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-                  {item.section === undefined ? (
-                    <Link to="/admin">
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </Link>
-                  ) : (
-                    <Link to="/admin/$section" params={{ section: item.section }}>
-                      {item.icon}
-                      <span>{item.title}</span>
-                    </Link>
-                  )}
+                  <NavItemLink item={item} />
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

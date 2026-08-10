@@ -24,6 +24,7 @@
     "db:reset": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/reset.ts",
     "seed": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/index.ts",
     "cfp:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-cfp.ts",
+    "review-desk:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-review-desk.ts",
     "seed:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify.ts"
   },
   "dependencies": {

@@ -29,6 +29,10 @@ export class ScheduleConflict extends Data.TaggedError("ScheduleConflict")<{
   readonly message: string;
 }> {}
 
+export class AlreadyDecided extends Data.TaggedError("AlreadyDecided")<{
+  readonly message: string;
+}> {}
+
 export class Unauthenticated extends Data.TaggedError("Unauthenticated")<{
   readonly message: string;
 }> {}
