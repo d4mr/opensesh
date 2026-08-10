@@ -50,6 +50,7 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 - [x] CFP form editor unreachable: /admin/forms/$formId rendered the list (layout route without Outlet, same class as WP16 round editor) — un-nested to admin.forms_.$formId (1a01ab5), verified on prod
 - [x] Conditional-field values were free text while dropdown answers store option ids — organizer typing "Workshop" never matched fmt_…; condition editor now offers the source field's options (Select for equals, chips for is-one-of); verified end-to-end on public wizard
 - [x] Submissions-table submitted-at title hydration mismatch (UTC server vs local client) — formatter pinned to event timezone (9bb9ad0)
+- [x] dnd-kit aria-describedby hydration mismatch on admin agenda + form builder (SSR counter DndDescribedBy-2 vs client -0) — stable `id` prop on both DndContexts; SSR HTML and hydrated DOM verified identical ("agenda-rooms-dnd")
 - [x] Public event landing was empty below the stat cards — added track chips (link to pre-filtered sessions, verified "3 of 8" + Clear filters) and a Program-highlights strip (first 4 sessions, event-TZ times, speakers, track chip, links to detail + "All N sessions")
 - [x] Widget list row nested the enable Switch button inside the row button (invalid HTML, console hydration error) — row is now a div with separate open buttons; visuals unchanged, `button button` count 0
 - [x] Event/library settings Save button hid behind the fixed Demo-roles pill at full scroll — pb-14 on both settings mains (same clearance class as widget Get-code/scorecard)

@@ -171,6 +171,7 @@ export function FormFieldBuilder({
         </Button>
       </div>
       <DndContext
+        id="form-field-builder-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={() => setDragMotion(!reduceMotion)}

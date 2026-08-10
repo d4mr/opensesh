@@ -404,6 +404,7 @@ export function RoomsView({
 
   return (
     <DndContext
+      id="agenda-rooms-dnd"
       sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
