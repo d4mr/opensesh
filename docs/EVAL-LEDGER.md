@@ -9,7 +9,7 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 | CFP-01 | done | Empty Continue on DevFlow Proposal step blocked with per-field inline errors (Title/Description/Format/Track/Audience level is required) — browser 2026-08-11 |
 | CFP-02 | done | Full rehearsal 2026-08-11: found+fixed editor-unreachable route bug and free-text condition values (1a01ab5); Format=Workshop reveals field on public wizard, Talk hides it |
 | CFP-03 | done | Anonymous /submit URL with branding/deadline (WP3) |
-| CFP-04 | partial | Close window enforced; verify closed-state copy + WP12 settings flip |
+| CFP-04 | done | Public wizard renders "Submissions are closed" when status=closed or closeDate passed (submit.$eventSlug.$formId.tsx:74-80); open state shows "Closes {date}" (browser-verified header copy); editor Settings step flips status/closeDate |
 | CFP-05 | done | Wizard + drafts + confirmation + portal dashboard |
 | CFP-06 | done | Round trip verified in walkthroughs |
 | CFP-07 | done | Draft resume verified (cfp:verify) |
@@ -21,9 +21,9 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 | CFP-13 | done | Portal status chips |
 | CFP-14 | done | Decision emails logged; manual delivery pending |
 | CFP-15 | done | Same-row graduation (docs/SCHEMA.md decision 1) |
-| CFP-16 | partial | Server-side close lock — audit direct mutation rejection |
+| CFP-16 | done | assertOpen in submissions repo fails FormClosed on closed status/past closeDate for direct mutations; cfp:verify asserts the FormClosed rejection (verify-cfp.ts:91) — green 2026-08-11 |
 | CFP-17 | done | Event switcher + create event (verified from scratch) |
-| CFP-18 | partial | Event isolation — needs negative-path audit (WP15 seeds 2nd event) |
+| CFP-18 | done | Step 12 audit (123 fns, membership joins Forbidden on empty) + ae6870e requireManagedEvent org-ownership check on decisions; cross-event admin list falls back via adminMembership |
 
 ## Abstract Management (14)
 
