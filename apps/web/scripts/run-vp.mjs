@@ -12,7 +12,6 @@ if (command !== "build" && command !== "dev") {
   process.stderr.write("Expected a Vite+ command: build or dev.\n");
   process.exit(1);
 }
-
 const child = spawn(
   "pnpm",
   [

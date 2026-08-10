@@ -50,11 +50,13 @@ const ToolbarDivider = () => <div className="mx-0.5 h-4 w-px shrink-0 bg-border"
 export function RichTextEditor({
   value,
   onChange,
+  onBlur,
   placeholder,
   className,
 }: {
   readonly value: string;
   readonly onChange: (value: string) => void;
+  readonly onBlur?: () => void;
   readonly placeholder?: string;
   readonly className?: string;
 }) {
@@ -76,6 +78,9 @@ export function RichTextEditor({
     },
     onUpdate: ({ editor: instance }) => {
       onChange(instance.isEmpty ? "" : instance.getHTML());
+    },
+    onBlur: () => {
+      onBlur?.();
     },
   });
 

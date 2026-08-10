@@ -4,6 +4,7 @@ import {
   emailLog,
   eventMembers,
   events,
+  fileRequests,
   formFields,
   formats,
   forms,
@@ -32,6 +33,18 @@ import { seedData } from "./data";
 const seededAt = new Date(1785585600000);
 const DEMO_PASSWORD = "demo-pass-2027";
 const rows = <A extends object>(values: ReadonlyArray<A>) => values.map((value) => ({ ...value }));
+const submissionRows = seedData.submissions.map((submission) => ({
+  ...submission,
+  approvedSnapshot: {
+    title: submission.title,
+    description: submission.description,
+    formatId: submission.formatId,
+    levelId: submission.levelId,
+    language: submission.language,
+    answers: submission.answers,
+  },
+  contentReviewStatus: "approved" as const,
+}));
 
 export const seedDatabase = async (database: Database) => {
   const password = await hashPassword(DEMO_PASSWORD);
@@ -126,12 +139,13 @@ export const seedDatabase = async (database: Database) => {
         })),
       ),
       transaction.insert(portalForms).values(rows(seedData.portalForms)),
+      transaction.insert(fileRequests).values(rows(seedData.fileRequests)),
     ]);
 
     await Promise.all([
       transaction.insert(reviewerTracks).values(rows(seedData.reviewerTracks)),
       transaction.insert(formFields).values(rows(seedData.formFields)),
-      transaction.insert(submissions).values(rows(seedData.submissions)),
+      transaction.insert(submissions).values(submissionRows),
       transaction.insert(taskTemplates).values(rows(seedData.taskTemplates)),
     ]);
 

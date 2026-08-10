@@ -62,6 +62,7 @@ export function AppSidebar({
   eventCreated,
   pathname,
   user,
+  pendingContentChanges = 0,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   readonly event: Event;
@@ -71,6 +72,7 @@ export function AppSidebar({
   readonly eventCreated: (eventId: string) => Promise<void>;
   readonly pathname: string;
   readonly user: CurrentUserValue;
+  readonly pendingContentChanges?: number;
 }) {
   const name = personaNames[user.email] ?? user.email.split("@")[0] ?? user.email;
 
@@ -87,7 +89,13 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={dashboard} pathname={pathname} />
-        <NavMain label="Program" items={program} pathname={pathname} />
+        <NavMain
+          label="Program"
+          items={program.map((item) =>
+            item.section === "sessions" ? { ...item, badge: pendingContentChanges } : item,
+          )}
+          pathname={pathname}
+        />
         <NavMain label="Portals" items={portals} pathname={pathname} />
         <NavSecondary item={settings} pathname={pathname} className="mt-auto" />
       </SidebarContent>

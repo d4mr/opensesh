@@ -8,9 +8,19 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+import type { Schema } from "effect";
 
-import { emailStatus, emailType, id, targetType, taskStatus, timestamps } from "../columns";
-import { events } from "./core";
+import type { PortalFormSection } from "../../server/schema/portal";
+import {
+  emailStatus,
+  emailType,
+  fileKind,
+  id,
+  targetType,
+  taskStatus,
+  timestamps,
+} from "../columns";
+import { eventMembers, events } from "./core";
 import { contacts, submissions } from "./submissions";
 
 export const portalForms = pgTable(
@@ -23,7 +33,7 @@ export const portalForms = pgTable(
     name: text("name").notNull(),
     title: text("title").notNull(),
     targetType: targetType("target_type").notNull(),
-    sections: jsonb("sections").notNull(),
+    sections: jsonb("sections").$type<ReadonlyArray<PortalFormSection>>().notNull(),
     confirmationEmailEnabled: boolean("confirmation_email_enabled").notNull().default(false),
     confirmationEmailBody: text("confirmation_email_body"),
     ...timestamps,
@@ -44,7 +54,7 @@ export const portalFormResponses = pgTable(
     submissionId: text("submission_id").references(() => submissions.id, {
       onDelete: "cascade",
     }),
-    answers: jsonb("answers").notNull(),
+    answers: jsonb("answers").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
     ...timestamps,
   },
@@ -70,22 +80,71 @@ export const fileUploads = pgTable(
   "file_uploads",
   {
     id: id(),
-    fileRequestId: text("file_request_id")
-      .notNull()
-      .references(() => fileRequests.id, { onDelete: "cascade" }),
+    fileRequestId: text("file_request_id").references(() => fileRequests.id, {
+      onDelete: "cascade",
+    }),
+    kind: fileKind("kind").notNull(),
     contactId: text("contact_id")
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
     submissionId: text("submission_id").references(() => submissions.id, {
       onDelete: "cascade",
     }),
+    speakerLastReadAt: timestamp("speaker_last_read_at", { withTimezone: true }),
+    adminLastReadAt: timestamp("admin_last_read_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index("file_uploads_request_idx").on(table.fileRequestId),
+    index("file_uploads_contact_idx").on(table.contactId),
+  ],
+);
+
+export const fileVersions = pgTable(
+  "file_versions",
+  {
+    id: id(),
+    fileUploadId: text("file_upload_id")
+      .notNull()
+      .references(() => fileUploads.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
     filename: text("filename").notNull(),
-    url: text("url").notNull(),
+    contentType: text("content_type").notNull(),
     size: integer("size").notNull(),
+    uploaderContactId: text("uploader_contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    uploaderEventMemberId: text("uploader_event_member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
+    uploaderName: text("uploader_name").notNull(),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull(),
     ...timestamps,
   },
-  (table) => [index("file_uploads_request_idx").on(table.fileRequestId)],
+  (table) => [
+    unique("file_versions_storage_key_unique").on(table.storageKey),
+    index("file_versions_upload_idx").on(table.fileUploadId, table.uploadedAt),
+  ],
+);
+
+export const fileComments = pgTable(
+  "file_comments",
+  {
+    id: id(),
+    fileUploadId: text("file_upload_id")
+      .notNull()
+      .references(() => fileUploads.id, { onDelete: "cascade" }),
+    authorContactId: text("author_contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    authorEventMemberId: text("author_event_member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
+    authorName: text("author_name").notNull(),
+    body: text("body").notNull(),
+    ...timestamps,
+  },
+  (table) => [index("file_comments_upload_idx").on(table.fileUploadId, table.createdAt)],
 );
 
 export const taskTemplates = pgTable(

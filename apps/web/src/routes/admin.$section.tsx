@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PagePlaceholder } from "@/components/app/page-placeholder";
+import { PortalAdminSection } from "@/components/admin/portal-admin";
+import { adminPortalQuery } from "@/lib/portal-queries";
 
 const titles: Readonly<Record<string, string>> = {
   abstracts: "Abstracts",
@@ -14,9 +16,18 @@ const titles: Readonly<Record<string, string>> = {
   settings: "Settings",
 };
 
-export const Route = createFileRoute("/admin/$section")({ component: AdminPage });
+export const Route = createFileRoute("/admin/$section")({
+  loader: ({ context, params }) =>
+    ["tasks", "portal-forms", "file-requests", "sessions"].includes(params.section)
+      ? context.queryClient.ensureQueryData(adminPortalQuery("evt_aie_nyc_2026"))
+      : undefined,
+  component: AdminPage,
+});
 
 function AdminPage() {
   const { section } = Route.useParams();
+  if (["tasks", "portal-forms", "file-requests", "sessions"].includes(section)) {
+    return <PortalAdminSection section={section} />;
+  }
   return <PagePlaceholder title={titles[section] ?? "Program"} />;
 }

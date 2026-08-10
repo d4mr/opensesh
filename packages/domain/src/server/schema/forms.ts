@@ -40,6 +40,7 @@ export const ParticipantRole = Schema.Struct({
   min: Schema.Number,
   max: Schema.Number,
 });
+export type ParticipantRole = typeof ParticipantRole.Type;
 
 export const FormLibraryBinding = Schema.Literals(["format", "track", "tags", "level"]);
 export type FormLibraryBinding = typeof FormLibraryBinding.Type;
@@ -91,9 +92,8 @@ export type FormCreate = typeof FormCreate.Type;
 export const FormUpdate = Schema.Struct(Struct.map(formFields, Schema.optionalKey));
 export type FormUpdate = typeof FormUpdate.Type;
 
-const formFieldFields = {
-  formId: Schema.String,
-  section: FormSection,
+const formFieldDefinitionFields = {
+  id: Schema.String,
   label: Schema.String,
   fieldType: FormFieldType,
   maxChars: NullableNumber,
@@ -103,6 +103,15 @@ const formFieldFields = {
   options: FormFieldOptions,
   mapsTo: NullableString,
   condition: FormFieldCondition,
+};
+
+export const FormFieldDefinition = Schema.Struct(formFieldDefinitionFields);
+export type FormFieldDefinition = typeof FormFieldDefinition.Type;
+
+const formFieldFields = {
+  formId: Schema.String,
+  section: FormSection,
+  ...Struct.omit(formFieldDefinitionFields, ["id"]),
 };
 
 export const FormField = Schema.Struct({ ...EntityFields, ...formFieldFields });
@@ -198,7 +207,7 @@ const answerValues = (value: Schema.Json | undefined): ReadonlyArray<string> => 
   return [];
 };
 
-export const isFormFieldVisible = (field: FormField, answers: FormAnswers) => {
+export const isFormFieldVisible = (field: FormFieldDefinition, answers: FormAnswers) => {
   if (field.condition === null) return true;
   const current = answerValues(answers[field.condition.fieldId]);
   return field.condition.operator === "equals"
@@ -206,7 +215,7 @@ export const isFormFieldVisible = (field: FormField, answers: FormAnswers) => {
     : current.some((value) => field.condition?.values.includes(value) === true);
 };
 
-export const makeFormAnswersSchema = (fields: ReadonlyArray<FormField>) =>
+export const makeFormAnswersSchema = (fields: ReadonlyArray<FormFieldDefinition>) =>
   FormRendererAnswers.check(
     Schema.makeFilter((answers) => {
       const issues: Array<Schema.FilterIssue> = [];

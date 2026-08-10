@@ -21,6 +21,18 @@ export const SubmissionStatus = Schema.Literals([
   "withdrawn",
 ]);
 export type SubmissionStatus = typeof SubmissionStatus.Type;
+export const ContentApprovalStatus = Schema.Literals(["approved", "pending_review", "rejected"]);
+export type ContentApprovalStatus = typeof ContentApprovalStatus.Type;
+export const DietaryRequirement = Schema.Literals([
+  "none",
+  "vegetarian",
+  "vegan",
+  "gluten_free",
+  "other",
+]);
+export type DietaryRequirement = typeof DietaryRequirement.Type;
+export const TshirtSize = Schema.Literals(["XS", "S", "M", "L", "XL", "XXL"]);
+export type TshirtSize = typeof TshirtSize.Type;
 export const ReviewDecision = Schema.Literals(["approve", "maybe", "deny"]);
 export type ReviewDecision = typeof ReviewDecision.Type;
 
@@ -37,6 +49,9 @@ const contactFields = {
   gender: NullableString,
   bio: Schema.NullOr(RichText5000),
   headshotUrl: NullableString,
+  headshotKey: NullableString,
+  dietaryRequirements: DietaryRequirement,
+  tshirtSize: Schema.NullOr(TshirtSize),
   phone: NullableString,
   linkedinUrl: NullableString,
   twitterUrl: NullableString,
@@ -74,6 +89,8 @@ const submissionFields = {
   notifiedAt: NullableDate,
   submittedAt: NullableDate,
   answers: JsonObject,
+  approvedSnapshot: JsonObject,
+  contentReviewStatus: ContentApprovalStatus,
 };
 
 export const Submission = Schema.Struct({ ...EntityFields, ...submissionFields });
@@ -118,6 +135,21 @@ export const SubmissionUpdate = Schema.Struct(
   Struct.map(Struct.omit(submissionFields, ["eventId", "code"]), Schema.optionalKey),
 );
 export type SubmissionUpdate = typeof SubmissionUpdate.Type;
+
+export const SubmissionEditHistory = Schema.Struct({
+  ...EntityFields,
+  submissionId: Schema.String,
+  authorContactId: NullableString,
+  authorEventMemberId: NullableString,
+  authorName: Schema.String,
+  changedFields: Schema.Array(Schema.String),
+  previousValues: JsonObject,
+  newValues: JsonObject,
+  approvalStatus: ContentApprovalStatus,
+  reviewedAt: NullableDate,
+  reviewedByEventMemberId: NullableString,
+});
+export type SubmissionEditHistory = typeof SubmissionEditHistory.Type;
 
 export const SubmissionTrack = Schema.Struct({
   ...EntityFields,
