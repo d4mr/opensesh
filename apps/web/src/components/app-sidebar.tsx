@@ -97,12 +97,14 @@ export function AppSidebar({
         <NavMain items={dashboard} pathname={pathname} />
         <NavMain
           label="Program"
-          items={program.map((item) =>
-            item.section === "content" ? { ...item, badge: pendingContentChanges } : item,
-          )}
+          items={program
+            .filter((item) => user.roles.admin || item.section === "evaluation")
+            .map((item) =>
+              item.section === "content" ? { ...item, badge: pendingContentChanges } : item,
+            )}
           pathname={pathname}
         />
-        <NavMain label="Portals" items={portals} pathname={pathname} />
+        {user.roles.admin ? <NavMain label="Portals" items={portals} pathname={pathname} /> : null}
         {user.roles.admin ? (
           <NavSecondary item={settings} pathname={pathname} className="mt-auto" />
         ) : null}

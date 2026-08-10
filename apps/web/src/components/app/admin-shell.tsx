@@ -185,7 +185,10 @@ export function AdminShell({
             <CommandEmpty>No page found.</CommandEmpty>
             <CommandGroup heading="Navigation">
               {allItems
-                .filter((item) => item.section !== "settings" || user.roles.admin)
+                .filter(
+                  (item) =>
+                    user.roles.admin || item.section === undefined || item.section === "evaluation",
+                )
                 .map((item) => (
                   <CommandItem
                     key={item.title}
