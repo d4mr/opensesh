@@ -48,7 +48,11 @@ function DesktopPillNav({ pathname }: { readonly pathname: string }) {
     const measure = () => {
       const link = list.querySelectorAll("a")[activeIndex];
       if (link instanceof HTMLElement) {
-        setIndicator({ left: link.offsetLeft, width: link.offsetWidth });
+        // Rect delta, not offsetLeft: the pill is anchored at left-0, and
+        // offsetLeft/static-position origins disagree inside a padded parent.
+        const linkRect = link.getBoundingClientRect();
+        const listRect = list.getBoundingClientRect();
+        setIndicator({ left: linkRect.left - listRect.left, width: linkRect.width });
       }
     };
     measure();
@@ -66,7 +70,7 @@ function DesktopPillNav({ pathname }: { readonly pathname: string }) {
       {indicator === null ? null : (
         <span
           aria-hidden
-          className="absolute inset-y-1 rounded-full bg-background shadow-[0_1px_2px_color-mix(in_srgb,var(--foreground)_10%,transparent)] transition-[transform,width] duration-200 [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
+          className="absolute inset-y-1 left-0 rounded-full bg-background shadow-[0_1px_2px_color-mix(in_srgb,var(--foreground)_10%,transparent)] transition-[transform,width] duration-200 [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
           style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
         />
       )}

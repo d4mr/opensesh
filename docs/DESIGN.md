@@ -1,0 +1,137 @@
+# opensesh UI design reference
+
+Distilled from the wizard/editor/nav passes. This is the taste document: when a
+surface feels off, the answer is usually already in here. AGENTS.md §"UI rules"
+holds the hard constraints (density, flat UI, motion doctrine); this file holds
+the *judgment* — how those constraints combine into actual layouts.
+
+## 0. The north-star question
+
+**"Given this data and this UX intent, what would the Linear team do?"**
+
+Drop priors. Never inherit a layout because a component library, an earlier
+iteration, or a generic SaaS pattern suggests it. Restate (a) what data the
+surface shows, (b) what the one job of the visitor is — then design the
+smallest, quietest layout that does that job. The wizard rebuild is the
+reference case: a "card with step dots and a banner" became a focused full-page
+flow, because a speaker landing from a conference site has exactly one job.
+
+## 1. Surface anatomy
+
+- **Focused flows (public wizard, auth, onboarding):** full-page flat layout on
+  `bg-background`. One narrow column (`max-w-xl`), thin `h-12` header with
+  brand + context, `border-b`. No Card. No gray page wash behind a white box.
+- **Hierarchy comes from type, not boxes.** Step/page title is a real heading
+  (`text-xl font-semibold tracking-tight`); instructions are its subtitle
+  (`mt-1.5 text-sm text-muted-foreground`). Never a CardHeader with a border
+  when a heading will do.
+- **Boxes earn their border.** A bordered container is for *grouping repeated
+  or enumerable things* (a speaker sub-form, a review dl, a submissions list,
+  a checkbox group) — never for "this is the content area".
+- **Metadata is a quiet line, not a banner.** "Submissions close Sep 14,
+  11:59 PM EDT. Up to 3 per person." as `text-xs text-muted-foreground` in
+  flow. Banner boxes (`bg-muted/40 border` strips of prose) are banned.
+- **Density (AGENTS.md):** admin = Vercel-dense. Public flows may breathe a
+  little more, but spacing is still spent on grouping, not inflation.
+
+## 2. Recurring patterns (use these, don't reinvent)
+
+- **Footer rail** — every multi-step surface ends in the same rail:
+  `mt-6 flex items-center justify-between border-t pt-4`; Back is
+  `variant="ghost"` left; the primary action sits right. One primary per rail.
+- **Segmented progress rail** — `h-1 flex-1 rounded-full` segments in a
+  `flex gap-1` row; text line above: `Step N of M · Name` left, quiet meta
+  right. Filled = `bg-primary`; visited-but-ahead = `bg-primary/30`; untouched
+  = `bg-muted`. Segments before the current step are clickable (jump back) with
+  a hover tint; hover shows a floating tooltip that *slides* between segments.
+  No numbered dot-trains, ever.
+- **Sync whisper** — autosave state ("Saving… / Saved") replaces the meta text
+  in place (`aria-live="polite"`), Linear sync-status style. No toasts for
+  saves, no spinners.
+- **List rows** — one bordered rounded-lg container, `divide-y`, rows are
+  full-width buttons/links: `px-3 py-2.5 text-left transition-colors
+  hover:bg-muted/50`. Primary datum `text-sm font-medium`, secondary
+  `text-xs text-muted-foreground` (codes in mono `tabular-nums`).
+- **Selected row fill** — selection state fills the whole row
+  (`rounded-sm px-2 py-1.5` + `bg-muted` when selected, `hover:bg-muted/60`),
+  container tightens to `p-1.5 gap-0.5`. Applies to checkbox groups and any
+  pick-list.
+- **Grouped repeatables** (speaker N, question N): bordered section,
+  `h-10` header strip (`border-b bg-muted/40 pl-3 pr-1.5`) holding a
+  `text-[13px] font-medium` label + ghost icon actions; content padded `p-4`.
+  Add-another is a ghost `size="sm"` muted button under the list, not a big
+  outlined block.
+- **Overline labels** for list sections: `text-[11px] font-medium uppercase
+  tracking-wider text-muted-foreground`.
+- **Review/summary** — `dl` in a bordered rounded-lg with `divide-y`;
+  `grid sm:grid-cols-[160px_1fr]` rows; dt `text-xs text-muted-foreground`,
+  dd `text-sm`. Always resolve ids to display names — raw ids on screen are a
+  bug by definition.
+- **Terminal states** (success, sent, empty, error pages): centered narrow
+  block, icon in a `size-11` circle (`wizard-pop` entrance), heading
+  `tracking-tight`, muted supporting prose, one primary action. No card.
+
+## 3. Motion (the applied version of the doctrine)
+
+Tokens: `--ease-out: cubic-bezier(0.23,1,0.32,1)`. Nothing over 300ms.
+Transform + opacity (+ colors). `transition: all` banned. Reduced motion turns
+everything off. Utilities already exist in `styles.css` — reuse them:
+
+- `.wizard-step` — step/pane entrance: 220ms rise from `translateY(6px)` via
+  `@starting-style`; re-key the wrapper (`key={step}`) to re-trigger.
+- `.wizard-fields > *` — one-shot field cascade: 240ms, 40ms stagger steps,
+  capped at nth-child(5+). Keyframes with `backwards` fill (not transitions)
+  so delays don't pollute later state changes.
+- `.wizard-pop` — icon/emphasis entrance: 260ms from `scale(0.85)`.
+- `.pressable` — every clickable: `active: scale(0.97)` at 120ms.
+- `.conditional-field` — reveal/hide at 150ms (max-height + opacity).
+- **Sliding indicators** (nav pill, rail tooltip): ONE persistent element that
+  moves, never per-item backgrounds toggling. Measure the active target
+  (`offsetLeft/offsetWidth`, `useLayoutEffect` so first paint is already
+  positioned — mount must not animate), transition `transform` + `width`
+  (200ms); a ResizeObserver keeps it honest. Text color on items transitions
+  200ms so it tracks the pill.
+- Color/fill state changes (progress segments, row fills): `transition-colors`
+  200–300ms with `--ease-out`.
+
+## 4. Color & status
+
+- Status is always the `--status-*` tokens: solid full-color badge backgrounds
+  with their `-foreground` pair, plus the circle-family lucide icon set
+  (draft CircleDashed, pending Loader, maybe CircleHelp, accepted CircleCheck,
+  declined CircleX, withdrawn CircleMinus, open CircleDot, closed CircleSlash).
+  Badge = `gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium capitalize` +
+  `size-3` icon.
+- People render as Linear-style person tags, not bare selects.
+- Everything must hold up in dark mode — tokens only, no hex in components.
+
+## 5. Editors & text surfaces
+
+All rich text goes through `components/forms/rich-text-editor.tsx` (TipTap
+StarterKit): markdown input rules live, compact single-row toolbar in a
+`h-8 border-b bg-muted/40` strip, `size-6` ghost icon buttons with `bg-muted`
+active states. Content typography is the dense `.rte-content` scale in
+`styles.css` — extend that, never inline prose styles. SSR needs
+`immediatelyRender: false`.
+
+## 6. Micro-copy
+
+Sentence case, specific, quiet. "Closes Sep 14, 11:59 PM EDT" not
+"Deadline information". Headings are contextual — "Welcome back" (signed in)
+vs "Sign in to continue" (signed out), not a static section name. Instructions
+live in subtitles; inputs rarely need FieldDescriptions on top of that.
+Character counters `text-xs text-muted-foreground tabular-nums`, right of the
+label.
+
+## 7. The do-not list
+
+- No card-in-card, no content Card on a gray wash.
+- No numbered dot-train step indicators.
+- No banner/callout boxes for routine metadata.
+- No harsh shadows anywhere; floating elements only (demo-roles button,
+  tooltips, popovers) get elevation, and it comes from the flattened scale.
+- No raw ids, enum values, or codenames in user-facing text.
+- No spinner theater; pending states are whispers or skeletons.
+- No animation on keyboard-triggered actions; no mount animation for
+  positioned indicators.
+- No airy hero spacing on admin surfaces.
