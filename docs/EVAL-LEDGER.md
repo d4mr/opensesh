@@ -13,13 +13,13 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 | CFP-05 | done | Wizard + drafts + confirmation + portal dashboard |
 | CFP-06 | done | Round trip verified in walkthroughs |
 | CFP-07 | done | Draft resume verified (cfp:verify) |
-| CFP-08 | done | Confirmation email logged (mail templates); manual delivery pending |
+| CFP-08 | done | Confirmation email logged (mail templates); §14 manual check passed 2026-08-11 (title + portal link in body) |
 | CFP-09 | done | Edit-while-open round trip |
 | CFP-10 | done | Reviewer pool add + copyable access path (WP16, browser-verified rounds editor) |
 | CFP-11 | done | Scorecard engine w/ 1–5 pickers; Sam 4/2/Accept+comment submitted in browser (WP16) |
 | CFP-12 | done | Accept/decline decisions persist |
 | CFP-13 | done | Portal status chips |
-| CFP-14 | done | Decision emails logged; manual delivery pending |
+| CFP-14 | done | Decision emails logged; §14 manual check passed 2026-08-11 (resolved names/titles, portal links, feedback block) |
 | CFP-15 | done | Same-row graduation (docs/SCHEMA.md decision 1) |
 | CFP-16 | done | assertOpen in submissions repo fails FormClosed on closed status/past closeDate for direct mutations; cfp:verify asserts the FormClosed rejection (verify-cfp.ts:91) — green 2026-08-11 |
 | CFP-17 | done | Event switcher + create event (verified from scratch) |
@@ -133,4 +133,5 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 - [x] §15 rules (2026-08-11): statuses are text Badges throughout; bulk toasts carry counts (Sent N invitations/task reminders/personalized emails, Exported N submissions); zero hover-only controls (no opacity-0/invisible group-hover matches); validateSearch URL filters on abstracts/sessions/speakers/files/emails/agenda/crm/widgets + public views
 - [x] Step 12 scoping/negative-path audit (2026-08-10): all 123 server fns audited — every mutation wrapped in require:admin/speaker/reviewer or requireEvent membership check; session-join reads (runSessionServer) verified to Forbidden on empty membership (listForAdmin pattern); HTTP probes: Priya→/admin redirects to /portal, anonymous→/login, pending/unknown session codes render not-found while approved SESS-16 renders; Sam forcing /admin/abstracts sees "You cannot manage these submissions" with zero identity in SSR HTML; blind reviewer DOM identity scan clean (WP16 verification)
 - [x] Step 13 chained DevFlow rehearsal (2026-08-11): CFP submit → assign → blind review → Accept (caught + fixed two release blockers: hardcoded session slug in decide/changeStatus, and `role = "speaker"` literal filters vs form-configured labels — commit ae6870e) → acceptance emails logged for Priya AND Marcus → drag-schedule SESS-1 to Main Stage 9:00 AM (dnd works; earlier synthetic-drag failures were the test harness's visibilitychange cancelling the sensor, not an app bug) → Publish agenda → public /sessions + /agenda show full session meta → Priya portal My Sessions shows slot. Gates + 3 verifiers green on fixed code; deployed eca19373 + prod DB reset + UA smoke green incl. sign-in
-- [ ] Steps 14–15 deployed evaluator runs + manual-results.json
+- [ ] Steps 14–15 deployed evaluator runs (BLOCKED: needs user's ANTHROPIC_API_KEY in /private/tmp/killmysaas-evals/.env)
+- [x] Spec §14 manual verification checklist — all 17 items executed 2026-08-11 with evidence; 16 pass + ABS-14 partial (live provider call needs key; clean no-fabrication error verified). Results pre-staged at /private/tmp/killmysaas-evals/manual-results.prepared.json — copy into the evaluator run dir as manual-results.json before finalize.
