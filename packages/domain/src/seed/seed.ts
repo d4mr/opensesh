@@ -34,6 +34,7 @@ import {
 } from "../db/schema";
 import { hashPassword } from "better-auth/crypto";
 import { type Database, wipeSeedData } from "../server/db";
+import * as mailTemplates from "../server/mail/templates";
 import { seedData } from "./data";
 
 const seededAt = new Date(1785585600000);
@@ -113,6 +114,47 @@ const trackById = new Map<string, (typeof seedData.tracks)[number]>(
   seedData.tracks.map((track) => [track.id, track]),
 );
 const contactById = new Map(seedData.contacts.map((contact) => [contact.id, contact]));
+const submissionById = new Map(
+  seedData.submissions.map((submission) => [submission.id, submission]),
+);
+
+// Seeded emails carry the same branded HTML the runtime templates send, so
+// the Email delivery viewer shows real bodies on a fresh seed.
+const emailLogRows = seedData.emailLog.map((row) => {
+  const submission = row.submissionId === null ? undefined : submissionById.get(row.submissionId);
+  const contact = row.contactId === null ? undefined : contactById.get(row.contactId);
+  if (submission === undefined || contact === undefined) return row;
+  const template = {
+    eventName: "AI.Engineer Sandbox — NYC 2026",
+    portalUrl: "https://opensesh.d4mr.workers.dev/portal",
+    logoUrl: null,
+  };
+  const rendered =
+    row.type === "confirmation"
+      ? mailTemplates.confirmation({
+          ...template,
+          name: contact.firstName,
+          submissionTitle: submission.title,
+        })
+      : row.type === "accepted"
+        ? mailTemplates.accepted({
+            ...template,
+            speakerName: contact.firstName,
+            submissionTitle: submission.title,
+            feedback: "",
+          })
+        : row.type === "declined"
+          ? mailTemplates.declined({
+              ...template,
+              speakerName: contact.firstName,
+              submissionTitle: submission.title,
+              feedback: "",
+            })
+          : null;
+  return rendered === null
+    ? row
+    : { ...row, subject: rendered.subject, body: rendered.text, htmlBody: rendered.html };
+});
 const publishedAgenda = submissionRows
   .flatMap((submission) => {
     const roomName =
@@ -329,7 +371,7 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(reviews).values(rows(seedData.reviews)),
       transaction.insert(taskAssignments).values(rows(seedData.taskAssignments)),
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
-      transaction.insert(emailLog).values(rows(seedData.emailLog)),
+      transaction.insert(emailLog).values(rows(emailLogRows)),
       transaction.insert(fileUploads).values(rows(seedData.fileUploads)),
       transaction.insert(contactEditHistory).values({
         id: "che_maya_bio",
