@@ -131,6 +131,6 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 - [x] Public header exposes Speaker Gallery
 - [ ] §5.3: filled-state headings + record counts on every list; Clear filters; sort direction indicators
 - [ ] §15 rules: text-labelled statuses, counts on bulk toasts, no hover-only controls, filters in URL params
-- [ ] Step 12 scoping/negative-path audit
+- [x] Step 12 scoping/negative-path audit (2026-08-10): all 123 server fns audited — every mutation wrapped in require:admin/speaker/reviewer or requireEvent membership check; session-join reads (runSessionServer) verified to Forbidden on empty membership (listForAdmin pattern); HTTP probes: Priya→/admin redirects to /portal, anonymous→/login, pending/unknown session codes render not-found while approved SESS-16 renders; Sam forcing /admin/abstracts sees "You cannot manage these submissions" with zero identity in SSR HTML; blind reviewer DOM identity scan clean (WP16 verification)
 - [ ] Step 13 full 20-scenario local rehearsal
 - [ ] Steps 14–15 deployed evaluator runs + manual-results.json
