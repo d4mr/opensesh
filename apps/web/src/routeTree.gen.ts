@@ -33,6 +33,7 @@ import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
 import { Route as AdminAbstractsIdRouteImport } from './routes/admin.abstracts_.$id'
 import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms.$formId'
+import { Route as AdminPortalFormsFormIdRouteImport } from './routes/admin.portal-forms.$formId'
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -166,6 +167,11 @@ const AdminFormsFormIdRoute = AdminFormsFormIdRouteImport.update({
   path: '/$formId',
   getParentRoute: () => AdminFormsRoute,
 } as any)
+const AdminPortalFormsFormIdRoute = AdminPortalFormsFormIdRouteImport.update({
+  id: '/portal-forms/$formId',
+  path: '/portal-forms/$formId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSettingsEventRoute = AdminSettingsEventRouteImport.update({
   id: '/settings/event',
   path: '/settings/event',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
+  '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -288,6 +295,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
+  '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/admin/abstracts_/$id': typeof AdminAbstractsIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
+  '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -367,6 +376,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/admin/abstracts/$id'
     | '/admin/forms/$formId'
+    | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/admin/abstracts/$id'
     | '/admin/forms/$formId'
+    | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
@@ -440,6 +451,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/admin/abstracts_/$id'
     | '/admin/forms/$formId'
+    | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
@@ -636,6 +648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFormsFormIdRouteImport
       parentRoute: typeof AdminFormsRoute
     }
+    '/admin/portal-forms/$formId': {
+      id: '/admin/portal-forms/$formId'
+      path: '/portal-forms/$formId'
+      fullPath: '/admin/portal-forms/$formId'
+      preLoaderRoute: typeof AdminPortalFormsFormIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/settings/event': {
       id: '/admin/settings/event'
       path: '/settings/event'
@@ -747,6 +766,7 @@ interface AdminRouteChildren {
   AdminWidgetsRoute: typeof AdminWidgetsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
+  AdminPortalFormsFormIdRoute: typeof AdminPortalFormsFormIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
   AdminSettingsLibraryRoute: typeof AdminSettingsLibraryRoute
 }
@@ -763,6 +783,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminWidgetsRoute: AdminWidgetsRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAbstractsIdRoute: AdminAbstractsIdRoute,
+  AdminPortalFormsFormIdRoute: AdminPortalFormsFormIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
   AdminSettingsLibraryRoute: AdminSettingsLibraryRoute,
 }

@@ -1,4 +1,4 @@
-import type { FormFieldDefinition, PortalFormSection } from "@opensesh/domain";
+import type { FormFieldDefinition } from "@opensesh/domain";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -14,13 +14,12 @@ import {
   SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
-import { FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { formatDateTime } from "@/components/forms/datetime-picker";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
@@ -68,6 +67,7 @@ import { useAdminEvent } from "@/components/app/admin-event-context";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { rememberPortalFormList, takePortalFormListReturn } from "@/lib/portal-form-navigation";
 import { cn } from "@/lib/utils";
 import {
   acceptPortalSubmission,
@@ -79,7 +79,6 @@ import {
   rejectContentChange,
   rejectProfileChange,
   restoreAdminHistory,
-  saveAdminPortalForm,
   saveAdminSessionFileRequirement,
   saveAdminTaskTemplate,
   waiveAdminAssignment,
@@ -623,7 +622,15 @@ function AdminPortalForms({
   readonly timezone: string;
   readonly data: AdminData;
 }) {
-  const [editorId, setEditorId] = useState<string | null | undefined>(undefined);
+  const [highlightedId, setHighlightedId] = useState<string>();
+  useLayoutEffect(() => {
+    const returned = takePortalFormListReturn(eventId);
+    if (returned === null) return;
+    setHighlightedId(returned.formId);
+    window.scrollTo(0, returned.scrollY);
+    const timer = window.setTimeout(() => setHighlightedId(undefined), 1500);
+    return () => window.clearTimeout(timer);
+  }, [eventId]);
   const exportCsv = () => {
     const fields = Array.from(
       new Map(data.forms.flatMap((form) => portalFields(form).map((field) => [field.id, field]))),
@@ -655,8 +662,14 @@ function AdminPortalForms({
             Collect structured onboarding information.
           </p>
         </div>
-        <Button size="sm" onClick={() => setEditorId(null)}>
-          <PlusIcon /> Add form
+        <Button size="sm" asChild>
+          <Link
+            to="/admin/portal-forms/$formId"
+            params={{ formId: "new" }}
+            onClick={() => rememberPortalFormList(eventId, "new")}
+          >
+            <PlusIcon /> New portal form
+          </Link>
         </Button>
       </div>
       <Tabs defaultValue="forms">
@@ -665,22 +678,26 @@ function AdminPortalForms({
           <TabsTrigger value="responses">Responses ({data.responses.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="forms" className="pt-3">
-          <div className="grid gap-2">
+          <div className="divide-y overflow-hidden rounded-lg border">
             {data.forms.map((form) => (
-              <button
+              <Link
                 key={form.id}
-                type="button"
-                className="pressable flex items-center justify-between rounded-md border bg-card px-3 py-3 text-left"
-                onClick={() => setEditorId(form.id)}
+                to="/admin/portal-forms/$formId"
+                params={{ formId: form.id }}
+                className={cn(
+                  "spotlight-row pressable relative flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
+                  highlightedId === form.id && "spotlight-row-highlight",
+                )}
+                onClick={() => rememberPortalFormList(eventId, form.id)}
               >
-                <div>
-                  <p className="text-sm font-semibold">{form.name}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{form.name}</p>
                   <p className="text-xs text-muted-foreground">{form.title}</p>
                 </div>
                 <Badge variant="outline" className="capitalize">
                   {form.targetType}
                 </Badge>
-              </button>
+              </Link>
             ))}
           </div>
         </TabsContent>
@@ -758,218 +775,7 @@ function AdminPortalForms({
           </div>
         </TabsContent>
       </Tabs>
-      {editorId === undefined ? null : (
-        <PortalFormEditor
-          eventId={eventId}
-          timezone={timezone}
-          data={data}
-          formId={editorId}
-          open
-          onOpenChange={(open) => {
-            if (!open) setEditorId(undefined);
-          }}
-        />
-      )}
     </main>
-  );
-}
-
-function PortalFormEditor({
-  eventId,
-  timezone,
-  data,
-  formId,
-  open,
-  onOpenChange,
-}: {
-  readonly eventId: string;
-  readonly timezone: string;
-  readonly data: AdminData;
-  readonly formId: string | null;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-}) {
-  const existing = data.forms.find((item) => item.id === formId);
-  const [step, setStep] = useState(0);
-  const [name, setName] = useState(existing?.name ?? "");
-  const [title, setTitle] = useState(existing?.title ?? "");
-  const [scope, setScope] = useState<"contact" | "submission">(existing?.targetType ?? "contact");
-  const [sections, setSections] = useState<ReadonlyArray<PortalFormSection>>(
-    existing?.sections ?? [
-      { id: crypto.randomUUID(), title: "Your information", instructions: "", fields: [] },
-    ],
-  );
-  const [confirmation, setConfirmation] = useState(existing?.confirmationEmailEnabled ?? false);
-  const [emailBody, setEmailBody] = useState(existing?.confirmationEmailBody ?? "");
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: () =>
-      saveAdminPortalForm({
-        data: {
-          eventId,
-          id: formId,
-          name,
-          title,
-          targetType: scope,
-          sections,
-          confirmationEmailEnabled: confirmation,
-          confirmationEmailBody: emailBody || null,
-        },
-      }),
-    onSuccess: async (result) => {
-      if (!result.ok) {
-        toast.error(result.error.message);
-        return;
-      }
-      toast.success("Portal form saved");
-      onOpenChange(false);
-      await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
-    },
-  });
-  const updateSection = (id: string, update: Partial<PortalFormSection>) =>
-    setSections((current) =>
-      current.map((section) => (section.id === id ? { ...section, ...update } : section)),
-    );
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>
-            {existing === undefined ? "Create portal form" : "Edit portal form"}
-          </SheetTitle>
-          <SheetDescription>Setup, questions, and confirmation settings.</SheetDescription>
-        </SheetHeader>
-        <div className="px-4">
-          <div className="mb-5 flex gap-1 rounded-md bg-muted p-1">
-            {["Setup", "Questions", "Settings"].map((label, index) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setStep(index)}
-                className={`pressable flex-1 rounded px-2 py-1.5 text-xs font-medium ${step === index ? "bg-background" : "text-muted-foreground"}`}
-              >
-                {index + 1}. {label}
-              </button>
-            ))}
-          </div>
-          {step === 0 ? (
-            <div className="grid gap-4">
-              <div className="grid gap-1.5">
-                <Label>Internal name</Label>
-                <Input value={name} onChange={(event) => setName(event.target.value)} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Public title</Label>
-                <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Scope</Label>
-                <Select
-                  value={scope}
-                  onValueChange={(value) =>
-                    setScope(value === "submission" ? "submission" : "contact")
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="contact">Contact</SelectItem>
-                    <SelectItem value="submission">Submission</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          ) : step === 1 ? (
-            <div className="grid gap-4">
-              {sections.map((section) => (
-                <Card key={section.id}>
-                  <CardHeader className="border-b py-3">
-                    <Input
-                      value={section.title}
-                      onChange={(event) => updateSection(section.id, { title: event.target.value })}
-                    />
-                  </CardHeader>
-                  <CardContent className="grid gap-4 py-4">
-                    <div className="grid gap-1.5">
-                      <Label>Instructions</Label>
-                      <RichTextEditor
-                        value={section.instructions}
-                        onChange={(instructions) => updateSection(section.id, { instructions })}
-                      />
-                    </div>
-                    <FormFieldBuilder
-                      section="abstract"
-                      timezone={timezone}
-                      fields={section.fields.map((field) => ({
-                        ...field,
-                        section: "abstract" as const,
-                      }))}
-                      onChange={(fields) =>
-                        updateSection(section.id, {
-                          fields: fields.map(({ section: _section, ...field }) => ({
-                            ...field,
-                            id: field.id ?? crypto.randomUUID(),
-                          })) as ReadonlyArray<FormFieldDefinition>,
-                        })
-                      }
-                    />
-                  </CardContent>
-                </Card>
-              ))}
-              <Button
-                variant="outline"
-                onClick={() =>
-                  setSections([
-                    ...sections,
-                    { id: crypto.randomUUID(), title: "New section", instructions: "", fields: [] },
-                  ])
-                }
-              >
-                <PlusIcon /> Add section
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                Send confirmation email
-                <Switch checked={confirmation} onCheckedChange={setConfirmation} />
-              </label>
-              {confirmation ? (
-                <div className="grid gap-1.5">
-                  <Label>Email body</Label>
-                  <RichTextEditor value={emailBody} onChange={setEmailBody} />
-                </div>
-              ) : null}
-            </div>
-          )}
-        </div>
-        <SheetFooter>
-          <Button
-            variant="outline"
-            disabled={step === 0}
-            onClick={() => setStep(Math.max(0, step - 1))}
-          >
-            Back
-          </Button>
-          {step < 2 ? (
-            <Button
-              disabled={step === 0 && (name.trim().length === 0 || title.trim().length === 0)}
-              onClick={() => setStep(step + 1)}
-            >
-              Next
-            </Button>
-          ) : (
-            <Button
-              disabled={mutation.isPending || name.trim().length === 0 || title.trim().length === 0}
-              onClick={() => mutation.mutate()}
-            >
-              Save form
-            </Button>
-          )}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
   );
 }
 
