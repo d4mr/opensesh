@@ -25,7 +25,7 @@ const statusClassName: Readonly<Record<Status, string>> = {
   closed: "bg-[var(--status-closed)] text-[var(--status-closed-foreground)]",
 };
 
-const statusIcon: Readonly<Record<Status, typeof CircleCheckIcon>> = {
+export const statusIcon: Readonly<Record<Status, typeof CircleCheckIcon>> = {
   draft: CircleDashedIcon,
   pending: LoaderIcon,
   maybe: CircleHelpIcon,

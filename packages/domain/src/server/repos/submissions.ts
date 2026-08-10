@@ -95,10 +95,27 @@ export class Submissions extends Context.Service<Submissions, SubmissionsService
 ) {}
 
 export interface DashboardStats {
+  readonly eventSlug: string;
   readonly submissions: number;
+  readonly drafts: number;
   readonly pending: number;
+  readonly maybe: number;
   readonly accepted: number;
+  readonly declined: number;
   readonly speakers: number;
+  /** Submitted (non-draft) submissions with at least one review. */
+  readonly reviewed: number;
+  readonly submitted: number;
+  readonly scheduled: number;
+  readonly acceptedUnscheduled: number;
+  /** Overlapping accepted sessions sharing a room. */
+  readonly conflicts: number;
+  readonly cfpCloseDate: Date | null;
+  readonly agendaDays: ReadonlyArray<{
+    readonly date: string;
+    readonly sessions: number;
+    readonly rooms: number;
+  }>;
   readonly activity: ReadonlyArray<{
     readonly date: string;
     readonly abstracts: number;
@@ -224,59 +241,76 @@ export const SubmissionsLive = Layer.effect(
           }),
         ),
       loadDashboard: (session, eventSlug) =>
-        query(database, "Could not load dashboard", (db) =>
-          db
-            .select({
-              submissionId: submissions.id,
-              code: submissions.code,
-              title: submissions.title,
-              kind: submissions.kind,
-              status: submissions.status,
-              createdAt: submissions.createdAt,
-              trackName: tracks.name,
-              reviewerName: users.name,
-              reviewerImage: users.image,
-              speakers: dashboardContactCounts.speakers,
-            })
-            .from(events)
-            .innerJoin(
-              organizationMembers,
-              and(
-                eq(organizationMembers.organizationId, events.organizationId),
-                eq(organizationMembers.userId, session.userId),
-              ),
-            )
-            .innerJoin(
-              staffMember,
-              and(
-                eq(staffMember.eventId, events.id),
-                eq(staffMember.userId, session.userId),
-                inArray(staffMember.role, ["admin", "reviewer"]),
-              ),
-            )
-            .leftJoin(dashboardContactCounts, eq(dashboardContactCounts.eventId, events.id))
-            .leftJoin(submissions, eq(submissions.eventId, events.id))
-            .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
-            .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
-            .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
-            .leftJoin(reviewerMember, eq(reviewerMember.id, reviews.reviewerId))
-            .leftJoin(users, eq(users.id, reviewerMember.userId))
-            .where(
-              and(
-                eq(events.slug, eventSlug),
-                session.activeOrganizationId === undefined
-                  ? undefined
-                  : eq(events.organizationId, session.activeOrganizationId),
-              ),
-            )
-            .orderBy(desc(submissions.createdAt), asc(tracks.position), asc(reviews.createdAt))
-            .execute(),
+        Effect.all(
+          [
+            query(database, "Could not load dashboard", (db) =>
+              db
+                .select({
+                  submissionId: submissions.id,
+                  code: submissions.code,
+                  title: submissions.title,
+                  kind: submissions.kind,
+                  status: submissions.status,
+                  createdAt: submissions.createdAt,
+                  startsAt: submissions.startsAt,
+                  endsAt: submissions.endsAt,
+                  roomId: submissions.roomId,
+                  reviewId: reviews.id,
+                  trackName: tracks.name,
+                  reviewerName: users.name,
+                  reviewerImage: users.image,
+                  speakers: dashboardContactCounts.speakers,
+                })
+                .from(events)
+                .innerJoin(
+                  organizationMembers,
+                  and(
+                    eq(organizationMembers.organizationId, events.organizationId),
+                    eq(organizationMembers.userId, session.userId),
+                  ),
+                )
+                .innerJoin(
+                  staffMember,
+                  and(
+                    eq(staffMember.eventId, events.id),
+                    eq(staffMember.userId, session.userId),
+                    inArray(staffMember.role, ["admin", "reviewer"]),
+                  ),
+                )
+                .leftJoin(dashboardContactCounts, eq(dashboardContactCounts.eventId, events.id))
+                .leftJoin(submissions, eq(submissions.eventId, events.id))
+                .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+                .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+                .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
+                .leftJoin(reviewerMember, eq(reviewerMember.id, reviews.reviewerId))
+                .leftJoin(users, eq(users.id, reviewerMember.userId))
+                .where(
+                  and(
+                    eq(events.slug, eventSlug),
+                    session.activeOrganizationId === undefined
+                      ? undefined
+                      : eq(events.organizationId, session.activeOrganizationId),
+                  ),
+                )
+                .orderBy(desc(submissions.createdAt), asc(tracks.position), asc(reviews.createdAt))
+                .execute(),
+            ),
+            query(database, "Could not load dashboard forms", (db) =>
+              db
+                .select({ closeDate: forms.closeDate, status: forms.status })
+                .from(forms)
+                .innerJoin(events, eq(forms.eventId, events.id))
+                .where(eq(events.slug, eventSlug))
+                .execute(),
+            ),
+          ],
+          { concurrency: "unbounded" },
         ).pipe(
           Effect.filterOrFail(
-            (rows) => rows.length > 0,
+            ([rows]) => rows.length > 0,
             () => new Forbidden({ message: "You do not have access" }),
           ),
-          Effect.flatMap((rows) => {
+          Effect.flatMap(([rows, formRows]) => {
             const submissionRows = rows.flatMap((row) =>
               row.submissionId === null ||
               row.code === null ||
@@ -293,6 +327,10 @@ export const SubmissionsLive = Layer.effect(
                       kind: row.kind,
                       status: row.status,
                       createdAt: row.createdAt,
+                      startsAt: row.startsAt,
+                      endsAt: row.endsAt,
+                      roomId: row.roomId,
+                      reviewId: row.reviewId,
                       trackName: row.trackName,
                       reviewerName: row.reviewerName,
                       reviewerImage: row.reviewerImage,
@@ -327,15 +365,89 @@ export const SubmissionsLive = Layer.effect(
                   else point.sessions += 1;
                   activity.set(date, point);
                 }
+                const reviewedIds = new Set(
+                  decodedRows.filter((row) => row.reviewId !== null).map((row) => row.submissionId),
+                );
+                const count = (status: string) =>
+                  unique.filter((submission) => submission.status === status).length;
+                const accepted = count("accepted");
+                const scheduledSessions = unique.flatMap((submission) =>
+                  submission.status === "accepted" &&
+                  submission.startsAt !== null &&
+                  submission.endsAt !== null &&
+                  submission.roomId !== null
+                    ? [
+                        {
+                          startsAt: submission.startsAt,
+                          endsAt: submission.endsAt,
+                          roomId: submission.roomId,
+                        },
+                      ]
+                    : [],
+                );
+                const byRoom = new Map<string, Array<{ startsAt: Date; endsAt: Date }>>();
+                for (const scheduled of scheduledSessions) {
+                  const list = byRoom.get(scheduled.roomId) ?? [];
+                  list.push(scheduled);
+                  byRoom.set(scheduled.roomId, list);
+                }
+                let conflicts = 0;
+                for (const list of byRoom.values()) {
+                  const sorted = list
+                    .slice()
+                    .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
+                  for (let index = 1; index < sorted.length; index += 1) {
+                    const previous = sorted[index - 1];
+                    const current = sorted[index];
+                    if (
+                      previous !== undefined &&
+                      current !== undefined &&
+                      current.startsAt < previous.endsAt
+                    ) {
+                      conflicts += 1;
+                    }
+                  }
+                }
+                const agendaByDay = new Map<string, { sessions: number; rooms: Set<string> }>();
+                for (const scheduled of scheduledSessions) {
+                  const date = scheduled.startsAt.toISOString().slice(0, 10);
+                  const day = agendaByDay.get(date) ?? { sessions: 0, rooms: new Set<string>() };
+                  day.sessions += 1;
+                  day.rooms.add(scheduled.roomId);
+                  agendaByDay.set(date, day);
+                }
+                const openCloseDates = formRows.flatMap((form) =>
+                  form.status === "open" && form.closeDate !== null ? [form.closeDate] : [],
+                );
                 return {
+                  eventSlug,
                   submissions: unique.length,
-                  pending: unique.filter((submission) => submission.status === "pending").length,
-                  accepted: unique.filter((submission) => submission.status === "accepted").length,
+                  drafts: count("draft"),
+                  pending: count("pending"),
+                  maybe: count("maybe"),
+                  accepted,
+                  declined: count("declined"),
                   speakers: rows[0]?.speakers ?? 0,
+                  reviewed: reviewedIds.size,
+                  submitted: unique.length - count("draft"),
+                  scheduled: scheduledSessions.length,
+                  acceptedUnscheduled: accepted - scheduledSessions.length,
+                  conflicts,
+                  cfpCloseDate:
+                    openCloseDates.length === 0
+                      ? null
+                      : (openCloseDates
+                          .slice()
+                          .sort((left, right) => left.getTime() - right.getTime())[0] ?? null),
+                  agendaDays: Array.from(agendaByDay, ([date, day]) => ({
+                    date,
+                    sessions: day.sessions,
+                    rooms: day.rooms.size,
+                  })).sort((left, right) => left.date.localeCompare(right.date)),
                   activity: Array.from(activity, ([date, values]) => ({ date, ...values })).sort(
                     (left, right) => left.date.localeCompare(right.date),
                   ),
-                  recentSubmissions: unique.slice(0, 20).map((submission) => ({
+                  recentSubmissions: unique.slice(0, 50).map((submission) => ({
                     id: submission.submissionId,
                     code: submission.code,
                     title: submission.title,

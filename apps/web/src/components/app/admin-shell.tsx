@@ -12,6 +12,7 @@ import {
   PanelTopIcon,
   SettingsIcon,
   SquareStackIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -39,6 +40,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Dashboard", icon: GaugeIcon },
   { title: "Abstracts", section: "abstracts", icon: FileTextIcon },
   { title: "Sessions", section: "sessions", icon: SquareStackIcon },
+  { title: "Speakers", section: "speakers", icon: UsersIcon },
   { title: "Forms", section: "forms", icon: FileInputIcon },
   { title: "Evaluation", section: "evaluation", icon: ClipboardCheckIcon },
   { title: "Agenda", section: "agenda", icon: CalendarDaysIcon },

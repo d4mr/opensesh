@@ -1,15 +1,14 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { CalendarClockIcon, ExternalLinkIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 
+import { DashboardAttention } from "@/components/dashboard-attention";
 import { SectionCards } from "@/components/section-cards";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { getDashboardStats } from "@/server-fns/dashboard";
 
-const ChartAreaInteractive = lazy(() =>
-  import("@/components/chart-area-interactive").then((module) => ({
-    default: module.ChartAreaInteractive,
-  })),
-);
 const DataTable = lazy(() =>
   import("@/components/data-table").then((module) => ({ default: module.DataTable })),
 );
@@ -25,21 +24,44 @@ export const Route = createFileRoute("/admin/")({
   component: Dashboard,
 });
 
+const closesIn = (closeDate: Date) => {
+  const days = Math.ceil((closeDate.getTime() - Date.now()) / 86_400_000);
+  const label = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
+    closeDate,
+  );
+  return days > 0 ? `CFP closes ${label} · ${days}d` : `CFP closed ${label}`;
+};
+
 function Dashboard() {
   const stats = useSuspenseQuery(dashboardQuery);
 
   if (!stats.data.ok) return <p className="p-4 text-sm">{stats.data.error.message}</p>;
+  const data = stats.data.data;
 
   return (
     <div className="flex flex-1 flex-col text-sm">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6">
-          <SectionCards stats={stats.data.data} />
-          <Suspense fallback={null}>
-            <div className="px-4 lg:px-6">
-              <ChartAreaInteractive data={stats.data.data.activity} />
+          <div className="flex items-center justify-between gap-3 px-4 lg:px-6">
+            <div className="flex items-center gap-2">
+              {data.cfpCloseDate === null ? null : (
+                <Badge variant="outline" className="gap-1.5">
+                  <CalendarClockIcon className="size-3" />
+                  {closesIn(data.cfpCloseDate)}
+                </Badge>
+              )}
             </div>
-            <DataTable data={stats.data.data.recentSubmissions} />
+            <Button variant="outline" size="sm" asChild>
+              <a href={`/e/${data.eventSlug}`} target="_blank" rel="noreferrer">
+                View public site
+                <ExternalLinkIcon />
+              </a>
+            </Button>
+          </div>
+          <SectionCards stats={data} />
+          <DashboardAttention stats={data} />
+          <Suspense fallback={null}>
+            <DataTable data={data.recentSubmissions} />
           </Suspense>
         </div>
       </div>
