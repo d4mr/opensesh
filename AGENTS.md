@@ -42,10 +42,11 @@ Open-source clone of Sessionboard's Program module (conference CFP → review �
   - CSS transitions over keyframes (interruptible). Animate `transform`/`opacity` only. `transition: all` is banned. Hover behind `@media (hover: hover)`. Respect `prefers-reduced-motion`. No animation on keyboard-triggered actions.
 - Speed is a judged feature: optimistic updates on every mutation, no spinner theater, instant-feeling navigation.
 
-## Commands
+## Commands — Vite+ toolchain
 
-- `pnpm dev` · `pnpm typecheck` (tsc --noEmit) · `pnpm build` · `pnpm deploy` (wrangler) · `pnpm seed`
-- A work package is done only when `pnpm typecheck && pnpm build` pass and the spec's acceptance list is verified.
+We use **Vite+** (`vp`, https://viteplus.dev — beta, MIT) as the unified toolchain: `vp dev` · `vp build` · `vp check` (oxlint + oxfmt + types) · `vp test` (vitest). Package scripts wrap it: `pnpm dev` → `vp dev`, `pnpm check` → `vp check`, `pnpm test` → `vp test`, `pnpm build` → `vp build`, plus `pnpm deploy` (build + wrangler) and `pnpm seed`. It runs the exact same `vite.config.ts` (TanStack Start + Cloudflare are Vite plugins). If a `vp` command hits a beta incompatibility, the script may fall back to the plain tool (`vite`/`tsc --noEmit`/`vitest`) — note the fallback and why in your report; never silently drop a check.
+
+A work package is done only when `pnpm check && pnpm build` pass and the spec's acceptance list is verified.
 
 ## Reporting
 
