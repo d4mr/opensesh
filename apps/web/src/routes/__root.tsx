@@ -7,15 +7,6 @@ import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async () => {
-    // Documents must revalidate on every load: without this, browsers
-    // heuristically cache the HTML shell and keep referencing deleted asset
-    // hashes after a deploy. Hashed assets stay immutable-cached.
-    if (typeof window === "undefined") {
-      const { setResponseHeader } = await import("@tanstack/react-start/server");
-      setResponseHeader("Cache-Control", "no-cache");
-    }
-  },
   head: () => ({
     meta: [
       {
