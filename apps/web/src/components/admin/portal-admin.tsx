@@ -1184,7 +1184,7 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                               <TabsTrigger value="history">History ({history.length})</TabsTrigger>
                             </TabsList>
                             <TabsContent value="speakers" className="pt-3">
-                              <div className="grid gap-3 md:grid-cols-2">
+                              <div className="grid gap-2">
                                 {speakers.map((row) => (
                                   <SpeakerCard
                                     key={row.contact.id}
@@ -1236,6 +1236,14 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
   );
 }
 
+const dietaryLabels: Readonly<Record<string, string>> = {
+  none: "No dietary needs",
+  vegetarian: "Vegetarian",
+  vegan: "Vegan",
+  gluten_free: "Gluten-free",
+  other: "Dietary: other",
+};
+
 function SpeakerCard({
   data,
   contact,
@@ -1260,37 +1268,47 @@ function SpeakerCard({
     enabled: current !== undefined,
     staleTime: Number.POSITIVE_INFINITY,
   });
+  const meta = [
+    dietaryLabels[contact.dietaryRequirements] ?? contact.dietaryRequirements,
+    contact.tshirtSize === null ? null : `T-shirt ${contact.tshirtSize}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <Card>
-      <CardContent className="grid gap-3 py-3">
-        <div className="flex gap-3">
-          {(image.data ?? contact.headshotUrl) ? (
-            <img
-              src={image.data ?? contact.headshotUrl ?? undefined}
-              alt=""
-              className="size-14 rounded-md object-cover"
-            />
-          ) : (
-            <div className="flex size-14 items-center justify-center rounded-md bg-muted text-sm font-semibold">
-              {contact.firstName[0]}
-              {contact.lastName[0]}
-            </div>
-          )}
-          <div>
-            <p className="text-sm font-semibold">
+    <div className="rounded-md border bg-background">
+      <div className="flex items-start gap-3 p-3">
+        {(image.data ?? contact.headshotUrl) ? (
+          <img
+            src={image.data ?? contact.headshotUrl ?? undefined}
+            alt=""
+            className="size-10 rounded-md object-cover"
+          />
+        ) : (
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
+            {contact.firstName[0]}
+            {contact.lastName[0]}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="truncate text-sm font-medium">
               {contact.firstName} {contact.lastName}
             </p>
-            <p className="text-xs text-muted-foreground">{contact.email}</p>
-            <p className="mt-1 text-xs">
-              {contact.dietaryRequirements.replace("_", "-")} · T-shirt {contact.tshirtSize ?? "—"}
-            </p>
+            <p className="shrink-0 text-xs text-muted-foreground">{meta}</p>
           </div>
+          <p className="truncate text-xs text-muted-foreground">{contact.email}</p>
+          {contact.bio === null || contact.bio.length === 0 ? (
+            <p className="mt-2 text-xs italic text-muted-foreground/70">No bio yet.</p>
+          ) : (
+            <div
+              className="mt-2 text-xs leading-relaxed text-muted-foreground"
+              dangerouslySetInnerHTML={{ __html: contact.bio }}
+            />
+          )}
         </div>
-        <div
-          className="text-xs text-muted-foreground"
-          dangerouslySetInnerHTML={{ __html: contact.bio ?? "Bio missing" }}
-        />
-        {headshot === undefined ? null : (
+      </div>
+      {headshot === undefined ? null : (
+        <div className="border-t p-3">
           <FileThread
             eventId={eventId}
             upload={headshot.upload}
@@ -1299,9 +1317,9 @@ function SpeakerCard({
               .map((item) => item.comment)
               .filter((comment) => comment.fileUploadId === headshot.upload.id)}
           />
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 }
 
