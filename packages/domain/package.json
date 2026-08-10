@@ -4,7 +4,14 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./db/auth": "./src/db/auth.ts",
+    "./server/current-user": "./src/server/current-user.ts",
+    "./server/errors": "./src/server/errors.ts",
+    "./server/mail": "./src/server/mail.ts",
+    "./server/repos": "./src/server/repos/index.ts",
+    "./server/schema/auth": "./src/server/schema/auth.ts",
+    "./server/runtime": "./src/server/runtime.ts"
   },
   "scripts": {
     "check": "vp check",

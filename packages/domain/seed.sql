@@ -1,3 +1,6 @@
+DELETE FROM verifications;
+DELETE FROM accounts;
+DELETE FROM sessions;
 DELETE FROM email_log;
 DELETE FROM file_uploads;
 DELETE FROM task_assignments;
@@ -35,9 +38,9 @@ INSERT INTO events (
   3, 1785585600000, 1785585600000
 );
 
-INSERT INTO users (id, email, name, created_at, updated_at) VALUES
-  ('usr_dana', 'demo@opensesh.io', 'Dana Organizer', 1785585600000, 1785585600000),
-  ('usr_rey', 'reviewer@opensesh.io', 'Rey Reviewer', 1785585600000, 1785585600000);
+INSERT INTO users (id, email, name, email_verified, image, created_at, updated_at) VALUES
+  ('usr_dana', 'demo@opensesh.io', 'Dana Organizer', 1, NULL, 1785585600000, 1785585600000),
+  ('usr_rey', 'reviewer@opensesh.io', 'Rey Reviewer', 1, NULL, 1785585600000, 1785585600000);
 
 INSERT INTO event_members (id, event_id, user_id, role, created_at, updated_at) VALUES
   ('mem_dana', 'evt_aie_nyc_2026', 'usr_dana', 'admin', 1785585600000, 1785585600000),

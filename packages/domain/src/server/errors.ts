@@ -20,3 +20,16 @@ export class SubmissionLimitReached extends Data.TaggedError("SubmissionLimitRea
 export class ScheduleConflict extends Data.TaggedError("ScheduleConflict")<{
   readonly message: string;
 }> {}
+
+export class Unauthenticated extends Data.TaggedError("Unauthenticated")<{
+  readonly message: string;
+}> {}
+
+export class Forbidden extends Data.TaggedError("Forbidden")<{
+  readonly message: string;
+}> {}
+
+export class MailError extends Data.TaggedError("MailError")<{
+  readonly message: string;
+  readonly cause: unknown;
+}> {}

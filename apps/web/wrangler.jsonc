@@ -5,6 +5,11 @@
   "compatibility_date": "2026-08-08",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
+  "vars": {
+    "DEMO_MODE": "1",
+    "MAIL_FROM": "auth@opensesh.io",
+  },
+  "send_email": [{ "name": "EMAIL" }],
   "d1_databases": [
     {
       "binding": "DB",

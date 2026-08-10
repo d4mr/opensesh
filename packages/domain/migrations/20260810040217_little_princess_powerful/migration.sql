@@ -1,3 +1,41 @@
+CREATE TABLE `accounts` (
+	`id` text PRIMARY KEY,
+	`account_id` text NOT NULL,
+	`provider_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`access_token` text,
+	`refresh_token` text,
+	`id_token` text,
+	`access_token_expires_at` integer,
+	`refresh_token_expires_at` integer,
+	`scope` text,
+	`password` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	CONSTRAINT `fk_accounts_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
+CREATE TABLE `sessions` (
+	`id` text PRIMARY KEY,
+	`expires_at` integer NOT NULL,
+	`token` text NOT NULL UNIQUE,
+	`ip_address` text,
+	`user_agent` text,
+	`user_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	CONSTRAINT `fk_sessions_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
+CREATE TABLE `verifications` (
+	`id` text PRIMARY KEY,
+	`identifier` text NOT NULL,
+	`value` text NOT NULL,
+	`expires_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `event_members` (
 	`id` text PRIMARY KEY,
 	`event_id` text NOT NULL,
@@ -8,6 +46,24 @@ CREATE TABLE `event_members` (
 	CONSTRAINT `fk_event_members_event_id_events_id_fk` FOREIGN KEY (`event_id`) REFERENCES `events`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `fk_event_members_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
 	CONSTRAINT `event_members_event_user_unique` UNIQUE(`event_id`,`user_id`)
+);
+--> statement-breakpoint
+CREATE TABLE `events` (
+	`id` text PRIMARY KEY,
+	`name` text NOT NULL,
+	`slug` text NOT NULL UNIQUE,
+	`type` text DEFAULT 'conference' NOT NULL,
+	`website_url` text,
+	`location` text,
+	`timezone` text NOT NULL,
+	`starts_at` integer NOT NULL,
+	`ends_at` integer NOT NULL,
+	`theme` text,
+	`logo_url` text,
+	`background_url` text,
+	`default_submission_limit` integer DEFAULT 3 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `formats` (
@@ -82,6 +138,8 @@ CREATE TABLE `users` (
 	`id` text PRIMARY KEY,
 	`email` text NOT NULL UNIQUE,
 	`name` text NOT NULL,
+	`email_verified` integer DEFAULT false NOT NULL,
+	`image` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
@@ -342,47 +400,9 @@ CREATE TABLE `submissions` (
 	CONSTRAINT `submissions_event_code_unique` UNIQUE(`event_id`,`code`)
 );
 --> statement-breakpoint
-ALTER TABLE `events` ADD `type` text DEFAULT 'conference' NOT NULL;--> statement-breakpoint
-ALTER TABLE `events` ADD `website_url` text;--> statement-breakpoint
-ALTER TABLE `events` ADD `location` text;--> statement-breakpoint
-ALTER TABLE `events` ADD `theme` text;--> statement-breakpoint
-ALTER TABLE `events` ADD `logo_url` text;--> statement-breakpoint
-ALTER TABLE `events` ADD `background_url` text;--> statement-breakpoint
-ALTER TABLE `events` ADD `default_submission_limit` integer DEFAULT 3 NOT NULL;--> statement-breakpoint
-PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_events` (
-	`id` text PRIMARY KEY,
-	`name` text NOT NULL,
-	`slug` text NOT NULL UNIQUE,
-	`type` text DEFAULT 'conference' NOT NULL,
-	`website_url` text,
-	`location` text,
-	`timezone` text NOT NULL,
-	`starts_at` integer NOT NULL,
-	`ends_at` integer NOT NULL,
-	`theme` text,
-	`logo_url` text,
-	`background_url` text,
-	`default_submission_limit` integer DEFAULT 3 NOT NULL,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL
-);
---> statement-breakpoint
-INSERT INTO `__new_events`(
-	`id`, `name`, `slug`, `type`, `website_url`, `location`, `timezone`, `starts_at`,
-	`ends_at`, `theme`, `logo_url`, `background_url`, `default_submission_limit`,
-	`created_at`, `updated_at`
-)
-SELECT
-	`id`, `name`, `slug`, `type`, `website_url`, `location`, `timezone`,
-	cast(strftime('%s', `starts_at`) * 1000 as integer),
-	cast(strftime('%s', `ends_at`) * 1000 as integer),
-	`theme`, `logo_url`, `background_url`, `default_submission_limit`,
-	1785585600000, 1785585600000
-FROM `events`;--> statement-breakpoint
-DROP TABLE `events`;--> statement-breakpoint
-ALTER TABLE `__new_events` RENAME TO `events`;--> statement-breakpoint
-PRAGMA foreign_keys=ON;--> statement-breakpoint
+CREATE INDEX `accounts_user_id_idx` ON `accounts` (`user_id`);--> statement-breakpoint
+CREATE INDEX `sessions_user_id_idx` ON `sessions` (`user_id`);--> statement-breakpoint
+CREATE INDEX `verifications_identifier_idx` ON `verifications` (`identifier`);--> statement-breakpoint
 CREATE INDEX `event_members_event_idx` ON `event_members` (`event_id`);--> statement-breakpoint
 CREATE INDEX `formats_event_idx` ON `formats` (`event_id`);--> statement-breakpoint
 CREATE INDEX `levels_event_idx` ON `levels` (`event_id`);--> statement-breakpoint

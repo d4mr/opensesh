@@ -2,9 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "theme-preview",
-      "url": "http://localhost:8734",
-      "port": 8734
+      "name": "opensesh-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 3000
     }
   ]
 }

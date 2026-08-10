@@ -13,6 +13,8 @@
     "db:generate": "vp run @opensesh/domain#db:generate",
     "db:migrate:local": "vp run @opensesh/web#db:migrate:local",
     "db:migrate:remote": "vp run @opensesh/web#db:migrate:remote",
+    "db:reset": "pnpm --dir apps/web db:reset",
+    "db:reset:remote": "pnpm --dir apps/web db:reset:remote",
     "seed": "pnpm --dir apps/web seed",
     "seed:verify": "pnpm --dir apps/web seed:verify"
   },

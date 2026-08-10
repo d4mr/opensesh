@@ -2,13 +2,24 @@ import { Effect, Layer, Match } from "effect";
 
 import type {
   DbError,
+  Forbidden,
   FormClosed,
+  MailError,
   NotFound,
   ScheduleConflict,
   SubmissionLimitReached,
+  Unauthenticated,
 } from "./errors";
 
-type AppError = DbError | FormClosed | NotFound | ScheduleConflict | SubmissionLimitReached;
+export type AppError =
+  | DbError
+  | Forbidden
+  | FormClosed
+  | MailError
+  | NotFound
+  | ScheduleConflict
+  | SubmissionLimitReached
+  | Unauthenticated;
 
 export type ServerResult<A> =
   | { readonly ok: true; readonly data: A }
@@ -20,6 +31,9 @@ const toServerError = Match.type<AppError>().pipe(
   Match.tag("FormClosed", (error) => ({ status: 409, message: error.message })),
   Match.tag("SubmissionLimitReached", (error) => ({ status: 409, message: error.message })),
   Match.tag("ScheduleConflict", (error) => ({ status: 409, message: error.message })),
+  Match.tag("Unauthenticated", (error) => ({ status: 401, message: error.message })),
+  Match.tag("Forbidden", (error) => ({ status: 403, message: error.message })),
+  Match.tag("MailError", (error) => ({ status: 502, message: error.message })),
   Match.exhaustive,
 );
 

@@ -30,6 +30,8 @@ export const User = Schema.Struct({
   ...EntityFields,
   email: Schema.String,
   name: Schema.String,
+  emailVerified: Schema.Boolean,
+  image: NullableString,
 });
 export type User = typeof User.Type;
 

@@ -10,33 +10,183 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ERouteImport } from './routes/e'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PortalRouteImport } from './routes/portal'
+import { Route as SubmitRouteImport } from './routes/submit'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminSectionRouteImport } from './routes/admin.$section'
+import { Route as ESplatRouteImport } from './routes/e.$'
+import { Route as PortalIndexRouteImport } from './routes/portal.index'
+import { Route as PortalSectionRouteImport } from './routes/portal.$section'
+import { Route as SubmitSplatRouteImport } from './routes/submit.$'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ERoute = ERouteImport.update({
+  id: '/e',
+  path: '/e',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubmitRoute = SubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSectionRoute = AdminSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ESplatRoute = ESplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => ERoute,
+} as any)
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalSectionRoute = PortalSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => PortalRoute,
+} as any)
+const SubmitSplatRoute = SubmitSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SubmitRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/e': typeof ERouteWithChildren
+  '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
+  '/submit': typeof SubmitRouteWithChildren
+  '/admin/$section': typeof AdminSectionRoute
+  '/e/$': typeof ESplatRoute
+  '/portal/$section': typeof PortalSectionRoute
+  '/submit/$': typeof SubmitSplatRoute
+  '/admin/': typeof AdminIndexRoute
+  '/portal/': typeof PortalIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/e': typeof ERouteWithChildren
+  '/login': typeof LoginRoute
+  '/submit': typeof SubmitRouteWithChildren
+  '/admin/$section': typeof AdminSectionRoute
+  '/e/$': typeof ESplatRoute
+  '/portal/$section': typeof PortalSectionRoute
+  '/submit/$': typeof SubmitSplatRoute
+  '/admin': typeof AdminIndexRoute
+  '/portal': typeof PortalIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/e': typeof ERouteWithChildren
+  '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
+  '/submit': typeof SubmitRouteWithChildren
+  '/admin/$section': typeof AdminSectionRoute
+  '/e/$': typeof ESplatRoute
+  '/portal/$section': typeof PortalSectionRoute
+  '/submit/$': typeof SubmitSplatRoute
+  '/admin/': typeof AdminIndexRoute
+  '/portal/': typeof PortalIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/e'
+    | '/login'
+    | '/portal'
+    | '/submit'
+    | '/admin/$section'
+    | '/e/$'
+    | '/portal/$section'
+    | '/submit/$'
+    | '/admin/'
+    | '/portal/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/e'
+    | '/login'
+    | '/submit'
+    | '/admin/$section'
+    | '/e/$'
+    | '/portal/$section'
+    | '/submit/$'
+    | '/admin'
+    | '/portal'
+    | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/e'
+    | '/login'
+    | '/portal'
+    | '/submit'
+    | '/admin/$section'
+    | '/e/$'
+    | '/portal/$section'
+    | '/submit/$'
+    | '/admin/'
+    | '/portal/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  ERoute: typeof ERouteWithChildren
+  LoginRoute: typeof LoginRoute
+  PortalRoute: typeof PortalRouteWithChildren
+  SubmitRoute: typeof SubmitRouteWithChildren
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +198,147 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/e': {
+      id: '/e'
+      path: '/e'
+      fullPath: '/e'
+      preLoaderRoute: typeof ERouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/submit': {
+      id: '/submit'
+      path: '/submit'
+      fullPath: '/submit'
+      preLoaderRoute: typeof SubmitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/$section': {
+      id: '/admin/$section'
+      path: '/$section'
+      fullPath: '/admin/$section'
+      preLoaderRoute: typeof AdminSectionRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/e/$': {
+      id: '/e/$'
+      path: '/$'
+      fullPath: '/e/$'
+      preLoaderRoute: typeof ESplatRouteImport
+      parentRoute: typeof ERoute
+    }
+    '/portal/': {
+      id: '/portal/'
+      path: '/'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/$section': {
+      id: '/portal/$section'
+      path: '/$section'
+      fullPath: '/portal/$section'
+      preLoaderRoute: typeof PortalSectionRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/submit/$': {
+      id: '/submit/$'
+      path: '/$'
+      fullPath: '/submit/$'
+      preLoaderRoute: typeof SubmitSplatRouteImport
+      parentRoute: typeof SubmitRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminSectionRoute: typeof AdminSectionRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminSectionRoute: AdminSectionRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface ERouteChildren {
+  ESplatRoute: typeof ESplatRoute
+}
+
+const ERouteChildren: ERouteChildren = {
+  ESplatRoute: ESplatRoute,
+}
+
+const ERouteWithChildren = ERoute._addFileChildren(ERouteChildren)
+
+interface PortalRouteChildren {
+  PortalSectionRoute: typeof PortalSectionRoute
+  PortalIndexRoute: typeof PortalIndexRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalSectionRoute: PortalSectionRoute,
+  PortalIndexRoute: PortalIndexRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
+
+interface SubmitRouteChildren {
+  SubmitSplatRoute: typeof SubmitSplatRoute
+}
+
+const SubmitRouteChildren: SubmitRouteChildren = {
+  SubmitSplatRoute: SubmitSplatRoute,
+}
+
+const SubmitRouteWithChildren =
+  SubmitRoute._addFileChildren(SubmitRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  ERoute: ERouteWithChildren,
+  LoginRoute: LoginRoute,
+  PortalRoute: PortalRouteWithChildren,
+  SubmitRoute: SubmitRouteWithChildren,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
