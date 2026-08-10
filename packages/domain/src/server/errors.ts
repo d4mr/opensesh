@@ -50,3 +50,35 @@ export class MailError extends Data.TaggedError("MailError")<{
   readonly message: string;
   readonly cause: unknown;
 }> {}
+
+export class RoundClosed extends Data.TaggedError("RoundClosed")<{
+  readonly message: string;
+}> {}
+
+export class AssignmentCapExceeded extends Data.TaggedError("AssignmentCapExceeded")<{
+  readonly message: string;
+}> {}
+
+export class AlreadyRecused extends Data.TaggedError("AlreadyRecused")<{
+  readonly message: string;
+}> {}
+
+export class NumericOutOfBounds extends Data.TaggedError("NumericOutOfBounds")<{
+  readonly message: string;
+}> {}
+
+export class DropdownValueNotInOptions extends Data.TaggedError("DropdownValueNotInOptions")<{
+  readonly message: string;
+}> {}
+
+export class BlindDataAccess extends Data.TaggedError("BlindDataAccess")<{
+  readonly message: string;
+}> {}
+
+export class DuplicateMerge extends Data.TaggedError("DuplicateMerge")<{
+  readonly message: string;
+}> {}
+
+export class InvalidPipelineMove extends Data.TaggedError("InvalidPipelineMove")<{
+  readonly message: string;
+}> {}

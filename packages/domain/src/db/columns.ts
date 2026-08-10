@@ -68,6 +68,27 @@ export const agendaDraftStatus = pgEnum("agenda_draft_status", [
   "discarded",
 ]);
 export const reviewDecision = pgEnum("review_decision", ["approve", "maybe", "deny"]);
+export const reviewRoundStatus = pgEnum("review_round_status", ["draft", "open", "closed"]);
+export const reviewCriterionType = pgEnum("review_criterion_type", ["numeric", "dropdown", "text"]);
+export const reviewAssignmentStatus = pgEnum("review_assignment_status", [
+  "pending",
+  "completed",
+  "recused",
+]);
+export const speakerWorkflowStatus = pgEnum("speaker_workflow_status", [
+  "invited",
+  "onboarding",
+  "confirmed",
+  "ready",
+  "declined",
+]);
+export const emailCampaignStatus = pgEnum("email_campaign_status", ["draft", "sending", "sent"]);
+export const campaignDeliveryStatus = pgEnum("campaign_delivery_status", [
+  "pending",
+  "sent",
+  "failed",
+]);
+export const crmSemanticStatus = pgEnum("crm_semantic_status", ["open", "won", "lost"]);
 export const invitationStatus = pgEnum("invitation_status", [
   "pending",
   "accepted",

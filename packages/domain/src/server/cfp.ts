@@ -88,6 +88,7 @@ const contactInput = (
   custom: customAnswers(answers, fields),
   approvedProfile: {},
   profileReviewStatus: "approved",
+  workflowStatus: "invited",
 });
 
 const contactUpdate = (input: ContactCreate): ContactUpdate => ({

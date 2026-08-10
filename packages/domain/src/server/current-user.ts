@@ -19,6 +19,7 @@ export const CurrentUserValue = Schema.Struct({
   userId: Schema.String,
   email: Schema.String,
   orgId: Schema.String,
+  eventSlug: Schema.String,
   roles: Schema.Struct({
     admin: Schema.Boolean,
     reviewer: Schema.Boolean,
@@ -39,7 +40,7 @@ export class CurrentUser extends Context.Service<CurrentUser, CurrentUserService
 
 const makeCurrentUserLayer = (
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  eventSlug: string,
+  eventSlug: string | ((session: SessionIdentity) => string),
 ) =>
   Layer.effect(
     CurrentUser,
@@ -52,6 +53,7 @@ const makeCurrentUserLayer = (
           if (session === null) {
             return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
           }
+          const scopedEventSlug = typeof eventSlug === "string" ? eventSlug : eventSlug(session);
 
           const rows = yield* query(database, "Could not load current user", (db) =>
             db
@@ -77,7 +79,7 @@ const makeCurrentUserLayer = (
                 contacts,
                 and(eq(contacts.eventId, events.id), eq(contacts.email, session.email)),
               )
-              .where(eq(events.slug, eventSlug))
+              .where(eq(events.slug, scopedEventSlug))
               .execute(),
           );
           const first = rows[0];
@@ -125,6 +127,7 @@ const makeCurrentUserLayer = (
             userId: session.userId,
             email: session.email,
             orgId: organizationMember.organizationId,
+            eventSlug: scopedEventSlug,
             roles: {
               admin: memberRows.some((member) => member.role === "admin"),
               reviewer: memberRows.some((member) => member.role === "reviewer"),
@@ -140,7 +143,7 @@ const makeCurrentUserLayer = (
 export const makeCurrentUserLive = (
   connectionString: string,
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  eventSlug: string,
+  eventSlug: string | ((session: SessionIdentity) => string),
 ) => makeCurrentUserLayer(loadSession, eventSlug).pipe(Layer.provide(makeDbLive(connectionString)));
 
 export const getCurrentUser = Effect.gen(function* () {

@@ -1,9 +1,11 @@
 import {
   accounts,
+  crmPipelineStages,
   contactEditHistory,
   contacts,
   embeds,
   emailLog,
+  emailTemplates,
   eventMembers,
   events,
   fileComments,
@@ -15,10 +17,16 @@ import {
   forms,
   levels,
   organizationMembers,
+  organizationContactEvents,
+  organizationContacts,
   organizations,
   portalFormResponses,
   portalForms,
   reviewerTracks,
+  reminderRules,
+  reviewCriteria,
+  reviewRoundMembers,
+  reviewRounds,
   reviews,
   rooms,
   sessionFileRequirements,
@@ -39,6 +47,430 @@ import { seedData } from "./data";
 
 const seededAt = new Date(1785585600000);
 const DEMO_PASSWORD = "demo-pass-2027";
+const devflowUsers = [
+  {
+    id: "usr_jordan",
+    email: "jordan.organizer@sbek-test.example.com",
+    name: "Jordan Alvarez",
+    password: "SbekTest!2027-org",
+  },
+  {
+    id: "usr_priya",
+    email: "priya.speaker@sbek-test.example.com",
+    name: "Priya Raman",
+    password: "SbekTest!2027-spk",
+  },
+  {
+    id: "usr_marcus",
+    email: "marcus.speaker@sbek-test.example.com",
+    name: "Marcus Okafor",
+    password: "SbekTest!2027-spk2",
+  },
+  {
+    id: "usr_sam",
+    email: "sam.reviewer@sbek-test.example.com",
+    name: "Sam Whitfield",
+    password: "SbekTest!2027-rev",
+  },
+] as const;
+const devflowEvent = {
+  id: "evt_devflow_2027",
+  organizationId: "org_ai_engineer",
+  name: "DevFlow Conf 2027",
+  slug: "devflow-conf-2027",
+  tagline: "The developer workflow conference",
+  description:
+    "A practical conference for the people improving how software is designed, built, tested, and shipped.",
+  type: "conference",
+  websiteUrl: null,
+  location: "Moscone West, San Francisco, CA",
+  timezone: "America/Los_Angeles",
+  startsAt: new Date("2027-05-12T16:00:00.000Z"),
+  endsAt: new Date("2027-05-15T01:00:00.000Z"),
+  theme: null,
+  logoUrl: null,
+  logoKey: null,
+  backgroundUrl: null,
+  defaultSubmissionLimit: 4,
+  agendaPublishedAt: null,
+  publishedAgenda: [],
+  agendaDirty: false,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+};
+const devflowEventMembers = [
+  {
+    id: "mem_jordan_devflow",
+    eventId: devflowEvent.id,
+    userId: "usr_jordan",
+    role: "admin" as const,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
+  {
+    id: "mem_sam_devflow",
+    eventId: devflowEvent.id,
+    userId: "usr_sam",
+    role: "reviewer" as const,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
+];
+const devflowTracks = [
+  { id: "trk_devflow_ai", name: "AI Engineering", color: "#2563eb", position: 1 },
+  { id: "trk_devflow_platform", name: "Platform & Infra", color: "#7c3aed", position: 2 },
+  { id: "trk_devflow_dx", name: "Developer Experience", color: "#0f766e", position: 3 },
+].map((track) => ({
+  ...track,
+  eventId: devflowEvent.id,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const devflowFormats = [
+  { id: "fmt_devflow_keynote", name: "Keynote", durationMinutes: 45, position: 1 },
+  { id: "fmt_devflow_talk", name: "Talk", durationMinutes: 30, position: 2 },
+  { id: "fmt_devflow_lightning", name: "Lightning Talk", durationMinutes: 10, position: 3 },
+  { id: "fmt_devflow_workshop", name: "Workshop", durationMinutes: 120, position: 4 },
+  { id: "fmt_devflow_panel", name: "Panel", durationMinutes: 45, position: 5 },
+].map((format) => ({
+  ...format,
+  eventId: devflowEvent.id,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const devflowLevels = ["Beginner", "Intermediate", "Advanced"].map((name, index) => ({
+  id: `lvl_devflow_${name.toLowerCase()}`,
+  eventId: devflowEvent.id,
+  name,
+  position: index + 1,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const devflowRooms = ["Main Stage", "Room 2A", "Room 2B", "Workshop Lab"].map((name, index) => ({
+  id: `room_devflow_${index + 1}`,
+  eventId: devflowEvent.id,
+  name,
+  position: index + 1,
+  capacity: null,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const devflowForm = {
+  id: "form_devflow_cfp",
+  eventId: devflowEvent.id,
+  internalName: "DevFlow Conf 2027 CFP",
+  externalTitle: "Speak at DevFlow Conf 2027",
+  kind: "abstract" as const,
+  collectParticipants: true,
+  status: "open" as const,
+  welcomeHeading: "Welcome",
+  welcomeMessage: "Share the concrete workflow lesson you want practitioners to take home.",
+  showWelcome: true,
+  abstractSection: {
+    title: "Your proposal",
+    heading: "Proposal",
+    instructions: "Describe the problem, the approach, and what attendees will learn.",
+  },
+  participantSection: {
+    title: "Presenters",
+    heading: "Speakers",
+    instructions: "Add everyone who will present this session.",
+  },
+  participantRoles: [
+    { role: "Primary speaker", enabled: true, min: 1, max: 1 },
+    { role: "Co-presenter", enabled: true, min: 0, max: 3 },
+  ],
+  closeDate: new Date("2026-11-30T23:59:00.000Z"),
+  submissionLimit: 4,
+  allowMultipleDrafts: true,
+  successMessage: "Thanks — your proposal is in review.",
+  autoRedirectPortal: true,
+  confirmationEmailEnabled: true,
+  confirmationEmailBody: "We received {{submission.title}} for DevFlow Conf 2027.",
+  adminAlertUserIds: ["usr_jordan"],
+  createdAt: seededAt,
+  updatedAt: seededAt,
+};
+const devflowFormFields = (
+  [
+    { id: "fld_devflow_title", label: "Title", fieldType: "text", mapsTo: "title", position: 1 },
+    {
+      id: "fld_devflow_description",
+      label: "Description",
+      fieldType: "richtext",
+      mapsTo: "description",
+      position: 2,
+    },
+    {
+      id: "fld_devflow_format",
+      label: "Format",
+      fieldType: "dropdown",
+      mapsTo: "format_id",
+      position: 3,
+    },
+    {
+      id: "fld_devflow_track",
+      label: "Track",
+      fieldType: "dropdown",
+      mapsTo: "tracks",
+      position: 4,
+    },
+    {
+      id: "fld_devflow_level",
+      label: "Audience level",
+      fieldType: "dropdown",
+      mapsTo: "level_id",
+      position: 5,
+    },
+    {
+      id: "fld_devflow_notes",
+      label: "Notes for reviewers",
+      fieldType: "textarea",
+      mapsTo: "notes_for_reviewers",
+      position: 6,
+    },
+  ] as const
+).map((field) => ({
+  ...field,
+  formId: devflowForm.id,
+  section: "abstract" as const,
+  maxChars: field.fieldType === "textarea" ? 5000 : 255,
+  required: true,
+  locked: field.id === "fld_devflow_title",
+  options:
+    field.id === "fld_devflow_format"
+      ? ({ bind: "format" } as const)
+      : field.id === "fld_devflow_track"
+        ? ({ bind: "track" } as const)
+        : field.id === "fld_devflow_level"
+          ? ({ bind: "level" } as const)
+          : null,
+  condition: null,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const devflowContacts = [
+  {
+    id: "con_devflow_priya",
+    email: "priya.speaker@sbek-test.example.com",
+    firstName: "Priya",
+    lastName: "Raman",
+    title: "Principal Engineer",
+    company: "Latticework Systems",
+    bio: "Priya builds developer tooling at Latticework Systems, focusing on incremental build systems, CI reliability, and the feedback loops that make engineering teams more productive.",
+    linkedinUrl: "https://www.linkedin.com/in/priya-raman-builds",
+    twitterUrl: "@priyabuilds",
+    dietaryRequirements: "vegetarian" as const,
+    tshirtSize: "M" as const,
+    workflowStatus: "onboarding" as const,
+  },
+  {
+    id: "con_devflow_marcus",
+    email: "marcus.speaker@sbek-test.example.com",
+    firstName: "Marcus",
+    lastName: "Okafor",
+    title: "Staff Developer Advocate",
+    company: "Cloudreach Labs",
+    bio: "Marcus helps teams ship production AI agents at Cloudreach Labs. He writes Agents Weekly and organizes the SF AI Tinkerers community.",
+    linkedinUrl: null,
+    twitterUrl: null,
+    dietaryRequirements: "none" as const,
+    tshirtSize: null,
+    workflowStatus: "invited" as const,
+  },
+].map((contact) => ({
+  ...contact,
+  eventId: devflowEvent.id,
+  salutation: null,
+  honorific: null,
+  pronouns: null,
+  gender: null,
+  headshotUrl: null,
+  headshotKey: null,
+  phone: null,
+  facebookUrl: null,
+  websiteUrl: null,
+  confirmedAt: null,
+  custom: {},
+  approvedProfile: {},
+  profileReviewStatus: "approved" as const,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const devflowSubmissions = [
+  {
+    id: "sub_devflow_1",
+    code: "SESS-1",
+    submitterContactId: "con_devflow_priya",
+    title: "Taming 40-Minute CI: Incremental Builds at Monorepo Scale",
+    description:
+      "A practical account of replacing full-repository CI work with trustworthy incremental builds, including dependency graphs, cache correctness, and rollout measurement.",
+    formatId: "fmt_devflow_talk",
+    levelId: "lvl_devflow_intermediate",
+    trackId: "trk_devflow_platform",
+    notes:
+      "An earlier version of this material appeared at PlatformCon; this proposal adds the full migration data.",
+  },
+  {
+    id: "sub_devflow_2",
+    code: "SESS-2",
+    submitterContactId: "con_devflow_priya",
+    title: "Your AI Pair Programmer Is Lying to You: Verification Patterns That Scale",
+    description:
+      "Verification patterns for AI-assisted development that combine executable specifications, review checkpoints, and production feedback without slowing teams down.",
+    formatId: "fmt_devflow_talk",
+    levelId: "lvl_devflow_advanced",
+    trackId: "trk_devflow_ai",
+    notes: "This talk can also be expanded into an optional workshop format.",
+  },
+  {
+    id: "sub_devflow_3",
+    code: "SESS-3",
+    submitterContactId: "con_devflow_priya",
+    title: "Docs That Answer Back: Retrieval-Grounded Documentation Sites",
+    description:
+      "How to make documentation answer real user questions while grounding every response in versioned source material and exposing uncertainty.",
+    formatId: "fmt_devflow_lightning",
+    levelId: "lvl_devflow_beginner",
+    trackId: "trk_devflow_dx",
+    notes: "A compact live walkthrough is available for the lightning-talk slot.",
+  },
+  {
+    id: "sub_devflow_4",
+    code: "SESS-4",
+    submitterContactId: "con_devflow_marcus",
+    title: "Lightning: Agents in Production Q&A",
+    description:
+      "A fast, example-led Q&A on the failure modes teams encounter when AI agents meet production systems.",
+    formatId: "fmt_devflow_lightning",
+    levelId: null,
+    trackId: "trk_devflow_ai",
+    notes: "Designed as a distinct second-speaker session for agenda and content workflows.",
+  },
+].map(({ trackId, notes, ...submission }) => ({
+  ...submission,
+  eventId: devflowEvent.id,
+  kind: "abstract" as const,
+  status: "pending" as const,
+  sourceFormId: devflowForm.id,
+  language: "en",
+  startsAt: null,
+  endsAt: null,
+  roomId: null,
+  icsSequence: 0,
+  scheduleDirty: false,
+  capacity: null,
+  ceuCredits: null,
+  clientSessionId: null,
+  notifiedAt: null,
+  submittedAt: new Date("2026-08-05T17:00:00.000Z"),
+  answers: { fld_devflow_notes: notes },
+  approvedSnapshot: {},
+  contentReviewStatus: "approved" as const,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+  trackId,
+}));
+const devflowReviewRounds = [
+  {
+    id: "rnd_devflow_initial",
+    eventId: devflowEvent.id,
+    name: "Initial Review",
+    opensAt: new Date("2026-08-01T07:00:00.000Z"),
+    closesAt: new Date("2026-10-16T06:59:59.000Z"),
+    blind: true,
+    position: 1,
+    status: "open" as const,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
+  {
+    id: "rnd_devflow_final",
+    eventId: devflowEvent.id,
+    name: "Final Review",
+    opensAt: new Date("2026-10-16T07:00:00.000Z"),
+    closesAt: new Date("2026-12-01T07:59:59.000Z"),
+    blind: false,
+    position: 2,
+    status: "draft" as const,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
+];
+const devflowReviewCriteria = [
+  {
+    id: "crit_devflow_originality",
+    roundId: "rnd_devflow_initial",
+    label: "Originality",
+    type: "numeric" as const,
+    min: 1,
+    max: 5,
+    options: [],
+    required: true,
+    weight: 2,
+    position: 1,
+  },
+  {
+    id: "crit_devflow_relevance",
+    roundId: "rnd_devflow_initial",
+    label: "Relevance",
+    type: "numeric" as const,
+    min: 1,
+    max: 5,
+    options: [],
+    required: true,
+    weight: 1,
+    position: 2,
+  },
+  {
+    id: "crit_devflow_recommendation",
+    roundId: "rnd_devflow_initial",
+    label: "Recommendation",
+    type: "dropdown" as const,
+    min: null,
+    max: null,
+    options: ["Accept", "Maybe", "Reject"],
+    required: true,
+    weight: 1,
+    position: 3,
+  },
+  {
+    id: "crit_devflow_comments",
+    roundId: "rnd_devflow_initial",
+    label: "Comments",
+    type: "text" as const,
+    min: null,
+    max: null,
+    options: [],
+    required: false,
+    weight: 1,
+    position: 4,
+  },
+  {
+    id: "crit_devflow_final_score",
+    roundId: "rnd_devflow_final",
+    label: "Final Score",
+    type: "numeric" as const,
+    min: 1,
+    max: 10,
+    options: [],
+    required: true,
+    weight: 1,
+    position: 1,
+  },
+  {
+    id: "crit_devflow_final_comments",
+    roundId: "rnd_devflow_final",
+    label: "Comments",
+    type: "text" as const,
+    min: null,
+    max: null,
+    options: [],
+    required: false,
+    weight: 1,
+    position: 2,
+  },
+].map((criterion) => ({ ...criterion, createdAt: seededAt, updatedAt: seededAt }));
 const rows = <A extends object>(values: ReadonlyArray<A>) => values.map((value) => ({ ...value }));
 const trackIdsBySubmission = new Map<string, Array<string>>();
 for (const row of seedData.submissionTracks) {
@@ -196,15 +628,65 @@ const publishedAgenda = submissionRows
     ];
   })
   .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
-const eventRows = seedData.events.map((event) => ({
-  ...event,
-  publishedAgenda,
-  agendaPublishedAt: new Date(1785672000000),
-  agendaDirty: false,
+const eventRows = [
+  ...seedData.events.map((event) => ({
+    ...event,
+    publishedAgenda,
+    agendaPublishedAt: new Date(1785672000000),
+    agendaDirty: false,
+  })),
+  devflowEvent,
+];
+
+const organizationContactRows = [...seedData.contacts, ...devflowContacts].map((contact) => ({
+  id: `orgcon_${contact.id}`,
+  organizationId: "org_ai_engineer",
+  firstName: contact.firstName,
+  lastName: contact.lastName,
+  email: contact.email,
+  title: contact.title,
+  company: contact.company,
+  bio: contact.bio,
+  linkedinUrl: contact.linkedinUrl,
+  twitterUrl: contact.twitterUrl,
+  facebookUrl: contact.facebookUrl,
+  websiteUrl: contact.websiteUrl,
+  headshotUrl: contact.headshotUrl,
+  custom: {},
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const organizationContactEventRows = [...seedData.contacts, ...devflowContacts].map((contact) => ({
+  id: `orgconevt_${contact.id}`,
+  organizationContactId: `orgcon_${contact.id}`,
+  contactId: contact.id,
+  eventId: contact.eventId,
+  role: "speaker",
+  status:
+    contact.eventId === devflowEvent.id
+      ? (devflowContacts.find((item) => item.id === contact.id)?.workflowStatus ?? "invited")
+      : seedData.submissions.some(
+            (submission) =>
+              submission.status === "accepted" &&
+              seedData.submissionParticipants.some(
+                (participant) =>
+                  participant.submissionId === submission.id &&
+                  participant.contactId === contact.id,
+              ),
+          )
+        ? "confirmed"
+        : "invited",
+  createdAt: seededAt,
+  updatedAt: seededAt,
 }));
 
 export const seedDatabase = async (database: Database) => {
   const password = await hashPassword(DEMO_PASSWORD);
+  const devflowPasswords = new Map(
+    await Promise.all(
+      devflowUsers.map(async (user) => [user.id, await hashPassword(user.password)] as const),
+    ),
+  );
   await wipeSeedData(database);
   await database.transaction(async (transaction) => {
     await Promise.all([
@@ -216,7 +698,16 @@ export const seedDatabase = async (database: Database) => {
         metadata: null,
         createdAt: seededAt,
       }),
-      transaction.insert(users).values(rows(seedData.users)),
+      transaction.insert(users).values([
+        ...rows(seedData.users),
+        ...devflowUsers.map(({ password: _password, ...user }) => ({
+          ...user,
+          emailVerified: true,
+          image: null,
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        })),
+      ]),
     ]);
 
     await Promise.all([
@@ -256,9 +747,16 @@ export const seedDatabase = async (database: Database) => {
           role: "member",
           createdAt: seededAt,
         },
+        ...devflowUsers.map((user) => ({
+          id: `org_mem_${user.id}`,
+          organizationId: "org_ai_engineer",
+          userId: user.id,
+          role: user.id === "usr_jordan" ? "owner" : "member",
+          createdAt: seededAt,
+        })),
       ]),
-      transaction.insert(accounts).values(
-        seedData.users.map((user) => ({
+      transaction.insert(accounts).values([
+        ...seedData.users.map((user) => ({
           id: `acc_${user.id}`,
           accountId: user.id,
           providerId: "credential",
@@ -267,29 +765,32 @@ export const seedDatabase = async (database: Database) => {
           createdAt: seededAt,
           updatedAt: seededAt,
         })),
-      ),
+        ...devflowUsers.map((user) => ({
+          id: `acc_${user.id}`,
+          accountId: user.id,
+          providerId: "credential",
+          userId: user.id,
+          password: devflowPasswords.get(user.id),
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        })),
+      ]),
       transaction.insert(events).values(rows(eventRows)),
     ]);
 
     await Promise.all([
-      transaction.insert(eventMembers).values(rows(seedData.eventMembers)),
-      transaction.insert(tracks).values(rows(seedData.tracks)),
+      transaction
+        .insert(eventMembers)
+        .values([...rows(seedData.eventMembers), ...devflowEventMembers]),
+      transaction.insert(tracks).values([...rows(seedData.tracks), ...devflowTracks]),
       transaction.insert(tags).values(rows(seedData.tags)),
-      transaction.insert(formats).values(rows(seedData.formats)),
-      transaction.insert(levels).values(rows(seedData.levels)),
-      transaction.insert(rooms).values(rows(seedData.rooms)),
-      transaction.insert(forms).values(rows(seedData.forms)),
-      transaction.insert(contacts).values(
-        seedData.contacts.map((contact) => ({
-          ...contact,
-          ...(contact.id === "con_01"
-            ? {
-                bio: mayaPendingBio,
-                approvedProfile: mayaApprovedProfile,
-                profileReviewStatus: "pending_review" as const,
-              }
-            : {}),
-          confirmedAt: seedData.submissions.some(
+      transaction.insert(formats).values([...rows(seedData.formats), ...devflowFormats]),
+      transaction.insert(levels).values([...rows(seedData.levels), ...devflowLevels]),
+      transaction.insert(rooms).values([...rows(seedData.rooms), ...devflowRooms]),
+      transaction.insert(forms).values([...rows(seedData.forms), devflowForm]),
+      transaction.insert(contacts).values([
+        ...seedData.contacts.map((contact) => {
+          const accepted = seedData.submissions.some(
             (submission) =>
               submission.status === "accepted" &&
               seedData.submissionParticipants.some(
@@ -297,9 +798,89 @@ export const seedDatabase = async (database: Database) => {
                   participant.submissionId === submission.id &&
                   participant.contactId === contact.id,
               ),
-          )
-            ? new Date(1788264000000)
-            : null,
+          );
+          const declined = seedData.submissions.some(
+            (submission) =>
+              submission.status === "declined" &&
+              seedData.submissionParticipants.some(
+                (participant) =>
+                  participant.submissionId === submission.id &&
+                  participant.contactId === contact.id,
+              ),
+          );
+          return {
+            ...contact,
+            ...(contact.id === "con_01"
+              ? {
+                  bio: mayaPendingBio,
+                  approvedProfile: mayaApprovedProfile,
+                  profileReviewStatus: "pending_review" as const,
+                }
+              : {}),
+            workflowStatus: accepted
+              ? ("confirmed" as const)
+              : declined
+                ? ("declined" as const)
+                : ("invited" as const),
+            confirmedAt: accepted ? new Date(1788264000000) : null,
+          };
+        }),
+        ...devflowContacts,
+      ]),
+      transaction.insert(reviewRounds).values(devflowReviewRounds),
+      transaction.insert(emailTemplates).values({
+        id: "email_template_devflow_acceptance",
+        eventId: devflowEvent.id,
+        name: "Acceptance",
+        subjectTemplate: "Your talk has been accepted to DevFlow Conf 2027",
+        bodyTemplate: "Hello {speaker_name}, your session {talk_title} has been accepted.",
+        mergeFields: ["speaker_name", "talk_title"],
+        createdAt: seededAt,
+        updatedAt: seededAt,
+      }),
+      transaction.insert(reminderRules).values({
+        id: "reminder_devflow_tasks",
+        eventId: devflowEvent.id,
+        scope: "contact",
+        taskType: "incomplete_task",
+        daysBeforeDue: 3,
+        enabled: false,
+        lastRunAt: null,
+        createdAt: seededAt,
+        updatedAt: seededAt,
+      }),
+      transaction.insert(organizationContacts).values(organizationContactRows),
+      transaction.insert(crmPipelineStages).values(
+        [
+          {
+            id: "crm_stage_prospect",
+            name: "Prospect",
+            semanticStatus: "open" as const,
+            position: 1,
+          },
+          {
+            id: "crm_stage_contacted",
+            name: "Contacted",
+            semanticStatus: "open" as const,
+            position: 2,
+          },
+          {
+            id: "crm_stage_confirmed",
+            name: "Confirmed",
+            semanticStatus: "won" as const,
+            position: 3,
+          },
+          {
+            id: "crm_stage_declined",
+            name: "Declined",
+            semanticStatus: "lost" as const,
+            position: 4,
+          },
+        ].map((stage) => ({
+          ...stage,
+          organizationId: "org_ai_engineer",
+          createdAt: seededAt,
+          updatedAt: seededAt,
         })),
       ),
       transaction.insert(embeds).values([
@@ -359,15 +940,77 @@ export const seedDatabase = async (database: Database) => {
 
     await Promise.all([
       transaction.insert(reviewerTracks).values(rows(seedData.reviewerTracks)),
-      transaction.insert(formFields).values(rows(seedData.formFields)),
-      transaction.insert(submissions).values(submissionRows),
+      transaction.insert(formFields).values([...rows(seedData.formFields), ...devflowFormFields]),
+      transaction
+        .insert(submissions)
+        .values([
+          ...submissionRows,
+          ...devflowSubmissions.map(({ trackId: _trackId, ...submission }) => submission),
+        ]),
       transaction.insert(taskTemplates).values(rows(seedData.taskTemplates)),
+      transaction.insert(reviewCriteria).values(devflowReviewCriteria),
+      transaction.insert(reviewRoundMembers).values({
+        id: "rndmem_devflow_sam",
+        roundId: "rnd_devflow_initial",
+        eventMemberId: "mem_sam_devflow",
+        assignmentCap: null,
+        createdAt: seededAt,
+        updatedAt: seededAt,
+      }),
+      transaction.insert(organizationContactEvents).values(organizationContactEventRows),
     ]);
 
     await Promise.all([
-      transaction.insert(submissionTracks).values(rows(seedData.submissionTracks)),
+      transaction.insert(submissionTracks).values([
+        ...rows(seedData.submissionTracks),
+        ...devflowSubmissions.map((submission) => ({
+          id: `substrk_${submission.id}`,
+          submissionId: submission.id,
+          trackId: submission.trackId,
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        })),
+      ]),
       transaction.insert(submissionTags).values(rows(seedData.submissionTags)),
-      transaction.insert(submissionParticipants).values(rows(seedData.submissionParticipants)),
+      transaction.insert(submissionParticipants).values([
+        ...rows(seedData.submissionParticipants),
+        {
+          id: "subpart_devflow_1_priya",
+          submissionId: "sub_devflow_1",
+          contactId: "con_devflow_priya",
+          role: "Primary speaker",
+          position: 1,
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        },
+        {
+          id: "subpart_devflow_1_marcus",
+          submissionId: "sub_devflow_1",
+          contactId: "con_devflow_marcus",
+          role: "Co-presenter",
+          position: 2,
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        },
+        ...["sub_devflow_2", "sub_devflow_3"].map((submissionId, index) => ({
+          id: `subpart_${submissionId}_priya`,
+          submissionId,
+          contactId: "con_devflow_priya",
+          role: "Primary speaker",
+          position: 1,
+          createdAt: new Date(seededAt.getTime() + index),
+          updatedAt: seededAt,
+        })),
+        {
+          id: "subpart_devflow_4_marcus",
+          submissionId: "sub_devflow_4",
+          contactId: "con_devflow_marcus",
+          role: "Primary speaker",
+          position: 1,
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        },
+      ]),
       transaction.insert(reviews).values(rows(seedData.reviews)),
       transaction.insert(taskAssignments).values(rows(seedData.taskAssignments)),
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
