@@ -38,6 +38,21 @@ interface ProgramRow {
 }
 type SessionProgramRow = ProgramRow & { readonly submission: SubmissionRow };
 
+// Confirmed speakers' public-facing fields come from the last organizer-
+// approved profile snapshot (see portal repo); an empty snapshot means no
+// gated edit has happened yet, so the live row is already approved.
+const publicProfileValue = <Key extends "firstName" | "lastName" | "bio" | "headshotUrl">(
+  contact: ContactRow,
+  key: Key,
+): ContactRow[Key] => {
+  if (contact.confirmedAt === null || Object.keys(contact.approvedProfile).length === 0)
+    return contact[key];
+  const approved = (contact.approvedProfile as Readonly<Record<string, unknown>>)[key];
+  return (
+    approved === null || typeof approved === "string" ? approved : contact[key]
+  ) as ContactRow[Key];
+};
+
 const strings = (value: unknown) =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 const bool = (value: unknown, fallback: boolean) => (typeof value === "boolean" ? value : fallback);
@@ -119,12 +134,12 @@ const programFromRows = (rows: ReadonlyArray<ProgramRow>) =>
               ),
             ).map((item) => ({
               id: item.id,
-              firstName: item.firstName,
-              lastName: item.lastName,
+              firstName: publicProfileValue(item, "firstName"),
+              lastName: publicProfileValue(item, "lastName"),
               title: item.title,
               company: item.company,
-              bio: item.bio,
-              headshotUrl: item.headshotUrl,
+              bio: publicProfileValue(item, "bio"),
+              headshotUrl: publicProfileValue(item, "headshotUrl"),
             })),
             startsAt: slot.startsAt,
             endsAt: slot.endsAt,

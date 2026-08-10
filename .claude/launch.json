@@ -46,6 +46,30 @@
       "port": 3006
     },
     {
+      "name": "wp8-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp8/apps/web",
+        "dev",
+        "--port",
+        "3008"
+      ],
+      "port": 3008
+    },
+    {
+      "name": "wp9-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp9/apps/web",
+        "dev",
+        "--port",
+        "3009"
+      ],
+      "port": 3009
+    },
+    {
       "name": "wp7-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

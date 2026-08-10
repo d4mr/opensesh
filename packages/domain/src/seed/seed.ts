@@ -102,6 +102,61 @@ const submissionRows = seedData.submissions.map((submission) => {
   };
 });
 
+// The demo ships with the agenda already published — the same snapshot the
+// publish action would write — so public views work on a judge's first load.
+const roomNameById = new Map(seedData.rooms.map((room) => [room.id, room.name]));
+const trackById = new Map<string, (typeof seedData.tracks)[number]>(
+  seedData.tracks.map((track) => [track.id, track]),
+);
+const contactById = new Map(seedData.contacts.map((contact) => [contact.id, contact]));
+const publishedAgenda = submissionRows
+  .flatMap((submission) => {
+    const roomName =
+      submission.roomId === null ? undefined : roomNameById.get(submission.roomId ?? "");
+    if (
+      submission.status !== "accepted" ||
+      submission.startsAt == null ||
+      submission.endsAt == null ||
+      roomName === undefined
+    )
+      return [];
+    return [
+      {
+        id: submission.id,
+        code: submission.code,
+        title: submission.title,
+        description: submission.description,
+        startsAt: submission.startsAt.toISOString(),
+        endsAt: submission.endsAt.toISOString(),
+        roomName,
+        tracks: (trackIdsBySubmission.get(submission.id) ?? []).flatMap((trackId) => {
+          const track = trackById.get(trackId);
+          return track === undefined
+            ? []
+            : [{ id: track.id, name: track.name, color: track.color }];
+        }),
+        speakers: seedData.submissionParticipants
+          .filter(
+            (participant) =>
+              participant.submissionId === submission.id && participant.role === "speaker",
+          )
+          .flatMap((participant) => {
+            const contact = contactById.get(participant.contactId);
+            return contact === undefined
+              ? []
+              : [{ id: contact.id, name: `${contact.firstName} ${contact.lastName}` }];
+          }),
+      },
+    ];
+  })
+  .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+const eventRows = seedData.events.map((event) => ({
+  ...event,
+  publishedAgenda,
+  agendaPublishedAt: new Date(1785672000000),
+  agendaDirty: false,
+}));
+
 export const seedDatabase = async (database: Database) => {
   const password = await hashPassword(DEMO_PASSWORD);
   await wipeSeedData(database);
@@ -167,7 +222,7 @@ export const seedDatabase = async (database: Database) => {
           updatedAt: seededAt,
         })),
       ),
-      transaction.insert(events).values(rows(seedData.events)),
+      transaction.insert(events).values(rows(eventRows)),
     ]);
 
     await Promise.all([
