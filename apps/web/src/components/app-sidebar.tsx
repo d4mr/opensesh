@@ -103,7 +103,9 @@ export function AppSidebar({
           pathname={pathname}
         />
         <NavMain label="Portals" items={portals} pathname={pathname} />
-        <NavSecondary item={settings} pathname={pathname} className="mt-auto" />
+        {user.roles.admin ? (
+          <NavSecondary item={settings} pathname={pathname} className="mt-auto" />
+        ) : null}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={{ name, email: user.email }} />

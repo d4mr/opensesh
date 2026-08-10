@@ -184,16 +184,18 @@ export function AdminShell({
           <CommandList>
             <CommandEmpty>No page found.</CommandEmpty>
             <CommandGroup heading="Navigation">
-              {allItems.map((item) => (
-                <CommandItem
-                  key={item.title}
-                  value={item.title}
-                  onSelect={() => void go(item.section)}
-                >
-                  <item.icon />
-                  {item.title}
-                </CommandItem>
-              ))}
+              {allItems
+                .filter((item) => item.section !== "settings" || user.roles.admin)
+                .map((item) => (
+                  <CommandItem
+                    key={item.title}
+                    value={item.title}
+                    onSelect={() => void go(item.section)}
+                  >
+                    <item.icon />
+                    {item.title}
+                  </CommandItem>
+                ))}
             </CommandGroup>
           </CommandList>
         </CommandDialog>
