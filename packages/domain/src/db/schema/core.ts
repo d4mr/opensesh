@@ -1,26 +1,21 @@
-import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { index, integer, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
-import { id, timestamps } from "../columns";
+import { eventMemberRole, id, timestamps } from "../columns";
+import { organizations, users } from "./identity";
 
-export const users = sqliteTable("users", {
+export const events = pgTable("events", {
   id: id(),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
-  image: text("image"),
-  ...timestamps,
-});
-
-export const events = sqliteTable("events", {
-  id: id(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   type: text("type").notNull().default("conference"),
   websiteUrl: text("website_url"),
   location: text("location"),
   timezone: text("timezone").notNull(),
-  startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
-  endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   theme: text("theme"),
   logoUrl: text("logo_url"),
   backgroundUrl: text("background_url"),
@@ -28,7 +23,7 @@ export const events = sqliteTable("events", {
   ...timestamps,
 });
 
-export const eventMembers = sqliteTable(
+export const eventMembers = pgTable(
   "event_members",
   {
     id: id(),
@@ -38,7 +33,7 @@ export const eventMembers = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["admin", "reviewer"] }).notNull(),
+    role: eventMemberRole("role").notNull(),
     ...timestamps,
   },
   (table) => [
@@ -57,7 +52,7 @@ const libraryColumns = {
   ...timestamps,
 };
 
-export const tracks = sqliteTable(
+export const tracks = pgTable(
   "tracks",
   {
     ...libraryColumns,
@@ -69,22 +64,22 @@ export const tracks = sqliteTable(
   ],
 );
 
-export const tags = sqliteTable("tags", libraryColumns, (table) => [
+export const tags = pgTable("tags", libraryColumns, (table) => [
   unique("tags_event_name_unique").on(table.eventId, table.name),
   index("tags_event_idx").on(table.eventId),
 ]);
 
-export const formats = sqliteTable("formats", libraryColumns, (table) => [
+export const formats = pgTable("formats", libraryColumns, (table) => [
   unique("formats_event_name_unique").on(table.eventId, table.name),
   index("formats_event_idx").on(table.eventId),
 ]);
 
-export const levels = sqliteTable("levels", libraryColumns, (table) => [
+export const levels = pgTable("levels", libraryColumns, (table) => [
   unique("levels_event_name_unique").on(table.eventId, table.name),
   index("levels_event_idx").on(table.eventId),
 ]);
 
-export const rooms = sqliteTable(
+export const rooms = pgTable(
   "rooms",
   {
     ...libraryColumns,
@@ -96,7 +91,7 @@ export const rooms = sqliteTable(
   ],
 );
 
-export const reviewerTracks = sqliteTable(
+export const reviewerTracks = pgTable(
   "reviewer_tracks",
   {
     id: id(),

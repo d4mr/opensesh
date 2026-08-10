@@ -1,12 +1,20 @@
-import { accounts, sessions, users, verifications } from "@opensesh/domain/db/auth";
+import { makeDatabase } from "@opensesh/domain";
+import {
+  accounts,
+  organizationInvitations,
+  organizationMembers,
+  organizations,
+  sessions,
+  users,
+  verifications,
+} from "@opensesh/domain/db/auth";
 import { MailError } from "@opensesh/domain/server/errors";
 import { makeMailLive, sendMagicLink } from "@opensesh/domain/server/mail";
 import { run } from "@opensesh/domain/server/runtime";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink } from "better-auth/plugins";
+import { magicLink, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { drizzle } from "drizzle-orm/d1";
 import { Effect } from "effect";
 
 export interface CapturedMagicLink {
@@ -14,13 +22,17 @@ export interface CapturedMagicLink {
   readonly url: string;
 }
 
+const DEMO_ORGANIZATION_ID = "org_ai_engineer";
+
 export const makeAuth = (
   env: Cloudflare.Env,
   origin: string,
   capture?: (link: CapturedMagicLink) => void,
 ) => {
   const demoMode = env.DEMO_MODE === "1";
-  const mailLive = makeMailLive(env.DB, demoMode, (mail) =>
+  const connectionString = env.HYPERDRIVE.connectionString;
+  const database = makeDatabase(connectionString);
+  const mailLive = makeMailLive(connectionString, demoMode, (mail) =>
     Effect.tryPromise({
       try: () =>
         env.EMAIL.send({
@@ -38,9 +50,17 @@ export const makeAuth = (
     appName: "opensesh",
     baseURL: origin,
     trustedOrigins: [origin],
-    database: drizzleAdapter(drizzle(env.DB), {
-      provider: "sqlite",
-      schema: { users, sessions, accounts, verifications },
+    database: drizzleAdapter(database, {
+      provider: "pg",
+      schema: {
+        users,
+        sessions,
+        accounts,
+        verifications,
+        organizations,
+        organizationMembers,
+        organizationInvitations,
+      },
     }),
     user: { modelName: "users" },
     session: {
@@ -51,6 +71,22 @@ export const makeAuth = (
     account: { modelName: "accounts" },
     verification: { modelName: "verifications" },
     advanced: { cookiePrefix: "opensesh" },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            await database
+              .insert(organizationMembers)
+              .values({
+                organizationId: DEMO_ORGANIZATION_ID,
+                userId: user.id,
+                role: "member",
+              })
+              .onConflictDoNothing();
+          },
+        },
+      },
+    },
     plugins: [
       magicLink({
         disableSignUp: false,
@@ -64,6 +100,13 @@ export const makeAuth = (
           if (!result.ok) {
             return await Promise.reject(new Error(result.error.message));
           }
+        },
+      }),
+      organization({
+        schema: {
+          organization: { modelName: "organizations" },
+          member: { modelName: "organizationMembers" },
+          invitation: { modelName: "organizationInvitations" },
         },
       }),
       tanstackStartCookies(),

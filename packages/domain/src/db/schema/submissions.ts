@@ -1,10 +1,10 @@
-import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { index, integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
-import { id, timestamps } from "../columns";
+import { id, reviewDecision, submissionKind, submissionStatus, timestamps } from "../columns";
 import { eventMembers, events, formats, levels, rooms, tags, tracks } from "./core";
 import { forms } from "./forms";
 
-export const contacts = sqliteTable(
+export const contacts = pgTable(
   "contacts",
   {
     id: id(),
@@ -27,7 +27,7 @@ export const contacts = sqliteTable(
     twitterUrl: text("twitter_url"),
     facebookUrl: text("facebook_url"),
     websiteUrl: text("website_url"),
-    custom: text("custom", { mode: "json" }).notNull(),
+    custom: jsonb("custom").notNull(),
     ...timestamps,
   },
   (table) => [
@@ -36,7 +36,7 @@ export const contacts = sqliteTable(
   ],
 );
 
-export const submissions = sqliteTable(
+export const submissions = pgTable(
   "submissions",
   {
     id: id(),
@@ -44,10 +44,8 @@ export const submissions = sqliteTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     code: text("code").notNull(),
-    kind: text("kind", { enum: ["abstract", "session"] }).notNull(),
-    status: text("status", {
-      enum: ["draft", "pending", "maybe", "accepted", "declined", "withdrawn"],
-    }).notNull(),
+    kind: submissionKind("kind").notNull(),
+    status: submissionStatus("status").notNull(),
     sourceFormId: text("source_form_id").references(() => forms.id, { onDelete: "set null" }),
     submitterContactId: text("submitter_contact_id").references(() => contacts.id, {
       onDelete: "set null",
@@ -57,15 +55,15 @@ export const submissions = sqliteTable(
     formatId: text("format_id").references(() => formats.id, { onDelete: "set null" }),
     levelId: text("level_id").references(() => levels.id, { onDelete: "set null" }),
     language: text("language").notNull().default("en"),
-    startsAt: integer("starts_at", { mode: "timestamp_ms" }),
-    endsAt: integer("ends_at", { mode: "timestamp_ms" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
     roomId: text("room_id").references(() => rooms.id, { onDelete: "set null" }),
     capacity: integer("capacity"),
     ceuCredits: integer("ceu_credits"),
     clientSessionId: text("client_session_id"),
-    notifiedAt: integer("notified_at", { mode: "timestamp_ms" }),
-    submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
-    answers: text("answers", { mode: "json" }).notNull(),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    answers: jsonb("answers").notNull(),
     ...timestamps,
   },
   (table) => [
@@ -75,7 +73,7 @@ export const submissions = sqliteTable(
   ],
 );
 
-export const submissionTracks = sqliteTable(
+export const submissionTracks = pgTable(
   "submission_tracks",
   {
     id: id(),
@@ -93,7 +91,7 @@ export const submissionTracks = sqliteTable(
   ],
 );
 
-export const submissionTags = sqliteTable(
+export const submissionTags = pgTable(
   "submission_tags",
   {
     id: id(),
@@ -111,7 +109,7 @@ export const submissionTags = sqliteTable(
   ],
 );
 
-export const submissionParticipants = sqliteTable(
+export const submissionParticipants = pgTable(
   "submission_participants",
   {
     id: id(),
@@ -134,7 +132,7 @@ export const submissionParticipants = sqliteTable(
   ],
 );
 
-export const reviews = sqliteTable(
+export const reviews = pgTable(
   "reviews",
   {
     id: id(),
@@ -144,7 +142,7 @@ export const reviews = sqliteTable(
     reviewerId: text("reviewer_id")
       .notNull()
       .references(() => eventMembers.id, { onDelete: "cascade" }),
-    decision: text("decision", { enum: ["approve", "maybe", "deny"] }).notNull(),
+    decision: reviewDecision("decision").notNull(),
     score: integer("score"),
     comment: text("comment"),
     ...timestamps,

@@ -2,7 +2,7 @@ export * from "./db/schema/core";
 export * from "./db/schema/forms";
 export * from "./db/schema/portal";
 export * from "./db/schema/submissions";
-export { Db, makeDbLive, type Database } from "./server/db";
+export { Db, makeDatabase, makeDbLive, type Database } from "./server/db";
 export * from "./server/errors";
 export { Event, getEventBySlug } from "./server/events";
 export * from "./server/repos";

@@ -26,11 +26,20 @@ export const runServer = async <A, E extends AppError>(
     catch: (cause) => new DbError({ message: "Could not load session", cause }),
   }).pipe(
     Effect.map((session) =>
-      session === null ? null : { userId: session.user.id, email: session.user.email },
+      session === null
+        ? null
+        : {
+            userId: session.user.id,
+            email: session.user.email,
+            ...(session.session.activeOrganizationId === null
+              ? {}
+              : { activeOrganizationId: session.session.activeOrganizationId }),
+          },
     ),
   );
-  const currentUserLive = makeCurrentUserLive(env.DB, loadSession, EVENT_SLUG);
-  const services = Layer.merge(makeRepositoriesLive(env.DB), currentUserLive);
+  const connectionString = env.HYPERDRIVE.connectionString;
+  const currentUserLive = makeCurrentUserLive(connectionString, loadSession, EVENT_SLUG);
+  const services = Layer.merge(makeRepositoriesLive(connectionString), currentUserLive);
   const secured =
     options?.require === undefined
       ? program

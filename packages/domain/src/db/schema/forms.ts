@@ -1,9 +1,9 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import { id, timestamps } from "../columns";
+import { formFieldType, formSection, formStatus, id, submissionKind, timestamps } from "../columns";
 import { events } from "./core";
 
-export const forms = sqliteTable(
+export const forms = pgTable(
   "forms",
   {
     id: id(),
@@ -12,57 +12,45 @@ export const forms = sqliteTable(
       .references(() => events.id, { onDelete: "cascade" }),
     internalName: text("internal_name").notNull(),
     externalTitle: text("external_title").notNull(),
-    kind: text("kind", { enum: ["abstract", "session"] }).notNull(),
-    collectParticipants: integer("collect_participants", { mode: "boolean" })
-      .notNull()
-      .default(true),
-    status: text("status", { enum: ["open", "closed"] })
-      .notNull()
-      .default("open"),
+    kind: submissionKind("kind").notNull(),
+    collectParticipants: boolean("collect_participants").notNull().default(true),
+    status: formStatus("status").notNull().default("open"),
     welcomeHeading: text("welcome_heading").notNull(),
     welcomeMessage: text("welcome_message").notNull(),
-    showWelcome: integer("show_welcome", { mode: "boolean" }).notNull().default(true),
-    abstractSection: text("abstract_section", { mode: "json" }).notNull(),
-    participantSection: text("participant_section", { mode: "json" }).notNull(),
-    participantRoles: text("participant_roles", { mode: "json" }).notNull(),
-    closeDate: integer("close_date", { mode: "timestamp_ms" }),
+    showWelcome: boolean("show_welcome").notNull().default(true),
+    abstractSection: jsonb("abstract_section").notNull(),
+    participantSection: jsonb("participant_section").notNull(),
+    participantRoles: jsonb("participant_roles").notNull(),
+    closeDate: timestamp("close_date", { withTimezone: true }),
     submissionLimit: integer("submission_limit"),
-    allowMultipleDrafts: integer("allow_multiple_drafts", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    allowMultipleDrafts: boolean("allow_multiple_drafts").notNull().default(false),
     successMessage: text("success_message").notNull(),
-    autoRedirectPortal: integer("auto_redirect_portal", { mode: "boolean" })
-      .notNull()
-      .default(true),
-    confirmationEmailEnabled: integer("confirmation_email_enabled", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    autoRedirectPortal: boolean("auto_redirect_portal").notNull().default(true),
+    confirmationEmailEnabled: boolean("confirmation_email_enabled").notNull().default(true),
     confirmationEmailBody: text("confirmation_email_body").notNull(),
-    adminAlertUserIds: text("admin_alert_user_ids", { mode: "json" }).notNull(),
+    adminAlertUserIds: jsonb("admin_alert_user_ids").notNull(),
     ...timestamps,
   },
   (table) => [index("forms_event_idx").on(table.eventId)],
 );
 
-export const formFields = sqliteTable(
+export const formFields = pgTable(
   "form_fields",
   {
     id: id(),
     formId: text("form_id")
       .notNull()
       .references(() => forms.id, { onDelete: "cascade" }),
-    section: text("section", { enum: ["abstract", "participant"] }).notNull(),
+    section: formSection("section").notNull(),
     label: text("label").notNull(),
-    fieldType: text("field_type", {
-      enum: ["text", "richtext", "email", "phone", "dropdown", "checkbox", "file"],
-    }).notNull(),
+    fieldType: formFieldType("field_type").notNull(),
     maxChars: integer("max_chars"),
-    required: integer("required", { mode: "boolean" }).notNull().default(false),
-    locked: integer("locked", { mode: "boolean" }).notNull().default(false),
+    required: boolean("required").notNull().default(false),
+    locked: boolean("locked").notNull().default(false),
     position: integer("position").notNull(),
-    options: text("options", { mode: "json" }),
+    options: jsonb("options"),
     mapsTo: text("maps_to"),
-    condition: text("condition", { mode: "json" }),
+    condition: jsonb("condition"),
     ...timestamps,
   },
   (table) => [index("form_fields_form_position_idx").on(table.formId, table.position)],

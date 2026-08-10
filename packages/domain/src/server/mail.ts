@@ -115,8 +115,8 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
     }),
   );
 
-export const makeMailLive = (database: D1Database, demoMode: boolean, deliver: MailTransport) =>
-  makeMailLayer(demoMode, deliver).pipe(Layer.provide(makeDbLive(database)));
+export const makeMailLive = (connectionString: string, demoMode: boolean, deliver: MailTransport) =>
+  makeMailLayer(demoMode, deliver).pipe(Layer.provide(makeDbLive(connectionString)));
 
 export const sendMagicLink = (input: MagicLinkMail) =>
   Effect.gen(function* () {

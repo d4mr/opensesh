@@ -15,14 +15,20 @@
   },
   "scripts": {
     "check": "vp check",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:reset": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/reset.ts",
+    "seed": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/index.ts",
+    "seed:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify.ts"
   },
   "dependencies": {
     "drizzle-orm": "1.0.0-rc.4",
     "effect": "4.0.0-beta.106",
-    "nanoid": "5.1.5"
+    "nanoid": "5.1.5",
+    "postgres": "3.4.9"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260810.1"
+    "@cloudflare/workers-types": "^5.20260810.1",
+    "@types/node": "^24.10.1",
+    "tsx": "4.20.5"
   }
 }

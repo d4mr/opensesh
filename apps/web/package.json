@@ -6,17 +6,11 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "XDG_CONFIG_HOME=.wrangler/config WRANGLER_WRITE_LOGS=false vp dev --port 3000",
+    "dev": "node --env-file=.dev.vars scripts/run-vp.mjs dev",
     "check": "vp check",
-    "build": "XDG_CONFIG_HOME=.wrangler/config WRANGLER_WRITE_LOGS=false vp build",
-    "deploy": "vp build && wrangler deploy",
-    "cf-typegen": "wrangler types",
-    "db:migrate:local": "WRANGLER_WRITE_LOGS=false wrangler d1 migrations apply opensesh --local",
-    "db:migrate:remote": "WRANGLER_WRITE_LOGS=false wrangler d1 migrations apply opensesh --remote",
-    "db:reset": "node scripts/reset-db.mjs",
-    "db:reset:remote": "node scripts/reset-db.mjs --remote",
-    "seed": "WRANGLER_WRITE_LOGS=false wrangler d1 execute opensesh --local --file=../../packages/domain/seed.sql",
-    "seed:verify": "node scripts/seed-verify.mjs"
+    "build": "node --env-file=.dev.vars scripts/run-vp.mjs build",
+    "deploy": "node --env-file=.dev.vars scripts/run-vp.mjs build && wrangler deploy",
+    "cf-typegen": "wrangler types --include-runtime false"
   },
   "dependencies": {
     "@opensesh/domain": "workspace:*",
@@ -41,6 +35,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.26.0",
+    "@cloudflare/workers-types": "^5.20260810.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-cli": "^1.132.0",
     "@types/react": "^19.2.0",

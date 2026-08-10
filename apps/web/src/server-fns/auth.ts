@@ -89,6 +89,10 @@ export const getStaffViewer = createServerFn({ method: "GET" }).handler(async ()
   runServer(getCurrentUser, { require: "staff" }),
 );
 
+export const getAdminViewer = createServerFn({ method: "GET" }).handler(async () =>
+  runServer(getCurrentUser, { require: "admin" }),
+);
+
 export const getPublicEvent = createServerFn({ method: "GET" }).handler(async () =>
   runServer(getEventBySlug(EVENT_SLUG)),
 );

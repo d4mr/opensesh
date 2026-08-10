@@ -5,6 +5,7 @@ import { EntityFields, NullableNumber, NullableString, Text1000 } from "./common
 export const EventMemberRole = Schema.Literals(["admin", "reviewer"]);
 
 const eventFields = {
+  organizationId: Schema.String,
   name: Schema.String,
   slug: Schema.String,
   type: Schema.String,
@@ -42,6 +43,15 @@ export const EventMember = Schema.Struct({
   role: EventMemberRole,
 });
 export type EventMember = typeof EventMember.Type;
+
+export const OrganizationMember = Schema.Struct({
+  id: Schema.String,
+  organizationId: Schema.String,
+  userId: Schema.String,
+  role: Schema.String,
+  createdAt: Schema.Date,
+});
+export type OrganizationMember = typeof OrganizationMember.Type;
 
 const libraryFields = {
   eventId: Schema.String,

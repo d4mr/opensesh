@@ -54,8 +54,8 @@ const RepositoriesLive = Layer.mergeAll(
   TasksLive,
 );
 
-export const makeRepositoriesLive = (database: D1Database) =>
-  RepositoriesLive.pipe(Layer.provide(makeDbLive(database)));
+export const makeRepositoriesLive = (connectionString: string) =>
+  RepositoriesLive.pipe(Layer.provide(makeDbLive(connectionString)));
 
-export const makeEventsLive = (database: D1Database) =>
-  EventsLive.pipe(Layer.provide(makeDbLive(database)));
+export const makeEventsLive = (connectionString: string) =>
+  EventsLive.pipe(Layer.provide(makeDbLive(connectionString)));

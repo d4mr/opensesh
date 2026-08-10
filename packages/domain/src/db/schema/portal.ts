@@ -1,10 +1,10 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import { id, timestamps } from "../columns";
+import { emailStatus, emailType, id, targetType, taskStatus, timestamps } from "../columns";
 import { events } from "./core";
 import { contacts, submissions } from "./submissions";
 
-export const portalForms = sqliteTable(
+export const portalForms = pgTable(
   "portal_forms",
   {
     id: id(),
@@ -13,18 +13,16 @@ export const portalForms = sqliteTable(
       .references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     title: text("title").notNull(),
-    targetType: text("target_type", { enum: ["contact", "submission"] }).notNull(),
-    sections: text("sections", { mode: "json" }).notNull(),
-    confirmationEmailEnabled: integer("confirmation_email_enabled", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    targetType: targetType("target_type").notNull(),
+    sections: jsonb("sections").notNull(),
+    confirmationEmailEnabled: boolean("confirmation_email_enabled").notNull().default(false),
     confirmationEmailBody: text("confirmation_email_body"),
     ...timestamps,
   },
   (table) => [index("portal_forms_event_idx").on(table.eventId)],
 );
 
-export const portalFormResponses = sqliteTable(
+export const portalFormResponses = pgTable(
   "portal_form_responses",
   {
     id: id(),
@@ -37,14 +35,14 @@ export const portalFormResponses = sqliteTable(
     submissionId: text("submission_id").references(() => submissions.id, {
       onDelete: "cascade",
     }),
-    answers: text("answers", { mode: "json" }).notNull(),
-    submittedAt: integer("submitted_at", { mode: "timestamp_ms" }).notNull(),
+    answers: jsonb("answers").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
     ...timestamps,
   },
   (table) => [index("portal_form_responses_form_idx").on(table.formId)],
 );
 
-export const fileRequests = sqliteTable(
+export const fileRequests = pgTable(
   "file_requests",
   {
     id: id(),
@@ -52,14 +50,14 @@ export const fileRequests = sqliteTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
-    targetType: text("target_type", { enum: ["contact", "submission"] }).notNull(),
+    targetType: targetType("target_type").notNull(),
     instructions: text("instructions").notNull(),
     ...timestamps,
   },
   (table) => [index("file_requests_event_idx").on(table.eventId)],
 );
 
-export const fileUploads = sqliteTable(
+export const fileUploads = pgTable(
   "file_uploads",
   {
     id: id(),
@@ -75,13 +73,13 @@ export const fileUploads = sqliteTable(
     filename: text("filename").notNull(),
     url: text("url").notNull(),
     size: integer("size").notNull(),
-    uploadedAt: integer("uploaded_at", { mode: "timestamp_ms" }).notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull(),
     ...timestamps,
   },
   (table) => [index("file_uploads_request_idx").on(table.fileRequestId)],
 );
 
-export const taskTemplates = sqliteTable(
+export const taskTemplates = pgTable(
   "task_templates",
   {
     id: id(),
@@ -90,24 +88,22 @@ export const taskTemplates = sqliteTable(
       .references(() => events.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     instructions: text("instructions").notNull(),
-    scope: text("scope", { enum: ["contact", "submission"] }).notNull(),
+    scope: targetType("scope").notNull(),
     portalFormId: text("portal_form_id").references(() => portalForms.id, {
       onDelete: "set null",
     }),
     fileRequestId: text("file_request_id").references(() => fileRequests.id, {
       onDelete: "set null",
     }),
-    autoAssignOnAccept: integer("auto_assign_on_accept", { mode: "boolean" })
-      .notNull()
-      .default(true),
-    dueDate: integer("due_date", { mode: "timestamp_ms" }),
+    autoAssignOnAccept: boolean("auto_assign_on_accept").notNull().default(true),
+    dueDate: timestamp("due_date", { withTimezone: true }),
     position: integer("position").notNull(),
     ...timestamps,
   },
   (table) => [index("task_templates_event_idx").on(table.eventId)],
 );
 
-export const taskAssignments = sqliteTable(
+export const taskAssignments = pgTable(
   "task_assignments",
   {
     id: id(),
@@ -118,10 +114,8 @@ export const taskAssignments = sqliteTable(
     submissionId: text("submission_id").references(() => submissions.id, {
       onDelete: "cascade",
     }),
-    status: text("status", { enum: ["todo", "done"] })
-      .notNull()
-      .default("todo"),
-    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    status: taskStatus("status").notNull().default("todo"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [
@@ -130,7 +124,7 @@ export const taskAssignments = sqliteTable(
   ],
 );
 
-export const emailLog = sqliteTable(
+export const emailLog = pgTable(
   "email_log",
   {
     id: id(),
@@ -138,22 +132,12 @@ export const emailLog = sqliteTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
-    type: text("type", {
-      enum: [
-        "confirmation",
-        "magic_link",
-        "accepted",
-        "declined",
-        "task_reminder",
-        "calendar_invite",
-        "custom",
-      ],
-    }).notNull(),
+    type: emailType("type").notNull(),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
-    icsAttached: integer("ics_attached", { mode: "boolean" }).notNull().default(false),
-    status: text("status", { enum: ["queued", "sent", "failed"] }).notNull(),
-    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    icsAttached: boolean("ics_attached").notNull().default(false),
+    status: emailStatus("status").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [

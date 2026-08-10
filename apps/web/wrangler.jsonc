@@ -13,17 +13,8 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "444bb6f8798144dcaae2dd671459ac2d"
-    }
-  ],
-  "placement": { "mode": "smart" },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "opensesh",
-      "database_id": "ed40f83c-7d96-4353-ace3-489ea155ba11",
-      "migrations_dir": "../../packages/domain/migrations",
-      "migrations_pattern": "../../packages/domain/migrations/*/migration.sql",
+      "id": "444bb6f8798144dcaae2dd671459ac2d",
     },
   ],
+  "placement": { "mode": "smart" },
 }

@@ -1,22 +1,24 @@
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { contacts, eventMembers, events } from "../db/schema";
+import { contacts, eventMembers, events, organizationMembers } from "../db/schema";
 import { Db, makeDbLive } from "./db";
 import { DbError, Forbidden, Unauthenticated } from "./errors";
-import { EventMember } from "./schema/core";
+import { Event, EventMember, OrganizationMember } from "./schema/core";
 import { Contact } from "./schema/submissions";
 import { decodeMany, query } from "./repos/shared";
 
 export const SessionIdentity = Schema.Struct({
   userId: Schema.String,
   email: Schema.String,
+  activeOrganizationId: Schema.optionalKey(Schema.String),
 });
 export type SessionIdentity = typeof SessionIdentity.Type;
 
 export const CurrentUserValue = Schema.Struct({
   userId: Schema.String,
   email: Schema.String,
+  orgId: Schema.String,
   roles: Schema.Struct({
     admin: Schema.Boolean,
     reviewer: Schema.Boolean,
@@ -28,7 +30,7 @@ export type CurrentUserValue = typeof CurrentUserValue.Type;
 export type RequiredRole = "session" | "staff" | "admin" | "reviewer" | "speaker";
 
 interface CurrentUserService {
-  readonly get: Effect.Effect<CurrentUserValue, DbError | Unauthenticated>;
+  readonly get: Effect.Effect<CurrentUserValue, DbError | Forbidden | Unauthenticated>;
 }
 
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserService>()(
@@ -51,13 +53,40 @@ const makeCurrentUserLayer = (
             return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
           }
 
-          const eventRows = yield* query(database, "Could not load current event", (db) =>
-            db.select().from(events).where(eq(events.slug, eventSlug)).limit(1).execute(),
-          );
+          const [eventRows, organizationMemberRows] = yield* Effect.all([
+            query(database, "Could not load current event", (db) =>
+              db.select().from(events).where(eq(events.slug, eventSlug)).limit(1).execute(),
+            ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows))),
+            query(database, "Could not load organization memberships", (db) =>
+              db
+                .select()
+                .from(organizationMembers)
+                .where(eq(organizationMembers.userId, session.userId))
+                .execute(),
+            ).pipe(
+              Effect.flatMap((rows) =>
+                decodeMany(OrganizationMember, "organization membership", rows),
+              ),
+            ),
+          ]);
           const event = eventRows[0];
           if (event === undefined) {
             return yield* Effect.fail(
               new DbError({ message: "Current event is missing", cause: eventRows }),
+            );
+          }
+          const organizationMember =
+            session.activeOrganizationId === undefined
+              ? organizationMemberRows[0]
+              : organizationMemberRows.find(
+                  (member) => member.organizationId === session.activeOrganizationId,
+                );
+          if (
+            organizationMember === undefined ||
+            organizationMember.organizationId !== event.organizationId
+          ) {
+            return yield* Effect.fail(
+              new Forbidden({ message: "You do not have access to this organization" }),
             );
           }
 
@@ -85,6 +114,7 @@ const makeCurrentUserLayer = (
           return {
             userId: session.userId,
             email: session.email,
+            orgId: organizationMember.organizationId,
             roles: {
               admin: memberRows.some((member) => member.role === "admin"),
               reviewer: memberRows.some((member) => member.role === "reviewer"),
@@ -97,10 +127,10 @@ const makeCurrentUserLayer = (
   );
 
 export const makeCurrentUserLive = (
-  database: D1Database,
+  connectionString: string,
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
   eventSlug: string,
-) => makeCurrentUserLayer(loadSession, eventSlug).pipe(Layer.provide(makeDbLive(database)));
+) => makeCurrentUserLayer(loadSession, eventSlug).pipe(Layer.provide(makeDbLive(connectionString)));
 
 export const getCurrentUser = Effect.gen(function* () {
   const service = yield* CurrentUser;

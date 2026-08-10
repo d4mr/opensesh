@@ -11,12 +11,9 @@
     "deploy": "vp run @opensesh/web#deploy",
     "cf-typegen": "vp run @opensesh/web#cf-typegen",
     "db:generate": "vp run @opensesh/domain#db:generate",
-    "db:migrate:local": "vp run @opensesh/web#db:migrate:local",
-    "db:migrate:remote": "vp run @opensesh/web#db:migrate:remote",
-    "db:reset": "pnpm --dir apps/web db:reset",
-    "db:reset:remote": "pnpm --dir apps/web db:reset:remote",
-    "seed": "pnpm --dir apps/web seed",
-    "seed:verify": "pnpm --dir apps/web seed:verify"
+    "db:reset": "pnpm --filter @opensesh/domain db:reset",
+    "seed": "pnpm --filter @opensesh/domain seed",
+    "seed:verify": "pnpm --filter @opensesh/domain seed:verify"
   },
   "devDependencies": {
     "drizzle-kit": "1.0.0-rc.4",
