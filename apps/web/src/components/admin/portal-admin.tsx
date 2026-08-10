@@ -2,6 +2,7 @@ import type { FormFieldDefinition, PortalFormSection } from "@opensesh/domain";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
   ChevronDownIcon,
+  ChevronRightIcon,
   DownloadIcon,
   FileArchiveIcon,
   FilterIcon,
@@ -1134,105 +1135,142 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                 const speakers = data.participants.filter(
                   (row) => row.submission.id === submission.id,
                 );
-                const history = data.history
-                  .map((item) => item.history)
-                  .filter((item) => item.submissionId === submission.id);
                 return (
-                  <Fragment key={submission.id}>
-                    <TableRow
-                      className="cursor-pointer"
-                      onClick={() => setExpanded(expanded === submission.id ? null : submission.id)}
-                    >
-                      <TableCell>
-                        <span className="font-mono text-xs tabular-nums">{submission.code}</span> —{" "}
-                        <span className="font-medium">{submission.title}</span>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={submission.status} />
-                      </TableCell>
-                      <TableCell>
-                        {speakers.length === 0
-                          ? "—"
-                          : speakers
-                              .map((row) => `${row.contact.firstName} ${row.contact.lastName}`)
-                              .join(", ")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {submission.status === "pending" ? (
-                          <Button
-                            size="sm"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              accept.mutate(submission.id);
-                            }}
-                          >
-                            <UserRoundCheckIcon /> Accept
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="ghost">
-                            <ChevronDownIcon />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                    {expanded === submission.id ? (
-                      <TableRow key={`${submission.id}-detail`}>
-                        <TableCell colSpan={4} className="bg-muted/20 p-4">
-                          <Tabs defaultValue="speakers">
-                            <TabsList variant="line">
-                              <TabsTrigger value="speakers">Speakers</TabsTrigger>
-                              <TabsTrigger value="history">History ({history.length})</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="speakers" className="pt-3">
-                              <div className="grid gap-2">
-                                {speakers.map((row) => (
-                                  <SpeakerCard
-                                    key={row.contact.id}
-                                    data={data}
-                                    contact={row.contact}
-                                    eventId={eventId}
-                                  />
-                                ))}
-                              </div>
-                            </TabsContent>
-                            <TabsContent value="history" className="pt-3">
-                              <div className="grid gap-2">
-                                {history.map((entry) => (
-                                  <details
-                                    key={entry.id}
-                                    className="rounded-md border bg-background"
-                                  >
-                                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
-                                      <HistoryIcon className="size-3.5" />
-                                      {entry.authorName} · {entry.changedFields.join(", ")}
-                                      <span className="ml-auto capitalize text-muted-foreground">
-                                        {entry.approvalStatus.replace("_", " ")}
-                                      </span>
-                                    </summary>
-                                    <div className="border-t p-3">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => restore.mutate(entry.id)}
-                                      >
-                                        <RotateCcwIcon /> Restore
-                                      </Button>
-                                    </div>
-                                  </details>
-                                ))}
-                              </div>
-                            </TabsContent>
-                          </Tabs>
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </Fragment>
+                  <TableRow
+                    key={submission.id}
+                    className="cursor-pointer"
+                    onClick={() => setExpanded(submission.id)}
+                  >
+                    <TableCell>
+                      <span className="font-mono text-xs tabular-nums">{submission.code}</span> —{" "}
+                      <span className="font-medium">{submission.title}</span>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={submission.status} />
+                    </TableCell>
+                    <TableCell>
+                      {speakers.length === 0
+                        ? "—"
+                        : speakers
+                            .map((row) => `${row.contact.firstName} ${row.contact.lastName}`)
+                            .join(", ")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {submission.status === "pending" ? (
+                        <Button
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            accept.mutate(submission.id);
+                          }}
+                        >
+                          <UserRoundCheckIcon /> Accept
+                        </Button>
+                      ) : (
+                        <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
+                      )}
+                    </TableCell>
+                  </TableRow>
                 );
               })}
           </TableBody>
         </Table>
       </div>
+      <SessionPeek
+        data={data}
+        eventId={eventId}
+        submissionId={expanded}
+        onClose={() => setExpanded(null)}
+        onRestore={(historyId) => restore.mutate(historyId)}
+      />
     </main>
+  );
+}
+
+function SessionPeek({
+  data,
+  eventId,
+  submissionId,
+  onClose,
+  onRestore,
+}: {
+  readonly data: AdminData;
+  readonly eventId: string;
+  readonly submissionId: string | null;
+  readonly onClose: () => void;
+  readonly onRestore: (historyId: string) => void;
+}) {
+  const submission = data.submissions.find((item) => item.id === submissionId);
+  const speakers = data.participants.filter((row) => row.submission.id === submissionId);
+  const history = data.history
+    .map((item) => item.history)
+    .filter((item) => item.submissionId === submissionId);
+  return (
+    <Sheet
+      open={submissionId !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        {submission === undefined ? null : (
+          <>
+            <SheetHeader>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {submission.code}
+                </span>
+                <StatusBadge status={submission.status} />
+              </div>
+              <SheetTitle>{submission.title}</SheetTitle>
+              <SheetDescription className="sr-only">
+                Session speakers and content history
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-5 px-4 pb-4">
+              <section className="grid gap-2">
+                <h3 className="text-xs font-medium text-muted-foreground">Speakers</h3>
+                {speakers.length === 0 ? (
+                  <p className="text-xs italic text-muted-foreground/70">No speakers attached.</p>
+                ) : (
+                  speakers.map((row) => (
+                    <SpeakerCard
+                      key={row.contact.id}
+                      data={data}
+                      contact={row.contact}
+                      eventId={eventId}
+                    />
+                  ))
+                )}
+              </section>
+              <section className="grid gap-2">
+                <h3 className="text-xs font-medium text-muted-foreground">Content history</h3>
+                {history.length === 0 ? (
+                  <p className="text-xs italic text-muted-foreground/70">No content changes yet.</p>
+                ) : (
+                  history.map((entry) => (
+                    <details key={entry.id} className="rounded-md border bg-background">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+                        <HistoryIcon className="size-3.5" />
+                        {entry.authorName} · {entry.changedFields.join(", ")}
+                        <span className="ml-auto capitalize text-muted-foreground">
+                          {entry.approvalStatus.replace("_", " ")}
+                        </span>
+                      </summary>
+                      <div className="border-t p-3">
+                        <Button size="sm" variant="outline" onClick={() => onRestore(entry.id)}>
+                          <RotateCcwIcon /> Restore
+                        </Button>
+                      </div>
+                    </details>
+                  ))
+                )}
+              </section>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
 
