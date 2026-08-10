@@ -1775,7 +1775,9 @@ function SessionPeek({
                         <p className="text-sm font-medium">{requirement.title}</p>
                         <p className="truncate text-xs text-muted-foreground">
                           {requirement.acceptTypes ?? "Any file type"}
-                          {requirement.maxSizeMb === null ? "" : ` · ${requirement.maxSizeMb} MB max`}
+                          {requirement.maxSizeMb === null
+                            ? ""
+                            : ` · ${requirement.maxSizeMb} MB max`}
                         </p>
                       </div>
                       {file === undefined ? (

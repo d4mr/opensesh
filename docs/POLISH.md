@@ -18,6 +18,7 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 
 - [x] Program library page — fat section headers → dense rails, Add in rail (done, this pass)
 - [ ] Sidebar nav scoping — Rey (reviewer) sees Settings/Event/Library nav but gets "You do not have access"; hide unauthorized nav items instead
+- [ ] Hydration error on every page load — server/client text mismatch ending "…2026" (likely a date formatted in server TZ vs browser TZ); forces full client re-render. Find with React hydration diff in dev console.
 - [ ] Event settings — WP12 rebuilds it (grouped, dense rails, real pickers); re-check at merge
 - [ ] Forms list + form builder page — check header rails, empty states
 - [ ] Portal Forms admin page — "Edit portal form" sheet → dedicated page w/ preview (WP12/13 territory; sheet is banned per overlay doctrine)
