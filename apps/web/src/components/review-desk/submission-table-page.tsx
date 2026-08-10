@@ -127,10 +127,14 @@ const columnLabels: Readonly<Record<string, string>> = {
   notified: "Notified",
 };
 
-const absoluteDate = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
+// Pinned to the event timezone so SSR (UTC worker) and the client render
+// identical title text — an unpinned formatter hydration-mismatches.
+const absoluteDate = (timezone: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: timezone,
+  });
 
 const relativeDate = (date: Date | null) => {
   if (date === null) return "—";
@@ -249,6 +253,7 @@ export function SubmissionTablePage({
 }) {
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
+  const eventTimezone = context?.event.timezone ?? "UTC";
   const list = useSuspenseQuery(reviewDeskListQuery(eventId, kind));
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -479,7 +484,7 @@ export function SubmissionTablePage({
               title={
                 row.original.submittedAt === null
                   ? undefined
-                  : absoluteDate.format(row.original.submittedAt)
+                  : absoluteDate(eventTimezone).format(row.original.submittedAt)
               }
             >
               {relativeDate(row.original.submittedAt)}
@@ -487,7 +492,7 @@ export function SubmissionTablePage({
           ),
         }),
       ]),
-    [directStatusChange, openDecision],
+    [directStatusChange, openDecision, eventTimezone],
   );
 
   const table = useTable(
