@@ -690,6 +690,21 @@ export function SubmissionTablePage({
                       ))}
                     </SelectContent>
                   </Select>
+                  {search === "" && track === "all" && format === "all" && tag === "all" ? null : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs text-muted-foreground"
+                      onClick={() => {
+                        setSearch("");
+                        setTrack("all");
+                        setFormat("all");
+                        setTag("all");
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="sm" variant="outline">
