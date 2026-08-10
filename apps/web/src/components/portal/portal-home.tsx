@@ -120,7 +120,7 @@ export function PortalHome() {
             <p className="text-xs text-muted-foreground">
               {next?.template.dueDate === null || next === undefined
                 ? "You are all caught up."
-                : `Next due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(next.template.dueDate))}: ${next.template.title}`}
+                : `Next due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: data.event.timezone }).format(new Date(next.template.dueDate))}: ${next.template.title}`}
             </p>
           </div>
           <Link

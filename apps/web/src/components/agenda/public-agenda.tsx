@@ -72,9 +72,11 @@ export function PublicAgenda({ agenda }: { readonly agenda: PublicAgendaData | n
       </div>
       <p className="mt-8 border-t pt-3 text-[11px] text-muted-foreground">
         Published{" "}
-        {new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(
-          new Date(agenda.event.publishedAt),
-        )}
+        {new Intl.DateTimeFormat("en-US", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: agenda.event.timezone,
+        }).format(new Date(agenda.event.publishedAt))}
       </p>
     </main>
   );
