@@ -50,6 +50,7 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 - [x] CFP form editor unreachable: /admin/forms/$formId rendered the list (layout route without Outlet, same class as WP16 round editor) — un-nested to admin.forms_.$formId (1a01ab5), verified on prod
 - [x] Conditional-field values were free text while dropdown answers store option ids — organizer typing "Workshop" never matched fmt_…; condition editor now offers the source field's options (Select for equals, chips for is-one-of); verified end-to-end on public wizard
 - [x] Submissions-table submitted-at title hydration mismatch (UTC server vs local client) — formatter pinned to event timezone (9bb9ad0)
+- [x] CRM demo surfaces were empty shells: pipeline board 0 cards, overview rail 0/0/0, no tags, no segments — seeded 5 pipeline cards across all four stages (notes + 9 actor-attributed stage transitions incl. a two-hop Jamal Reed history), 3 org tags on 6 contacts, and a "Repeat speakers" segment (3 contacts); directory tag chips, board, distribution bars, and segment membership all verified in browser
 
 ## Doctrine (from user, 2026-08-10)
 

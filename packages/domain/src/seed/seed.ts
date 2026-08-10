@@ -1,6 +1,9 @@
 import {
   accounts,
+  crmPipelineCards,
   crmPipelineStages,
+  crmSegments,
+  crmStageHistory,
   contactEditHistory,
   contacts,
   embeds,
@@ -18,7 +21,9 @@ import {
   levels,
   organizationMembers,
   organizationContactEvents,
+  organizationContactTags,
   organizationContacts,
+  organizationTags,
   organizations,
   portalFormResponses,
   portalForms,
@@ -680,6 +685,116 @@ const organizationContactEventRows = [...seedData.contacts, ...devflowContacts].
   updatedAt: seededAt,
 }));
 
+const dayMs = 86_400_000;
+const organizationTagRows = [
+  { id: "orgtag_keynote", name: "Keynote potential" },
+  { id: "orgtag_repeat", name: "Repeat speaker" },
+  { id: "orgtag_workshop", name: "Workshop host" },
+].map((tag) => ({
+  ...tag,
+  organizationId: "org_ai_engineer",
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const organizationContactTagRows = [
+  ["orgcon_con_01", "orgtag_repeat"],
+  ["orgcon_con_06", "orgtag_repeat"],
+  ["orgcon_con_10", "orgtag_repeat"],
+  ["orgcon_con_05", "orgtag_keynote"],
+  ["orgcon_con_19", "orgtag_keynote"],
+  ["orgcon_con_13", "orgtag_workshop"],
+].map(([organizationContactId, tagId]) => ({
+  id: `orgcontag_${organizationContactId.replace("orgcon_", "")}_${tagId.replace("orgtag_", "")}`,
+  organizationContactId,
+  tagId,
+  createdAt: seededAt,
+  updatedAt: seededAt,
+}));
+const crmPipelineCardRows = [
+  {
+    id: "crmcard_yuki",
+    organizationContactId: "orgcon_con_17",
+    stageId: "crm_stage_prospect",
+    note: "Strong GPU-scheduling talk at KubeCon — sound out for a 2027 infra keynote.",
+    movedAt: seededAt.getTime() + dayMs,
+  },
+  {
+    id: "crmcard_elena",
+    organizationContactId: "orgcon_con_18",
+    stageId: "crm_stage_prospect",
+    note: "Referred by Mei; writes the Eval Notes newsletter.",
+    movedAt: seededAt.getTime() + dayMs,
+  },
+  {
+    id: "crmcard_mei",
+    organizationContactId: "orgcon_con_24",
+    stageId: "crm_stage_contacted",
+    note: "Intro email sent — waiting on topic ideas.",
+    movedAt: seededAt.getTime() + 3 * dayMs,
+  },
+  {
+    id: "crmcard_jamal",
+    organizationContactId: "orgcon_con_19",
+    stageId: "crm_stage_confirmed",
+    note: "Confirmed for a closing keynote slot; hold Main Stage.",
+    movedAt: seededAt.getTime() + 5 * dayMs,
+  },
+  {
+    id: "crmcard_amara",
+    organizationContactId: "orgcon_con_07",
+    stageId: "crm_stage_declined",
+    note: "On sabbatical through spring — revisit next cycle.",
+    movedAt: seededAt.getTime() + 4 * dayMs,
+  },
+].map(({ movedAt, ...card }) => ({
+  ...card,
+  ownerEventMemberId: "mem_dana",
+  createdAt: seededAt,
+  updatedAt: new Date(movedAt),
+}));
+const crmStageHistoryRows = [
+  { id: "crmhist_yuki_1", cardId: "crmcard_yuki", from: null, to: "crm_stage_prospect", day: 1 },
+  { id: "crmhist_elena_1", cardId: "crmcard_elena", from: null, to: "crm_stage_prospect", day: 1 },
+  { id: "crmhist_mei_1", cardId: "crmcard_mei", from: null, to: "crm_stage_prospect", day: 1 },
+  {
+    id: "crmhist_mei_2",
+    cardId: "crmcard_mei",
+    from: "crm_stage_prospect",
+    to: "crm_stage_contacted",
+    day: 3,
+  },
+  { id: "crmhist_jamal_1", cardId: "crmcard_jamal", from: null, to: "crm_stage_prospect", day: 1 },
+  {
+    id: "crmhist_jamal_2",
+    cardId: "crmcard_jamal",
+    from: "crm_stage_prospect",
+    to: "crm_stage_contacted",
+    day: 2,
+  },
+  {
+    id: "crmhist_jamal_3",
+    cardId: "crmcard_jamal",
+    from: "crm_stage_contacted",
+    to: "crm_stage_confirmed",
+    day: 5,
+  },
+  { id: "crmhist_amara_1", cardId: "crmcard_amara", from: null, to: "crm_stage_prospect", day: 1 },
+  {
+    id: "crmhist_amara_2",
+    cardId: "crmcard_amara",
+    from: "crm_stage_prospect",
+    to: "crm_stage_declined",
+    day: 4,
+  },
+].map((entry) => ({
+  id: entry.id,
+  cardId: entry.cardId,
+  fromStageId: entry.from,
+  toStageId: entry.to,
+  actorEventMemberId: "mem_dana",
+  createdAt: new Date(seededAt.getTime() + entry.day * dayMs),
+}));
+
 export const seedDatabase = async (database: Database) => {
   const password = await hashPassword(DEMO_PASSWORD);
   const devflowPasswords = new Map(
@@ -850,6 +965,15 @@ export const seedDatabase = async (database: Database) => {
         updatedAt: seededAt,
       }),
       transaction.insert(organizationContacts).values(organizationContactRows),
+      transaction.insert(organizationTags).values(organizationTagRows),
+      transaction.insert(crmSegments).values({
+        id: "crmseg_repeat_speakers",
+        organizationId: "org_ai_engineer",
+        name: "Repeat speakers",
+        filter: { search: "", company: "", title: "", tagIds: ["orgtag_repeat"] },
+        createdAt: seededAt,
+        updatedAt: seededAt,
+      }),
       transaction.insert(crmPipelineStages).values(
         [
           {
@@ -958,6 +1082,8 @@ export const seedDatabase = async (database: Database) => {
         updatedAt: seededAt,
       }),
       transaction.insert(organizationContactEvents).values(organizationContactEventRows),
+      transaction.insert(organizationContactTags).values(organizationContactTagRows),
+      transaction.insert(crmPipelineCards).values(crmPipelineCardRows),
     ]);
 
     await Promise.all([
@@ -1016,6 +1142,7 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
       transaction.insert(emailLog).values(rows(emailLogRows)),
       transaction.insert(fileUploads).values(rows(seedData.fileUploads)),
+      transaction.insert(crmStageHistory).values(crmStageHistoryRows),
       transaction.insert(contactEditHistory).values({
         id: "che_maya_bio",
         contactId: "con_01",

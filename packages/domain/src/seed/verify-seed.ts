@@ -108,12 +108,12 @@ const expectedTables: ReadonlyArray<{
   { name: "organization_contacts", table: organizationContacts, expected: 28 },
   { name: "organization_contact_events", table: organizationContactEvents, expected: 28 },
   { name: "organization_contact_notes", table: organizationContactNotes, expected: 0 },
-  { name: "organization_tags", table: organizationTags, expected: 0 },
-  { name: "organization_contact_tags", table: organizationContactTags, expected: 0 },
+  { name: "organization_tags", table: organizationTags, expected: 3 },
+  { name: "organization_contact_tags", table: organizationContactTags, expected: 6 },
   { name: "crm_pipeline_stages", table: crmPipelineStages, expected: 4 },
-  { name: "crm_pipeline_cards", table: crmPipelineCards, expected: 0 },
-  { name: "crm_stage_history", table: crmStageHistory, expected: 0 },
-  { name: "crm_segments", table: crmSegments, expected: 0 },
+  { name: "crm_pipeline_cards", table: crmPipelineCards, expected: 5 },
+  { name: "crm_stage_history", table: crmStageHistory, expected: 9 },
+  { name: "crm_segments", table: crmSegments, expected: 1 },
 ];
 
 const expectedStatuses = {
