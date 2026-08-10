@@ -66,10 +66,12 @@ import { adminPortalQuery } from "@/lib/portal-queries";
 import {
   acceptPortalSubmission,
   approveContentChange,
+  approveProfileChange,
   createAdminFileRequest,
   getPortalAdmin,
   manualAssignAdminTask,
   rejectContentChange,
+  rejectProfileChange,
   restoreAdminHistory,
   saveAdminPortalForm,
   saveAdminTaskTemplate,
@@ -1073,6 +1075,42 @@ function AdminFileRequests({
   );
 }
 
+const profileFieldLabels: Record<string, string> = {
+  firstName: "First name",
+  lastName: "Last name",
+  pronouns: "Pronouns",
+  bio: "Bio",
+  linkedinUrl: "LinkedIn",
+  twitterUrl: "Twitter",
+  facebookUrl: "Facebook",
+  websiteUrl: "Website",
+  headshotKey: "Headshot",
+  headshotUrl: "Headshot URL",
+};
+
+const profileValueText = (value: unknown) =>
+  typeof value === "string" && value.length > 0 ? value : "—";
+
+const profileDiffRows = (entry: {
+  readonly changedFields: ReadonlyArray<string>;
+  readonly previousValues: Readonly<Record<string, unknown>>;
+  readonly newValues: Readonly<Record<string, unknown>>;
+}) =>
+  entry.changedFields
+    .filter((key) => key !== "headshotUrl")
+    .map((key) => ({
+      key,
+      label: profileFieldLabels[key] ?? key,
+      before:
+        key === "headshotKey"
+          ? entry.previousValues[key] == null
+            ? "No headshot"
+            : "Previous headshot"
+          : profileValueText(entry.previousValues[key]),
+      after:
+        key === "headshotKey" ? "New headshot uploaded" : profileValueText(entry.newValues[key]),
+    }));
+
 function AdminSessions({ eventId, data }: { readonly eventId: string; readonly data: AdminData }) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -1111,9 +1149,29 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
       await refresh();
     },
   });
+  const reviewProfile = useMutation({
+    mutationFn: ({
+      id,
+      decision,
+    }: {
+      readonly id: string;
+      readonly decision: "approve" | "reject";
+    }) =>
+      decision === "approve"
+        ? approveProfileChange({ data: { eventId, historyId: id } })
+        : rejectProfileChange({ data: { eventId, historyId: id } }),
+    onSuccess: async (result) => {
+      if (!result.ok) toast.error(result.error.message);
+      else toast.success("Profile review updated");
+      await refresh();
+    },
+  });
   const pendingHistory = data.history
     .map((item) => item.history)
     .filter((item) => item.approvalStatus === "pending_review");
+  const pendingProfiles = data.profileHistory.filter(
+    (item) => item.history.approvalStatus === "pending_review",
+  );
   return (
     <main className="grid gap-4 p-4 lg:p-6">
       <div>
@@ -1190,6 +1248,75 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+      )}
+      {pendingProfiles.length === 0 ? null : (
+        <Card>
+          <CardHeader className="border-b py-3">
+            <CardTitle className="text-sm">
+              Speaker profile changes awaiting approval ({pendingProfiles.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y p-0">
+            {pendingProfiles.map(({ history: entry, contact }) => (
+              <div key={entry.id} className="flex items-center gap-3 px-3 py-3 text-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">
+                    {contact.firstName} {contact.lastName}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {entry.authorName} changed {describeChangedFields(entry.changedFields)}
+                  </p>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      Review
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Review profile changes</DialogTitle>
+                      <DialogDescription>
+                        {contact.firstName} {contact.lastName} · the approved profile stays public
+                        until you decide
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-3">
+                      {profileDiffRows(entry).map((row) => (
+                        <div key={row.key} className="grid gap-1 text-xs">
+                          <p className="font-medium capitalize text-muted-foreground">
+                            {row.label}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                              {row.before}
+                            </pre>
+                            <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                              {row.after}
+                            </pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => reviewProfile.mutate({ id: entry.id, decision: "reject" })}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        onClick={() => reviewProfile.mutate({ id: entry.id, decision: "approve" })}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

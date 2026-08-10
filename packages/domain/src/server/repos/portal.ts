@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
+  contactEditHistory,
   contacts,
   eventMembers,
   fileComments,
@@ -74,6 +75,33 @@ const decodeJsonRecord = (value: unknown) =>
     ),
   );
 
+// Public-facing profile fields follow the same approval contract as session
+// content: confirmed speakers' edits stay live in the portal but public
+// surfaces keep reading approvedProfile until an organizer approves.
+const profileKeys = [
+  "firstName",
+  "lastName",
+  "pronouns",
+  "bio",
+  "linkedinUrl",
+  "twitterUrl",
+  "facebookUrl",
+  "websiteUrl",
+  "headshotUrl",
+  "headshotKey",
+] as const;
+type ProfileKey = (typeof profileKeys)[number];
+
+const profileSnapshot = (contact: typeof contacts.$inferSelect) =>
+  Object.fromEntries(profileKeys.map((key) => [key, contact[key] ?? null])) as Readonly<
+    Record<string, Schema.Json>
+  >;
+
+const approvedBaseline = (contact: typeof contacts.$inferSelect) =>
+  Object.keys(contact.approvedProfile).length > 0
+    ? contact.approvedProfile
+    : profileSnapshot(contact);
+
 const applyContentPatch = (base: ContentSnapshot, patch: Readonly<Record<string, Schema.Json>>) =>
   Effect.gen(function* () {
     const answers =
@@ -115,6 +143,9 @@ export interface SpeakerPortalBootstrap {
   readonly comments: ReadonlyArray<{ readonly comment: typeof fileComments.$inferSelect }>;
   readonly history: ReadonlyArray<{
     readonly history: typeof submissionEditHistory.$inferSelect;
+  }>;
+  readonly profileHistory: ReadonlyArray<{
+    readonly history: typeof contactEditHistory.$inferSelect;
   }>;
   readonly fields: ReadonlyArray<{ readonly field: typeof formFields.$inferSelect }>;
   readonly trackIds: ReadonlyArray<{ readonly submissionId: string; readonly id: string }>;
@@ -162,6 +193,10 @@ export interface AdminPortalBootstrap {
   readonly submissions: ReadonlyArray<typeof submissions.$inferSelect>;
   readonly history: ReadonlyArray<{
     readonly history: typeof submissionEditHistory.$inferSelect;
+  }>;
+  readonly profileHistory: ReadonlyArray<{
+    readonly history: typeof contactEditHistory.$inferSelect;
+    readonly contact: typeof contacts.$inferSelect;
   }>;
   readonly fields: ReadonlyArray<{ readonly field: typeof formFields.$inferSelect }>;
   readonly library: SpeakerPortalBootstrap["library"];
@@ -266,6 +301,12 @@ interface PortalService {
     historyId: string,
     decision: "approved" | "rejected",
   ) => Effect.Effect<Submission, DbError | Forbidden | NotFound>;
+  readonly reviewProfile: (
+    eventId: string,
+    userId: string,
+    historyId: string,
+    decision: "approved" | "rejected",
+  ) => Effect.Effect<Contact, DbError | Forbidden | NotFound>;
   readonly acceptSubmission: (
     eventId: string,
     submissionId: string,
@@ -453,6 +494,14 @@ export const PortalLive = Layer.effect(
                   ),
                 )
                 .orderBy(desc(submissionEditHistory.createdAt))
+                .execute(),
+            ),
+            profileHistory: query(database, "Could not load profile history", (db) =>
+              db
+                .select({ history: contactEditHistory })
+                .from(contactEditHistory)
+                .where(eq(contactEditHistory.contactId, contactId))
+                .orderBy(desc(contactEditHistory.createdAt))
                 .execute(),
             ),
             fields: query(database, "Could not load submission fields", (db) =>
@@ -654,6 +703,15 @@ export const PortalLive = Layer.effect(
                 .orderBy(desc(submissionEditHistory.createdAt))
                 .execute(),
             ),
+            profileHistory: query(database, "Could not load profile history", (db) =>
+              db
+                .select({ history: contactEditHistory, contact: contacts })
+                .from(contactEditHistory)
+                .innerJoin(contacts, eq(contacts.id, contactEditHistory.contactId))
+                .where(eq(contacts.eventId, eventId))
+                .orderBy(desc(contactEditHistory.createdAt))
+                .execute(),
+            ),
             fields: query(database, "Could not load form fields", (db) =>
               db
                 .select({ field: formFields })
@@ -702,12 +760,55 @@ export const PortalLive = Layer.effect(
         ),
       updateProfile: (contactId, input) =>
         query(database, "Could not update speaker profile", (db) =>
-          db
-            .update(contacts)
-            .set({ ...input, updatedAt: new Date() })
-            .where(eq(contacts.id, contactId))
-            .returning()
-            .execute(),
+          db.transaction(async (transaction) => {
+            const existingRows = await transaction
+              .select()
+              .from(contacts)
+              .where(eq(contacts.id, contactId))
+              .limit(1);
+            const existing = existingRows[0];
+            if (existing === undefined) return [];
+            const now = new Date();
+            const inputRecord = input as Readonly<Record<string, Schema.Json | undefined>>;
+            const gatedChanges = profileKeys.filter(
+              (key) =>
+                inputRecord[key] !== undefined &&
+                JSON.stringify(inputRecord[key] ?? null) !== JSON.stringify(existing[key] ?? null),
+            );
+            if (existing.confirmedAt === null || gatedChanges.length === 0) {
+              return await transaction
+                .update(contacts)
+                .set({ ...input, updatedAt: now })
+                .where(eq(contacts.id, contactId))
+                .returning();
+            }
+            await transaction.insert(contactEditHistory).values({
+              contactId,
+              authorContactId: contactId,
+              authorEventMemberId: null,
+              authorName: `${existing.firstName} ${existing.lastName}`,
+              changedFields: gatedChanges,
+              previousValues: Object.fromEntries(
+                gatedChanges.map((key) => [key, existing[key] ?? null]),
+              ),
+              newValues: Object.fromEntries(
+                gatedChanges.map((key) => [key, inputRecord[key] ?? null]),
+              ),
+              approvalStatus: "pending_review",
+              reviewedAt: null,
+              reviewedByEventMemberId: null,
+            });
+            return await transaction
+              .update(contacts)
+              .set({
+                ...input,
+                approvedProfile: approvedBaseline(existing),
+                profileReviewStatus: "pending_review",
+                updatedAt: now,
+              })
+              .where(eq(contacts.id, contactId))
+              .returning();
+          }),
         ).pipe(Effect.flatMap((rows) => decodeFound(Contact, "Contact", rows[0]))),
       withdrawSubmission: (contactId, submissionId) =>
         query(database, "Could not withdraw submission", (db) =>
@@ -1008,12 +1109,52 @@ export const PortalLive = Layer.effect(
               .execute(),
           );
           if (input.headshotContactId !== null) {
+            const headshotContactId = input.headshotContactId;
             yield* query(database, "Could not update speaker headshot", (db) =>
-              db
-                .update(contacts)
-                .set({ headshotKey: input.storageKey, headshotUrl: null, updatedAt: new Date() })
-                .where(eq(contacts.id, input.headshotContactId!))
-                .execute(),
+              db.transaction(async (transaction) => {
+                const existingRows = await transaction
+                  .select()
+                  .from(contacts)
+                  .where(eq(contacts.id, headshotContactId))
+                  .limit(1);
+                const existing = existingRows[0];
+                if (existing === undefined) return;
+                const now = new Date();
+                // Headshots follow the profile approval contract too: a
+                // confirmed speaker's new upload waits for organizer review.
+                const requiresReview = existing.confirmedAt !== null;
+                if (requiresReview) {
+                  await transaction.insert(contactEditHistory).values({
+                    contactId: headshotContactId,
+                    authorContactId: headshotContactId,
+                    authorEventMemberId: null,
+                    authorName: `${existing.firstName} ${existing.lastName}`,
+                    changedFields: ["headshotKey", "headshotUrl"],
+                    previousValues: {
+                      headshotKey: existing.headshotKey,
+                      headshotUrl: existing.headshotUrl,
+                    },
+                    newValues: { headshotKey: input.storageKey, headshotUrl: null },
+                    approvalStatus: "pending_review",
+                    reviewedAt: null,
+                    reviewedByEventMemberId: null,
+                  });
+                }
+                await transaction
+                  .update(contacts)
+                  .set({
+                    headshotKey: input.storageKey,
+                    headshotUrl: null,
+                    ...(requiresReview
+                      ? {
+                          approvedProfile: approvedBaseline(existing),
+                          profileReviewStatus: "pending_review" as const,
+                        }
+                      : {}),
+                    updatedAt: now,
+                  })
+                  .where(eq(contacts.id, headshotContactId));
+              }),
             );
           }
           if (input.completeAssignmentId !== null)
@@ -1278,6 +1419,86 @@ export const PortalLive = Layer.effect(
                 .execute(),
           );
           return yield* decodeFound(Submission, "Submission", updatedRows[0]);
+        }),
+      reviewProfile: (eventId, userId, historyId, decision) =>
+        Effect.gen(function* () {
+          const member = yield* memberForAdmin(eventId, userId);
+          const rows = yield* query(database, "Could not load pending profile edit", (db) =>
+            db
+              .select({ history: contactEditHistory, contact: contacts })
+              .from(contactEditHistory)
+              .innerJoin(contacts, eq(contacts.id, contactEditHistory.contactId))
+              .where(
+                and(
+                  eq(contactEditHistory.id, historyId),
+                  eq(contacts.eventId, eventId),
+                  eq(contactEditHistory.approvalStatus, "pending_review"),
+                ),
+              )
+              .limit(1)
+              .execute(),
+          );
+          const row = rows[0];
+          if (row === undefined)
+            return yield* Effect.fail(
+              new Forbidden({ message: "This profile edit is not pending" }),
+            );
+          const newValues = yield* decodeJsonRecord(row.history.newValues);
+          const approved = yield* decodeJsonRecord(row.contact.approvedProfile);
+          const nextApproved = decision === "approved" ? { ...approved, ...newValues } : approved;
+          yield* query(database, "Could not review profile edit", (db) =>
+            db
+              .update(contactEditHistory)
+              .set({
+                approvalStatus: decision,
+                reviewedAt: new Date(),
+                reviewedByEventMemberId: member.id,
+                updatedAt: new Date(),
+              })
+              .where(eq(contactEditHistory.id, historyId))
+              .execute(),
+          );
+          const pending = yield* query(database, "Could not count pending profile edits", (db) =>
+            db
+              .select({ id: contactEditHistory.id })
+              .from(contactEditHistory)
+              .where(
+                and(
+                  eq(contactEditHistory.contactId, row.contact.id),
+                  eq(contactEditHistory.approvalStatus, "pending_review"),
+                ),
+              )
+              .execute(),
+          );
+          // Rejection reverts the live row to the approved values for the
+          // fields this edit touched; approval folds them into the snapshot.
+          const revert =
+            decision === "rejected"
+              ? (Object.fromEntries(
+                  row.history.changedFields
+                    .filter((key): key is ProfileKey =>
+                      (profileKeys as ReadonlyArray<string>).includes(key),
+                    )
+                    .map((key) => [key, approved[key] ?? null]),
+                ) as Partial<typeof contacts.$inferInsert>)
+              : {};
+          const updatedRows = yield* query(
+            database,
+            "Could not update approved profile content",
+            (db) =>
+              db
+                .update(contacts)
+                .set({
+                  ...revert,
+                  approvedProfile: nextApproved,
+                  profileReviewStatus: pending.length === 0 ? "approved" : "pending_review",
+                  updatedAt: new Date(),
+                })
+                .where(eq(contacts.id, row.contact.id))
+                .returning()
+                .execute(),
+          );
+          return yield* decodeFound(Contact, "Contact", updatedRows[0]);
         }),
       acceptSubmission: (eventId, submissionId) =>
         Effect.gen(function* () {

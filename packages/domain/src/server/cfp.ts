@@ -86,6 +86,8 @@ const contactInput = (
   websiteUrl: null,
   confirmedAt: null,
   custom: customAnswers(answers, fields),
+  approvedProfile: {},
+  profileReviewStatus: "approved",
 });
 
 const contactUpdate = (input: ContactCreate): ContactUpdate => ({

@@ -411,6 +411,40 @@ export const rejectContentChange = createServerFn({ method: "POST" })
     ),
   );
 
+export const approveProfileChange = createServerFn({ method: "POST" })
+  .validator(
+    Schema.toStandardSchemaV1(
+      Schema.Struct({ eventId: Schema.String, ...ContentReviewRequest.fields }),
+    ),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const { user } = yield* requireAdminEvent(data.eventId);
+        const portal = yield* Portal;
+        return yield* portal.reviewProfile(data.eventId, user.userId, data.historyId, "approved");
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const rejectProfileChange = createServerFn({ method: "POST" })
+  .validator(
+    Schema.toStandardSchemaV1(
+      Schema.Struct({ eventId: Schema.String, ...ContentReviewRequest.fields }),
+    ),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const { user } = yield* requireAdminEvent(data.eventId);
+        const portal = yield* Portal;
+        return yield* portal.reviewProfile(data.eventId, user.userId, data.historyId, "rejected");
+      }),
+      { require: "admin" },
+    ),
+  );
+
 export const acceptPortalSubmission = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(

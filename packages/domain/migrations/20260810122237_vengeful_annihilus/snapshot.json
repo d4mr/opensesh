@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "408340ac-aa59-4ddd-93ec-15c0ff8ec885",
+  "id": "f11e3e12-b1b2-40c2-897b-4a845d68b508",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -333,6 +333,12 @@
     {
       "isRlsEnabled": false,
       "name": "task_templates",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "contact_edit_history",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3626,6 +3632,175 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "author_contact_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "author_event_member_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "author_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "changed_fields",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "previous_values",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "new_values",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "content_approval_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "approval_status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reviewed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reviewed_by_event_member_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "contacts"
     },
     {
@@ -3910,6 +4085,32 @@
       "generated": null,
       "identity": null,
       "name": "custom",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contacts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "approved_profile",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contacts"
+    },
+    {
+      "type": "content_approval_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'approved'",
+      "generated": null,
+      "identity": null,
+      "name": "profile_review_status",
       "entityType": "columns",
       "schema": "public",
       "table": "contacts"
@@ -5398,6 +5599,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "contact_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "contact_edit_history_contact_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "event_id",
           "isExpression": false,
           "asc": true,
@@ -6300,6 +6522,74 @@
     {
       "nameExplicit": false,
       "columns": [
+        "contact_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "contacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "contact_edit_history_contact_id_contacts_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "author_contact_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "contacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "contact_edit_history_author_contact_id_contacts_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "author_event_member_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "event_members",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "contact_edit_history_3CH3nLe2GftD_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "reviewed_by_event_member_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "event_members",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "contact_edit_history_D6OFLegOounl_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "event_id"
       ],
       "schemaTo": "public",
@@ -6878,6 +7168,16 @@
       "name": "task_templates_pkey",
       "schema": "public",
       "table": "task_templates",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "contact_edit_history_pkey",
+      "schema": "public",
+      "table": "contact_edit_history",
       "entityType": "pks"
     },
     {

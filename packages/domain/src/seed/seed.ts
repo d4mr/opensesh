@@ -1,5 +1,6 @@
 import {
   accounts,
+  contactEditHistory,
   contacts,
   emailLog,
   eventMembers,
@@ -61,6 +62,25 @@ const answersForSeedSubmission = (submission: (typeof seedData.submissions)[numb
         fld_tags: tagIdsBySubmission.get(submission.id) ?? [],
       }
     : submission.answers;
+// A confirmed speaker's profile edit awaiting organizer review: Maya's live
+// bio carries her pending rewrite while approvedProfile keeps the version
+// public surfaces render until Dana approves it in /admin/content.
+const mayaContact = seedData.contacts.find((contact) => contact.id === "con_01");
+const mayaApprovedBio = mayaContact?.bio ?? "";
+const mayaPendingBio =
+  "Maya builds retrieval systems that serve hundreds of millions of queries at Retrieval Labs, where she leads the answerability program — deciding when a model should refuse to synthesize instead of guessing. She speaks regularly about retrieval quality in production.";
+const mayaApprovedProfile = {
+  firstName: mayaContact?.firstName ?? "",
+  lastName: mayaContact?.lastName ?? "",
+  pronouns: mayaContact?.pronouns ?? null,
+  bio: mayaApprovedBio,
+  linkedinUrl: mayaContact?.linkedinUrl ?? null,
+  twitterUrl: mayaContact?.twitterUrl ?? null,
+  facebookUrl: mayaContact?.facebookUrl ?? null,
+  websiteUrl: mayaContact?.websiteUrl ?? null,
+  headshotUrl: mayaContact?.headshotUrl ?? null,
+  headshotKey: null,
+};
 const submissionRows = seedData.submissions.map((submission) => {
   const answers = answersForSeedSubmission(submission);
   return {
@@ -160,6 +180,13 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(contacts).values(
         seedData.contacts.map((contact) => ({
           ...contact,
+          ...(contact.id === "con_01"
+            ? {
+                bio: mayaPendingBio,
+                approvedProfile: mayaApprovedProfile,
+                profileReviewStatus: "pending_review" as const,
+              }
+            : {}),
           confirmedAt: seedData.submissions.some(
             (submission) =>
               submission.status === "accepted" &&
@@ -192,6 +219,21 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(taskAssignments).values(rows(seedData.taskAssignments)),
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
       transaction.insert(emailLog).values(rows(seedData.emailLog)),
+      transaction.insert(contactEditHistory).values({
+        id: "che_maya_bio",
+        contactId: "con_01",
+        authorContactId: "con_01",
+        authorEventMemberId: null,
+        authorName: "Maya Chen",
+        changedFields: ["bio"],
+        previousValues: { bio: mayaApprovedBio },
+        newValues: { bio: mayaPendingBio },
+        approvalStatus: "pending_review",
+        reviewedAt: null,
+        reviewedByEventMemberId: null,
+        createdAt: new Date(1785672000000),
+        updatedAt: new Date(1785672000000),
+      }),
     ]);
   });
 };

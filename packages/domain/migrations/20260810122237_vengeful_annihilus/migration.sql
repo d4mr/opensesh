@@ -351,6 +351,22 @@ CREATE TABLE "task_templates" (
 	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "contact_edit_history" (
+	"id" text PRIMARY KEY,
+	"contact_id" text NOT NULL,
+	"author_contact_id" text,
+	"author_event_member_id" text,
+	"author_name" text NOT NULL,
+	"changed_fields" jsonb NOT NULL,
+	"previous_values" jsonb NOT NULL,
+	"new_values" jsonb NOT NULL,
+	"approval_status" "content_approval_status" NOT NULL,
+	"reviewed_at" timestamp with time zone,
+	"reviewed_by_event_member_id" text,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "contacts" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
@@ -375,6 +391,8 @@ CREATE TABLE "contacts" (
 	"website_url" text,
 	"confirmed_at" timestamp with time zone,
 	"custom" jsonb NOT NULL,
+	"approved_profile" jsonb DEFAULT '{}' NOT NULL,
+	"profile_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "contacts_event_email_unique" UNIQUE("event_id","email")
@@ -496,6 +514,7 @@ CREATE INDEX "portal_forms_event_idx" ON "portal_forms" ("event_id");--> stateme
 CREATE INDEX "task_assignments_contact_idx" ON "task_assignments" ("contact_id");--> statement-breakpoint
 CREATE INDEX "task_assignments_submission_idx" ON "task_assignments" ("submission_id");--> statement-breakpoint
 CREATE INDEX "task_templates_event_idx" ON "task_templates" ("event_id");--> statement-breakpoint
+CREATE INDEX "contact_edit_history_contact_idx" ON "contact_edit_history" ("contact_id");--> statement-breakpoint
 CREATE INDEX "contacts_event_idx" ON "contacts" ("event_id");--> statement-breakpoint
 CREATE INDEX "reviews_reviewer_idx" ON "reviews" ("reviewer_id");--> statement-breakpoint
 CREATE INDEX "submission_edit_history_submission_idx" ON "submission_edit_history" ("submission_id");--> statement-breakpoint
@@ -546,6 +565,10 @@ ALTER TABLE "task_assignments" ADD CONSTRAINT "task_assignments_submission_id_su
 ALTER TABLE "task_templates" ADD CONSTRAINT "task_templates_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "task_templates" ADD CONSTRAINT "task_templates_portal_form_id_portal_forms_id_fkey" FOREIGN KEY ("portal_form_id") REFERENCES "portal_forms"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "task_templates" ADD CONSTRAINT "task_templates_file_request_id_file_requests_id_fkey" FOREIGN KEY ("file_request_id") REFERENCES "file_requests"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_author_contact_id_contacts_id_fkey" FOREIGN KEY ("author_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_3CH3nLe2GftD_fkey" FOREIGN KEY ("author_event_member_id") REFERENCES "event_members"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_D6OFLegOounl_fkey" FOREIGN KEY ("reviewed_by_event_member_id") REFERENCES "event_members"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "contacts" ADD CONSTRAINT "contacts_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_reviewer_id_event_members_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "event_members"("id") ON DELETE CASCADE;--> statement-breakpoint

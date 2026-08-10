@@ -51,6 +51,16 @@ export const contacts = pgTable(
     websiteUrl: text("website_url"),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     custom: jsonb("custom").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
+    // Last organizer-approved values of public-facing profile fields.
+    // Empty object means "no gated edit yet" — public surfaces fall back to
+    // the live row. Populated lazily on a confirmed speaker's first edit.
+    approvedProfile: jsonb("approved_profile")
+      .$type<Readonly<Record<string, Schema.Json>>>()
+      .notNull()
+      .default({}),
+    profileReviewStatus: contentApprovalStatus("profile_review_status")
+      .notNull()
+      .default("approved"),
     ...timestamps,
   },
   (table) => [
@@ -132,6 +142,35 @@ export const submissionEditHistory = pgTable(
     ...timestamps,
   },
   (table) => [index("submission_edit_history_submission_idx").on(table.submissionId)],
+);
+
+export const contactEditHistory = pgTable(
+  "contact_edit_history",
+  {
+    id: id(),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    authorContactId: text("author_contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    authorEventMemberId: text("author_event_member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
+    authorName: text("author_name").notNull(),
+    changedFields: jsonb("changed_fields").$type<ReadonlyArray<string>>().notNull(),
+    previousValues: jsonb("previous_values")
+      .$type<Readonly<Record<string, Schema.Json>>>()
+      .notNull(),
+    newValues: jsonb("new_values").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
+    approvalStatus: contentApprovalStatus("approval_status").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedByEventMemberId: text("reviewed_by_event_member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (table) => [index("contact_edit_history_contact_idx").on(table.contactId)],
 );
 
 export const submissionTracks = pgTable(

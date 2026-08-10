@@ -131,6 +131,12 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
           {saveMutation.isPending ? "Saving…" : saved ? "Saved" : ""}
         </span>
       </div>
+      {data.contact.profileReviewStatus !== "pending_review" ? null : (
+        <p className="mb-3 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          Some of your changes are waiting for organizer approval — the last approved version of
+          your profile stays public until then.
+        </p>
+      )}
 
       <div className="grid gap-3 md:grid-cols-[1.35fr_1fr]">
         <Card>

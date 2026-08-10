@@ -59,6 +59,8 @@ const contactFields = {
   websiteUrl: NullableString,
   confirmedAt: NullableDate,
   custom: JsonObject,
+  approvedProfile: JsonObject,
+  profileReviewStatus: ContentApprovalStatus,
 };
 
 export const Contact = Schema.Struct({ ...EntityFields, ...contactFields });
