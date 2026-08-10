@@ -8,8 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/app/brand-mark";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -139,10 +138,16 @@ function Wizard({
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState(false);
   const [redirectCancelled, setRedirectCancelled] = useState(false);
+  const [maxStep, setMaxStep] = useState(() => step);
+  const [hoveredStep, setHoveredStep] = useState<number | null>(null);
+  // Remembers the last hovered segment so the tooltip keeps its text and
+  // position while fading out.
+  const tooltipStep = useRef(0);
   const loadedDraft = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const setStep = (next: number) => {
     window.localStorage.setItem(`${storageKey}-step`, String(next));
+    setMaxStep((current) => Math.max(current, next));
     setStepState(next);
   };
 
@@ -226,218 +231,287 @@ function Wizard({
   if (success) {
     return (
       <PublicFrame eventName={event.name}>
-        <Card className="mx-auto max-w-2xl">
-          <CardContent className="py-8 text-center">
-            <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <CheckIcon />
-            </span>
-            <h1 className="mt-4 text-xl font-semibold">Submission received</h1>
-            <div
-              className="prose prose-sm mx-auto mt-3 max-w-none text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: form.successMessage }}
-            />
-            {form.autoRedirectPortal && !redirectCancelled ? (
-              <p className="mt-5 text-xs text-muted-foreground">
-                Going to your portal in 10 seconds…{" "}
-                <button className="underline" onClick={() => setRedirectCancelled(true)}>
-                  Cancel
-                </button>
-              </p>
-            ) : null}
-            <Button className="mt-5" asChild>
-              <a href="/portal">Continue to portal</a>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="wizard-step py-12 text-center">
+          <span className="wizard-pop mx-auto flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <CheckIcon className="size-5" />
+          </span>
+          <h1 className="mt-5 text-xl font-semibold tracking-tight">Submission received</h1>
+          <div
+            className="prose prose-sm mx-auto mt-3 max-w-none text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: form.successMessage }}
+          />
+          {form.autoRedirectPortal && !redirectCancelled ? (
+            <p className="mt-5 text-xs text-muted-foreground">
+              Going to your portal in 10 seconds…{" "}
+              <button className="underline" onClick={() => setRedirectCancelled(true)}>
+                Cancel
+              </button>
+            </p>
+          ) : null}
+          <Button className="pressable mt-6" asChild>
+            <a href="/portal">Continue to portal</a>
+          </Button>
+        </div>
       </PublicFrame>
     );
   }
+  const closeLabel =
+    form.closeDate === null
+      ? null
+      : new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: event.timezone,
+          timeZoneName: "short",
+        }).format(form.closeDate);
+  const heading =
+    step === 0
+      ? form.externalTitle
+      : step === 1
+        ? account.email === null
+          ? "Sign in to continue"
+          : "Welcome back"
+        : stepLabels[step];
+  const subtitle =
+    step === 1
+      ? account.email === null
+        ? "We’ll email you a secure sign-in link — no password needed."
+        : "Resume a draft below, or start a new submission."
+      : step === 2
+        ? form.abstractSection.instructions
+        : step === 3
+          ? form.participantSection.instructions
+          : step === 4
+            ? "Check everything before you submit."
+            : null;
   return (
     <PublicFrame eventName={event.name}>
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-4 grid grid-cols-5 gap-1" aria-label="Submission progress">
-          {stepLabels.map((label, index) => (
-            <div key={`${label}-${index}`} className="min-w-0 text-center">
-              <div
+      <nav className="mb-8" aria-label="Submission progress">
+        <div className="flex items-baseline justify-between text-xs">
+          <span className="font-medium">
+            Step {step + 1} of {stepLabels.length}
+            <span className="text-muted-foreground"> · {stepLabels[step]}</span>
+          </span>
+          <span className="text-muted-foreground" aria-live="polite">
+            {saveState === "saving"
+              ? "Saving…"
+              : saveState === "saved"
+                ? "Saved"
+                : closeLabel === null
+                  ? "Submissions open"
+                  : `Closes ${closeLabel}`}
+          </span>
+        </div>
+        <div className="relative mt-1" onMouseLeave={() => setHoveredStep(null)}>
+          <div className="flex gap-1">
+            {stepLabels.map((label, index) => (
+              <button
+                key={`${label}-${index}`}
+                type="button"
+                tabIndex={index < step ? 0 : -1}
+                aria-label={index < step ? `Back to ${label}` : label}
                 className={cn(
-                  "mx-auto flex size-6 items-center justify-center rounded-full border text-[11px] font-medium",
-                  index <= step && "border-primary bg-primary text-primary-foreground",
+                  "group flex h-4 flex-1 items-center",
+                  index < step ? "cursor-pointer" : "cursor-default",
                 )}
+                onMouseEnter={() => {
+                  tooltipStep.current = index;
+                  setHoveredStep(index);
+                }}
+                onFocus={() => {
+                  tooltipStep.current = index;
+                  setHoveredStep(index);
+                }}
+                onBlur={() => setHoveredStep(null)}
+                onClick={() => {
+                  if (index < step) setStep(index);
+                }}
               >
-                {index < step ? <CheckIcon className="size-3" /> : index + 1}
-              </div>
-              <span className="mt-1 block truncate text-[10px] text-muted-foreground sm:text-xs">
-                {label}
-              </span>
-            </div>
-          ))}
+                <span
+                  className={cn(
+                    "h-1 w-full rounded-full transition-colors duration-300 [transition-timing-function:var(--ease-out)]",
+                    index <= step ? "bg-primary" : index <= maxStep ? "bg-primary/30" : "bg-muted",
+                    index < step && "group-hover:bg-primary/70",
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md border bg-popover px-2 py-1 text-[11px] font-medium whitespace-nowrap text-popover-foreground shadow-md transition-[left,opacity,transform] duration-200 [transition-timing-function:var(--ease-out)]",
+              hoveredStep === null && "translate-y-1 opacity-0",
+            )}
+            style={{
+              left: `${((hoveredStep ?? tooltipStep.current) + 0.5) * (100 / stepLabels.length)}%`,
+            }}
+          >
+            {stepLabels[hoveredStep ?? tooltipStep.current]}
+          </div>
         </div>
-        <div className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-center text-xs text-muted-foreground">
-          {form.closeDate === null
-            ? "Submissions are open."
-            : `Submissions close ${new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: event.timezone, timeZoneName: "short" }).format(form.closeDate)}.`}
-          {limit > 0 ? ` Limit: ${limit} submissions per user.` : ""}
-        </div>
-        <Card className="gap-0 py-0">
-          <CardHeader className="border-b py-4">
-            <CardTitle className="text-base">
-              {step === 0 ? form.externalTitle : stepLabels[step]}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
-            {step === 0 ? (
-              <div>
-                {form.showWelcome ? (
-                  <div
-                    className="prose prose-sm max-w-none text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: form.welcomeMessage }}
-                  />
-                ) : null}
-                <div className="mt-6 flex justify-end">
-                  <Button onClick={() => setStep(1)}>
-                    Continue <ArrowRightIcon />
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-            {step === 1 ? (
-              <AccountStep
-                email={account.email}
-                submissions={account.submissions}
-                callbackUrl={`/submit/${eventSlug}/${formId}`}
-                onContinue={() => setStep(2)}
-                onResume={(id) => void resume(id)}
+      </nav>
+      <div key={step} className="wizard-step">
+        <header className="mb-6">
+          <h1 className="text-xl font-semibold tracking-tight">{heading}</h1>
+          {subtitle === null ? null : (
+            <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
+          )}
+        </header>
+        {step === 0 ? (
+          <div>
+            {form.showWelcome ? (
+              <div
+                className="prose prose-sm max-w-none text-muted-foreground"
+                dangerouslySetInnerHTML={{ __html: form.welcomeMessage }}
               />
             ) : null}
-            {step === 2 ? (
-              <div>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  {form.abstractSection.instructions}
-                </p>
-                <FormRenderer
-                  key={`abstract-${submissionId ?? "new"}-${loadedDraft.current ?? ""}`}
-                  fields={abstractFields}
-                  library={library}
-                  answers={answers}
-                  onAnswersChange={setAnswers}
-                  onContinue={async () => {
-                    if ((await save()) !== null) setStep(form.collectParticipants ? 3 : 4);
-                  }}
-                />
-              </div>
-            ) : null}
-            {step === 3 ? (
-              <div>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  {form.participantSection.instructions}
-                </p>
-                <div className="grid gap-3">
-                  {participants.map((participant, index) => (
-                    <Card key={index} className="gap-0 py-0">
-                      <CardHeader className="flex-row items-center justify-between border-b py-3">
-                        <CardTitle className="text-sm">Speaker {index + 1}</CardTitle>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          disabled={participants.length <= (form.participantRoles[0]?.min ?? 1)}
-                          onClick={() =>
-                            setParticipants(
-                              participants.filter((_, itemIndex) => itemIndex !== index),
-                            )
-                          }
-                        >
-                          <Trash2Icon />
-                        </Button>
-                      </CardHeader>
-                      <CardContent className="p-3">
-                        <FormRenderer
-                          fields={participantFields}
-                          library={library}
-                          answers={participant.answers}
-                          onAnswersChange={(next) =>
-                            setParticipants(
-                              participants.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, answers: next } : item,
-                              ),
-                            )
-                          }
-                          onContinue={() => undefined}
-                          showContinue={false}
-                        />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <Button
-                    variant="outline"
-                    disabled={participants.length >= (form.participantRoles[0]?.max ?? 3)}
-                    onClick={() =>
-                      setParticipants([...participants, participantForEmail(participantFields, "")])
-                    }
-                  >
-                    <PlusIcon /> Add speaker
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      void save().then((id) => {
-                        if (id !== null) setStep(4);
-                      })
-                    }
-                  >
-                    Review
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-            {step === 4 ? (
-              <div className="grid gap-5">
-                <ReviewSection
-                  title={form.abstractSection.title}
-                  fields={abstractFields}
-                  answers={answers}
-                  edit={() => setStep(2)}
-                />
-                {form.collectParticipants
-                  ? participants.map((participant, index) => (
-                      <ReviewSection
-                        key={index}
-                        title={`Speaker ${index + 1}`}
-                        fields={participantFields}
-                        answers={participant.answers}
-                        edit={() => setStep(3)}
-                      />
-                    ))
-                  : null}
-                {error === undefined ? null : (
-                  <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                    {error}
-                  </p>
-                )}
-                <div className="flex items-center justify-between border-t pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep(form.collectParticipants ? 3 : 2)}
-                  >
-                    Back
-                  </Button>
-                  <Button onClick={() => void submit()}>Submit</Button>
-                </div>
-              </div>
-            ) : null}
-            {step >= 2 ? (
-              <p
-                className="mt-3 min-h-4 text-right text-[11px] text-muted-foreground"
-                aria-live="polite"
+            <p className="mt-4 text-xs text-muted-foreground">
+              {closeLabel === null ? "Submissions are open." : `Submissions close ${closeLabel}.`}
+              {limit > 0 ? ` Up to ${limit} submissions per person.` : ""}
+            </p>
+            <div className="mt-6 flex justify-end border-t pt-4">
+              <Button className="pressable" onClick={() => setStep(1)}>
+                Continue <ArrowRightIcon />
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {step === 1 ? (
+          <AccountStep
+            email={account.email}
+            submissions={account.submissions}
+            callbackUrl={`/submit/${eventSlug}/${formId}`}
+            onContinue={() => setStep(2)}
+            onResume={(id) => void resume(id)}
+          />
+        ) : null}
+        {step === 2 ? (
+          <FormRenderer
+            key={`abstract-${submissionId ?? "new"}-${loadedDraft.current ?? ""}`}
+            className="wizard-fields"
+            fields={abstractFields}
+            library={library}
+            answers={answers}
+            onAnswersChange={setAnswers}
+            onBack={() => setStep(1)}
+            onContinue={async () => {
+              if ((await save()) !== null) setStep(form.collectParticipants ? 3 : 4);
+            }}
+          />
+        ) : null}
+        {step === 3 ? (
+          <div>
+            <div className="grid gap-4">
+              {participants.map((participant, index) => (
+                <section key={index} className="overflow-hidden rounded-lg border">
+                  <div className="flex h-10 items-center justify-between border-b bg-muted/40 pr-1.5 pl-3">
+                    <span className="text-[13px] font-medium">Speaker {index + 1}</span>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      disabled={participants.length <= (form.participantRoles[0]?.min ?? 1)}
+                      onClick={() =>
+                        setParticipants(participants.filter((_, itemIndex) => itemIndex !== index))
+                      }
+                    >
+                      <Trash2Icon />
+                    </Button>
+                  </div>
+                  <div className="p-4">
+                    <FormRenderer
+                      className="wizard-fields"
+                      fields={participantFields}
+                      library={library}
+                      answers={participant.answers}
+                      onAnswersChange={(next) =>
+                        setParticipants(
+                          participants.map((item, itemIndex) =>
+                            itemIndex === index ? { ...item, answers: next } : item,
+                          ),
+                        )
+                      }
+                      onContinue={() => undefined}
+                      showContinue={false}
+                    />
+                  </div>
+                </section>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="pressable mt-3 text-muted-foreground"
+              disabled={participants.length >= (form.participantRoles[0]?.max ?? 3)}
+              onClick={() =>
+                setParticipants([...participants, participantForEmail(participantFields, "")])
+              }
+            >
+              <PlusIcon /> Add speaker
+            </Button>
+            <div className="mt-6 flex items-center justify-between border-t pt-4">
+              <Button variant="ghost" className="pressable" onClick={() => setStep(2)}>
+                Back
+              </Button>
+              <Button
+                className="pressable"
+                onClick={() =>
+                  void save().then((id) => {
+                    if (id !== null) setStep(4);
+                  })
+                }
               >
-                {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
+                Review
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {step === 4 ? (
+          <div className="grid gap-6">
+            <ReviewSection
+              title={form.abstractSection.title}
+              fields={abstractFields}
+              answers={answers}
+              library={library}
+              edit={() => setStep(2)}
+            />
+            {form.collectParticipants
+              ? participants.map((participant, index) => (
+                  <ReviewSection
+                    key={index}
+                    title={`Speaker ${index + 1}`}
+                    fields={participantFields}
+                    answers={participant.answers}
+                    library={library}
+                    edit={() => setStep(3)}
+                  />
+                ))
+              : null}
+            {error === undefined ? null : (
+              <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {error}
               </p>
-            ) : null}
-            {step !== 4 && error !== undefined ? (
-              <p className="mt-3 text-sm text-destructive">{error}</p>
-            ) : null}
-          </CardContent>
-        </Card>
+            )}
+            <div className="flex items-center justify-between border-t pt-4">
+              <Button
+                variant="ghost"
+                className="pressable"
+                onClick={() => setStep(form.collectParticipants ? 3 : 2)}
+              >
+                Back
+              </Button>
+              <Button className="pressable" onClick={() => void submit()}>
+                Submit
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {step !== 4 && error !== undefined ? (
+          <p className="mt-4 text-[13px] text-destructive">{error}</p>
+        ) : null}
       </div>
     </PublicFrame>
   );
@@ -475,13 +549,14 @@ function AccountStep({
   if (email !== null) {
     return (
       <div>
-        <div className="flex items-center justify-between rounded-md border p-3">
+        <div className="flex items-center justify-between rounded-lg border py-2 pr-1.5 pl-3">
           <span className="text-sm">
-            Continuing as <strong>{email}</strong>
+            Continuing as <span className="font-medium">{email}</span>
           </span>
           <Button
             variant="ghost"
             size="sm"
+            className="text-muted-foreground"
             onClick={() =>
               void authClient.signOut().then(() => {
                 void queryClient.invalidateQueries();
@@ -493,27 +568,27 @@ function AccountStep({
           </Button>
         </div>
         {submissions.length > 0 ? (
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-medium text-muted-foreground uppercase">
+          <div className="mt-6">
+            <p className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
               Your submissions
             </p>
-            <div className="grid gap-2">
+            <div className="divide-y overflow-hidden rounded-lg border">
               {submissions.map((submission) => (
                 <button
                   key={submission.id}
-                  className="flex items-center justify-between rounded-md border p-3 text-left"
+                  className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
                   onClick={() => onResume(submission.id)}
                 >
                   <span>
                     <span className="block text-sm font-medium">
                       {submission.title || "Untitled draft"}
                     </span>
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="mt-0.5 block text-xs text-muted-foreground capitalize">
                       <span className="font-mono tabular-nums">{submission.code}</span> ·{" "}
                       {submission.status}
                     </span>
                   </span>
-                  <span className="text-xs text-primary">
+                  <span className="text-xs font-medium text-primary">
                     {submission.status === "draft" ? "Resume" : "Edit"}
                   </span>
                 </button>
@@ -521,8 +596,8 @@ function AccountStep({
             </div>
           </div>
         ) : null}
-        <div className="mt-5 flex justify-end">
-          <Button onClick={onContinue}>
+        <div className="mt-6 flex justify-end border-t pt-4">
+          <Button className="pressable" onClick={onContinue}>
             Start a submission <ArrowRightIcon />
           </Button>
         </div>
@@ -531,14 +606,16 @@ function AccountStep({
   }
   if (sent !== undefined) {
     return (
-      <div className="py-6 text-center">
-        <MailCheckIcon className="mx-auto size-8 text-primary" />
-        <h2 className="mt-3 font-semibold">Check your email</h2>
+      <div className="wizard-step py-8 text-center">
+        <span className="wizard-pop mx-auto flex size-11 items-center justify-center rounded-full border bg-muted/40">
+          <MailCheckIcon className="size-5 text-primary" />
+        </span>
+        <h2 className="mt-4 font-semibold tracking-tight">Check your email</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           We sent a sign-in link to {sent.email}.
         </p>
         {sent.link === undefined ? null : (
-          <Button className="mt-4" asChild>
+          <Button className="pressable mt-5" asChild>
             <a href={sent.link}>Open demo magic link</a>
           </Button>
         )}
@@ -547,6 +624,7 @@ function AccountStep({
   }
   return (
     <form
+      className="wizard-fields grid gap-4"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
@@ -560,19 +638,19 @@ function AccountStep({
               id={field.name}
               type="email"
               autoComplete="email"
+              placeholder="you@example.com"
               required
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
             />
-            <FieldDescription>We’ll email you a secure link. No password needed.</FieldDescription>
           </Field>
         )}
       </form.Field>
-      {error === undefined ? null : <p className="mt-3 text-sm text-destructive">{error}</p>}
-      <div className="mt-5 flex justify-end">
+      {error === undefined ? null : <p className="text-[13px] text-destructive">{error}</p>}
+      <div className="mt-2 flex justify-end border-t pt-4">
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(submitting) => (
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" className="pressable" disabled={submitting}>
               {submitting ? "Sending…" : "Email me a magic link"}
             </Button>
           )}
@@ -582,32 +660,57 @@ function AccountStep({
   );
 }
 
+const optionName = (
+  field: FormField,
+  value: string,
+  library: import("@/components/forms/form-renderer").FormRendererLibrary,
+) => {
+  if (value === "true") return "Yes";
+  if (field.options === null || "custom" in field.options) return value;
+  const list =
+    field.options.bind === "track"
+      ? library.tracks
+      : field.options.bind === "format"
+        ? library.formats
+        : field.options.bind === "tags"
+          ? library.tags
+          : library.levels;
+  return list.find((option) => option.id === value)?.name ?? value;
+};
+
 function ReviewSection({
   title,
   fields,
   answers,
+  library,
   edit,
 }: {
   readonly title: string;
   readonly fields: ReadonlyArray<FormField>;
   readonly answers: FormAnswers;
+  readonly library: import("@/components/forms/form-renderer").FormRendererLibrary;
   readonly edit: () => void;
 }) {
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-medium">{title}</h2>
+      <div className="mb-2 flex items-baseline justify-between">
+        <h2 className="text-[13px] font-medium">{title}</h2>
         <Button variant="link" className="h-auto p-0 text-xs" onClick={edit}>
           Edit
         </Button>
       </div>
-      <dl className="divide-y rounded-md border">
+      <dl className="divide-y overflow-hidden rounded-lg border">
         {fields.map((field) => {
           const value = answers[field.id];
           const display = Array.isArray(value)
-            ? value.join(", ")
+            ? value
+                .filter((item): item is string => typeof item === "string")
+                .map((item) => optionName(field, item, library))
+                .join(", ")
             : typeof value === "string"
-              ? value.replace(/<[^>]+>/g, " ").trim()
+              ? field.fieldType === "dropdown"
+                ? optionName(field, value, library)
+                : value.replace(/<[^>]+>/g, " ").trim()
               : value === true
                 ? "Yes"
                 : "—";
@@ -631,13 +734,14 @@ function PublicFrame({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-svh bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex h-12 max-w-3xl items-center justify-center gap-2 px-4 text-sm font-semibold">
-          <BrandMark className="size-6" /> {eventName}
+    <div className="min-h-svh bg-background">
+      <header className="border-b">
+        <div className="mx-auto flex h-12 max-w-xl items-center gap-2 px-4 text-sm sm:px-0">
+          <BrandMark className="size-5" />
+          <span className="font-semibold">{eventName}</span>
         </div>
       </header>
-      <main className="p-3 py-6 sm:p-6">{children}</main>
+      <main className="mx-auto max-w-xl px-4 py-8 sm:px-0 sm:py-10">{children}</main>
     </div>
   );
 }
@@ -653,12 +757,10 @@ function PublicState({
 }) {
   return (
     <PublicFrame eventName={eventName}>
-      <Card className="mx-auto max-w-xl">
-        <CardContent className="py-10 text-center">
-          <h1 className="text-lg font-semibold">{title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{message}</p>
-        </CardContent>
-      </Card>
+      <div className="wizard-step py-12 text-center">
+        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+      </div>
     </PublicFrame>
   );
 }

@@ -278,11 +278,14 @@ const answersForSubmission = (
       case "level_id":
         answers[field.id] = submission.levelId ?? "";
         break;
+      // Dropdown-bound fields answer with a single id; checkbox-bound with the
+      // full list. Saving normalizes both into join rows, so rehydration must
+      // reshape by field type or single-selects drop their value.
       case "tracks":
-        answers[field.id] = trackIds;
+        answers[field.id] = field.fieldType === "checkbox" ? trackIds : (trackIds[0] ?? "");
         break;
       case "tags":
-        answers[field.id] = tagIds;
+        answers[field.id] = field.fieldType === "checkbox" ? tagIds : (tagIds[0] ?? "");
         break;
     }
   }

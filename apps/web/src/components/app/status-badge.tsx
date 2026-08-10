@@ -1,4 +1,14 @@
 import type { FormStatus, SubmissionStatus } from "@opensesh/domain";
+import {
+  CircleCheckIcon,
+  CircleDashedIcon,
+  CircleDotIcon,
+  CircleHelpIcon,
+  CircleMinusIcon,
+  CircleSlashIcon,
+  CircleXIcon,
+  LoaderIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -15,6 +25,17 @@ const statusClassName: Readonly<Record<Status, string>> = {
   closed: "bg-[var(--status-closed)] text-[var(--status-closed-foreground)]",
 };
 
+const statusIcon: Readonly<Record<Status, typeof CircleCheckIcon>> = {
+  draft: CircleDashedIcon,
+  pending: LoaderIcon,
+  maybe: CircleHelpIcon,
+  accepted: CircleCheckIcon,
+  declined: CircleXIcon,
+  withdrawn: CircleMinusIcon,
+  open: CircleDotIcon,
+  closed: CircleSlashIcon,
+};
+
 export function StatusBadge({
   status,
   className,
@@ -22,14 +43,16 @@ export function StatusBadge({
   readonly status: Status;
   readonly className?: string;
 }) {
+  const Icon = statusIcon[status];
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium capitalize",
+        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium capitalize",
         statusClassName[status],
         className,
       )}
     >
+      <Icon className="size-3" />
       {status}
     </span>
   );

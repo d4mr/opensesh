@@ -81,16 +81,20 @@ export function FormRenderer({
   answers,
   onAnswersChange,
   onContinue,
+  onBack,
   continueLabel = "Continue",
   showContinue = true,
+  className,
 }: {
   readonly fields: ReadonlyArray<FormField>;
   readonly library: FormRendererLibrary;
   readonly answers: FormAnswers;
   readonly onAnswersChange: (answers: FormAnswers) => void;
   readonly onContinue: () => void | Promise<void>;
+  readonly onBack?: () => void;
   readonly continueLabel?: string;
   readonly showContinue?: boolean;
+  readonly className?: string;
 }) {
   const form = useForm({
     defaultValues: initialAnswers(fields, answers),
@@ -102,7 +106,7 @@ export function FormRenderer({
   };
   return (
     <form
-      className="grid gap-4"
+      className={cn("grid gap-4", className)}
       noValidate
       onSubmit={(submitEvent) => {
         submitEvent.preventDefault();
@@ -185,9 +189,14 @@ export function FormRenderer({
                                 </SelectContent>
                               </Select>
                             ) : definition.fieldType === "checkbox" ? (
-                              <div className="grid gap-2 rounded-md border p-3">
+                              <div className="grid gap-0.5 rounded-md border p-1.5">
                                 {options.length === 0 ? (
-                                  <label className="flex items-center gap-2">
+                                  <label
+                                    className={cn(
+                                      "flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-muted/60",
+                                      arrayValue.includes("true") && "bg-muted",
+                                    )}
+                                  >
                                     <Checkbox
                                       checked={arrayValue.includes("true")}
                                       onCheckedChange={(checked) => {
@@ -199,24 +208,30 @@ export function FormRenderer({
                                     Yes
                                   </label>
                                 ) : (
-                                  options.map((option) => (
-                                    <label
-                                      key={option.id}
-                                      className="flex items-center gap-2 text-sm"
-                                    >
-                                      <Checkbox
-                                        checked={arrayValue.includes(option.id)}
-                                        onCheckedChange={(checked) => {
-                                          const value = checked
-                                            ? [...arrayValue, option.id]
-                                            : arrayValue.filter((id) => id !== option.id);
-                                          field.handleChange(value);
-                                          update(definition.id, value);
-                                        }}
-                                      />
-                                      {option.name}
-                                    </label>
-                                  ))
+                                  options.map((option) => {
+                                    const checked = arrayValue.includes(option.id);
+                                    return (
+                                      <label
+                                        key={option.id}
+                                        className={cn(
+                                          "flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-muted/60",
+                                          checked && "bg-muted",
+                                        )}
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={(nextChecked) => {
+                                            const value = nextChecked
+                                              ? [...arrayValue, option.id]
+                                              : arrayValue.filter((id) => id !== option.id);
+                                            field.handleChange(value);
+                                            update(definition.id, value);
+                                          }}
+                                        />
+                                        {option.name}
+                                      </label>
+                                    );
+                                  })
                                 )}
                               </div>
                             ) : (
@@ -255,10 +270,17 @@ export function FormRenderer({
         )}
       </form.Subscribe>
       {showContinue ? (
-        <div className="flex justify-end border-t pt-4">
+        <div className="mt-2 flex items-center justify-between gap-3 border-t pt-4">
+          {onBack === undefined ? (
+            <span />
+          ) : (
+            <Button type="button" variant="ghost" className="pressable" onClick={onBack}>
+              Back
+            </Button>
+          )}
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(submitting) => (
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" className="pressable" disabled={submitting}>
                 {submitting ? "Checking…" : continueLabel}
               </Button>
             )}
