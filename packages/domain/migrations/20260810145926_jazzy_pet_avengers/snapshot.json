@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5c98247e-19ec-4a0a-8b20-854814514960",
+  "id": "3c6b3d6e-ec48-4055-aa67-c74b3a17975d",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -104,7 +104,8 @@
         "phone",
         "dropdown",
         "checkbox",
-        "file"
+        "file",
+        "datetime"
       ],
       "name": "form_field_type",
       "entityType": "enums",
@@ -1448,6 +1449,19 @@
       "generated": null,
       "identity": null,
       "name": "logo_url",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "logo_key",
       "entityType": "columns",
       "schema": "public",
       "table": "events"

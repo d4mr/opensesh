@@ -6,7 +6,7 @@ CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'decl
 CREATE TYPE "embed_view" AS ENUM('sessions', 'speakers', 'speaker_gallery', 'agenda', 'itinerary');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
 CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
-CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file');--> statement-breakpoint
+CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file', 'datetime');--> statement-breakpoint
 CREATE TYPE "form_section" AS ENUM('abstract', 'participant');--> statement-breakpoint
 CREATE TYPE "form_status" AS ENUM('open', 'closed');--> statement-breakpoint
 CREATE TYPE "invitation_status" AS ENUM('pending', 'accepted', 'rejected', 'canceled');--> statement-breakpoint
@@ -122,6 +122,7 @@ CREATE TABLE "events" (
 	"ends_at" timestamp with time zone NOT NULL,
 	"theme" text,
 	"logo_url" text,
+	"logo_key" text,
 	"background_url" text,
 	"default_submission_limit" integer DEFAULT 3 NOT NULL,
 	"agenda_published_at" timestamp with time zone,

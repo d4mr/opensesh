@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,7 @@ const fieldTypes: ReadonlyArray<FormFieldType> = [
   "phone",
   "dropdown",
   "checkbox",
+  "datetime",
 ];
 
 const bindingMapsTo: Readonly<Record<FormLibraryBinding, string>> = {
@@ -67,6 +69,7 @@ const parseFieldType = (value: string): FormFieldType => {
     case "phone":
     case "dropdown":
     case "checkbox":
+    case "datetime":
       return value;
     default:
       return "text";
@@ -91,10 +94,12 @@ export function FormFieldBuilder({
   section,
   fields,
   onChange,
+  timezone,
 }: {
   readonly section: FormSection;
   readonly fields: ReadonlyArray<FormFieldReplacement>;
   readonly onChange: (fields: ReadonlyArray<FormFieldReplacement>) => void;
+  readonly timezone: string;
 }) {
   const sectionFields = fields.filter((field) => field.section === section);
   const [dragMotion, setDragMotion] = useState(false);
@@ -164,6 +169,7 @@ export function FormFieldBuilder({
                   (candidate) => fieldId(candidate) !== fieldId(field),
                 )}
                 onChange={(next) => update(fieldId(field), next)}
+                timezone={timezone}
                 onRemove={() =>
                   onChange(fields.filter((candidate) => fieldId(candidate) !== fieldId(field)))
                 }
@@ -186,6 +192,7 @@ function SortableField({
   onRemove,
   moveUp,
   moveDown,
+  timezone,
 }: {
   readonly field: FormFieldReplacement;
   readonly animate: boolean;
@@ -194,6 +201,7 @@ function SortableField({
   readonly onRemove: () => void;
   readonly moveUp: () => void;
   readonly moveDown: () => void;
+  readonly timezone: string;
 }) {
   const id = fieldId(field);
   const sortable = useSortable({
@@ -203,6 +211,7 @@ function SortableField({
   const customOptions =
     field.options !== null && "custom" in field.options ? field.options.custom.join(", ") : "";
   const binding = field.options !== null && "bind" in field.options ? field.options.bind : null;
+  const bounds = field.options !== null && "min" in field.options ? field.options : null;
   return (
     <div
       ref={sortable.setNodeRef}
@@ -242,7 +251,13 @@ function SortableField({
               onChange({
                 ...field,
                 fieldType: type,
-                options: type === "dropdown" || type === "checkbox" ? { custom: [] } : null,
+                options:
+                  type === "dropdown" || type === "checkbox"
+                    ? { custom: [] }
+                    : type === "datetime"
+                      ? { min: null, max: null }
+                      : null,
+                maxChars: type === "datetime" ? null : field.maxChars,
                 mapsTo: null,
               });
             }}
@@ -267,7 +282,10 @@ function SortableField({
             type="number"
             min={1}
             disabled={
-              field.locked || field.fieldType === "checkbox" || field.fieldType === "dropdown"
+              field.locked ||
+              field.fieldType === "checkbox" ||
+              field.fieldType === "dropdown" ||
+              field.fieldType === "datetime"
             }
             value={field.maxChars ?? ""}
             onChange={(event) =>
@@ -450,6 +468,52 @@ function SortableField({
               })
             }
           />
+        </div>
+      ) : null}
+      {field.fieldType === "datetime" ? (
+        <div className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Earliest date and time</Label>
+              {bounds?.min === null || bounds === null ? null : (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => onChange({ ...field, options: { min: null, max: bounds.max } })}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <DateTimePicker
+              value={bounds?.min ?? ""}
+              timezone={timezone}
+              placeholder="No minimum"
+              onChange={(min) => onChange({ ...field, options: { min, max: bounds?.max ?? null } })}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Latest date and time</Label>
+              {bounds?.max === null || bounds === null ? null : (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => onChange({ ...field, options: { min: bounds.min, max: null } })}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            <DateTimePicker
+              value={bounds?.max ?? ""}
+              timezone={timezone}
+              placeholder="No maximum"
+              onChange={(max) => onChange({ ...field, options: { min: bounds?.min ?? null, max } })}
+            />
+          </div>
         </div>
       ) : null}
     </div>

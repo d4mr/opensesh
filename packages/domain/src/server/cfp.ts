@@ -251,6 +251,7 @@ export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (
       .replaceAll("{{portal_link}}", portalUrl);
     const rendered = confirmation({
       eventName: bundle.event.name,
+      logoUrl: bundle.event.logoUrl,
       name,
       submissionTitle: submission.title,
       portalUrl,

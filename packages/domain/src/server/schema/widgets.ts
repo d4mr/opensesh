@@ -113,6 +113,8 @@ export const PublicProgram = Schema.Struct({
     slug: Schema.String,
     name: Schema.String,
     tagline: NullableString,
+    description: NullableString,
+    logoUrl: NullableString,
     location: NullableString,
     timezone: Schema.String,
     startsAt: Schema.String,

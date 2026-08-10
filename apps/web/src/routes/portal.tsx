@@ -42,5 +42,5 @@ function PortalLayout() {
 
   if (!event.data.ok) return <p className="p-6">{event.data.error.message}</p>;
 
-  return <PortalShell eventName={event.data.data.name} user={user} />;
+  return <PortalShell event={event.data.data} user={user} />;
 }

@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
-import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
+import { DbError, Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Events, ReadModels } from "@opensesh/domain/server/repos";
 import {
   EventSettingsRequest,
@@ -8,6 +8,7 @@ import {
   NewEventRequest,
 } from "@opensesh/domain/server/schema/core";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer, runSessionServer } from "@/server/runtime";
@@ -24,6 +25,11 @@ const dateOrFail = (value: string) => {
   return Number.isNaN(date.getTime())
     ? Effect.fail(new InvalidInput({ message: "Enter valid event dates" }))
     : Effect.succeed(date);
+};
+
+const decodeBase64 = (value: string) => {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 };
 
 const requireEvent = Effect.fn("requireAdminEvent")(function* (eventId: string) {
@@ -58,6 +64,9 @@ export const createEvent = createServerFn({ method: "POST" })
           events.listByOrganization(user.orgId),
         ]);
         const base = slugify(data.name) || "event";
+        if (endsAt <= startsAt) {
+          return yield* Effect.fail(new InvalidInput({ message: "Event end must be after start" }));
+        }
         const slug = organizationEvents.some((event) => event.slug === base)
           ? `${base}-${organizationEvents.length + 1}`
           : base;
@@ -76,6 +85,7 @@ export const createEvent = createServerFn({ method: "POST" })
             endsAt,
             theme: null,
             logoUrl: null,
+            logoKey: null,
             backgroundUrl: null,
             defaultSubmissionLimit: 3,
             agendaPublishedAt: null,
@@ -91,15 +101,62 @@ export const createEvent = createServerFn({ method: "POST" })
 
 export const updateEventSettings = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(EventSettingsRequest))
-  .handler(async ({ data }) =>
-    runServer(
+  .handler(async ({ data }) => {
+    const { env } = await import("cloudflare:workers");
+    const request = getRequest();
+    return runServer(
       Effect.gen(function* () {
         const events = yield* Events;
-        yield* requireEvent(data.eventId);
+        const event = yield* requireEvent(data.eventId);
         const [startsAt, endsAt] = yield* Effect.all([
           dateOrFail(data.startsAt),
           dateOrFail(data.endsAt),
         ]);
+        if (endsAt <= startsAt) {
+          return yield* Effect.fail(new InvalidInput({ message: "Event end must be after start" }));
+        }
+        if (data.defaultSubmissionLimit < 1 || !Number.isInteger(data.defaultSubmissionLimit)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Submission limit must be a whole number of at least 1" }),
+          );
+        }
+        let logoKey = data.logoUrl === event.logoUrl ? event.logoKey : null;
+        let logoUrl = data.logoUrl;
+        if (data.logoUpload !== null) {
+          if (data.logoUpload.size > 2 * 1024 * 1024) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "Event icons must be 2 MB or smaller" }),
+            );
+          }
+          if (
+            data.logoUpload.contentType !== "image/png" &&
+            data.logoUpload.contentType !== "image/jpeg" &&
+            data.logoUpload.contentType !== "image/svg+xml"
+          ) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "Use a PNG, JPG, or SVG event icon" }),
+            );
+          }
+          const bytes = decodeBase64(data.logoUpload.base64);
+          if (bytes.byteLength !== data.logoUpload.size) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "The uploaded event icon is incomplete" }),
+            );
+          }
+          const storageKey = `events/${event.id}/icon/${crypto.randomUUID()}`;
+          yield* Effect.tryPromise({
+            try: () =>
+              env.FILES.put(storageKey, bytes, {
+                httpMetadata: {
+                  contentType: data.logoUpload?.contentType ?? "application/octet-stream",
+                  contentDisposition: "inline",
+                },
+              }),
+            catch: (cause) => new DbError({ message: "Could not store the event icon", cause }),
+          });
+          logoKey = storageKey;
+          logoUrl = `${new URL(request.url).origin}/event-assets/${event.id}/icon`;
+        }
         return yield* events.update(data.eventId, {
           name: data.name,
           tagline: data.tagline,
@@ -108,11 +165,16 @@ export const updateEventSettings = createServerFn({ method: "POST" })
           endsAt,
           timezone: data.timezone,
           location: data.location,
+          type: data.type,
+          websiteUrl: data.websiteUrl,
+          defaultSubmissionLimit: data.defaultSubmissionLimit,
+          logoUrl,
+          logoKey,
         });
       }),
       { require: "admin" },
-    ),
-  );
+    );
+  });
 
 export const getEventLibrary = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))

@@ -250,6 +250,7 @@ function SubmissionContent({
                       <FormRenderer
                         key={selected.submission.id}
                         fields={fields}
+                        timezone={data.event.timezone}
                         library={data.library}
                         answers={answers}
                         onAnswersChange={setAnswers}

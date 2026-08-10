@@ -45,6 +45,7 @@ export const events = pgTable("events", {
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   theme: text("theme"),
   logoUrl: text("logo_url"),
+  logoKey: text("logo_key"),
   backgroundUrl: text("background_url"),
   defaultSubmissionLimit: integer("default_submission_limit").notNull().default(3),
   agendaPublishedAt: timestamp("agenda_published_at", { withTimezone: true }),

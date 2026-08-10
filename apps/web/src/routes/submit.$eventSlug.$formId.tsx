@@ -393,6 +393,7 @@ function Wizard({
             key={`abstract-${submissionId ?? "new"}-${loadedDraft.current ?? ""}`}
             className="wizard-fields"
             fields={abstractFields}
+            timezone={event.timezone}
             library={library}
             answers={answers}
             onAnswersChange={setAnswers}
@@ -425,6 +426,7 @@ function Wizard({
                     <FormRenderer
                       className="wizard-fields"
                       fields={participantFields}
+                      timezone={event.timezone}
                       library={library}
                       answers={participant.answers}
                       onAnswersChange={(next) =>
@@ -666,7 +668,7 @@ const optionName = (
   library: import("@/components/forms/form-renderer").FormRendererLibrary,
 ) => {
   if (value === "true") return "Yes";
-  if (field.options === null || "custom" in field.options) return value;
+  if (field.options === null || !("bind" in field.options)) return value;
   const list =
     field.options.bind === "track"
       ? library.tracks

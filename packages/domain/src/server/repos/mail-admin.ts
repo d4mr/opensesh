@@ -47,6 +47,7 @@ const calendarRows = (database: Database, eventId: string) =>
     db
       .select({
         eventName: events.name,
+        logoUrl: events.logoUrl,
         timezone: events.timezone,
         submissionId: submissions.id,
         title: submissions.title,
@@ -196,6 +197,7 @@ export const MailAdminLive = Layer.effect(
               const portalUrl = `${portalOrigin}/portal/submissions`;
               const rendered = calendarInvite({
                 eventName: row.eventName,
+                logoUrl: row.logoUrl,
                 speakerName: row.firstName,
                 sessionTitle: row.title,
                 startsAt,
@@ -270,6 +272,7 @@ export const MailAdminLive = Layer.effect(
                     email: contacts.email,
                     firstName: contacts.firstName,
                     eventName: events.name,
+                    logoUrl: events.logoUrl,
                   })
                   .from(submissionParticipants)
                   .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
@@ -313,6 +316,7 @@ export const MailAdminLive = Layer.effect(
             const portalUrl = `${portalOrigin}/portal/tasks`;
             const rendered = taskReminder({
               eventName: person.eventName,
+              logoUrl: person.logoUrl,
               speakerName: person.firstName,
               tasks: Array.from(contactTasks.values()),
               portalUrl,

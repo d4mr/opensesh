@@ -4,6 +4,9 @@ export const seedData = {
       id: "evt_aie_nyc_2026",
       name: "AI.Engineer Sandbox — NYC 2026",
       slug: "ai-engineer-nyc-2026",
+      tagline: "The production AI engineering conference",
+      description:
+        "<p>Join the engineers shipping reliable AI systems in production. Three focused days cover retrieval, agents, evaluation, and infrastructure through concrete architectures and candid lessons.</p>",
       type: "conference",
       websiteUrl: "https://www.ai.engineer/",
       location: "Brooklyn Navy Yard, New York, NY",
@@ -13,6 +16,7 @@ export const seedData = {
       theme:
         "The production AI engineering conference: practical systems, candid failure stories, and the people shipping them.",
       logoUrl: "https://opensesh.io/demo/aie-logo.svg",
+      logoKey: null,
       backgroundUrl:
         "https://images.unsplash.com/photo-1522083165195-3424e" +
         "d" +
@@ -3071,13 +3075,13 @@ export const seedData = {
           fields: [
             {
               id: "pff_hotel_checkin",
-              label: "Check-in date",
-              fieldType: "text",
-              maxChars: 20,
+              label: "Hotel check-in",
+              fieldType: "datetime",
+              maxChars: null,
               required: true,
               locked: false,
               position: 1,
-              options: null,
+              options: { min: "2026-10-11T12:00:00.000Z", max: "2026-10-15T21:00:00.000Z" },
               mapsTo: null,
               condition: null,
             },
@@ -3882,10 +3886,10 @@ export const seedData = {
       contactId: "con_01",
       submissionId: null,
       answers: {
-        "Check-in date": "2026-10-11",
-        "Check-out date": "2026-10-15",
-        "Room preference": "King",
-        "Special requests": "Late arrival after 9 PM.",
+        pff_hotel_checkin: "2026-10-12T01:00:00.000Z",
+        pff_hotel_checkout: "2026-10-15",
+        pff_hotel_room: "King",
+        pff_hotel_requests: "Late arrival after 9 PM.",
       },
       submittedAt: new Date(1788523200000),
       createdAt: new Date(1788523200000),
@@ -3897,9 +3901,9 @@ export const seedData = {
       contactId: "con_01",
       submissionId: null,
       answers: {
-        "Departure airport": "SFO",
-        "Estimated cost (USD)": 640,
-        "Receipt upload note": "Nonstop fare held through Friday.",
+        pff_flight_airport: "SFO",
+        pff_flight_cost: "640",
+        pff_flight_note: "Nonstop fare held through Friday.",
       },
       submittedAt: new Date(1788526800000),
       createdAt: new Date(1788526800000),
@@ -3911,10 +3915,10 @@ export const seedData = {
       contactId: "con_06",
       submissionId: null,
       answers: {
-        "Check-in date": "2026-10-12",
-        "Check-out date": "2026-10-14",
-        "Room preference": "Two queens",
-        "Special requests": "No special requests.",
+        pff_hotel_checkin: "2026-10-12T19:00:00.000Z",
+        pff_hotel_checkout: "2026-10-14",
+        pff_hotel_room: "Two queens",
+        pff_hotel_requests: "No special requests.",
       },
       submittedAt: new Date(1788530400000),
       createdAt: new Date(1788530400000),
@@ -3926,9 +3930,9 @@ export const seedData = {
       contactId: "con_06",
       submissionId: null,
       answers: {
-        "Departure airport": "SEA",
-        "Estimated cost (USD)": 510,
-        "Receipt upload note": "Morning outbound preferred.",
+        pff_flight_airport: "SEA",
+        pff_flight_cost: "510",
+        pff_flight_note: "Morning outbound preferred.",
       },
       submittedAt: new Date(1788534000000),
       createdAt: new Date(1788534000000),
