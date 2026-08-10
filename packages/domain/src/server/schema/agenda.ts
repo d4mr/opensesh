@@ -1,5 +1,8 @@
 import { Schema } from "effect";
 
+import { EntityFields, NullableDate } from "./common";
+import { SubmissionStatus } from "./submissions";
+
 export const AgendaView = Schema.Literals(["rooms", "list", "conflicts"]);
 export type AgendaView = typeof AgendaView.Type;
 
@@ -112,3 +115,86 @@ export const PublicAgenda = Schema.Struct({
 export type PublicAgenda = typeof PublicAgenda.Type;
 
 export const PublicAgendaRequest = Schema.Struct({ eventSlug: Schema.String });
+
+export const AgendaDraftStatus = Schema.Literals(["draft", "generated", "committed", "discarded"]);
+export type AgendaDraftStatus = typeof AgendaDraftStatus.Type;
+
+export const AgendaDraftCriteria = Schema.Struct({
+  days: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
+  roomIds: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
+  includeStatuses: Schema.Array(SubmissionStatus).check(Schema.isMinLength(1)),
+  respectExistingPlacements: Schema.Boolean,
+  rules: Schema.Array(Schema.String.check(Schema.isMaxLength(200))).check(Schema.isMaxLength(12)),
+});
+export type AgendaDraftCriteria = typeof AgendaDraftCriteria.Type;
+
+export const AgendaDraftPlacement = Schema.Struct({
+  submissionId: Schema.String,
+  roomId: Schema.String,
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+  reason: Schema.String,
+});
+export type AgendaDraftPlacement = typeof AgendaDraftPlacement.Type;
+
+export const AgendaDraftProposal = Schema.Struct({
+  placements: Schema.Array(AgendaDraftPlacement),
+});
+export type AgendaDraftProposal = typeof AgendaDraftProposal.Type;
+
+export const AgendaDraftStored = Schema.Struct({
+  ...EntityFields,
+  eventId: Schema.String,
+  name: Schema.String,
+  status: AgendaDraftStatus,
+  criteria: AgendaDraftCriteria,
+  proposal: AgendaDraftProposal,
+  generatedAt: NullableDate,
+  committedAt: NullableDate,
+});
+export type AgendaDraftStored = typeof AgendaDraftStored.Type;
+
+export const AgendaDraft = Schema.Struct({
+  id: Schema.String,
+  eventId: Schema.String,
+  name: Schema.String,
+  status: AgendaDraftStatus,
+  criteria: AgendaDraftCriteria,
+  proposal: AgendaDraftProposal,
+  generatedAt: Schema.NullOr(Schema.String),
+  committedAt: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+});
+export type AgendaDraft = typeof AgendaDraft.Type;
+
+export const AgendaDraftsRequest = Schema.Struct({ eventId: Schema.String });
+
+export const GenerateAgendaDraftRequest = Schema.Struct({
+  eventId: Schema.String,
+  name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
+  criteria: AgendaDraftCriteria,
+});
+export type GenerateAgendaDraftRequest = typeof GenerateAgendaDraftRequest.Type;
+
+export const AgendaDraftAction = Schema.Literals(["duplicate", "discard"]);
+export const AgendaDraftActionRequest = Schema.Struct({
+  eventId: Schema.String,
+  draftId: Schema.String,
+  action: AgendaDraftAction,
+});
+export type AgendaDraftActionRequest = typeof AgendaDraftActionRequest.Type;
+
+export const AcceptAgendaDraftRequest = Schema.Struct({
+  eventId: Schema.String,
+  draftId: Schema.String,
+  submissionIds: Schema.Array(Schema.String),
+});
+export type AcceptAgendaDraftRequest = typeof AcceptAgendaDraftRequest.Type;
+
+export const AcceptAgendaDraftResult = Schema.Struct({
+  agenda: AgendaAdminData,
+  draft: AgendaDraft,
+  changedSubmissionIds: Schema.Array(Schema.String),
+});
+export type AcceptAgendaDraftResult = typeof AcceptAgendaDraftResult.Type;

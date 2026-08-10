@@ -1,4 +1,5 @@
 export * from "./columns";
+export * from "./schema/agenda";
 export * from "./schema/auth";
 export * from "./schema/core";
 export * from "./schema/forms";

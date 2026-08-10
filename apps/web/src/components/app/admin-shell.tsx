@@ -128,7 +128,10 @@ export function AdminShell({
     if (section === "forms") return navigate({ to: "/admin/forms" });
     if (section === "evaluation") return navigate({ to: "/admin/evaluation" });
     if (section === "agenda")
-      return navigate({ to: "/admin/agenda", search: { view: "rooms", day: undefined } });
+      return navigate({
+        to: "/admin/agenda",
+        search: { view: "rooms", day: undefined, draft: undefined },
+      });
     if (section === "widgets")
       return navigate({ to: "/admin/widgets", search: { widget: undefined } });
     if (section === "emails") return navigate({ to: "/admin/emails" });

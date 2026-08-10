@@ -2,7 +2,7 @@ import type { AgendaView } from "@opensesh/domain";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AgendaPage } from "@/components/agenda/agenda-page";
-import { agendaQuery } from "@/lib/agenda-queries";
+import { agendaDraftsQuery, agendaQuery } from "@/lib/agenda-queries";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
 
 const parseView = (value: unknown): AgendaView =>
@@ -15,11 +15,17 @@ export const Route = createFileRoute("/admin/agenda")({
   validateSearch: (search: Record<string, unknown>) => ({
     view: parseView(search.view),
     day: parseDay(search.day),
+    draft: typeof search.draft === "string" && search.draft.length > 0 ? search.draft : undefined,
   }),
   loader: async ({ context }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
     const eventId = events.ok ? events.data[0]?.id : undefined;
-    if (eventId !== undefined) await context.queryClient.ensureQueryData(agendaQuery(eventId));
+    if (eventId !== undefined) {
+      await Promise.all([
+        context.queryClient.ensureQueryData(agendaQuery(eventId)),
+        context.queryClient.ensureQueryData(agendaDraftsQuery(eventId)),
+      ]);
+    }
   },
   component: AgendaRoute,
 });
@@ -31,7 +37,10 @@ function AgendaRoute() {
     <AgendaPage
       view={search.view}
       day={search.day}
-      navigate={(view, day) => void navigate({ search: { view, day }, replace: true })}
+      draftId={search.draft}
+      navigate={(view, day, draft) =>
+        void navigate({ search: { view, day, draft }, replace: true })
+      }
     />
   );
 }

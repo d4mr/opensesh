@@ -10,7 +10,7 @@ import { makeRepositoriesLive, type RepositoryServices } from "@opensesh/domain/
 import { type AppError, run } from "@opensesh/domain/server/runtime";
 import { Mail } from "@opensesh/domain/server/mail";
 import { getRequest } from "@tanstack/react-start/server";
-import { Effect, Layer } from "effect";
+import { ConfigProvider, Effect, Layer } from "effect";
 
 import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
@@ -66,6 +66,9 @@ export const runServer = async <A, E extends AppError>(
     makeRepositoriesLive(connectionString),
     currentUserLive,
     mailLive,
+    ConfigProvider.layer(
+      ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
+    ),
   );
   const secured =
     options?.require === undefined
