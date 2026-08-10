@@ -2,6 +2,8 @@ import { Schema, Struct } from "effect";
 
 import { EntityFields, NullableNumber, NullableString, Text1000 } from "./common";
 
+import { PublishedAgendaSession } from "./agenda";
+
 export const EventMemberRole = Schema.Literals(["admin", "reviewer"]);
 
 const eventFields = {
@@ -20,6 +22,9 @@ const eventFields = {
   logoUrl: NullableString,
   backgroundUrl: NullableString,
   defaultSubmissionLimit: Schema.Number,
+  agendaPublishedAt: Schema.NullOr(Schema.Date),
+  publishedAgenda: Schema.Array(PublishedAgendaSession),
+  agendaDirty: Schema.Boolean,
 };
 
 export const Event = Schema.Struct({ ...EntityFields, ...eventFields });

@@ -35,6 +35,7 @@ const DEMO_PASSWORD = "demo-pass-2027";
 const rows = <A extends object>(values: ReadonlyArray<A>) => values.map((value) => ({ ...value }));
 const submissionRows = seedData.submissions.map((submission) => ({
   ...submission,
+  scheduleDirty: false,
   approvedSnapshot: {
     title: submission.title,
     description: submission.description,

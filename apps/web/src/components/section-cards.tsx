@@ -55,13 +55,8 @@ export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-      {cards.map((card) => (
-        <Link
-          key={card.label}
-          to="/admin/$section"
-          params={{ section: card.section }}
-          className="group/stat block"
-        >
+      {cards.map((card) => {
+        const content = (
           <Card className="@container/card h-full transition-colors group-hover/stat:border-foreground/20">
             <CardHeader>
               <CardDescription>{card.label}</CardDescription>
@@ -82,8 +77,27 @@ export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
               <div className="text-muted-foreground">{card.detail}</div>
             </CardFooter>
           </Card>
-        </Link>
-      ))}
+        );
+        return card.section === "agenda" ? (
+          <Link
+            key={card.label}
+            to="/admin/agenda"
+            search={{ view: "rooms", day: undefined }}
+            className="group/stat block"
+          >
+            {content}
+          </Link>
+        ) : (
+          <Link
+            key={card.label}
+            to="/admin/$section"
+            params={{ section: card.section }}
+            className="group/stat block"
+          >
+            {content}
+          </Link>
+        );
+      })}
     </div>
   );
 }

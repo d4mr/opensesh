@@ -70,25 +70,43 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
             </p>
           ) : (
             <div className="divide-y">
-              {items.map((item) => (
-                <Link
-                  key={item.label}
-                  to="/admin/$section"
-                  params={{ section: item.section }}
-                  className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/50"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Badge
-                      variant={item.destructive ? "destructive" : "secondary"}
-                      className="min-w-7 justify-center tabular-nums"
-                    >
-                      {item.count}
-                    </Badge>
-                    {item.label}
-                  </span>
-                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
-              ))}
+              {items.map((item) => {
+                const content = (
+                  <>
+                    <span className="flex items-center gap-2.5">
+                      <Badge
+                        variant={item.destructive ? "destructive" : "secondary"}
+                        className="min-w-7 justify-center tabular-nums"
+                      >
+                        {item.count}
+                      </Badge>
+                      {item.label}
+                    </span>
+                    <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                  </>
+                );
+                const className =
+                  "flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/50";
+                return item.section === "agenda" ? (
+                  <Link
+                    key={item.label}
+                    to="/admin/agenda"
+                    search={{ view: item.destructive ? "conflicts" : "rooms", day: undefined }}
+                    className={className}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <Link
+                    key={item.label}
+                    to="/admin/$section"
+                    params={{ section: item.section }}
+                    className={className}
+                  >
+                    {content}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -131,7 +149,7 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
               : "Draft — not published"}
           </span>
           <Button variant="outline" size="sm" asChild>
-            <Link to="/admin/$section" params={{ section: "agenda" }}>
+            <Link to="/admin/agenda" search={{ view: "rooms", day: undefined }}>
               Open builder
             </Link>
           </Button>

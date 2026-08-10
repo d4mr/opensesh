@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "91da4acb-a6ac-4606-92b0-ea654f3d303e",
+  "id": "460df2b7-45da-4469-ab3a-502a87c2a211",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1192,6 +1192,45 @@
       "generated": null,
       "identity": null,
       "name": "default_submission_limit",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "agenda_published_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "name": "published_agenda",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "agenda_dirty",
       "entityType": "columns",
       "schema": "public",
       "table": "events"
@@ -4494,6 +4533,19 @@
       "generated": null,
       "identity": null,
       "name": "room_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submissions"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "schedule_dirty",
       "entityType": "columns",
       "schema": "public",
       "table": "submissions"
