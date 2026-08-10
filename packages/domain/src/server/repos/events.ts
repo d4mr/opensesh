@@ -103,6 +103,7 @@ export const EventsLive = Layer.effect(
 
     const currentEvent = alias(events, "current_event");
     const organizationEvent = alias(events, "organization_event");
+    const organizationEventMember = alias(eventMembers, "organization_event_member");
 
     return {
       list: () =>
@@ -141,6 +142,16 @@ export const EventsLive = Layer.effect(
             .innerJoin(
               organizationEvent,
               eq(organizationEvent.organizationId, currentEvent.organizationId),
+            )
+            // Only events the user actually belongs to — listing every org
+            // event desyncs the switcher from membership-scoped reads.
+            .innerJoin(
+              organizationEventMember,
+              and(
+                eq(organizationEventMember.eventId, organizationEvent.id),
+                eq(organizationEventMember.userId, session.userId),
+                inArray(organizationEventMember.role, ["admin", "reviewer"]),
+              ),
             )
             .where(
               and(

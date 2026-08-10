@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarClockIcon, ExternalLinkIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 
+import { useAdminEvent } from "@/components/app/admin-event-context";
 import { DashboardAttention } from "@/components/dashboard-attention";
 import { SectionCards } from "@/components/section-cards";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +14,14 @@ const DataTable = lazy(() =>
   import("@/components/data-table").then((module) => ({ default: module.DataTable })),
 );
 
-const dashboardQuery = queryOptions({
-  queryKey: ["dashboard-stats"],
-  queryFn: () => getDashboardStats(),
-  staleTime: 30_000,
-});
+const dashboardQuery = (eventId: string) =>
+  queryOptions({
+    queryKey: ["dashboard-stats", eventId],
+    queryFn: () => getDashboardStats({ data: { eventId } }),
+    staleTime: 30_000,
+  });
 
 export const Route = createFileRoute("/admin/")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQuery),
   component: Dashboard,
 });
 
@@ -34,7 +35,8 @@ const closesIn = (closeDate: Date) => {
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
-  const stats = useSuspenseQuery(dashboardQuery);
+  const context = useAdminEvent();
+  const stats = useSuspenseQuery(dashboardQuery(context?.event.id ?? ""));
 
   if (!stats.data.ok) return <p className="p-4 text-sm">{stats.data.error.message}</p>;
   const data = stats.data.data;
