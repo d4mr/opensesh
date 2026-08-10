@@ -1,11 +1,12 @@
 import type { FormAnswers, FormFieldDefinition } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { Clock3Icon, HistoryIcon, RotateCcwIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Clock3Icon, HistoryIcon, RotateCcwIcon, UploadIcon } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { FormRenderer } from "@/components/forms/form-renderer";
+import { FileThread } from "@/components/portal/file-thread";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -20,10 +21,12 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
+import { fileAsBase64 } from "@/lib/files";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import {
   editPortalSubmission,
   restorePortalHistory,
+  uploadPortalFile,
   withdrawPortalSubmission,
 } from "@/server-fns/portal";
 
@@ -229,6 +232,9 @@ function SubmissionContent({
                   showContinue={!closed}
                 />
               )}
+              {selected.submission.status === "accepted" ? (
+                <SessionFiles data={data} submissionId={selected.submission.id} />
+              ) : null}
               <div className="mt-5 flex justify-end border-t pt-4">
                 {selected.submission.status === "withdrawn" ? null : (
                   <Dialog>
@@ -320,6 +326,141 @@ function SubmissionContent({
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+type SpeakerData = Extract<
+  Awaited<ReturnType<typeof import("@/server-fns/portal").getSpeakerPortal>>,
+  { readonly ok: true }
+>["data"];
+
+function SessionFiles({
+  data,
+  submissionId,
+}: {
+  readonly data: SpeakerData;
+  readonly submissionId: string;
+}) {
+  return (
+    <section className="mt-5">
+      <div className="mb-2">
+        <h2 className="text-sm font-semibold">Files</h2>
+        <p className="text-xs text-muted-foreground">
+          Upload the assets your organizer needs for this session.
+        </p>
+      </div>
+      <div className="divide-y overflow-hidden rounded-lg border">
+        {data.requirements.map((requirement) => {
+          const file = data.files.find(
+            (item) =>
+              item.upload.submissionId === submissionId &&
+              item.upload.requirementId === requirement.id,
+          );
+          return (
+            <SessionFileRow
+              key={requirement.id}
+              data={data}
+              submissionId={submissionId}
+              requirement={requirement}
+              upload={file?.upload}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SessionFileRow({
+  data,
+  submissionId,
+  requirement,
+  upload,
+}: {
+  readonly data: SpeakerData;
+  readonly submissionId: string;
+  readonly requirement: SpeakerData["requirements"][number];
+  readonly upload: SpeakerData["files"][number]["upload"] | undefined;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (file: File) =>
+      uploadPortalFile({
+        data: {
+          assignmentId: null,
+          fileRequestId: null,
+          requirementId: requirement.id,
+          submissionId,
+          kind: "slides",
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+          base64: await fileAsBase64(file),
+        },
+      }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success(upload === undefined ? "File uploaded" : "New version uploaded");
+      await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
+    },
+  });
+  const due = requirement.dueAt === null ? null : new Date(requirement.dueAt);
+  const overdue = due !== null && due.getTime() < Date.now();
+  const versions = data.versions
+    .map((item) => item.version)
+    .filter((version) => version.fileUploadId === upload?.id);
+  const comments = data.comments
+    .map((item) => item.comment)
+    .filter((comment) => comment.fileUploadId === upload?.id);
+  return (
+    <div>
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">{requirement.title}</p>
+          <p className="truncate text-xs text-muted-foreground">{requirement.description}</p>
+        </div>
+        {due === null ? null : (
+          <p
+            className={`shrink-0 text-xs ${overdue ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            {overdue ? "Overdue" : "Due"}{" "}
+            {new Intl.DateTimeFormat("en", {
+              month: "short",
+              day: "numeric",
+            }).format(due)}
+          </p>
+        )}
+        <input
+          ref={input}
+          type="file"
+          accept={requirement.acceptTypes ?? undefined}
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file !== undefined) mutation.mutate(file);
+            event.target.value = "";
+          }}
+        />
+        <Button
+          size="sm"
+          variant={upload === undefined ? "default" : "outline"}
+          disabled={mutation.isPending}
+          onClick={() => input.current?.click()}
+        >
+          <UploadIcon />
+          {mutation.isPending ? "Uploading…" : upload === undefined ? "Upload" : "Replace"}
+        </Button>
+      </div>
+      {upload === undefined ? null : (
+        <div className="border-t px-3 py-3">
+          <FileThread embedded upload={upload} versions={versions} comments={comments} />
+        </div>
+      )}
+    </div>
   );
 }
 

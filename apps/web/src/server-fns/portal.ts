@@ -15,6 +15,7 @@ import {
   PortalSubmissionEditRequest,
   PortalSubmissionRequest,
   RestoreHistoryRequest,
+  SessionFileRequirementMutationRequest,
   TaskAssignmentRequest,
   TaskTemplateMutationRequest,
 } from "@opensesh/domain";
@@ -183,7 +184,7 @@ export const uploadPortalFile = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { user, contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
-        if (data.size > 8 * 1024 * 1024) {
+        if (data.requirementId === null && data.size > 8 * 1024 * 1024) {
           return yield* Effect.fail(new InvalidInput({ message: "Files must be 8 MB or smaller" }));
         }
         const bytes = decodeBase64(data.base64);
@@ -198,6 +199,9 @@ export const uploadPortalFile = createServerFn({ method: "POST" })
           data.fileRequestId,
           data.submissionId,
           data.kind,
+          data.requirementId,
+          data.filename,
+          data.size,
         );
         const storageKey = `${contactId}/${prepared.fileUploadId}/${crypto.randomUUID()}`;
         yield* Effect.tryPromise({
@@ -372,6 +376,27 @@ export const createAdminFileRequest = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
         return yield* portal.createFileRequest(data);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const saveAdminSessionFileRequirement = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(SessionFileRequirementMutationRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        if (data.title.trim().length === 0) {
+          return yield* Effect.fail(new InvalidInput({ message: "Add a requirement title" }));
+        }
+        if (data.maxSizeMb !== null && (!Number.isInteger(data.maxSizeMb) || data.maxSizeMb < 1)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Size limit must be a whole number of megabytes" }),
+          );
+        }
+        const portal = yield* Portal;
+        return yield* portal.saveSessionFileRequirement(data);
       }),
       { require: "admin" },
     ),

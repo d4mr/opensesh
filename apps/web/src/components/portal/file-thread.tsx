@@ -14,11 +14,13 @@ export function FileThread({
   versions,
   comments,
   eventId,
+  embedded = false,
 }: {
   readonly upload: FileUpload;
   readonly versions: ReadonlyArray<FileVersion>;
   readonly comments: ReadonlyArray<FileComment>;
   readonly eventId?: string;
+  readonly embedded?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
@@ -43,10 +45,16 @@ export function FileThread({
   );
 
   return (
-    <div className="grid gap-3 rounded-md border bg-muted/20 p-3">
+    <div className={embedded ? "grid gap-3" : "grid gap-3 rounded-md border bg-muted/20 p-3"}>
       <div>
         <p className="text-xs font-semibold">Versions</p>
-        <div className="mt-1 divide-y rounded-md border bg-background">
+        <div
+          className={
+            embedded
+              ? "mt-1 divide-y border-y bg-background"
+              : "mt-1 divide-y rounded-md border bg-background"
+          }
+        >
           {orderedVersions.map((version, index) => (
             <div
               key={version.id}

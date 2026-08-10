@@ -121,6 +121,7 @@ function TaskContent({
         data: {
           assignmentId,
           fileRequestId,
+          requirementId: null,
           submissionId,
           kind: "request",
           filename: file.name,

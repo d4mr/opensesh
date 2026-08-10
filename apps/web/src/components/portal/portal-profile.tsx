@@ -87,6 +87,7 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
         data: {
           assignmentId: null,
           fileRequestId: null,
+          requirementId: null,
           submissionId: null,
           kind: "headshot",
           filename: file.name,

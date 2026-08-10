@@ -19,6 +19,7 @@ Event 1─* Submission *─* Track, *─* Tag
 Submission *─* Contact (via SubmissionParticipant, role + order)
 Submission 1─* Review (per reviewer)   User *─* Track (ReviewerTrack)
 Event 1─* TaskTemplate ─1? PortalForm | FileRequest
+Event 1─* SessionFileRequirement; Submission 1─* FileUpload
 TaskTemplate 1─* TaskAssignment *─1 (Contact | Submission)
 PortalForm 1─* PortalFormResponse; FileRequest 1─* FileUpload
 Submission 1─1? ScheduleSlot (starts_at, ends_at, room)   ← denormalized onto submissions
@@ -183,7 +184,11 @@ Junctions: `submission_tracks`, `submission_tags`.
 `portal_form_responses`: form_id, contact_id, submission_id?, answers jsonb, submitted_at.
 
 ### file_requests / file_uploads
-`file_requests`: event_id, title, target_type, instructions. `file_uploads`: file_request_id, contact_id, submission_id?, filename, url, size, uploaded_at. (Stored on the request, not attached to records — matches Sessionboard.)
+`file_requests`: event_id, title, target_type, instructions. Task-linked uploads keep their request association.
+
+`session_file_requirements`: event_id, title, description, due_at?, accept_types?, max_size_mb?, position. These define the assets expected from every accepted session.
+
+`file_uploads`: file_request_id?, requirement_id?, kind, contact_id, submission_id?, read timestamps. A session asset has `submission_id` + `requirement_id` + `kind='slides'`, unique per submission and requirement. `file_versions` carries each stored version; `file_comments` is the shared organizer/speaker thread.
 
 ### email_log
 | column | type | notes |
