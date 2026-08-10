@@ -6,6 +6,7 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuBadge,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
@@ -13,6 +14,7 @@ export interface AdminNavItem {
   readonly title: string;
   readonly section?: string;
   readonly icon: React.ReactNode;
+  readonly badge?: number;
 }
 
 export function NavMain({
@@ -43,6 +45,11 @@ export function NavMain({
                       {item.icon}
                       <span>{item.title}</span>
                     </Link>
+                  ) : item.section === "forms" ? (
+                    <Link to="/admin/forms">
+                      {item.icon}
+                      <span>{item.title}</span>
+                    </Link>
                   ) : (
                     <Link to="/admin/$section" params={{ section: item.section }}>
                       {item.icon}
@@ -50,6 +57,9 @@ export function NavMain({
                     </Link>
                   )}
                 </SidebarMenuButton>
+                {item.badge === undefined || item.badge === 0 ? null : (
+                  <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                )}
               </SidebarMenuItem>
             );
           })}

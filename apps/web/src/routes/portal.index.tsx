@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { PagePlaceholder } from "@/components/app/page-placeholder";
+import { PortalHome } from "@/components/portal/portal-home";
 
 export const Route = createFileRoute("/portal/")({
-  component: () => <PagePlaceholder title="Home" />,
+  component: PortalHome,
 });

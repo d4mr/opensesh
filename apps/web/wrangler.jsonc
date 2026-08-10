@@ -10,6 +10,12 @@
     "MAIL_FROM": "auth@opensesh.io",
   },
   "send_email": [{ "name": "EMAIL" }],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "opensesh-files",
+    },
+  ],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",

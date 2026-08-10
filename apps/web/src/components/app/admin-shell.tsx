@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
 import type { Event } from "@opensesh/domain";
+import { useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDaysIcon,
@@ -28,6 +29,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { adminPortalQuery } from "@/lib/portal-queries";
 
 interface NavItem {
   readonly title: string;
@@ -80,6 +82,13 @@ export function AdminShell({
   const [commandOpen, setCommandOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
+  const portal = useQuery(adminPortalQuery(event.id));
+  const pendingContentChanges =
+    portal.data?.ok === true
+      ? portal.data.data.history.filter(
+          (entry) => entry.history.approvalStatus === "pending_review",
+        ).length
+      : 0;
   const activeTitle =
     allItems.find((item) =>
       item.section === undefined ? pathname === "/admin" : pathname === `/admin/${item.section}`,
@@ -126,6 +135,7 @@ export function AdminShell({
           eventCreated={eventCreated}
           pathname={pathname}
           user={user}
+          pendingContentChanges={pendingContentChanges}
         />
         <SidebarInset>
           <SiteHeader title={activeTitle} user={user} />

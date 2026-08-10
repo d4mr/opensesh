@@ -72,6 +72,9 @@ const contactInput = (
     fields.find((field) => field.mapsTo === "bio"),
   ),
   headshotUrl: null,
+  headshotKey: null,
+  dietaryRequirements: "none",
+  tshirtSize: null,
   phone: nullableStringAnswer(
     answers,
     fields.find((field) => field.mapsTo === "phone"),
@@ -164,6 +167,8 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
       notifiedAt: null,
       submittedAt: null,
       answers: customAnswers(input.answers, abstractFields),
+      approvedSnapshot: {},
+      contentReviewStatus: "approved",
     },
     input.submissionId,
   );

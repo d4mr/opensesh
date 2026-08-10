@@ -1,6 +1,6 @@
 import type {
   FormAnswers,
-  FormField,
+  FormFieldDefinition,
   FormRendererAnswers,
   Format,
   Level,
@@ -33,7 +33,7 @@ export interface FormRendererLibrary {
   readonly levels: ReadonlyArray<Level>;
 }
 
-const valuesForField = (field: FormField, library: FormRendererLibrary) => {
+const valuesForField = (field: FormFieldDefinition, library: FormRendererLibrary) => {
   if (field.options === null) return [];
   if ("custom" in field.options) {
     return field.options.custom.map((name) => ({ id: name, name }));
@@ -49,7 +49,7 @@ const valuesForField = (field: FormField, library: FormRendererLibrary) => {
   return library.levels;
 };
 
-const initialAnswers = (fields: ReadonlyArray<FormField>, answers: FormAnswers) => {
+const initialAnswers = (fields: ReadonlyArray<FormFieldDefinition>, answers: FormAnswers) => {
   const initial: Record<string, string | ReadonlyArray<string>> = {};
   for (const field of fields) {
     const value = answers[field.id];
@@ -84,7 +84,7 @@ export function FormRenderer({
   continueLabel = "Continue",
   showContinue = true,
 }: {
-  readonly fields: ReadonlyArray<FormField>;
+  readonly fields: ReadonlyArray<FormFieldDefinition>;
   readonly library: FormRendererLibrary;
   readonly answers: FormAnswers;
   readonly onAnswersChange: (answers: FormAnswers) => void;

@@ -65,7 +65,7 @@ export const FilesLive = Layer.effect(
             .select()
             .from(fileUploads)
             .where(eq(fileUploads.fileRequestId, fileRequestId))
-            .orderBy(asc(fileUploads.uploadedAt))
+            .orderBy(asc(fileUploads.createdAt))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(FileUpload, "file upload", rows))),
     };

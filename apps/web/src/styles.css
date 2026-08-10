@@ -252,6 +252,27 @@
   box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
+.portal-home-card {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: portal-card-enter 240ms var(--ease-out) forwards;
+}
+
+.portal-home-card-2 {
+  animation-delay: 40ms;
+}
+
+.portal-home-card-3 {
+  animation-delay: 80ms;
+}
+
+@keyframes portal-card-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pressable {
     transition-duration: 0ms;
@@ -259,5 +280,16 @@
 
   .conditional-field {
     transition: opacity 150ms linear;
+  }
+
+  .portal-home-card {
+    transform: none;
+    animation: portal-card-fade 150ms linear forwards;
+  }
+
+  @keyframes portal-card-fade {
+    to {
+      opacity: 1;
+    }
   }
 }

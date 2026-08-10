@@ -1,6 +1,16 @@
 import { index, integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import type { Schema } from "effect";
 
-import { id, reviewDecision, submissionKind, submissionStatus, timestamps } from "../columns";
+import {
+  contentApprovalStatus,
+  dietaryRequirement,
+  id,
+  reviewDecision,
+  submissionKind,
+  submissionStatus,
+  timestamps,
+  tshirtSize,
+} from "../columns";
 import { eventMembers, events, formats, levels, rooms, tags, tracks } from "./core";
 import { forms } from "./forms";
 
@@ -22,12 +32,15 @@ export const contacts = pgTable(
     gender: text("gender"),
     bio: text("bio"),
     headshotUrl: text("headshot_url"),
+    headshotKey: text("headshot_key"),
+    dietaryRequirements: dietaryRequirement("dietary_requirements").notNull().default("none"),
+    tshirtSize: tshirtSize("tshirt_size"),
     phone: text("phone"),
     linkedinUrl: text("linkedin_url"),
     twitterUrl: text("twitter_url"),
     facebookUrl: text("facebook_url"),
     websiteUrl: text("website_url"),
-    custom: jsonb("custom").notNull(),
+    custom: jsonb("custom").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
     ...timestamps,
   },
   (table) => [
@@ -63,7 +76,14 @@ export const submissions = pgTable(
     clientSessionId: text("client_session_id"),
     notifiedAt: timestamp("notified_at", { withTimezone: true }),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
-    answers: jsonb("answers").notNull(),
+    answers: jsonb("answers").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
+    approvedSnapshot: jsonb("approved_snapshot")
+      .$type<Readonly<Record<string, Schema.Json>>>()
+      .notNull()
+      .default({}),
+    contentReviewStatus: contentApprovalStatus("content_review_status")
+      .notNull()
+      .default("approved"),
     ...timestamps,
   },
   (table) => [
@@ -71,6 +91,35 @@ export const submissions = pgTable(
     index("submissions_event_status_idx").on(table.eventId, table.status),
     index("submissions_schedule_idx").on(table.eventId, table.roomId, table.startsAt),
   ],
+);
+
+export const submissionEditHistory = pgTable(
+  "submission_edit_history",
+  {
+    id: id(),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    authorContactId: text("author_contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    authorEventMemberId: text("author_event_member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
+    authorName: text("author_name").notNull(),
+    changedFields: jsonb("changed_fields").$type<ReadonlyArray<string>>().notNull(),
+    previousValues: jsonb("previous_values")
+      .$type<Readonly<Record<string, Schema.Json>>>()
+      .notNull(),
+    newValues: jsonb("new_values").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
+    approvalStatus: contentApprovalStatus("approval_status").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedByEventMemberId: text("reviewed_by_event_member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (table) => [index("submission_edit_history_submission_idx").on(table.submissionId)],
 );
 
 export const submissionTracks = pgTable(

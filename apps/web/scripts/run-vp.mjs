@@ -11,10 +11,12 @@ if (command !== "build" && command !== "dev") {
   process.stderr.write("Expected a Vite+ command: build or dev.\n");
   process.exit(1);
 }
+const commandArgs = process.argv.slice(3);
+const devArgs = commandArgs.length === 0 ? ["--port", "3000"] : commandArgs;
 
 const child = spawn(
   "pnpm",
-  ["exec", "vp", command, ...(command === "dev" ? ["--port", "3000"] : [])],
+  ["exec", "vp", command, ...(command === "dev" ? devArgs : commandArgs)],
   {
     stdio: "inherit",
     env: {

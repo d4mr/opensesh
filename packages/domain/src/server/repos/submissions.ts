@@ -495,18 +495,35 @@ export const SubmissionsLive = Layer.effect(
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Submission, "Submission", rows[0]))),
       changeStatus: (id, status, notifiedAt) =>
-        query(database, "Could not change submission status", (db) =>
-          db
-            .update(submissions)
-            .set({
-              status,
-              ...(notifiedAt === undefined ? {} : { notifiedAt }),
-              updatedAt: new Date(),
-            })
-            .where(eq(submissions.id, id))
-            .returning()
-            .execute(),
-        ).pipe(Effect.flatMap((rows) => decodeFound(Submission, "Submission", rows[0]))),
+        Effect.gen(function* () {
+          const current = yield* query(database, "Could not load submission", (db) =>
+            db.select().from(submissions).where(eq(submissions.id, id)).limit(1).execute(),
+          ).pipe(Effect.flatMap((rows) => decodeFound(Submission, "Submission", rows[0])));
+          const approvedSnapshot = {
+            title: current.title,
+            description: current.description,
+            formatId: current.formatId,
+            levelId: current.levelId,
+            language: current.language,
+            answers: current.answers,
+          };
+          const changed = yield* query(database, "Could not change submission status", (db) =>
+            db
+              .update(submissions)
+              .set({
+                status,
+                ...(status === "accepted"
+                  ? { approvedSnapshot, contentReviewStatus: "approved" as const }
+                  : {}),
+                ...(notifiedAt === undefined ? {} : { notifiedAt }),
+                updatedAt: new Date(),
+              })
+              .where(eq(submissions.id, id))
+              .returning()
+              .execute(),
+          );
+          return yield* decodeFound(Submission, "Submission", changed[0]);
+        }),
       replaceTrackIds: (submissionId, trackIds) =>
         Effect.gen(function* () {
           yield* query(database, "Could not replace submission tracks", (db) =>
