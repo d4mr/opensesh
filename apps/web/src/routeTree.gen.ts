@@ -19,6 +19,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
 import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
 import { Route as AdminAgendaRouteImport } from './routes/admin.agenda'
+import { Route as AdminCrmRouteImport } from './routes/admin.crm'
 import { Route as AdminEmailsRouteImport } from './routes/admin.emails'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
@@ -95,6 +96,11 @@ const AdminAbstractsRoute = AdminAbstractsRouteImport.update({
 const AdminAgendaRoute = AdminAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCrmRoute = AdminCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminEmailsRoute = AdminEmailsRouteImport.update({
@@ -244,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/crm': typeof AdminCrmRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
@@ -281,6 +288,7 @@ export interface FileRoutesByTo {
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/crm': typeof AdminCrmRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/crm': typeof AdminCrmRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
@@ -361,6 +370,7 @@ export interface FileRouteTypes {
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
+    | '/admin/crm'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
+    | '/admin/crm'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
+    | '/admin/crm'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
@@ -548,6 +560,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/admin/agenda'
       preLoaderRoute: typeof AdminAgendaRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/crm': {
+      id: '/admin/crm'
+      path: '/crm'
+      fullPath: '/admin/crm'
+      preLoaderRoute: typeof AdminCrmRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/emails': {
@@ -758,6 +777,7 @@ interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
   AdminAbstractsRoute: typeof AdminAbstractsRoute
   AdminAgendaRoute: typeof AdminAgendaRoute
+  AdminCrmRoute: typeof AdminCrmRoute
   AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
@@ -775,6 +795,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
   AdminAbstractsRoute: AdminAbstractsRoute,
   AdminAgendaRoute: AdminAgendaRoute,
+  AdminCrmRoute: AdminCrmRoute,
   AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,

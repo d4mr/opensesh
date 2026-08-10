@@ -17,6 +17,7 @@ import {
   SettingsIcon,
   SquareStackIcon,
   UsersIcon,
+  ContactRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/command";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { crmWorkspaceQuery } from "@/lib/crm-queries";
 
 interface NavItem {
   readonly title: string;
@@ -43,6 +45,7 @@ interface NavItem {
 
 const allItems: ReadonlyArray<NavItem> = [
   { title: "Overview", icon: GaugeIcon },
+  { title: "Speaker CRM", section: "crm", icon: ContactRoundIcon },
   { title: "Submissions", section: "abstracts", icon: FileTextIcon },
   { title: "Sessions", section: "sessions", icon: SquareStackIcon },
   { title: "Content", section: "content", icon: FileCheckIcon },
@@ -95,6 +98,9 @@ export function AdminShell({
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const portal = useQuery(adminPortalQuery(event.id));
+  const crmMode = pathname === "/admin/crm" || pathname.startsWith("/admin/crm/");
+  const crm = useQuery({ ...crmWorkspaceQuery, enabled: crmMode });
+  const organizationName = crm.data?.ok === true ? crm.data.data.organization.name : undefined;
   const pendingContentChanges =
     portal.data?.ok === true
       ? portal.data.data.history.filter(
@@ -107,6 +113,7 @@ export function AdminShell({
         ? pathname === "/admin"
         : pathname === `/admin/${item.section}` || pathname.startsWith(`/admin/${item.section}/`),
     )?.title ?? "Overview";
+  const headerTitle = crmMode ? `Speaker CRM · ${organizationName ?? "Organization"}` : activeTitle;
 
   useEffect(() => {
     const onKeyDown = (keyboardEvent: KeyboardEvent) => {
@@ -145,6 +152,11 @@ export function AdminShell({
     if (section === "widgets")
       return navigate({ to: "/admin/widgets", search: { widget: undefined } });
     if (section === "emails") return navigate({ to: "/admin/emails" });
+    if (section === "crm")
+      return navigate({
+        to: "/admin/crm",
+        search: { tab: "directory", contact: undefined, segment: undefined },
+      });
     return navigate({
       to: "/admin/$section",
       params: { section },
@@ -173,9 +185,11 @@ export function AdminShell({
           pathname={pathname}
           user={user}
           pendingContentChanges={pendingContentChanges}
+          organizationMode={crmMode}
+          organizationName={organizationName}
         />
         <SidebarInset className="min-w-0">
-          <SiteHeader title={activeTitle} user={user} />
+          <SiteHeader title={headerTitle} user={user} />
           <Outlet />
         </SidebarInset>
 
