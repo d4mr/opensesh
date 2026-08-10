@@ -67,11 +67,15 @@ const readSidebarOpen = () => {
   return value === undefined ? true : value === "true";
 };
 
-const formatEventDates = (startsAt: Date, endsAt: Date) => {
+// Format in the event's timezone so SSR (UTC) and the browser agree — a
+// naive local-TZ format hydration-mismatches for viewers east of UTC.
+const formatEventDates = (startsAt: Date, endsAt: Date, timezone: string) => {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
-  const month = new Intl.DateTimeFormat("en-US", { month: "short" });
-  return `${month.format(start)} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
+  const month = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: timezone });
+  const day = new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: timezone });
+  const year = new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone: timezone });
+  return `${month.format(start)} ${day.format(start)}–${day.format(end)}, ${year.format(end)}`;
 };
 
 export function AdminShell({
@@ -163,7 +167,7 @@ export function AdminShell({
           variant="inset"
           event={event}
           events={events}
-          eventDates={formatEventDates(event.startsAt, event.endsAt)}
+          eventDates={formatEventDates(event.startsAt, event.endsAt, event.timezone)}
           selectEvent={selectEvent}
           eventCreated={eventCreated}
           pathname={pathname}

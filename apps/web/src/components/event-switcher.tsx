@@ -38,8 +38,13 @@ const dateInput = (date: Date) => {
   return date.toISOString();
 };
 
+// Event-timezone formatting keeps SSR and browser output identical.
 const formatDates = (event: Event) => {
-  const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+  const date = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: event.timezone,
+  });
   return `${date.format(event.startsAt)}–${date.format(event.endsAt)}`;
 };
 

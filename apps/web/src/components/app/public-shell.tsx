@@ -11,11 +11,18 @@ const pages = [
   { slug: "itinerary", label: "Itinerary" },
 ] as const;
 
+// Format in the event's timezone so SSR (UTC) and the browser agree — a
+// naive local-TZ format hydration-mismatches for viewers east of UTC.
 const eventDates = (event: PublicProgram["event"]) => {
   const start = new Date(event.startsAt);
   const end = new Date(event.endsAt);
-  const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-  return `${date.format(start)}–${date.format(end)}, ${end.getFullYear()}`;
+  const date = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: event.timezone,
+  });
+  const year = new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone: event.timezone });
+  return `${date.format(start)}–${date.format(end)}, ${year.format(end)}`;
 };
 
 export function PublicShell({ event }: { readonly event: PublicProgram["event"] }) {
