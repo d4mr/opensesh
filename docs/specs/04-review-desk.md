@@ -45,3 +45,5 @@ Typed errors throughout (`AlreadyDecided` allows re-decide with confirm, `NotFou
 3. Accept program re-run (double-click submit / retry) creates zero duplicate tasks or emails.
 4. Table interactions feel instant (optimistic everywhere); no spinner on tab/filter changes.
 5. Zero-debt self-review + motion checklist.
+
+Visual/table reference: the tabbed data table in shadcn block `dashboard-01` (ui.shadcn.com/view/new-york-v4/dashboard-01) is the user-approved look for our tables — badge cells, tab row, density. Compose TanStack Table logic under that visual pattern.
