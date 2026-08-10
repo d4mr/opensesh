@@ -25,10 +25,10 @@ Email+password sign-in also works for every persona (password is seeded for the 
 3. **Evaluation** — **Evaluation**: reviewer queue with keyboard-first scoring (rating + comment + decision), scoped per reviewer.
 4. **Speaker management** — **Speakers** directory; **Tasks**: templates with auto-assign-on-accept + a live readiness board (dietary/t-shirt, outstanding counts, waive/remind).
 5. **Content management** — **Content**: pending-change approval queue with field-level diffs, per-session speakers + versioned history with restore; **Portal Forms** (structured onboarding forms + responses + CSV); **File Requests** (versioned uploads with cross-role comment threads). Speaker edits to accepted sessions require organizer approval before they go public — the last approved version stays live.
-6. **Agenda** — day/room schedule builder with drag-and-drop, conflict detection, and an explicit draft → publish step. *(landing shortly — WP6)*
+6. **Agenda** — **Agenda**: day/room schedule builder with drag-and-drop, resize, an unscheduled pool, live room/speaker conflict detection (the seed plants a Hall A overlap — check the Conflicts tab), and an explicit draft → publish step; the public agenda renders only the last published snapshot.
 7. **AI agenda** — criteria → generate → compare → accept-per-change drafts; never touches the live agenda until you commit. *(WP9)*
 8. **Public widgets** — five embeddable views (sessions, speakers, gallery, agenda, itinerary) + an organizer embed builder with live preview and copyable iframe code. Live data — no 60-minute cache. *(WP8)*
-9. **Emails** — real transactional email (acceptance/decline with merge fields, task reminders, calendar invites with ICS) + an in-app email viewer so you can verify sends without an inbox. *(WP7)*
+9. **Emails** — **Email delivery**: transactional email with typed templates (acceptance/decline with feedback, task reminders, calendar invites with ICS attachments and reschedule sequencing) + an in-app viewer with HTML preview and retry, so judges can verify sends without an inbox. Demo mode records everything; Cloudflare Email/Resend are config swaps.
 
 ## Stack
 
