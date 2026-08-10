@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Source of truth: docs/themes/greenroom.css. */
+:root {
+  --background: #FAFAF7;  --foreground: #1B211D;
+  --card: #FFFFFF;        --card-foreground: #1B211D;
+  --popover: #FFFFFF;     --popover-foreground: #1B211D;
+  --primary: #1D6B4C;     --primary-foreground: #F5FBF7;
+  --secondary: #EDF3EE;   --secondary-foreground: #1D4634;
+  --muted: #F1F2EC;       --muted-foreground: #5B6560;
+  --accent: #EAF2EB;      --accent-foreground: #1D4634;
+  --destructive: #B3402F; --destructive-foreground: #FFF7F5;
+  --border: #E3E5DC;      --input: #E3E5DC;  --ring: #1D6B4C;
+  --radius: 0.5rem;
+  /* status (shared across directions) */
+  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+}
+.dark {
+  --background: #131714;  --foreground: #E7EAE5;
+  --card: #1A201C;        --card-foreground: #E7EAE5;
+  --popover: #1A201C;     --popover-foreground: #E7EAE5;
+  --primary: #4CAF82;     --primary-foreground: #0B1F15;
+  --secondary: #213028;   --secondary-foreground: #A7D4BC;
+  --muted: #222923;       --muted-foreground: #93A096;
+  --accent: #213028;      --accent-foreground: #A7D4BC;
+  --destructive: #E06C55; --destructive-foreground: #1C0E0A;
+  --border: #2A332D;      --input: #2A332D;  --ring: #4CAF82;
+  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384; --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+}
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-status-pending: var(--status-pending);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-maybe: var(--status-maybe);
+  --color-status-maybe-bg: var(--status-maybe-bg);
+  --color-status-accepted: var(--status-accepted);
+  --color-status-accepted-bg: var(--status-accepted-bg);
+  --color-status-declined: var(--status-declined);
+  --color-status-declined-bg: var(--status-declined-bg);
+  --color-status-withdrawn: var(--status-withdrawn);
+  --color-status-withdrawn-bg: var(--status-withdrawn-bg);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+.pressable {
+  transition: transform 120ms var(--ease-out);
+}
+
+.pressable:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable {
+    transition-duration: 0ms;
+  }
+}
