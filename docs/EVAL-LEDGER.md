@@ -15,8 +15,8 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 | CFP-07 | done | Draft resume verified (cfp:verify) |
 | CFP-08 | done | Confirmation email logged (mail templates); manual delivery pending |
 | CFP-09 | done | Edit-while-open round trip |
-| CFP-10 | wp16 | Reviewer provisioning w/ copyable access path |
-| CFP-11 | wp16 | Rating+comment via new scorecard engine |
+| CFP-10 | done | Reviewer pool add + copyable access path (WP16, browser-verified rounds editor) |
+| CFP-11 | done | Scorecard engine w/ 1–5 pickers; Sam 4/2/Accept+comment submitted in browser (WP16) |
 | CFP-12 | done | Accept/decline decisions persist |
 | CFP-13 | done | Portal status chips |
 | CFP-14 | done | Decision emails logged; manual delivery pending |
@@ -29,41 +29,41 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 
 | ID | Status | Owner/notes |
 |---|---|---|
-| ABS-01 | wp15+wp16 | Rounds schema (15) + UI (16) |
-| ABS-02 | wp16 | Round-scoped pools |
-| ABS-03 | wp16 | Scorecard builder + dynamic reviewer form |
-| ABS-04 | wp15 | Weighted aggregate 3.33 unit-tested |
-| ABS-05 | wp16 | Exact assignment scoping |
-| ABS-06 | wp16 | Caps + auto-distribute + track bulk (all three) |
-| ABS-07 | wp16 | Blind round identity suppression |
-| ABS-08 | wp16 | Progress 0/2 → 2/2 |
-| ABS-09 | wp16 | Reviewer reminders + log |
-| ABS-10 | wp16 | Results sort asc/desc |
-| ABS-11 | wp15+wp16 | Co-presenter role labels everywhere |
-| ABS-12 | wp16 | Recusal + organizer status |
-| ABS-13 | wp16 | CSV export of results |
-| ABS-14 | wp16 | AI first-pass + attributed override |
+| ABS-01 | done | Two fixture rounds render; setup tab edits (WP15+16) |
+| ABS-02 | done | Round-scoped pool (Sam sole member of Initial Review) |
+| ABS-03 | done | Criteria builder + dynamic reviewer scorecard verified |
+| ABS-04 | done | 3.33 aggregate shown in Results (browser) |
+| ABS-05 | done | Exact assignment of SESS-1/2 to Sam via checkboxes |
+| ABS-06 | done | Caps + auto-distribute + track filter in Assignments tab |
+| ABS-07 | done | Blind queue: zero identity strings in reviewer DOM (verified) |
+| ABS-08 | done | Progress counts + status chips (pending→completed observed) |
+| ABS-09 | done | Lagging-reviewer reminders + log (WP16) |
+| ABS-10 | done | Aggregate ascending/descending toggle in Results |
+| ABS-11 | done | Priya + Marcus Co-presenter labels in organizer results |
+| ABS-12 | done | Recuse button + confirmed flow (WP16) |
+| ABS-13 | done | Export CSV → 'Exported 4 submissions' toast |
+| ABS-14 | done | AI first-pass panel w/ honest no-key error; override path (WP16) |
 
 ## Speaker Management (16)
 
 | ID | Status | Owner/notes |
 |---|---|---|
-| SPK-01 | partial | Roster + search exists; add workflow-status column/filter (wp17) |
-| SPK-02 | wp17 | Manual Add/Edit Speaker full profile |
-| SPK-03 | partial | CSV import exists; harden mapping/preview/dedupe counts (wp17) |
-| SPK-04 | wp15+wp17 | Workflow status enum + badge + filter |
-| SPK-05 | partial | Task templates exist; verify multi-speaker selection (wp17) |
-| SPK-06 | wp17 | Portal invitation + copyable path + log |
+| SPK-01 | done | Roster w/ workflow column + filters + counts (verified on main) |
+| SPK-02 | done | Add/Edit Speaker full-profile dialog (WP17) |
+| SPK-03 | done | CSV mapping/preview/Update-Skip; 1 created/1 updated/1 skipped fixture |
+| SPK-04 | done | Workflow badges (Invited/Onboarding) + filter verified |
+| SPK-05 | done | Multi-speaker task assignment (WP17) |
+| SPK-06 | done | Portal invites + copyable path + idempotent (WP17) |
 | SPK-07 | done | Portal scoping verified; re-audit denial paths (wp17 audit) |
 | SPK-08 | done | Profile round trip w/ approval pipeline |
 | SPK-09 | done | Task check-off persists |
 | SPK-10 | done | Headshot/file download metadata (WP14 spotlight) |
 | SPK-11 | done | Sessions on both sides |
-| SPK-12 | partial | Readiness board exists; explicit complete/incomplete filters (wp17) |
-| SPK-13 | wp17 | Campaigns + per-recipient history |
-| SPK-14 | wp17 | Merge tokens + resolved preview |
-| SPK-15 | partial | contacts.custom exists; admin editor for logistics (wp17) |
-| SPK-16 | wp17 | Reminder rules + Run now |
+| SPK-12 | done | Readiness + task complete/incomplete filters (WP17) |
+| SPK-13 | done | Campaign composer + snapshots + recipient history (verified on main) |
+| SPK-14 | done | Merge tokens + resolved Marcus preview verified on main |
+| SPK-15 | done | Travel/logistics in contacts.custom via dialog (WP17) |
+| SPK-16 | done | Reminder rule + Run now (WP17) |
 
 ## Content Management (14)
 
@@ -74,15 +74,15 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 | CNT-03 | done | Scoping verified; re-audit (wp18) |
 | CNT-04 | done | Versioning verified |
 | CNT-05 | done | Comment threads cross-role |
-| CNT-06 | partial | Constraints shown; verify server-side rejection evidence (wp18) |
+| CNT-06 | done | Constraints visible pre-upload + inline server errors (WP18) |
 | CNT-07 | done | Deliverables matrix + filters |
-| CNT-08 | partial | Bulk reminders — verify count + logs (wp18) |
-| CNT-09 | wp18 | Organizer edits session title/abstract centrally |
-| CNT-10 | wp18 | Organizer edits speaker bio/headshot centrally |
-| CNT-11 | partial | History+restore exists for speaker edits; organizer-authored entries + diffs (wp18) |
+| CNT-08 | done | Outstanding filter + selection + count toast + logs (WP18) |
+| CNT-09 | done | Organizer session title/abstract edit, approved + attributed (WP18) |
+| CNT-10 | done | Organizer bio edit verified on main: toast + approved snapshot |
+| CNT-11 | done | Attributed history verified: Jordan Alvarez entry after bio edit |
 | CNT-12 | done | Approval gates public; direct-URL audit (wp18) |
-| CNT-13 | wp18 | Central files library |
-| CNT-14 | wp18 | Multi-select ZIP with grouping |
+| CNT-13 | done | /admin/files library: 38 records, filters, detail thread |
+| CNT-14 | done | ZIP ready/download verified (seed-key placeholder fix 63c46ed) |
 
 ## AI Agenda (8)
 
@@ -101,34 +101,34 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 
 | ID | Status | Owner/notes |
 |---|---|---|
-| EMB-01 | wp19 | Card enrichment (title/company on speakers, Show more) |
-| EMB-02 | partial | Search exists; add speaker-name matching + count (wp19) |
-| EMB-03 | partial | Facets exist; verify combine+clear (wp19) |
-| EMB-04 | wp19 | Surname sort + fallbacks |
-| EMB-05 | wp19 | Speaker detail w/ sessions meta |
+| EMB-01 | done | Enriched cards + hierarchy redesign (title/code+star row) |
+| EMB-02 | done | Speaker-name search '1 of 8' verified |
+| EMB-03 | done | Track/Format/Room facets + active count + Clear verified |
+| EMB-04 | done | Surname sort + initials fallbacks verified |
+| EMB-05 | done | Speaker dialog w/ bio + linked session meta verified |
 | EMB-06 | done | Public agenda day/room structure |
 | EMB-07 | done | Day switching |
-| EMB-08 | partial | Session detail + back restoration (wp19) |
-| EMB-09 | wp19 | Itinerary enrichment |
-| EMB-10 | wp19 | My Schedule selection |
-| EMB-11 | wp19 | Persistence + ICS export |
-| EMB-12 | wp19 | Gallery surname sort + fallbacks |
-| EMB-13 | wp19 | Gallery detail + restore |
+| EMB-08 | done | Agenda dialog + day/scroll restore verified |
+| EMB-09 | done | Itinerary meta complete; compact speakers + clamped description |
+| EMB-10 | done | Star toggle on sessions/agenda/itinerary/detail |
+| EMB-11 | done | localStorage persistence + Export ICS verified |
+| EMB-12 | done | Gallery surname order + fallbacks verified |
+| EMB-13 | done | Gallery detail dialog + restore |
 | EMB-14 | done | All five views anonymous |
-| EMB-15 | partial | Embed builder exists; field visibility + all five types (wp19) |
-| EMB-16 | partial | Consistency; shared read model (wp19) |
+| EMB-15 | done | Builder: 5 view types, filters, theme/time/color, 7 field toggles, live preview, Get code (Share URL + iframe) |
+| EMB-16 | done | Single publicProgram read model across views |
 
 ## Speaker CRM (12, optional)
 
 | ID | Status | Owner/notes |
 |---|---|---|
-| CRM-01..12 | wp15+wp20 | Schema (15) + full workspace (20) |
+| CRM-01..12 | done | Full workspace verified on main: directory 28 contacts/dupes/import, pipeline stages, segments, overview 90% + bars |
 
 ## Cross-cutting integration (mine, post-merge polish)
 
-- [ ] §5.2 organizer nav labels: Overview, Call for Papers, Submissions, Evaluation, Speakers, Tasks, Deliverables, Sessions, Agenda, Files, Communications, Widgets, Speaker CRM, Event Settings
-- [ ] Speaker nav: Home, My Submissions, My Sessions, Tasks, Profile; reviewer nav: My Reviews only
-- [ ] Public header exposes Speaker Gallery
+- [x] §5.2 organizer nav labels (verified on merged main: Organization/Speaker CRM, Program group, Portals incl. Files+Communications, Event Settings): Overview, Call for Papers, Submissions, Evaluation, Speakers, Tasks, Deliverables, Sessions, Agenda, Files, Communications, Widgets, Speaker CRM, Event Settings
+- [x] Speaker nav: Home, My Submissions, My Sessions, Tasks, Profile; reviewer nav: My Reviews only
+- [x] Public header exposes Speaker Gallery
 - [ ] §5.3: filled-state headings + record counts on every list; Clear filters; sort direction indicators
 - [ ] §15 rules: text-labelled statuses, counts on bulk toasts, no hover-only controls, filters in URL params
 - [ ] Step 12 scoping/negative-path audit

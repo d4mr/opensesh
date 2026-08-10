@@ -40,6 +40,12 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
   - Lina: 0/4 tasks w/ next-due whisper; per-task Fill form/Upload affordances
   - Jamal: "Add your bio" whisper, Maybe/Pending chips, 0/0 tasks
 - [ ] Rey's dashboard needs-attention rows still link into admin pages a reviewer cannot open (access whisper, no crash) — consider role-aware dashboard later
+- [x] WP19 public card hierarchy (user feedback): star was absolutely positioned and misaligned with SESS code; cards crowded. Redesigned both sessions-list and itinerary cards — title row with right-aligned code+star group (pixel-verified all three centers at same y), single muted time·room line, compact speaker lines with medium names, chips, description clamped to 2 lines with Show more (added expanded state to Itinerary). Removed the pre-speakers divider.
+- [x] WP16 round editor route never rendered (nested under /admin/evaluation with no Outlet) — renamed to admin.evaluation_.$roundId (un-nest pattern), verified in browser
+- [x] Scorecard numeric criteria now segmented 1–5 pickers (user: "have 1,2,3,4,5 number pickers not number entry") — ScorePicker radiogroup, integer ranges ≤10 wide; falls back to number input otherwise; toggle-off supported; verified 4/2 selection + submit + reopen
+- [x] Demo-pill clearance: widget-builder Get-code panel (pb-14) and reviewer scorecard form (pb-14) — Copy/Submit buttons no longer covered
+- [x] Seeded file downloads/ZIP: seed/… storage keys had no R2 object → downloads and exports failed; deterministic placeholder PDF served for seed keys only (63c46ed); ZIP dialog now reaches Ready · Download
+- [x] Post-merge integration sweep (WP16–20 on main): nav labels §5.2 complete incl. Organization → Speaker CRM, Portals → Files/Communications; speakers spotlight union (WP17 dialogs + WP18 inline editor + attributed history verified with live bio edit); communications composer resolved preview; CRM four tabs; event switcher Create event preserved
 
 ## Doctrine (from user, 2026-08-10)
 
