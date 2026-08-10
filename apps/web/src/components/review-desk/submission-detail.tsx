@@ -170,7 +170,9 @@ export function SubmissionDetail({
           onClose={() => onClose?.()}
         />
       ) : null}
-      <div className={variant === "spotlight" ? "min-h-0 flex-1 overflow-y-auto p-3" : undefined}>
+      <div
+        className={variant === "spotlight" ? "min-h-0 flex-1 overflow-y-auto p-3 pb-16" : undefined}
+      >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             {variant === "page" ? (

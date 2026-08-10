@@ -20,9 +20,9 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 - [x] Sidebar nav scoping — Settings nav + command palette entries hidden for non-admin roles (f3b214a)
 - [x] Hydration error on every page load — fixed via event-TZ formatting sweep (6e3d8e3, cfc73d1)
 - [x] Event settings — WP12 merged: grouped Basics/Schedule/Branding/Submissions, dense rails, datetime+tz pickers, icon previews (verified in browser)
-- [ ] Forms list + form builder page — check header rails, empty states
+- [x] Forms list + form builder page — verified dense (single form row w/ counts + Open chip, Create form in header)
 - [x] Portal Forms admin page — WP13 merged: dedicated /admin/portal-forms/$formId two-pane page w/ live preview, back restores list + highlight (verified)
-- [ ] Task templates drawer — overlay doctrine review (modal vs page)
+- [x] Task templates drawer — converted ALL remaining Sheets to centered Dialogs: task create/edit, add file request, agenda SessionPeek, AI drafts (e531e2b)
 - [x] File Requests page — requirements block landed dense with WP10 (verified)
 - [x] Email delivery viewer — already dense: status badges, retry w/ optimistic update, sent-at, HTML dialog (verified)
 - [x] Evaluation queue — dense card, keyboard hints (1/2/3), prev/next, Save & next (verified)
@@ -30,10 +30,16 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 - [x] Widgets builder — list verified clean; toggles + Updated dates
 - [x] SSR timezone sweep — sidebar/public-shell/event-switcher/public-agenda/portal-home format in event TZ (hydration errors eliminated)
 - [x] Speaker spotlight depth — WP14 merged: readiness/tasks/files/emails/profile diff w/ approve-reject, ?email= deep link; fixed grid min-width blowout + demo-pill clearance (browser-verified)
-- [ ] Empty states sweep — every table/list: quiet one-liner + primary affordance
+- [x] Empty states sweep — verified in walkthrough: portal tasks ("No contact tasks outstanding."), speaker spotlight ("No tasks assigned."/"No files yet."/"No emails sent."), AI drafts ("No agenda drafts yet"), file requests ("No uploads yet."), evaluation ("No reviews yet.")
 - [x] Seeded storytelling — email_log rows now rendered through real mail templates (2c1da9f)
 - [ ] Dev-only: TanStack Router warns on nav links generated via /admin/$section that collide with static routes (nav-main, section-cards, dashboard-attention, admin-shell palette); harmless in prod, fix = link each section to its real route
-- [ ] Full role walkthrough (Dana/Rey/Maya/Lina/Jamal) after WP10–12 merges
+- [x] Full role walkthrough (Dana/Rey/Maya/Lina/Jamal) — done post-WP14 merge:
+  - Dana: dashboard/abstracts/sessions/content/speakers/forms/evaluation/agenda/widgets/tasks/emails/portal-forms/file-requests all dense + working
+  - Rey: nav scoped to Dashboard + Evaluation (3ad5bc0); evaluation queue track-scoped
+  - Maya: home cards, submissions spotlight w/ populated selects + Files (versions/comments/reply), tasks all-done states
+  - Lina: 0/4 tasks w/ next-due whisper; per-task Fill form/Upload affordances
+  - Jamal: "Add your bio" whisper, Maybe/Pending chips, 0/0 tasks
+- [ ] Rey's dashboard needs-attention rows still link into admin pages a reviewer cannot open (access whisper, no crash) — consider role-aware dashboard later
 
 ## Doctrine (from user, 2026-08-10)
 

@@ -222,7 +222,7 @@ function SubmissionContent({
                 status={<StatusBadge status={selected.submission.status} />}
                 onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
               />
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16">
                 <h2 className="mb-3 text-base font-semibold">{selected.submission.title}</h2>
                 {selected.submission.contentReviewStatus === "pending_review" ? (
                   <div className="mb-3 rounded-md border border-[var(--status-pending)]/30 bg-[var(--status-pending-bg)] px-3 py-2 text-xs text-[var(--status-pending)]">

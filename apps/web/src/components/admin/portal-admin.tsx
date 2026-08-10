@@ -1508,7 +1508,7 @@ function SessionPeek({
         }
         onClose={onClose}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16">
         <h2 className="mb-4 text-base font-semibold">{submission.title}</h2>
         <div className="grid gap-5">
           <section className="grid gap-2">
