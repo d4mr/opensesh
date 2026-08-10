@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { LandingPage } from "@/components/landing";
 import { getViewer } from "@/server-fns/auth";
 
 export const Route = createFileRoute("/")({
@@ -10,12 +11,13 @@ export const Route = createFileRoute("/")({
       queryFn: () => getViewer(),
       staleTime: 5 * 60_000,
     });
-    if (!viewer.ok) {
-      throw redirect({ to: "/login" });
+    if (viewer.ok) {
+      if (viewer.data.roles.admin || viewer.data.roles.reviewer) {
+        throw redirect({ to: "/admin" });
+      }
+      throw redirect({ to: "/portal" });
     }
-    if (viewer.data.roles.admin || viewer.data.roles.reviewer) {
-      throw redirect({ to: "/admin" });
-    }
-    throw redirect({ to: "/portal" });
+    // Signed-out visitors get the marketing landing page.
   },
+  component: LandingPage,
 });

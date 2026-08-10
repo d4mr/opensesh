@@ -1,7 +1,7 @@
 import type { DemoPersonaEmail } from "@opensesh/domain/server/schema/auth";
 import { useQuery } from "@tanstack/react-query";
 import { KeyRoundIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,12 @@ const personas = [
 export function DemoRoleSwitcher() {
   const demoMode = useQuery({ queryKey: ["demo-mode"], queryFn: () => getDemoMode() });
   const [switching, setSwitching] = useState(false);
+  // The demo-mode query streams into the cache during SSR, so gating on it
+  // directly would make the first client render diverge from the server HTML.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  if (demoMode.data !== true) {
+  if (!mounted || demoMode.data !== true) {
     return null;
   }
 
