@@ -151,8 +151,13 @@ function Directory({
                     <div className="flex items-center gap-2.5">
                       <Headshot row={row} />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
+                        <p className="flex items-center gap-1.5 truncate text-sm font-medium">
                           {row.contact.firstName} {row.contact.lastName}
+                          {row.contact.profileReviewStatus === "pending_review" ? (
+                            <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                              Profile pending
+                            </span>
+                          ) : null}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {[row.contact.title, row.contact.company].filter(Boolean).join(" · ") ||

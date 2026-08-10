@@ -356,6 +356,7 @@ export const WidgetsLive = Layer.effect(
               contact: {
                 id: contact.id,
                 email: contact.email,
+                profileReviewStatus: contact.profileReviewStatus,
                 firstName: contact.firstName,
                 lastName: contact.lastName,
                 title: contact.title,

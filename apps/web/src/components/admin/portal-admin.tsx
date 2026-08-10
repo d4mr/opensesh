@@ -1180,29 +1180,32 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
           Accepted session content, speakers, and approval history.
         </p>
       </div>
-      {pendingHistory.length === 0 ? null : (
-        <Card>
-          <CardHeader className="border-b py-3">
-            <CardTitle className="text-sm">
-              Content changes awaiting approval ({pendingHistory.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="divide-y p-0">
+      {pendingHistory.length + pendingProfiles.length === 0 ? null : (
+        <div className="overflow-hidden rounded-md border">
+          <div className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
+            <span className="text-xs font-medium">Awaiting approval</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {pendingHistory.length + pendingProfiles.length}
+            </span>
+          </div>
+          <div className="divide-y">
             {pendingHistory.map((entry) => {
               const submission = data.submissions.find((item) => item.id === entry.submissionId);
               return (
-                <div key={entry.id} className="flex items-center gap-3 px-3 py-3 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">
-                      {submission?.code} — {submission?.title}
-                    </p>
-                    <p className="text-muted-foreground">
-                      {entry.authorName} changed {describeChangedFields(entry.changedFields)}
-                    </p>
-                  </div>
+                <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
+                  <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
+                    Session
+                  </span>
+                  <span className="min-w-0 truncate">
+                    <span className="font-mono tabular-nums">{submission?.code}</span>{" "}
+                    <span className="font-medium">{submission?.title}</span>
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                    {entry.authorName} changed {describeChangedFields(entry.changedFields)}
+                  </span>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
                         Review
                       </Button>
                     </DialogTrigger>
@@ -1248,30 +1251,20 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
-      )}
-      {pendingProfiles.length === 0 ? null : (
-        <Card>
-          <CardHeader className="border-b py-3">
-            <CardTitle className="text-sm">
-              Speaker profile changes awaiting approval ({pendingProfiles.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="divide-y p-0">
             {pendingProfiles.map(({ history: entry, contact }) => (
-              <div key={entry.id} className="flex items-center gap-3 px-3 py-3 text-xs">
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold">
-                    {contact.firstName} {contact.lastName}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {entry.authorName} changed {describeChangedFields(entry.changedFields)}
-                  </p>
-                </div>
+              <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
+                <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
+                  Profile
+                </span>
+                <span className="min-w-0 truncate font-medium">
+                  {contact.firstName} {contact.lastName}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  changed {describeChangedFields(entry.changedFields)}
+                </span>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
                       Review
                     </Button>
                   </DialogTrigger>
@@ -1317,8 +1310,8 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                 </Dialog>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
       <div className="overflow-hidden rounded-md border">
         <Table>

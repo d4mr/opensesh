@@ -157,6 +157,7 @@ export const SpeakerDirectoryRow = Schema.Struct({
   contact: Schema.Struct({
     id: Schema.String,
     email: Schema.String,
+    profileReviewStatus: Schema.Literals(["approved", "pending_review", "rejected"]),
     firstName: Schema.String,
     lastName: Schema.String,
     title: NullableString,
