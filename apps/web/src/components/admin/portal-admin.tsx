@@ -221,9 +221,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
         item.assignment.taskTemplateId === row.template.id && item.assignment.status !== "todo",
     ),
   }));
-  const speakers = Array.from(
-    new Map(data.participants.map((row) => [row.contact.id, row.contact])).values(),
-  )
+  const speakers = data.contacts
     .map((contact) => {
       const submissionIds = data.participants
         .filter((row) => row.contact.id === contact.id)
@@ -473,6 +471,20 @@ function TaskTemplateDialog({
   readonly onOpenChange: (open: boolean) => void;
 }) {
   const existing = data.templates.find((row) => row.template.id === templateId)?.template;
+  const speakers = data.contacts;
+  const assignedContactIds = new Set(
+    data.assignments.flatMap((row) =>
+      row.assignment.taskTemplateId === templateId && row.assignment.contactId !== null
+        ? [row.assignment.contactId]
+        : [],
+    ),
+  );
+  const initialAssignmentMode: "all" | "selection" =
+    assignedContactIds.size > 0 && assignedContactIds.size < speakers.length ? "selection" : "all";
+  const initialContactIds: ReadonlySet<string> =
+    assignedContactIds.size > 0
+      ? assignedContactIds
+      : new Set(speakers.map((speaker) => speaker.id));
   const [form, setForm] = useState({
     title: existing?.title ?? "",
     instructions: existing?.instructions ?? "",
@@ -488,6 +500,8 @@ function TaskTemplateDialog({
       existing?.dueDate === null || existing?.dueDate === undefined
         ? ""
         : new Date(existing.dueDate).toISOString().slice(0, 10),
+    assignmentMode: initialAssignmentMode,
+    contactIds: initialContactIds,
   });
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -503,6 +517,12 @@ function TaskTemplateDialog({
           fileRequestId: form.link.startsWith("file:") ? form.link.slice(5) : null,
           autoAssignOnAccept: form.auto,
           dueDate: form.dueDate || null,
+          contactIds:
+            form.scope === "contact"
+              ? form.assignmentMode === "all"
+                ? speakers.map((speaker) => speaker.id)
+                : [...form.contactIds]
+              : [],
         },
       }),
     onSuccess: async (result) => {
@@ -585,6 +605,52 @@ function TaskTemplateDialog({
               </SelectContent>
             </Select>
           </div>
+          {form.scope !== "contact" ? null : (
+            <div className="grid gap-2">
+              <Label>Assign speakers</Label>
+              <Select
+                value={form.assignmentMode}
+                onValueChange={(assignmentMode) =>
+                  setForm({
+                    ...form,
+                    assignmentMode: assignmentMode === "selection" ? "selection" : "all",
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All speakers</SelectItem>
+                  <SelectItem value="selection">Selected speakers</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.assignmentMode !== "selection" ? null : (
+                <div className="grid max-h-36 gap-0.5 overflow-auto rounded-lg border p-1.5">
+                  {speakers.map((speaker) => (
+                    <label
+                      key={speaker.id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5",
+                        form.contactIds.has(speaker.id) ? "bg-muted" : "hover:bg-muted/60",
+                      )}
+                    >
+                      <Checkbox
+                        checked={form.contactIds.has(speaker.id)}
+                        onCheckedChange={(checked) => {
+                          const contactIds = new Set(form.contactIds);
+                          if (checked === true) contactIds.add(speaker.id);
+                          else contactIds.delete(speaker.id);
+                          setForm({ ...form, contactIds });
+                        }}
+                      />
+                      {speaker.firstName} {speaker.lastName}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
             Auto-assign on accept
             <Switch checked={form.auto} onCheckedChange={(auto) => setForm({ ...form, auto })} />

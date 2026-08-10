@@ -224,6 +224,7 @@ export const uploadPortalFile = createServerFn({ method: "POST" })
           uploaderEventMemberId: null,
           uploaderName: user.email,
           headshotContactId: data.kind === "headshot" ? contactId : null,
+          adminApproved: false,
           completeAssignmentId: prepared.completeAssignmentId,
         });
       }),

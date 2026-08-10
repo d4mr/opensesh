@@ -24,6 +24,7 @@ import { Db } from "../db";
 import type { DbError, NotFound } from "../errors";
 import {
   defaultWidgetOptions,
+  dedupeSpeakerCsvRows,
   PublicProgram,
   type SpeakerCsvRow,
   SpeakerDirectory,
@@ -222,7 +223,7 @@ interface WidgetsService {
   readonly importSpeakers: (
     eventId: string,
     rows: ReadonlyArray<SpeakerCsvRow>,
-  ) => Effect.Effect<{ imported: number }, DbError>;
+  ) => Effect.Effect<{ created: number; updated: number; skipped: number }, DbError>;
 }
 
 export class Widgets extends Context.Service<Widgets, WidgetsService>()("opensesh/Widgets") {}
@@ -449,6 +450,8 @@ export const WidgetsLive = Layer.effect(
                 twitterUrl: contact.twitterUrl,
                 facebookUrl: contact.facebookUrl,
                 websiteUrl: contact.websiteUrl,
+                workflowStatus: contact.workflowStatus,
+                custom: contact.custom,
               },
               sessions: linked.map((submission) => ({
                 id: submission.id,
@@ -481,6 +484,9 @@ export const WidgetsLive = Layer.effect(
                     row.requirement?.title ??
                     (row.upload.kind === "headshot" ? "Headshot" : "Slides"),
                   uploadedAt: row.version.uploadedAt,
+                  contentType: row.version.contentType,
+                  size: row.version.size,
+                  uploaderName: row.version.uploaderName,
                 })),
               emails: emailRows
                 .filter((row) => row.contactId === contact.id)
@@ -530,10 +536,34 @@ export const WidgetsLive = Layer.effect(
       importSpeakers: (eventId, inputRows) =>
         query(database, "Could not import speakers", (db) =>
           db.transaction(async (transaction) => {
-            const deduped = Array.from(
-              new Map(inputRows.map((row) => [row.email.trim().toLowerCase(), row])).values(),
-            );
+            const deduped = dedupeSpeakerCsvRows(inputRows);
+            let created = 0;
+            let updated = 0;
+            let skipped = 0;
             for (const row of deduped) {
+              if (row.action === "skip") {
+                skipped += 1;
+                continue;
+              }
+              const existing = await transaction
+                .select({ id: contacts.id })
+                .from(contacts)
+                .where(
+                  and(
+                    eq(contacts.eventId, eventId),
+                    eq(contacts.email, row.email.trim().toLowerCase()),
+                  ),
+                )
+                .limit(1)
+                .execute();
+              if (existing[0] === undefined && row.action === "update") {
+                skipped += 1;
+                continue;
+              }
+              if (existing[0] !== undefined && row.action === "create") {
+                skipped += 1;
+                continue;
+              }
               await transaction
                 .insert(contacts)
                 .values({
@@ -572,8 +602,10 @@ export const WidgetsLive = Layer.effect(
                   },
                 })
                 .execute();
+              if (existing[0] === undefined) created += 1;
+              else updated += 1;
             }
-            return { imported: deduped.length };
+            return { created, updated, skipped };
           }),
         ),
     };

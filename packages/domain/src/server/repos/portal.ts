@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, notInArray, or } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -166,6 +166,7 @@ export interface SpeakerPortalBootstrap {
 }
 
 export interface AdminPortalBootstrap {
+  readonly contacts: ReadonlyArray<typeof contacts.$inferSelect>;
   readonly templates: ReadonlyArray<{
     readonly template: typeof taskTemplates.$inferSelect;
     readonly form: typeof portalForms.$inferSelect | null;
@@ -268,6 +269,7 @@ interface PortalService {
     readonly uploaderEventMemberId: string | null;
     readonly uploaderName: string;
     readonly headshotContactId: string | null;
+    readonly adminApproved: boolean;
     readonly completeAssignmentId: string | null;
   }) => Effect.Effect<typeof fileVersions.$inferSelect, DbError>;
   readonly addSpeakerComment: (
@@ -650,6 +652,14 @@ export const PortalLive = Layer.effect(
       adminBootstrap: (eventId) =>
         Effect.all(
           {
+            contacts: query(database, "Could not load event speakers", (db) =>
+              db
+                .select()
+                .from(contacts)
+                .where(eq(contacts.eventId, eventId))
+                .orderBy(asc(contacts.lastName), asc(contacts.firstName))
+                .execute(),
+            ),
             templates: query(database, "Could not load task templates", (db) =>
               db
                 .select({ template: taskTemplates, form: portalForms, fileRequest: fileRequests })
@@ -1303,9 +1313,7 @@ export const PortalLive = Layer.effect(
                 const existing = existingRows[0];
                 if (existing === undefined) return;
                 const now = new Date();
-                // Headshots follow the profile approval contract too: a
-                // confirmed speaker's new upload waits for organizer review.
-                const requiresReview = existing.confirmedAt !== null;
+                const requiresReview = existing.confirmedAt !== null && !input.adminApproved;
                 if (requiresReview) {
                   await transaction.insert(contactEditHistory).values({
                     contactId: headshotContactId,
@@ -1508,7 +1516,55 @@ export const PortalLive = Layer.effect(
                   .returning()
                   .execute(),
           );
-          return rows[0];
+          const saved = rows[0];
+          const selectedContacts =
+            saved === undefined || input.scope !== "contact" || input.contactIds.length === 0
+              ? []
+              : yield* query(database, "Could not verify selected speakers", (db) =>
+                  db
+                    .select({ id: contacts.id })
+                    .from(contacts)
+                    .where(
+                      and(
+                        eq(contacts.eventId, input.eventId),
+                        inArray(contacts.id, input.contactIds),
+                      ),
+                    )
+                    .execute(),
+                );
+          const selectedIds = selectedContacts.map((contact) => contact.id);
+          if (saved !== undefined && input.id !== null)
+            yield* query(database, "Could not update selected task speakers", (db) =>
+              db
+                .delete(taskAssignments)
+                .where(
+                  and(
+                    eq(taskAssignments.taskTemplateId, saved.id),
+                    isNotNull(taskAssignments.contactId),
+                    ...(selectedIds.length === 0
+                      ? []
+                      : [notInArray(taskAssignments.contactId, selectedIds)]),
+                  ),
+                )
+                .execute(),
+            );
+          if (saved !== undefined && selectedIds.length > 0)
+            yield* query(database, "Could not assign task to selected speakers", (db) =>
+              db
+                .insert(taskAssignments)
+                .values(
+                  selectedIds.map((contactId) => ({
+                    taskTemplateId: saved.id,
+                    contactId,
+                    submissionId: null,
+                    status: "todo" as const,
+                    completedAt: null,
+                  })),
+                )
+                .onConflictDoNothing()
+                .execute(),
+            );
+          return saved;
         }),
       waiveAssignment: (eventId, assignmentId) =>
         Effect.gen(function* () {

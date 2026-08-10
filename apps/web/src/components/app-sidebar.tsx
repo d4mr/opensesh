@@ -10,6 +10,7 @@ import {
   GaugeIcon,
   ListChecksIcon,
   MailIcon,
+  SendIcon,
   PanelTopIcon,
   Code2Icon,
   SettingsIcon,
@@ -45,6 +46,7 @@ const portals: ReadonlyArray<AdminNavItem> = [
   { title: "Deliverables", section: "file-requests", icon: <PanelTopIcon /> },
   { title: "Portal Forms", section: "portal-forms", icon: <ListChecksIcon /> },
   { title: "Email delivery", section: "emails", icon: <MailIcon /> },
+  { title: "Communications", section: "communications", icon: <SendIcon /> },
 ];
 const settings = {
   title: "Event Settings",

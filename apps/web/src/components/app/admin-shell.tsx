@@ -13,6 +13,7 @@ import {
   GaugeIcon,
   ListChecksIcon,
   MailIcon,
+  SendIcon,
   PanelTopIcon,
   SettingsIcon,
   SquareStackIcon,
@@ -53,6 +54,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Widgets", section: "widgets", icon: Code2Icon },
   { title: "Tasks", section: "tasks", icon: CheckSquareIcon },
   { title: "Email delivery", section: "emails", icon: MailIcon },
+  { title: "Communications", section: "communications", icon: SendIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
   { title: "Deliverables", section: "file-requests", icon: PanelTopIcon },
   { title: "Event Settings", section: "settings", icon: SettingsIcon },
@@ -145,6 +147,7 @@ export function AdminShell({
     if (section === "widgets")
       return navigate({ to: "/admin/widgets", search: { widget: undefined } });
     if (section === "emails") return navigate({ to: "/admin/emails" });
+    if (section === "communications") return navigate({ to: "/admin/communications" });
     return navigate({
       to: "/admin/$section",
       params: { section },

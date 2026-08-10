@@ -249,6 +249,7 @@ export const TaskTemplateMutationRequest = Schema.Struct({
   fileRequestId: NullableString,
   autoAssignOnAccept: Schema.Boolean,
   dueDate: NullableString,
+  contactIds: Schema.Array(Schema.String),
 });
 export const AdminAssignmentRequest = Schema.Struct({ assignmentId: Schema.String });
 export const ManualAssignRequest = Schema.Struct({
