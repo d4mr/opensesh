@@ -69,3 +69,39 @@ export const contentDiffRows = (entry: {
   }
   return rows;
 };
+
+const profileFieldLabels: Readonly<Record<string, string>> = {
+  firstName: "First name",
+  lastName: "Last name",
+  pronouns: "Pronouns",
+  bio: "Bio",
+  linkedinUrl: "LinkedIn",
+  twitterUrl: "Twitter",
+  facebookUrl: "Facebook",
+  websiteUrl: "Website",
+  headshotKey: "Headshot",
+  headshotUrl: "Headshot URL",
+};
+
+const profileValueText = (value: unknown) =>
+  typeof value === "string" && value.length > 0 ? value : "—";
+
+export const profileDiffRows = (entry: {
+  readonly changedFields: ReadonlyArray<string>;
+  readonly previousValues: Readonly<Record<string, unknown>>;
+  readonly newValues: Readonly<Record<string, unknown>>;
+}) =>
+  entry.changedFields
+    .filter((key) => key !== "headshotUrl")
+    .map((key) => ({
+      key,
+      label: profileFieldLabels[key] ?? key,
+      before:
+        key === "headshotKey"
+          ? entry.previousValues[key] == null
+            ? "No headshot"
+            : "Previous headshot"
+          : profileValueText(entry.previousValues[key]),
+      after:
+        key === "headshotKey" ? "New headshot uploaded" : profileValueText(entry.newValues[key]),
+    }));

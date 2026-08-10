@@ -18,6 +18,7 @@ import { Fragment, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
+import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
@@ -65,7 +66,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminEvent } from "@/components/app/admin-event-context";
-import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
+import { contentDiffRows, describeChangedFields, profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { cn } from "@/lib/utils";
@@ -1355,42 +1356,6 @@ const requirementFormFor = (requirement: AdminData["requirements"][number]): Req
   maxSizeMb: requirement.maxSizeMb?.toString() ?? "",
 });
 
-const profileFieldLabels: Record<string, string> = {
-  firstName: "First name",
-  lastName: "Last name",
-  pronouns: "Pronouns",
-  bio: "Bio",
-  linkedinUrl: "LinkedIn",
-  twitterUrl: "Twitter",
-  facebookUrl: "Facebook",
-  websiteUrl: "Website",
-  headshotKey: "Headshot",
-  headshotUrl: "Headshot URL",
-};
-
-const profileValueText = (value: unknown) =>
-  typeof value === "string" && value.length > 0 ? value : "—";
-
-const profileDiffRows = (entry: {
-  readonly changedFields: ReadonlyArray<string>;
-  readonly previousValues: Readonly<Record<string, unknown>>;
-  readonly newValues: Readonly<Record<string, unknown>>;
-}) =>
-  entry.changedFields
-    .filter((key) => key !== "headshotUrl")
-    .map((key) => ({
-      key,
-      label: profileFieldLabels[key] ?? key,
-      before:
-        key === "headshotKey"
-          ? entry.previousValues[key] == null
-            ? "No headshot"
-            : "Previous headshot"
-          : profileValueText(entry.previousValues[key]),
-      after:
-        key === "headshotKey" ? "New headshot uploaded" : profileValueText(entry.newValues[key]),
-    }));
-
 function AdminSessions({
   eventId,
   data,
@@ -1519,23 +1484,7 @@ function AdminSessions({
                                 {submission?.code} · {entry.authorName}
                               </DialogDescription>
                             </DialogHeader>
-                            <div className="grid gap-3">
-                              {contentDiffRows(entry).map((row) => (
-                                <div key={row.key} className="grid gap-1 text-xs">
-                                  <p className="font-medium capitalize text-muted-foreground">
-                                    {row.label}
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                                      {row.before}
-                                    </pre>
-                                    <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                                      {row.after}
-                                    </pre>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                            <ChangeDiff rows={contentDiffRows(entry)} />
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="outline"
@@ -1579,23 +1528,7 @@ function AdminSessions({
                               public until you decide
                             </DialogDescription>
                           </DialogHeader>
-                          <div className="grid gap-3">
-                            {profileDiffRows(entry).map((row) => (
-                              <div key={row.key} className="grid gap-1 text-xs">
-                                <p className="font-medium capitalize text-muted-foreground">
-                                  {row.label}
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                                    {row.before}
-                                  </pre>
-                                  <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                                    {row.after}
-                                  </pre>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          <ChangeDiff rows={profileDiffRows(entry)} />
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="outline"

@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
-import { EntityFields, NullableString } from "./common";
+import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
+import { EmailStatus, EmailType, FileKind, TaskStatus } from "./portal";
 
 export const WidgetView = Schema.Literals([
   "sessions",
@@ -176,6 +177,43 @@ export const SpeakerDirectoryRow = Schema.Struct({
   }),
   sessions: Schema.Array(
     Schema.Struct({ id: Schema.String, code: Schema.String, title: Schema.String }),
+  ),
+  tasks: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      title: Schema.String,
+      status: TaskStatus,
+      dueDate: NullableDate,
+      submissionCode: NullableString,
+    }),
+  ),
+  files: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      versionId: Schema.String,
+      filename: Schema.String,
+      kind: FileKind,
+      label: Schema.String,
+      uploadedAt: Schema.Date,
+    }),
+  ),
+  emails: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      subject: Schema.String,
+      type: EmailType,
+      status: EmailStatus,
+      sentAt: NullableDate,
+    }),
+  ),
+  profileChanges: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      changedFields: Schema.Array(Schema.String),
+      previousValues: JsonObject,
+      newValues: JsonObject,
+      createdAt: Schema.Date,
+    }),
   ),
 });
 export type SpeakerDirectoryRow = typeof SpeakerDirectoryRow.Type;

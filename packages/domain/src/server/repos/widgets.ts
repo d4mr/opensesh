@@ -1,16 +1,24 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import {
+  contactEditHistory,
   contacts,
+  emailLog,
   embeds,
   events,
+  fileRequests,
+  fileUploads,
+  fileVersions,
   formats,
   levels,
+  sessionFileRequirements,
   submissionParticipants,
   submissions,
   submissionTags,
   tags,
+  taskAssignments,
+  taskTemplates,
 } from "../../db/schema";
 import { Db } from "../db";
 import type { DbError, NotFound } from "../errors";
@@ -330,15 +338,80 @@ export const WidgetsLive = Layer.effect(
         ),
       directory: (eventId) =>
         Effect.gen(function* () {
-          const rows = yield* query(database, "Could not load speaker directory", (db) =>
-            db
-              .select({ contact: contacts, submission: submissions })
-              .from(contacts)
-              .leftJoin(submissionParticipants, eq(submissionParticipants.contactId, contacts.id))
-              .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-              .where(eq(contacts.eventId, eventId))
-              .orderBy(asc(contacts.lastName), asc(contacts.firstName))
-              .execute(),
+          const [rows, assignmentRows, fileRows, emailRows, profileRows] = yield* Effect.all(
+            [
+              query(database, "Could not load speaker directory", (db) =>
+                db
+                  .select({ contact: contacts, submission: submissions })
+                  .from(contacts)
+                  .leftJoin(
+                    submissionParticipants,
+                    eq(submissionParticipants.contactId, contacts.id),
+                  )
+                  .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+                  .where(eq(contacts.eventId, eventId))
+                  .orderBy(asc(contacts.lastName), asc(contacts.firstName))
+                  .execute(),
+              ),
+              query(database, "Could not load speaker tasks", (db) =>
+                db
+                  .select({
+                    assignment: taskAssignments,
+                    template: taskTemplates,
+                    submission: submissions,
+                  })
+                  .from(taskAssignments)
+                  .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
+                  .leftJoin(submissions, eq(submissions.id, taskAssignments.submissionId))
+                  .where(eq(taskTemplates.eventId, eventId))
+                  .orderBy(asc(taskTemplates.position))
+                  .execute(),
+              ),
+              query(database, "Could not load speaker files", (db) =>
+                db
+                  .select({
+                    upload: fileUploads,
+                    version: fileVersions,
+                    request: fileRequests,
+                    requirement: sessionFileRequirements,
+                    contact: contacts,
+                  })
+                  .from(fileUploads)
+                  .innerJoin(fileVersions, eq(fileVersions.fileUploadId, fileUploads.id))
+                  .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
+                  .leftJoin(fileRequests, eq(fileRequests.id, fileUploads.fileRequestId))
+                  .leftJoin(
+                    sessionFileRequirements,
+                    eq(sessionFileRequirements.id, fileUploads.requirementId),
+                  )
+                  .where(eq(contacts.eventId, eventId))
+                  .orderBy(desc(fileVersions.uploadedAt))
+                  .execute(),
+              ),
+              query(database, "Could not load speaker emails", (db) =>
+                db
+                  .select()
+                  .from(emailLog)
+                  .where(eq(emailLog.eventId, eventId))
+                  .orderBy(desc(emailLog.createdAt))
+                  .execute(),
+              ),
+              query(database, "Could not load speaker profile changes", (db) =>
+                db
+                  .select({ history: contactEditHistory, contact: contacts })
+                  .from(contactEditHistory)
+                  .innerJoin(contacts, eq(contacts.id, contactEditHistory.contactId))
+                  .where(
+                    and(
+                      eq(contacts.eventId, eventId),
+                      eq(contactEditHistory.approvalStatus, "pending_review"),
+                    ),
+                  )
+                  .orderBy(desc(contactEditHistory.createdAt))
+                  .execute(),
+              ),
+            ],
+            { concurrency: "unbounded" },
           );
           const grouped = new Map<
             string,
@@ -352,6 +425,10 @@ export const WidgetsLive = Layer.effect(
             )
               item.submissions.push(row.submission);
             grouped.set(row.contact.id, item);
+          }
+          const currentFiles = new Map<string, (typeof fileRows)[number]>();
+          for (const row of fileRows) {
+            if (!currentFiles.has(row.upload.id)) currentFiles.set(row.upload.id, row);
           }
           const directoryRows = Array.from(grouped.values()).map(
             ({ contact, submissions: linked }) => ({
@@ -378,6 +455,52 @@ export const WidgetsLive = Layer.effect(
                 code: submission.code,
                 title: submission.title,
               })),
+              tasks: assignmentRows
+                .filter(
+                  (row) =>
+                    row.assignment.contactId === contact.id ||
+                    (row.assignment.submissionId !== null &&
+                      linked.some((submission) => submission.id === row.assignment.submissionId)),
+                )
+                .map((row) => ({
+                  id: row.assignment.id,
+                  title: row.template.title,
+                  status: row.assignment.status,
+                  dueDate: row.template.dueDate,
+                  submissionCode: row.submission?.code ?? null,
+                })),
+              files: Array.from(currentFiles.values())
+                .filter((row) => row.upload.contactId === contact.id)
+                .map((row) => ({
+                  id: row.upload.id,
+                  versionId: row.version.id,
+                  filename: row.version.filename,
+                  kind: row.upload.kind,
+                  label:
+                    row.request?.title ??
+                    row.requirement?.title ??
+                    (row.upload.kind === "headshot" ? "Headshot" : "Slides"),
+                  uploadedAt: row.version.uploadedAt,
+                })),
+              emails: emailRows
+                .filter((row) => row.contactId === contact.id)
+                .slice(0, 10)
+                .map((row) => ({
+                  id: row.id,
+                  subject: row.subject,
+                  type: row.type,
+                  status: row.status,
+                  sentAt: row.sentAt,
+                })),
+              profileChanges: profileRows
+                .filter((row) => row.contact.id === contact.id)
+                .map(({ history }) => ({
+                  id: history.id,
+                  changedFields: history.changedFields,
+                  previousValues: history.previousValues,
+                  newValues: history.newValues,
+                  createdAt: history.createdAt,
+                })),
             }),
           );
           const csv = [

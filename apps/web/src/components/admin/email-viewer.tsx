@@ -1,5 +1,6 @@
 import type { AdminEmail, EmailStatus } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import {
   CalendarDaysIcon,
@@ -10,7 +11,6 @@ import {
   MailWarningIcon,
   RotateCcwIcon,
 } from "lucide-react";
-import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -121,16 +121,31 @@ const columns = columnHelper.columns([
 ]);
 
 export function EmailViewer() {
+  const { email } = useSearch({ from: "/admin/emails" });
+  const navigate = useNavigate({ from: "/admin/emails" });
   const eventContext = useAdminEvent();
   if (eventContext === null) return null;
-  return <EmailViewerData eventId={eventContext.event.id} />;
+  return (
+    <EmailViewerData
+      eventId={eventContext.event.id}
+      selectedId={email}
+      select={(id) => void navigate({ search: { email: id }, replace: true })}
+    />
+  );
 }
 
-function EmailViewerData({ eventId }: { readonly eventId: string }) {
+function EmailViewerData({
+  eventId,
+  selectedId,
+  select,
+}: {
+  readonly eventId: string;
+  readonly selectedId: string | undefined;
+  readonly select: (id: string | undefined) => void;
+}) {
   const queryClient = useQueryClient();
   const options = adminEmailsQuery(eventId);
   const query = useSuspenseQuery(options);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const data = query.data.ok ? query.data.data : [];
   const selected = data.find((email) => email.id === selectedId) ?? null;
   const table = useTable({ features, columns, data });
@@ -215,9 +230,9 @@ function EmailViewerData({ eventId }: { readonly eventId: string }) {
                   key={row.id}
                   tabIndex={0}
                   className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
-                  onClick={() => setSelectedId(row.original.id)}
+                  onClick={() => select(row.original.id)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") setSelectedId(row.original.id);
+                    if (event.key === "Enter") select(row.original.id);
                   }}
                 >
                   {row.getAllCells().map((cell) => (
@@ -232,7 +247,7 @@ function EmailViewerData({ eventId }: { readonly eventId: string }) {
         </Table>
       </div>
 
-      <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelectedId(null)}>
+      <Dialog open={selected !== null} onOpenChange={(open) => !open && select(undefined)}>
         {selected === null ? null : (
           <DialogContent className="max-h-[90vh] gap-3 overflow-hidden p-0 sm:max-w-4xl">
             <DialogHeader className="border-b px-5 py-4 pr-12">
