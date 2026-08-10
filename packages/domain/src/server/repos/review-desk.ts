@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -931,7 +931,13 @@ export const ReviewDeskLive = Layer.effect(
         return query(database, "Could not change submission status", (db) =>
           db
             .update(submissions)
-            .set({ status, updatedAt: new Date() })
+            // Leaving accepted un-graduates form-origin rows back to
+            // kind='abstract'; manually created sessions keep their kind.
+            .set({
+              status,
+              updatedAt: new Date(),
+              kind: sql`case when ${submissions.sourceFormId} is not null then 'abstract' else ${submissions.kind} end`,
+            })
             .where(
               and(
                 eq(submissions.id, submissionId),
@@ -1157,11 +1163,16 @@ export const ReviewDeskLive = Layer.effect(
               .update(submissions)
               // Accepted abstracts graduate into sessions (Sessionboard
               // lifecycle); the row keeps its code, reviews, and history.
+              // Re-deciding to declined reverts form-origin rows to
+              // kind='abstract'; manually created sessions keep their kind.
               .set({
                 status: nextStatus,
                 notifiedAt: now,
                 updatedAt: now,
-                ...(nextStatus === "accepted" ? { kind: "session" as const } : {}),
+                kind:
+                  nextStatus === "accepted"
+                    ? ("session" as const)
+                    : sql`case when ${submissions.sourceFormId} is not null then 'abstract' else ${submissions.kind} end`,
               })
               .where(
                 and(
