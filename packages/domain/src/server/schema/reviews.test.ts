@@ -7,6 +7,7 @@ import {
   recuseAssignment,
   redactBlindSubmission,
   validateReviewAnswer,
+  validateRequiredReviewAnswer,
   weightedAggregate,
 } from "./reviews";
 
@@ -61,6 +62,12 @@ describe("review domain", () => {
     expect(error?._tag).toBe("DropdownValueNotInOptions");
   });
 
+  it("rejects a missing required answer", () => {
+    const error = validateRequiredReviewAnswer(criterion({ label: "Originality" }), undefined);
+
+    expect(error?._tag).toBe("InvalidInput");
+  });
+
   it("honors assignment caps during deterministic auto-distribution", () => {
     const planned = planAutoDistribution({
       submissionIds: ["s3", "s1", "s2"],
@@ -93,8 +100,8 @@ describe("review domain", () => {
   it("removes every identity field from a blind submission", () => {
     const blind = redactBlindSubmission({
       code: "SESS-1",
-      title: "Taming CI",
-      description: "Build tooling lessons.",
+      title: "Taming CI with Priya Raman",
+      description: "Build tooling lessons from Latticework Systems.",
       speakerNames: ["Priya Raman", "Marcus Okafor"],
       companies: ["Latticework Systems"],
       submitterEmail: "priya.speaker@sbek-test.example.com",
@@ -102,8 +109,8 @@ describe("review domain", () => {
 
     expect(blind).toEqual({
       code: "SESS-1",
-      title: "Taming CI",
-      description: "Build tooling lessons.",
+      title: "Taming CI with [redacted]",
+      description: "Build tooling lessons from [redacted].",
     });
     expect(JSON.stringify(blind)).not.toMatch(/Priya|Marcus|Latticework|@/);
   });

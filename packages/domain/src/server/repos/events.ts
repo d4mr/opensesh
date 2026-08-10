@@ -121,7 +121,7 @@ export const EventsLive = Layer.effect(
       listForAdmin: (session, eventSlug) =>
         query(database, "Could not load admin events", (db) =>
           db
-            .select({ event: organizationEvent })
+            .select({ event: organizationEvent, role: eventMembers.role })
             .from(currentEvent)
             .innerJoin(
               organizationMembers,
@@ -162,12 +162,17 @@ export const EventsLive = Layer.effect(
               Event,
               "event",
               rows.map((row) => row.event),
+            ).pipe(
+              Effect.map((decoded) =>
+                rows[0]?.role === "reviewer"
+                  ? decoded.filter((event) => event.slug === eventSlug)
+                  : [
+                      ...decoded.filter((event) => event.slug === eventSlug),
+                      ...decoded.filter((event) => event.slug !== eventSlug),
+                    ],
+              ),
             ),
           ),
-          Effect.map((decoded) => [
-            ...decoded.filter((event) => event.slug === eventSlug),
-            ...decoded.filter((event) => event.slug !== eventSlug),
-          ]),
         ),
       get: (id) => find(events.id, id),
       getBySlug: (slug) => find(events.slug, slug),
