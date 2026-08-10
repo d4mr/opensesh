@@ -33,6 +33,7 @@ const closesIn = (closeDate: Date) => {
 };
 
 function Dashboard() {
+  const { user } = Route.useRouteContext();
   const stats = useSuspenseQuery(dashboardQuery);
 
   if (!stats.data.ok) return <p className="p-4 text-sm">{stats.data.error.message}</p>;
@@ -58,8 +59,8 @@ function Dashboard() {
               </a>
             </Button>
           </div>
-          <SectionCards stats={data} />
-          <DashboardAttention stats={data} />
+          <SectionCards stats={data} linked={user.roles.admin} />
+          {user.roles.admin ? <DashboardAttention stats={data} /> : null}
           <Suspense fallback={null}>
             <DataTable data={data.recentSubmissions} />
           </Suspense>

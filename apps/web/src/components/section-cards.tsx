@@ -11,7 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
+export function SectionCards({
+  stats,
+  linked = true,
+}: {
+  readonly stats: DashboardStats;
+  readonly linked?: boolean;
+}) {
   const cards = [
     {
       label: "Submissions",
@@ -78,6 +84,12 @@ export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
             </CardFooter>
           </Card>
         );
+        if (!linked && card.section !== "evaluation")
+          return (
+            <div key={card.label} className="block">
+              {content}
+            </div>
+          );
         return card.section === "agenda" ? (
           <Link
             key={card.label}
@@ -87,11 +99,23 @@ export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
           >
             {content}
           </Link>
+        ) : card.section === "abstracts" ? (
+          <Link
+            key={card.label}
+            to="/admin/abstracts"
+            search={{ status: "all", spotlight: undefined }}
+            className="group/stat block"
+          >
+            {content}
+          </Link>
+        ) : card.section === "evaluation" ? (
+          <Link key={card.label} to="/admin/evaluation" className="group/stat block">
+            {content}
+          </Link>
         ) : (
           <Link
             key={card.label}
-            to="/admin/$section"
-            params={{ section: card.section }}
+            to="/admin/speakers"
             search={{ spotlight: undefined }}
             className="group/stat block"
           >

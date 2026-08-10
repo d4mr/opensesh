@@ -68,6 +68,18 @@ function NavItemLink({
         {content}
       </Link>
     );
+  if (item.section === "speakers")
+    return (
+      <Link to="/admin/speakers" search={{ spotlight: undefined }} {...props}>
+        {content}
+      </Link>
+    );
+  if (item.section === "widgets")
+    return (
+      <Link to="/admin/widgets" search={{ widget: undefined }} {...props}>
+        {content}
+      </Link>
+    );
   return (
     <Link
       to="/admin/$section"

@@ -100,12 +100,18 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
                   >
                     {content}
                   </Link>
+                ) : item.section === "evaluation" ? (
+                  <Link key={item.label} to="/admin/evaluation" className={className}>
+                    {content}
+                  </Link>
                 ) : (
                   <Link
                     key={item.label}
-                    to="/admin/$section"
-                    params={{ section: item.section }}
-                    search={{ spotlight: undefined }}
+                    to="/admin/abstracts"
+                    search={{
+                      status: item.section === "abstracts" ? "draft" : "all",
+                      spotlight: undefined,
+                    }}
                     className={className}
                   >
                     {content}
