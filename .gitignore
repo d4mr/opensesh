@@ -19,3 +19,4 @@ research/video/*.webm
 .dev.vars
 .dev.vars.*
 codex-wp9.log
+codex-wp11.log

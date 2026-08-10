@@ -1,9 +1,11 @@
 import type { FormFieldDefinition, PortalFormSection } from "@opensesh/domain";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
   DownloadIcon,
+  ExternalLinkIcon,
   FileArchiveIcon,
   FilterIcon,
   HistoryIcon,
@@ -17,6 +19,7 @@ import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { PersonTag } from "@/components/app/person-tag";
+import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
@@ -63,6 +66,7 @@ import { useAdminEvent } from "@/components/app/admin-event-context";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { cn } from "@/lib/utils";
 import {
   acceptPortalSubmission,
   approveContentChange,
@@ -81,18 +85,43 @@ import { sendTaskReminders } from "@/server-fns/mail";
 
 type AdminData = Extract<Awaited<ReturnType<typeof getPortalAdmin>>, { readonly ok: true }>["data"];
 
-export function PortalAdminSection({ section }: { readonly section: string }) {
+export function PortalAdminSection({
+  section,
+  spotlightId,
+  onSpotlightChange,
+}: {
+  readonly section: string;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
+}) {
   const eventContext = useAdminEvent();
   if (eventContext === null) return null;
-  return <PortalAdminData eventId={eventContext.event.id} section={section} />;
+  return (
+    <PortalAdminData
+      eventId={eventContext.event.id}
+      section={section}
+      spotlightId={spotlightId}
+      onSpotlightChange={onSpotlightChange}
+    />
+  );
 }
 
 function PortalAdminData({
   eventId,
   section,
+  spotlightId,
+  onSpotlightChange,
 }: {
   readonly eventId: string;
   readonly section: string;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
 }) {
   const portal = useSuspenseQuery(adminPortalQuery(eventId));
   if (!portal.data.ok) return <p className="p-6">{portal.data.error.message}</p>;
@@ -101,7 +130,15 @@ function PortalAdminData({
     return <AdminPortalForms eventId={eventId} data={portal.data.data} />;
   if (section === "file-requests")
     return <AdminFileRequests eventId={eventId} data={portal.data.data} />;
-  if (section === "content") return <AdminSessions eventId={eventId} data={portal.data.data} />;
+  if (section === "content")
+    return (
+      <AdminSessions
+        eventId={eventId}
+        data={portal.data.data}
+        spotlightId={spotlightId}
+        onSpotlightChange={onSpotlightChange}
+      />
+    );
   return null;
 }
 
@@ -1111,9 +1148,21 @@ const profileDiffRows = (entry: {
         key === "headshotKey" ? "New headshot uploaded" : profileValueText(entry.newValues[key]),
     }));
 
-function AdminSessions({ eventId, data }: { readonly eventId: string; readonly data: AdminData }) {
+function AdminSessions({
+  eventId,
+  data,
+  spotlightId,
+  onSpotlightChange,
+}: {
+  readonly eventId: string;
+  readonly data: AdminData;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
+}) {
   const queryClient = useQueryClient();
-  const [expanded, setExpanded] = useState<string | null>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
   const review = useMutation({
     mutationFn: ({
@@ -1172,211 +1221,243 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
   const pendingProfiles = data.profileHistory.filter(
     (item) => item.history.approvalStatus === "pending_review",
   );
+  const visibleSubmissions = data.submissions.filter(
+    (item) => item.status === "accepted" || item.status === "pending",
+  );
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div>
-        <h1 className="text-lg font-semibold">Content</h1>
-        <p className="text-xs text-muted-foreground">
-          Accepted session content, speakers, and approval history.
-        </p>
-      </div>
-      {pendingHistory.length + pendingProfiles.length === 0 ? null : (
-        <div className="overflow-hidden rounded-md border">
-          <div className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
-            <span className="text-xs font-medium">Awaiting approval</span>
-            <span className="text-[11px] text-muted-foreground tabular-nums">
-              {pendingHistory.length + pendingProfiles.length}
-            </span>
-          </div>
-          <div className="divide-y">
-            {pendingHistory.map((entry) => {
-              const submission = data.submissions.find((item) => item.id === entry.submissionId);
-              return (
-                <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
-                  <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
-                    Session
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
+      <SpotlightLayout
+        spotlightId={spotlightId}
+        orderedIds={visibleSubmissions.map((submission) => submission.id)}
+        onSpotlightChange={onSpotlightChange}
+        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+          <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
+            <div>
+              <h1 className="text-lg font-semibold">Content</h1>
+              <p className="text-xs text-muted-foreground">
+                Accepted session content, speakers, and approval history.
+              </p>
+            </div>
+            {pendingHistory.length + pendingProfiles.length === 0 ? null : (
+              <div className="overflow-hidden rounded-md border">
+                <div className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
+                  <span className="text-xs font-medium">Awaiting approval</span>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {pendingHistory.length + pendingProfiles.length}
                   </span>
-                  <span className="min-w-0 truncate">
-                    <span className="font-mono tabular-nums">{submission?.code}</span>{" "}
-                    <span className="font-medium">{submission?.title}</span>
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                    {entry.authorName} changed {describeChangedFields(entry.changedFields)}
-                  </span>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                        Review
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Review content changes</DialogTitle>
-                        <DialogDescription>
-                          {submission?.code} · {entry.authorName}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-3">
-                        {contentDiffRows(entry).map((row) => (
-                          <div key={row.key} className="grid gap-1 text-xs">
-                            <p className="font-medium capitalize text-muted-foreground">
-                              {row.label}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2">
-                              <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                                {row.before}
-                              </pre>
-                              <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                                {row.after}
-                              </pre>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => review.mutate({ id: entry.id, decision: "reject" })}
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          onClick={() => review.mutate({ id: entry.id, decision: "approve" })}
-                        >
-                          Approve
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
                 </div>
-              );
-            })}
-            {pendingProfiles.map(({ history: entry, contact }) => (
-              <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
-                <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
-                  Profile
-                </span>
-                <span className="min-w-0 truncate font-medium">
-                  {contact.firstName} {contact.lastName}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                  changed {describeChangedFields(entry.changedFields)}
-                </span>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                      Review
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Review profile changes</DialogTitle>
-                      <DialogDescription>
-                        {contact.firstName} {contact.lastName} · the approved profile stays public
-                        until you decide
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-3">
-                      {profileDiffRows(entry).map((row) => (
-                        <div key={row.key} className="grid gap-1 text-xs">
-                          <p className="font-medium capitalize text-muted-foreground">
-                            {row.label}
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                              {row.before}
-                            </pre>
-                            <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                              {row.after}
-                            </pre>
+                <div className="divide-y">
+                  {pendingHistory.map((entry) => {
+                    const submission = data.submissions.find(
+                      (item) => item.id === entry.submissionId,
+                    );
+                    return (
+                      <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
+                        <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
+                          Session
+                        </span>
+                        <span className="min-w-0 truncate">
+                          <span className="font-mono tabular-nums">{submission?.code}</span>{" "}
+                          <span className="font-medium">{submission?.title}</span>
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                          {entry.authorName} changed {describeChangedFields(entry.changedFields)}
+                        </span>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                              Review
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Review content changes</DialogTitle>
+                              <DialogDescription>
+                                {submission?.code} · {entry.authorName}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-3">
+                              {contentDiffRows(entry).map((row) => (
+                                <div key={row.key} className="grid gap-1 text-xs">
+                                  <p className="font-medium capitalize text-muted-foreground">
+                                    {row.label}
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                                      {row.before}
+                                    </pre>
+                                    <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                                      {row.after}
+                                    </pre>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => review.mutate({ id: entry.id, decision: "reject" })}
+                              >
+                                Reject
+                              </Button>
+                              <Button
+                                onClick={() => review.mutate({ id: entry.id, decision: "approve" })}
+                              >
+                                Approve
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    );
+                  })}
+                  {pendingProfiles.map(({ history: entry, contact }) => (
+                    <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
+                      <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
+                        Profile
+                      </span>
+                      <span className="min-w-0 truncate font-medium">
+                        {contact.firstName} {contact.lastName}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        changed {describeChangedFields(entry.changedFields)}
+                      </span>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                            Review
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Review profile changes</DialogTitle>
+                            <DialogDescription>
+                              {contact.firstName} {contact.lastName} · the approved profile stays
+                              public until you decide
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-3">
+                            {profileDiffRows(entry).map((row) => (
+                              <div key={row.key} className="grid gap-1 text-xs">
+                                <p className="font-medium capitalize text-muted-foreground">
+                                  {row.label}
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                                    {row.before}
+                                  </pre>
+                                  <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                                    {row.after}
+                                  </pre>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      ))}
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() =>
+                                reviewProfile.mutate({ id: entry.id, decision: "reject" })
+                              }
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                reviewProfile.mutate({ id: entry.id, decision: "approve" })
+                              }
+                            >
+                              Approve
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => reviewProfile.mutate({ id: entry.id, decision: "reject" })}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        onClick={() => reviewProfile.mutate({ id: entry.id, decision: "approve" })}
-                      >
-                        Approve
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <div className="overflow-hidden rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Session</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Speakers</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.submissions
-              .filter((item) => item.status === "accepted" || item.status === "pending")
-              .map((submission) => {
-                const speakers = data.participants.filter(
-                  (row) => row.submission.id === submission.id,
-                );
-                return (
-                  <TableRow
-                    key={submission.id}
-                    className="cursor-pointer"
-                    onClick={() => setExpanded(submission.id)}
-                  >
-                    <TableCell>
-                      <span className="font-mono text-xs tabular-nums">{submission.code}</span> —{" "}
-                      <span className="font-medium">{submission.title}</span>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={submission.status} />
-                    </TableCell>
-                    <TableCell>
-                      {speakers.length === 0
-                        ? "—"
-                        : speakers
-                            .map((row) => `${row.contact.firstName} ${row.contact.lastName}`)
-                            .join(", ")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {submission.status === "pending" ? (
-                        <Button
-                          size="sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            accept.mutate(submission.id);
-                          }}
-                        >
-                          <UserRoundCheckIcon /> Accept
-                        </Button>
-                      ) : (
-                        <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
-                      )}
-                    </TableCell>
+            )}
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Session</TableHead>
+                    <TableHead>Status</TableHead>
+                    {compact ? null : <TableHead>Speakers</TableHead>}
+                    {compact ? null : <TableHead className="text-right">Action</TableHead>}
                   </TableRow>
-                );
-              })}
-          </TableBody>
-        </Table>
-      </div>
-      <SessionPeek
-        data={data}
-        eventId={eventId}
-        submissionId={expanded}
-        onClose={() => setExpanded(null)}
-        onRestore={(historyId) => restore.mutate(historyId)}
+                </TableHeader>
+                <TableBody>
+                  {visibleSubmissions.map((submission) => {
+                    const speakers = data.participants.filter(
+                      (row) => row.submission.id === submission.id,
+                    );
+                    return (
+                      <TableRow
+                        key={submission.id}
+                        ref={rowRef(submission.id)}
+                        className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
+                        onClick={() => openSpotlight(submission.id)}
+                      >
+                        <TableCell className="h-9 py-1.5">
+                          <span className="font-mono text-xs tabular-nums">{submission.code}</span>{" "}
+                          —{" "}
+                          <span className="font-medium">
+                            {compact ? (
+                              <span className="inline-block max-w-52 truncate align-bottom">
+                                {submission.title}
+                              </span>
+                            ) : (
+                              submission.title
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="h-9 py-1.5">
+                          <StatusBadge status={submission.status} />
+                        </TableCell>
+                        {compact ? null : (
+                          <TableCell className="h-9 py-1.5">
+                            {speakers.length === 0
+                              ? "—"
+                              : speakers
+                                  .map((row) => `${row.contact.firstName} ${row.contact.lastName}`)
+                                  .join(", ")}
+                          </TableCell>
+                        )}
+                        {compact ? null : (
+                          <TableCell className="h-9 py-1.5 text-right">
+                            {submission.status === "pending" ? (
+                              <Button
+                                size="sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  accept.mutate(submission.id);
+                                }}
+                              >
+                                <UserRoundCheckIcon /> Accept
+                              </Button>
+                            ) : (
+                              <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+        panel={
+          <SessionPeek
+            data={data}
+            eventId={eventId}
+            submissionId={spotlightId}
+            onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+            onRestore={(historyId) => restore.mutate(historyId)}
+          />
+        }
       />
     </main>
   );
@@ -1391,7 +1472,7 @@ function SessionPeek({
 }: {
   readonly data: AdminData;
   readonly eventId: string;
-  readonly submissionId: string | null;
+  readonly submissionId: string | undefined;
   readonly onClose: () => void;
   readonly onRestore: (historyId: string) => void;
 }) {
@@ -1400,72 +1481,74 @@ function SessionPeek({
   const history = data.history
     .map((item) => item.history)
     .filter((item) => item.submissionId === submissionId);
+  if (submission === undefined) return null;
   return (
-    <Sheet
-      open={submissionId !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        {submission === undefined ? null : (
-          <>
-            <SheetHeader>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {submission.code}
-                </span>
-                <StatusBadge status={submission.status} />
-              </div>
-              <SheetTitle>{submission.title}</SheetTitle>
-              <SheetDescription className="sr-only">
-                Session speakers and content history
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-5 px-4 pb-4">
-              <section className="grid gap-2">
-                <h3 className="text-xs font-medium text-muted-foreground">Speakers</h3>
-                {speakers.length === 0 ? (
-                  <p className="text-xs italic text-muted-foreground/70">No speakers attached.</p>
-                ) : (
-                  speakers.map((row) => (
-                    <SpeakerCard
-                      key={row.contact.id}
-                      data={data}
-                      contact={row.contact}
-                      eventId={eventId}
-                    />
-                  ))
-                )}
-              </section>
-              <section className="grid gap-2">
-                <h3 className="text-xs font-medium text-muted-foreground">Content history</h3>
-                {history.length === 0 ? (
-                  <p className="text-xs italic text-muted-foreground/70">No content changes yet.</p>
-                ) : (
-                  history.map((entry) => (
-                    <details key={entry.id} className="rounded-md border bg-background">
-                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
-                        <HistoryIcon className="size-3.5" />
-                        {entry.authorName} · {describeChangedFields(entry.changedFields)}
-                        <span className="ml-auto capitalize text-muted-foreground">
-                          {entry.approvalStatus.replace("_", " ")}
-                        </span>
-                      </summary>
-                      <div className="border-t p-3">
-                        <Button size="sm" variant="outline" onClick={() => onRestore(entry.id)}>
-                          <RotateCcwIcon /> Restore
-                        </Button>
-                      </div>
-                    </details>
-                  ))
-                )}
-              </section>
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
+    <div className="flex h-full min-h-0 flex-col">
+      <SpotlightPanelHeader
+        identity={
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {submission.code}
+          </span>
+        }
+        status={<StatusBadge status={submission.status} />}
+        actions={
+          <Button size="icon-sm" variant="ghost" className="pressable" asChild>
+            <Link
+              to="/admin/abstracts/$id"
+              params={{ id: submission.id }}
+              search={{ status: "all" }}
+              aria-label="Open full session page"
+            >
+              <ExternalLinkIcon />
+            </Link>
+          </Button>
+        }
+        onClose={onClose}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <h2 className="mb-4 text-base font-semibold">{submission.title}</h2>
+        <div className="grid gap-5">
+          <section className="grid gap-2">
+            <h3 className="text-xs font-medium text-muted-foreground">Speakers</h3>
+            {speakers.length === 0 ? (
+              <p className="text-xs italic text-muted-foreground/70">No speakers attached.</p>
+            ) : (
+              speakers.map((row) => (
+                <SpeakerCard
+                  key={row.contact.id}
+                  data={data}
+                  contact={row.contact}
+                  eventId={eventId}
+                />
+              ))
+            )}
+          </section>
+          <section className="grid gap-2">
+            <h3 className="text-xs font-medium text-muted-foreground">Content history</h3>
+            {history.length === 0 ? (
+              <p className="text-xs italic text-muted-foreground/70">No content changes yet.</p>
+            ) : (
+              history.map((entry) => (
+                <details key={entry.id} className="rounded-md border bg-background">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+                    <HistoryIcon className="size-3.5" />
+                    {entry.authorName} · {describeChangedFields(entry.changedFields)}
+                    <span className="ml-auto capitalize text-muted-foreground">
+                      {entry.approvalStatus.replace("_", " ")}
+                    </span>
+                  </summary>
+                  <div className="border-t p-3">
+                    <Button size="sm" variant="outline" onClick={() => onRestore(entry.id)}>
+                      <RotateCcwIcon /> Restore
+                    </Button>
+                  </div>
+                </details>
+              ))
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
 

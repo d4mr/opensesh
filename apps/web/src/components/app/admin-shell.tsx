@@ -122,9 +122,15 @@ export function AdminShell({
     setCommandOpen(false);
     if (section === undefined) return navigate({ to: "/admin" });
     if (section === "abstracts")
-      return navigate({ to: "/admin/abstracts", search: { status: "all" } });
+      return navigate({
+        to: "/admin/abstracts",
+        search: { status: "all", spotlight: undefined },
+      });
     if (section === "sessions")
-      return navigate({ to: "/admin/sessions", search: { status: "all" } });
+      return navigate({
+        to: "/admin/sessions",
+        search: { status: "all", spotlight: undefined },
+      });
     if (section === "forms") return navigate({ to: "/admin/forms" });
     if (section === "evaluation") return navigate({ to: "/admin/evaluation" });
     if (section === "agenda")
@@ -135,7 +141,11 @@ export function AdminShell({
     if (section === "widgets")
       return navigate({ to: "/admin/widgets", search: { widget: undefined } });
     if (section === "emails") return navigate({ to: "/admin/emails" });
-    return navigate({ to: "/admin/$section", params: { section } });
+    return navigate({
+      to: "/admin/$section",
+      params: { section },
+      search: { spotlight: undefined },
+    });
   };
 
   return (

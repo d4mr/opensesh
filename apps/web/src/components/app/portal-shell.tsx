@@ -24,7 +24,12 @@ function NavLink({
   readonly className: string;
 }) {
   return "section" in item && item.section !== undefined ? (
-    <Link to="/portal/$section" params={{ section: item.section }} className={className}>
+    <Link
+      to="/portal/$section"
+      params={{ section: item.section }}
+      search={{ spotlight: undefined }}
+      className={className}
+    >
       {item.title}
     </Link>
   ) : (

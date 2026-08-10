@@ -4,6 +4,7 @@ import { DownloadIcon, SearchIcon, UploadIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,13 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -41,29 +35,69 @@ const dietaryLabels: Readonly<Record<string, string>> = {
   other: "Other",
 };
 
-export function SpeakersDirectory() {
+export function SpeakersDirectory({
+  spotlightId,
+  onSpotlightChange,
+}: {
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
+}) {
   const context = useAdminEvent();
   if (context === null) return null;
-  return <DirectoryData eventId={context.event.id} />;
+  return (
+    <DirectoryData
+      eventId={context.event.id}
+      spotlightId={spotlightId}
+      onSpotlightChange={onSpotlightChange}
+    />
+  );
 }
 
-function DirectoryData({ eventId }: { readonly eventId: string }) {
+function DirectoryData({
+  eventId,
+  spotlightId,
+  onSpotlightChange,
+}: {
+  readonly eventId: string;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
+}) {
   const result = useSuspenseQuery(speakerDirectoryQuery(eventId));
   if (!result.data.ok) return <p className="p-6 text-sm">{result.data.error.message}</p>;
-  return <Directory eventId={eventId} rows={result.data.data.rows} csv={result.data.data.csv} />;
+  return (
+    <Directory
+      eventId={eventId}
+      rows={result.data.data.rows}
+      csv={result.data.data.csv}
+      spotlightId={spotlightId}
+      onSpotlightChange={onSpotlightChange}
+    />
+  );
 }
 
 function Directory({
   eventId,
   rows,
   csv,
+  spotlightId,
+  onSpotlightChange,
 }: {
   readonly eventId: string;
   readonly rows: ReadonlyArray<SpeakerDirectoryRow>;
   readonly csv: string;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string>();
   const [importOpen, setImportOpen] = useState(false);
   const filtered = useMemo(
     () =>
@@ -81,7 +115,7 @@ function Directory({
       ),
     [rows, search],
   );
-  const selected = rows.find((row) => row.contact.id === selectedId);
+  const selected = rows.find((row) => row.contact.id === spotlightId);
   const download = () => {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
@@ -91,175 +125,200 @@ function Directory({
     URL.revokeObjectURL(url);
   };
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">Speakers</h1>
-          <p className="text-xs text-muted-foreground">
-            The event directory, profile readiness, and session links.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="pressable" onClick={download}>
-            <DownloadIcon /> Export CSV
-          </Button>
-          <Button size="sm" className="pressable" onClick={() => setImportOpen(true)}>
-            <UploadIcon /> Import CSV
-          </Button>
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="relative min-w-56 flex-1 sm:max-w-sm">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search speakers…"
-            className="h-8 pl-8"
-          />
-        </div>
-        <p className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {filtered.length} speaker{filtered.length === 1 ? "" : "s"}
-        </p>
-      </div>
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Speaker</TableHead>
-              <TableHead>Sessions</TableHead>
-              <TableHead>Dietary</TableHead>
-              <TableHead>T-shirt</TableHead>
-              <TableHead>Social</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                  No speakers match.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((row) => (
-                <TableRow
-                  key={row.contact.id}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedId(row.contact.id)}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-2.5">
-                      <Headshot row={row} />
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-                          {row.contact.firstName} {row.contact.lastName}
-                          {row.contact.profileReviewStatus === "pending_review" ? (
-                            <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
-                              Profile pending
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {[row.contact.title, row.contact.company].filter(Boolean).join(" · ") ||
-                            row.contact.email}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums">
-                    {row.sessions.map((session) => session.code).join(", ") || "—"}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {dietaryLabels[row.contact.dietaryRequirements] ??
-                      row.contact.dietaryRequirements}
-                  </TableCell>
-                  <TableCell className="text-xs">{row.contact.tshirtSize ?? "—"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {[
-                      row.contact.linkedinUrl && "LinkedIn",
-                      row.contact.twitterUrl && "Twitter",
-                      row.contact.websiteUrl && "Web",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <Sheet
-        open={selected !== undefined}
-        onOpenChange={(open) => {
-          if (!open) setSelectedId(undefined);
-        }}
-      >
-        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-          {selected === undefined ? null : (
-            <>
-              <SheetHeader>
-                <div className="flex items-center gap-3">
-                  <Headshot row={selected} large />
-                  <div>
-                    <SheetTitle>
-                      {selected.contact.firstName} {selected.contact.lastName}
-                    </SheetTitle>
-                    <SheetDescription>
-                      {[selected.contact.title, selected.contact.company]
-                        .filter(Boolean)
-                        .join(" · ") || selected.contact.email}
-                    </SheetDescription>
-                  </div>
-                </div>
-              </SheetHeader>
-              <div className="grid gap-5 px-4 pb-4 text-xs">
-                <section>
-                  <h3 className="font-medium text-muted-foreground">Contact and logistics</h3>
-                  <p className="mt-1">
-                    {selected.contact.email}
-                    {selected.contact.phone === null ? "" : ` · ${selected.contact.phone}`}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">
-                    {dietaryLabels[selected.contact.dietaryRequirements] === "—"
-                      ? "No dietary needs"
-                      : dietaryLabels[selected.contact.dietaryRequirements]}
-                    {selected.contact.tshirtSize === null
-                      ? ""
-                      : ` · T-shirt ${selected.contact.tshirtSize}`}
-                  </p>
-                </section>
-                <section>
-                  <h3 className="font-medium text-muted-foreground">Bio</h3>
-                  {selected.contact.bio === null ? (
-                    <p className="mt-1 italic text-muted-foreground">No bio yet.</p>
-                  ) : (
-                    <div
-                      className="rte-content mt-1 text-muted-foreground"
-                      dangerouslySetInnerHTML={{ __html: selected.contact.bio }}
-                    />
-                  )}
-                </section>
-                <section>
-                  <h3 className="font-medium text-muted-foreground">Sessions</h3>
-                  <div className="mt-2 divide-y overflow-hidden rounded-lg border">
-                    {selected.sessions.length === 0 ? (
-                      <p className="p-3 text-muted-foreground">No sessions attached.</p>
-                    ) : (
-                      selected.sessions.map((session) => (
-                        <p key={session.id} className="px-3 py-2">
-                          <span className="font-mono tabular-nums">{session.code}</span> —{" "}
-                          {session.title}
-                        </p>
-                      ))
-                    )}
-                  </div>
-                </section>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
+      <SpotlightLayout
+        spotlightId={spotlightId}
+        orderedIds={filtered.map((row) => row.contact.id)}
+        onSpotlightChange={onSpotlightChange}
+        clearFilters={() => setSearch("")}
+        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+          <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-lg font-semibold">Speakers</h1>
+                <p className="text-xs text-muted-foreground">
+                  The event directory, profile readiness, and session links.
+                </p>
               </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="pressable" onClick={download}>
+                  <DownloadIcon /> Export CSV
+                </Button>
+                <Button size="sm" className="pressable" onClick={() => setImportOpen(true)}>
+                  <UploadIcon /> Import CSV
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative min-w-56 flex-1 sm:max-w-sm">
+                <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search speakers…"
+                  className="h-8 pl-8"
+                />
+              </div>
+              <p className="ml-auto text-xs text-muted-foreground tabular-nums">
+                {filtered.length} speaker{filtered.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Speaker</TableHead>
+                    {compact ? null : <TableHead>Sessions</TableHead>}
+                    {compact ? null : <TableHead>Dietary</TableHead>}
+                    {compact ? null : <TableHead>T-shirt</TableHead>}
+                    {compact ? null : <TableHead>Social</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={compact ? 1 : 5}
+                        className="py-10 text-center text-sm text-muted-foreground"
+                      >
+                        No speakers match.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((row) => (
+                      <TableRow
+                        key={row.contact.id}
+                        ref={rowRef(row.contact.id)}
+                        className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
+                        onClick={() => openSpotlight(row.contact.id)}
+                      >
+                        <TableCell className="h-9 py-0">
+                          <div className="flex items-center gap-2.5">
+                            <Headshot row={row} />
+                            <div className="min-w-0">
+                              <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                                {row.contact.firstName} {row.contact.lastName}
+                                {row.contact.profileReviewStatus === "pending_review" ? (
+                                  <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                                    Profile pending
+                                  </span>
+                                ) : null}
+                              </p>
+                              <p
+                                className={cn(
+                                  "truncate text-xs text-muted-foreground",
+                                  compact && "hidden",
+                                )}
+                              >
+                                {[row.contact.title, row.contact.company]
+                                  .filter(Boolean)
+                                  .join(" · ") || row.contact.email}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        {compact ? null : (
+                          <TableCell className="h-9 py-0 font-mono text-xs tabular-nums">
+                            {row.sessions.map((session) => session.code).join(", ") || "—"}
+                          </TableCell>
+                        )}
+                        {compact ? null : (
+                          <TableCell className="h-9 py-0 text-xs">
+                            {dietaryLabels[row.contact.dietaryRequirements] ??
+                              row.contact.dietaryRequirements}
+                          </TableCell>
+                        )}
+                        {compact ? null : (
+                          <TableCell className="h-9 py-0 text-xs">
+                            {row.contact.tshirtSize ?? "—"}
+                          </TableCell>
+                        )}
+                        {compact ? null : (
+                          <TableCell className="h-9 py-0 text-xs text-muted-foreground">
+                            {[
+                              row.contact.linkedinUrl && "LinkedIn",
+                              row.contact.twitterUrl && "Twitter",
+                              row.contact.websiteUrl && "Web",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "—"}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+        panel={
+          selected === undefined ? null : (
+            <div className="flex h-full min-h-0 flex-col">
+              <SpotlightPanelHeader
+                identity={
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Headshot row={selected} />
+                    <span className="truncate text-sm font-medium">
+                      {selected.contact.firstName} {selected.contact.lastName}
+                    </span>
+                  </div>
+                }
+                onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+              />
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <p className="mb-5 text-xs text-muted-foreground">
+                  {[selected.contact.title, selected.contact.company].filter(Boolean).join(" · ") ||
+                    selected.contact.email}
+                </p>
+                <div className="grid gap-5 text-xs">
+                  <section>
+                    <h3 className="font-medium text-muted-foreground">Contact and logistics</h3>
+                    <p className="mt-1">
+                      {selected.contact.email}
+                      {selected.contact.phone === null ? "" : ` · ${selected.contact.phone}`}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      {dietaryLabels[selected.contact.dietaryRequirements] === "—"
+                        ? "No dietary needs"
+                        : dietaryLabels[selected.contact.dietaryRequirements]}
+                      {selected.contact.tshirtSize === null
+                        ? ""
+                        : ` · T-shirt ${selected.contact.tshirtSize}`}
+                    </p>
+                  </section>
+                  <section>
+                    <h3 className="font-medium text-muted-foreground">Bio</h3>
+                    {selected.contact.bio === null ? (
+                      <p className="mt-1 italic text-muted-foreground">No bio yet.</p>
+                    ) : (
+                      <div
+                        className="rte-content mt-1 text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: selected.contact.bio }}
+                      />
+                    )}
+                  </section>
+                  <section>
+                    <h3 className="font-medium text-muted-foreground">Sessions</h3>
+                    <div className="mt-2 divide-y overflow-hidden rounded-lg border">
+                      {selected.sessions.length === 0 ? (
+                        <p className="p-3 text-muted-foreground">No sessions attached.</p>
+                      ) : (
+                        selected.sessions.map((session) => (
+                          <p key={session.id} className="px-3 py-2">
+                            <span className="font-mono tabular-nums">{session.code}</span> —{" "}
+                            {session.title}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          )
+        }
+      />
       <CsvImport eventId={eventId} open={importOpen} close={() => setImportOpen(false)} />
     </main>
   );
