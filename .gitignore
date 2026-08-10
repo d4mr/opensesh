@@ -16,3 +16,5 @@ __unconfig*
 todos.json
 vendor/
 research/video/*.webm
+.dev.vars
+.dev.vars.*
