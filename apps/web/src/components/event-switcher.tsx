@@ -4,7 +4,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { CalendarPlusIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { BrandMark } from "@/components/app/brand-mark";
+import { EventIcon } from "@/components/app/event-icon";
+import { DateTimePicker } from "@/components/forms/datetime-picker";
+import { TimezoneCombobox } from "@/components/forms/timezone-combobox";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,8 +35,7 @@ import {
 import { createEvent } from "@/server-fns/admin";
 
 const dateInput = (date: Date) => {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+  return date.toISOString();
 };
 
 const formatDates = (event: Event) => {
@@ -90,7 +91,7 @@ export function EventSwitcher({
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                <BrandMark />
+                <EventIcon src={event.logoUrl} size={32} />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{event.name}</span>
                   <span className="truncate text-xs text-muted-foreground">{dates}</span>
@@ -113,7 +114,7 @@ export function EventSwitcher({
                   className="gap-2 p-2"
                   onSelect={() => onSelect(item.id)}
                 >
-                  <BrandMark className="size-6 rounded-md" />
+                  <EventIcon src={item.logoUrl} size={32} />
                   <div className="grid flex-1 text-left leading-tight">
                     <span className="truncate text-sm font-medium">{item.name}</span>
                     <span className="truncate text-xs text-muted-foreground">
@@ -166,43 +167,44 @@ export function EventSwitcher({
                   </Field>
                 )}
               </form.Field>
-              <form.Field name="startsAt">
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor={field.name}>Starts</FieldLabel>
-                    <Input
-                      id={field.name}
-                      type="datetime-local"
-                      required
-                      value={field.state.value}
-                      onChange={(inputEvent) => field.handleChange(inputEvent.target.value)}
-                    />
-                  </Field>
+              <form.Subscribe selector={(state) => state.values.timezone}>
+                {(timezone) => (
+                  <>
+                    <form.Field name="startsAt">
+                      {(field) => (
+                        <Field>
+                          <FieldLabel>Starts</FieldLabel>
+                          <DateTimePicker
+                            value={field.state.value}
+                            timezone={timezone}
+                            onChange={field.handleChange}
+                          />
+                        </Field>
+                      )}
+                    </form.Field>
+                    <form.Field name="endsAt">
+                      {(field) => (
+                        <Field>
+                          <FieldLabel>Ends</FieldLabel>
+                          <DateTimePicker
+                            value={field.state.value}
+                            timezone={timezone}
+                            onChange={field.handleChange}
+                          />
+                        </Field>
+                      )}
+                    </form.Field>
+                  </>
                 )}
-              </form.Field>
-              <form.Field name="endsAt">
-                {(field) => (
-                  <Field>
-                    <FieldLabel htmlFor={field.name}>Ends</FieldLabel>
-                    <Input
-                      id={field.name}
-                      type="datetime-local"
-                      required
-                      value={field.state.value}
-                      onChange={(inputEvent) => field.handleChange(inputEvent.target.value)}
-                    />
-                  </Field>
-                )}
-              </form.Field>
+              </form.Subscribe>
               <form.Field name="timezone">
                 {(field) => (
                   <Field className="sm:col-span-2">
                     <FieldLabel htmlFor={field.name}>Timezone</FieldLabel>
-                    <Input
+                    <TimezoneCombobox
                       id={field.name}
-                      required
                       value={field.state.value}
-                      onChange={(inputEvent) => field.handleChange(inputEvent.target.value)}
+                      onChange={field.handleChange}
                     />
                   </Field>
                 )}

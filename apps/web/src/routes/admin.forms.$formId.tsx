@@ -21,6 +21,7 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
+import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,8 +70,7 @@ const steps = [
 
 const dateInput = (date: Date | null) => {
   if (date === null) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
+  return date.toISOString();
 };
 
 const editorFields = (fields: ReadonlyArray<FormField>): ReadonlyArray<FormFieldReplacement> =>
@@ -380,7 +380,12 @@ function FormEditor({
                     <SectionSettings value={field.state.value} onChange={field.handleChange} />
                   )}
                 </form.Field>
-                <FormFieldBuilder section="abstract" fields={fields} onChange={setFields} />
+                <FormFieldBuilder
+                  section="abstract"
+                  fields={fields}
+                  timezone={eventTimezone}
+                  onChange={setFields}
+                />
               </>
             ) : null}
 
@@ -436,7 +441,12 @@ function FormEditor({
                     </form.Field>
                   </div>
                 </div>
-                <FormFieldBuilder section="participant" fields={fields} onChange={setFields} />
+                <FormFieldBuilder
+                  section="participant"
+                  fields={fields}
+                  timezone={eventTimezone}
+                  onChange={setFields}
+                />
               </>
             ) : null}
 
@@ -447,10 +457,10 @@ function FormEditor({
                     {(field) => (
                       <Field>
                         <FieldLabel>Close date</FieldLabel>
-                        <Input
-                          type="datetime-local"
+                        <DateTimePicker
                           value={field.state.value}
-                          onChange={(event) => field.handleChange(event.target.value)}
+                          timezone={eventTimezone}
+                          onChange={field.handleChange}
                         />
                         <FieldDescription>Uses {eventTimezone}.</FieldDescription>
                       </Field>

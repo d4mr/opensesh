@@ -174,7 +174,11 @@ const makeMailLayer = (
                 .limit(1)
                 .execute(),
             );
-            const rendered = magicLink({ eventName: event.name, url: input.url });
+            const rendered = magicLink({
+              eventName: event.name,
+              logoUrl: event.logoUrl,
+              url: input.url,
+            });
             const rows = yield* query(database, "Could not record magic link email", (db) =>
               db
                 .insert(emailLog)

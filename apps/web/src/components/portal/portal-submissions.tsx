@@ -215,6 +215,7 @@ function SubmissionContent({
               ) : (
                 <FormRenderer
                   fields={fields}
+                  timezone={data.event.timezone}
                   library={data.library}
                   answers={answers}
                   onAnswersChange={setAnswers}

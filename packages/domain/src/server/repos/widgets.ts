@@ -154,6 +154,8 @@ const programFromRows = (rows: ReadonlyArray<ProgramRow>) =>
         slug: event.slug,
         name: event.name,
         tagline: event.tagline,
+        description: event.description,
+        logoUrl: event.logoUrl,
         location: event.location,
         timezone: event.timezone,
         startsAt: event.startsAt.toISOString(),

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/status-badge";
 import { PersonTag } from "@/components/app/person-tag";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
+import { formatDateTime } from "@/components/forms/datetime-picker";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
 import { Badge } from "@/components/ui/badge";
@@ -81,24 +82,43 @@ import { sendTaskReminders } from "@/server-fns/mail";
 
 type AdminData = Extract<Awaited<ReturnType<typeof getPortalAdmin>>, { readonly ok: true }>["data"];
 
+const portalFields = (form: AdminData["forms"][number] | undefined) =>
+  form?.sections.flatMap((section) => section.fields) ?? [];
+
+const portalAnswer = (value: unknown, field: FormFieldDefinition, timezone: string) => {
+  if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(", ");
+  if (typeof value !== "string") return "";
+  return field.fieldType === "datetime" && value.length > 0
+    ? `${formatDateTime(value, timezone)} (${timezone})`
+    : value;
+};
+
 export function PortalAdminSection({ section }: { readonly section: string }) {
   const eventContext = useAdminEvent();
   if (eventContext === null) return null;
-  return <PortalAdminData eventId={eventContext.event.id} section={section} />;
+  return (
+    <PortalAdminData
+      eventId={eventContext.event.id}
+      timezone={eventContext.event.timezone}
+      section={section}
+    />
+  );
 }
 
 function PortalAdminData({
   eventId,
+  timezone,
   section,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly section: string;
 }) {
   const portal = useSuspenseQuery(adminPortalQuery(eventId));
   if (!portal.data.ok) return <p className="p-6">{portal.data.error.message}</p>;
   if (section === "tasks") return <AdminTasks eventId={eventId} data={portal.data.data} />;
   if (section === "portal-forms")
-    return <AdminPortalForms eventId={eventId} data={portal.data.data} />;
+    return <AdminPortalForms eventId={eventId} timezone={timezone} data={portal.data.data} />;
   if (section === "file-requests")
     return <AdminFileRequests eventId={eventId} data={portal.data.data} />;
   if (section === "content") return <AdminSessions eventId={eventId} data={portal.data.data} />;
@@ -562,21 +582,34 @@ function TaskTemplateSheet({
 
 function AdminPortalForms({
   eventId,
+  timezone,
   data,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: AdminData;
 }) {
   const [editorId, setEditorId] = useState<string | null | undefined>(undefined);
   const exportCsv = () => {
-    const rows = data.responses.map((row) => ({
-      submitter: `${row.contact.firstName} ${row.contact.lastName}`,
-      email: row.contact.email,
-      dietary: row.contact.dietaryRequirements,
-      tshirt: row.contact.tshirtSize ?? "",
-      submittedAt: new Date(row.response.submittedAt).toISOString(),
-      answers: JSON.stringify(row.response.answers),
-    }));
+    const fields = Array.from(
+      new Map(data.forms.flatMap((form) => portalFields(form).map((field) => [field.id, field]))),
+    );
+    const rows: ReadonlyArray<Readonly<Record<string, string>>> = data.responses.map((row) => {
+      const form = data.forms.find((item) => item.id === row.response.formId);
+      const formFields = new Set(portalFields(form).map((field) => field.id));
+      return {
+        submitter: `${row.contact.firstName} ${row.contact.lastName}`,
+        email: row.contact.email,
+        form: form?.name ?? "Form",
+        submittedAt: new Date(row.response.submittedAt).toISOString(),
+        ...Object.fromEntries(
+          fields.map(([id, field]) => [
+            field.label,
+            formFields.has(id) ? portalAnswer(row.response.answers[id], field, timezone) : "",
+          ]),
+        ),
+      };
+    });
     downloadCsv("portal-form-responses.csv", rows);
   };
   return (
@@ -636,6 +669,7 @@ function AdminPortalForms({
               <TableBody>
                 {data.responses.map((row) => {
                   const form = data.forms.find((item) => item.id === row.response.formId);
+                  const responseFields = portalFields(form);
                   return (
                     <TableRow key={row.response.id}>
                       <TableCell>
@@ -665,9 +699,20 @@ function AdminPortalForms({
                               <DialogTitle>{form?.title ?? "Form response"}</DialogTitle>
                               <DialogDescription>{row.contact.email}</DialogDescription>
                             </DialogHeader>
-                            <pre className="max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs">
-                              {JSON.stringify(row.response.answers, null, 2)}
-                            </pre>
+                            <dl className="max-h-96 overflow-auto rounded-md border divide-y">
+                              {responseFields.map((field) => (
+                                <div key={field.id} className="grid gap-1 px-3 py-2.5">
+                                  <dt className="text-xs text-muted-foreground">{field.label}</dt>
+                                  <dd className="text-sm">
+                                    {portalAnswer(
+                                      row.response.answers[field.id],
+                                      field,
+                                      timezone,
+                                    ) || "Not provided"}
+                                  </dd>
+                                </div>
+                              ))}
+                            </dl>
                           </DialogContent>
                         </Dialog>
                       </TableCell>
@@ -682,6 +727,7 @@ function AdminPortalForms({
       {editorId === undefined ? null : (
         <PortalFormEditor
           eventId={eventId}
+          timezone={timezone}
           data={data}
           formId={editorId}
           open
@@ -696,12 +742,14 @@ function AdminPortalForms({
 
 function PortalFormEditor({
   eventId,
+  timezone,
   data,
   formId,
   open,
   onOpenChange,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: AdminData;
   readonly formId: string | null;
   readonly open: boolean;
@@ -818,6 +866,7 @@ function PortalFormEditor({
                     </div>
                     <FormFieldBuilder
                       section="abstract"
+                      timezone={timezone}
                       fields={section.fields.map((field) => ({
                         ...field,
                         section: "abstract" as const,

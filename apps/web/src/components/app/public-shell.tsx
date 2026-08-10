@@ -1,6 +1,8 @@
 import type { PublicProgram } from "@opensesh/domain";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import { EventIcon } from "@/components/app/event-icon";
 
 const pages = [
   { slug: "sessions", label: "Sessions" },
@@ -21,13 +23,25 @@ export function PublicShell({ event }: { readonly event: PublicProgram["event"] 
   const nav = useRef<HTMLElement>(null);
   const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
   const active = pages.findIndex((item) => pathname.includes(`/${item.slug}`));
+  useEffect(() => {
+    if (event.logoUrl === null) return;
+    const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (favicon === null) return;
+    const previous = favicon.href;
+    favicon.href = event.logoUrl;
+    return () => {
+      favicon.href = previous;
+    };
+  }, [event.logoUrl]);
   useLayoutEffect(() => {
     const element = nav.current;
     if (element === null) return;
     const update = () => {
-      const target = element.querySelector<HTMLElement>(
-        `[data-nav-index="${Math.max(active, 0)}"]`,
-      );
+      if (active < 0) {
+        setPill({ left: 0, width: 0, ready: false });
+        return;
+      }
+      const target = element.querySelector<HTMLElement>(`[data-nav-index="${active}"]`);
       if (target !== null)
         setPill({ left: target.offsetLeft, width: target.offsetWidth, ready: true });
     };
@@ -40,12 +54,15 @@ export function PublicShell({ event }: { readonly event: PublicProgram["event"] 
     <div className="min-h-svh">
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold tracking-tight">{event.name}</p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              {eventDates(event)}
-              {event.location === null ? "" : ` · ${event.location}`}
-            </p>
+          <div className="flex items-center gap-2.5">
+            <EventIcon src={event.logoUrl} size={28} />
+            <div>
+              <p className="text-sm font-semibold tracking-tight">{event.name}</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {eventDates(event)}
+                {event.location === null ? "" : ` · ${event.location}`}
+              </p>
+            </div>
           </div>
           <nav
             ref={nav}

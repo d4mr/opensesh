@@ -24,6 +24,7 @@ export const FormFieldType = Schema.Literals([
   "dropdown",
   "checkbox",
   "file",
+  "datetime",
 ]);
 export type FormFieldType = typeof FormFieldType.Type;
 
@@ -49,6 +50,7 @@ export const FormFieldOptions = Schema.NullOr(
   Schema.Union([
     Schema.Struct({ bind: FormLibraryBinding }),
     Schema.Struct({ custom: Schema.Array(Schema.String) }),
+    Schema.Struct({ min: NullableString, max: NullableString }),
   ]),
 );
 export type FormFieldOptions = typeof FormFieldOptions.Type;
@@ -232,6 +234,23 @@ export const makeFormAnswersSchema = (fields: ReadonlyArray<FormFieldDefinition>
             path: [field.id],
             issue: `${field.label} must be ${field.maxChars} characters or fewer`,
           });
+        }
+        if (field.fieldType === "datetime" && typeof value === "string" && value.length > 0) {
+          const instant = new Date(value);
+          if (Number.isNaN(instant.getTime()) || instant.toISOString() !== value) {
+            issues.push({
+              path: [field.id],
+              issue: `${field.label} must be a valid date and time`,
+            });
+            continue;
+          }
+          const bounds = field.options !== null && "min" in field.options ? field.options : null;
+          if (bounds !== null && bounds.min !== null && instant < new Date(bounds.min)) {
+            issues.push({ path: [field.id], issue: `${field.label} is before the earliest date` });
+          }
+          if (bounds !== null && bounds.max !== null && instant > new Date(bounds.max)) {
+            issues.push({ path: [field.id], issue: `${field.label} is after the latest date` });
+          }
         }
         if (
           field.fieldType === "email" &&

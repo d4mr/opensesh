@@ -1,8 +1,10 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
+import type { Event } from "@opensesh/domain";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { UserMenu } from "@/components/app/user-menu";
+import { EventIcon } from "@/components/app/event-icon";
 
 const nav = [
   { title: "Home" },
@@ -86,10 +88,10 @@ function DesktopPillNav({ pathname }: { readonly pathname: string }) {
 }
 
 export function PortalShell({
-  eventName,
+  event,
   user,
 }: {
-  readonly eventName: string;
+  readonly event: Event;
   readonly user: CurrentUserValue;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -99,8 +101,12 @@ export function PortalShell({
     <div className="min-h-svh">
       <header className="border-b">
         <div className="mx-auto flex h-12 max-w-5xl items-center gap-3 px-4 text-sm">
-          <Link to="/portal" className="pressable truncate font-semibold">
-            {eventName}
+          <Link
+            to="/portal"
+            className="pressable flex min-w-0 items-center gap-2 truncate font-semibold"
+          >
+            <EventIcon src={event.logoUrl} size={24} />
+            <span className="truncate">{event.name}</span>
           </Link>
           <DesktopPillNav pathname={pathname} />
           <UserMenu user={user} />

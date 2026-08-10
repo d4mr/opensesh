@@ -4,6 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import {
   contactEditHistory,
   contacts,
+  events,
   eventMembers,
   fileComments,
   fileRequests,
@@ -28,6 +29,8 @@ import {
 import { Db } from "../db";
 import { DbError, Forbidden, FormClosed, InvalidInput, type NotFound } from "../errors";
 import { JsonObject } from "../schema/common";
+import { Event } from "../schema/core";
+import { makeFormAnswersSchema } from "../schema/forms";
 import type {
   FileKind,
   PortalFormMutationRequest,
@@ -121,6 +124,7 @@ const applyContentPatch = (base: ContentSnapshot, patch: Readonly<Record<string,
   });
 
 export interface SpeakerPortalBootstrap {
+  readonly event: Event;
   readonly contact: Contact;
   readonly submissions: ReadonlyArray<{
     readonly submission: typeof submissions.$inferSelect;
@@ -233,7 +237,10 @@ interface PortalService {
     contactId: string,
     assignmentId: string,
     answers: Readonly<Record<string, Schema.Json>>,
-  ) => Effect.Effect<typeof portalFormResponses.$inferSelect, DbError | Forbidden | NotFound>;
+  ) => Effect.Effect<
+    typeof portalFormResponses.$inferSelect,
+    DbError | Forbidden | InvalidInput | NotFound
+  >;
   readonly prepareFileUpload: (
     contactId: string,
     assignmentId: string | null,
@@ -394,6 +401,15 @@ export const PortalLive = Layer.effect(
       speakerBootstrap: (contactId) =>
         Effect.all(
           {
+            event: query(database, "Could not load portal event", (db) =>
+              db
+                .select({ event: events })
+                .from(contacts)
+                .innerJoin(events, eq(events.id, contacts.eventId))
+                .where(eq(contacts.id, contactId))
+                .limit(1)
+                .execute(),
+            ).pipe(Effect.flatMap((rows) => decodeFound(Event, "Event", rows[0]?.event))),
             contact: query(database, "Could not load speaker profile", (db) =>
               db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1).execute(),
             ).pipe(Effect.flatMap((rows) => decodeFound(Contact, "Contact", rows[0]))),
@@ -1016,11 +1032,30 @@ export const PortalLive = Layer.effect(
           if (row.template.portalFormId === null) {
             return yield* Effect.fail(new Forbidden({ message: "This task has no linked form" }));
           }
+          const portalFormId = row.template.portalFormId;
+          const formRows = yield* query(database, "Could not load the linked portal form", (db) =>
+            db
+              .select()
+              .from(portalForms)
+              .where(eq(portalForms.id, portalFormId))
+              .limit(1)
+              .execute(),
+          );
+          const form = formRows[0];
+          if (form === undefined) {
+            return yield* Effect.fail(new Forbidden({ message: "This task has no linked form" }));
+          }
+          const fields = form.sections.flatMap((section) => section.fields);
+          yield* Schema.decodeUnknownEffect(makeFormAnswersSchema(fields))(answers).pipe(
+            Effect.mapError(
+              () => new InvalidInput({ message: "Complete the required portal form fields" }),
+            ),
+          );
           const responseRows = yield* query(database, "Could not record form response", (db) =>
             db
               .insert(portalFormResponses)
               .values({
-                formId: row.template.portalFormId!,
+                formId: portalFormId,
                 contactId,
                 submissionId: row.assignment.submissionId,
                 answers,

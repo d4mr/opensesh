@@ -5,6 +5,8 @@ import { EntityFields, NullableNumber, NullableString, Text1000 } from "./common
 import { PublishedAgendaSession } from "./agenda";
 
 export const EventMemberRole = Schema.Literals(["admin", "reviewer"]);
+export const EventType = Schema.Literals(["conference", "summit", "meetup"]);
+export type EventType = typeof EventType.Type;
 
 const eventFields = {
   organizationId: Schema.String,
@@ -12,7 +14,7 @@ const eventFields = {
   slug: Schema.String,
   tagline: NullableString,
   description: NullableString,
-  type: Schema.String,
+  type: EventType,
   websiteUrl: NullableString,
   location: NullableString,
   timezone: Schema.String,
@@ -20,6 +22,7 @@ const eventFields = {
   endsAt: Schema.Date,
   theme: Schema.NullOr(Text1000),
   logoUrl: NullableString,
+  logoKey: NullableString,
   backgroundUrl: NullableString,
   defaultSubmissionLimit: Schema.Number,
   agendaPublishedAt: Schema.NullOr(Schema.Date),
@@ -157,6 +160,18 @@ export const EventSettingsRequest = Schema.Struct({
   endsAt: Schema.String,
   timezone: Schema.String,
   location: NullableString,
+  type: EventType,
+  websiteUrl: NullableString,
+  defaultSubmissionLimit: Schema.Number,
+  logoUrl: NullableString,
+  logoUpload: Schema.NullOr(
+    Schema.Struct({
+      filename: Schema.String,
+      contentType: Schema.String,
+      size: Schema.Number,
+      base64: Schema.String,
+    }),
+  ),
 });
 
 export const LibraryMutationRequest = Schema.Struct({

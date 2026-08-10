@@ -12,6 +12,7 @@ import { useForm } from "@tanstack/react-form";
 import { Schema } from "effect";
 
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
+import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -38,6 +39,7 @@ const valuesForField = (field: FormFieldDefinition, library: FormRendererLibrary
   if ("custom" in field.options) {
     return field.options.custom.map((name) => ({ id: name, name }));
   }
+  if (!("bind" in field.options)) return [];
   if (field.options.bind === "track") return library.tracks;
   if (field.options.bind === "format") {
     return library.formats.map((format) => ({
@@ -85,6 +87,7 @@ export function FormRenderer({
   continueLabel = "Continue",
   showContinue = true,
   className,
+  timezone,
 }: {
   readonly fields: ReadonlyArray<FormFieldDefinition>;
   readonly library: FormRendererLibrary;
@@ -95,6 +98,7 @@ export function FormRenderer({
   readonly continueLabel?: string;
   readonly showContinue?: boolean;
   readonly className?: string;
+  readonly timezone: string;
 }) {
   const form = useForm({
     defaultValues: initialAnswers(fields, answers),
@@ -149,7 +153,17 @@ export function FormRenderer({
                                 </span>
                               )}
                             </div>
-                            {definition.fieldType === "textarea" ? (
+                            {definition.fieldType === "datetime" ? (
+                              <DateTimePicker
+                                id={field.name}
+                                value={textValue}
+                                timezone={timezone}
+                                onChange={(value) => {
+                                  field.handleChange(value);
+                                  update(definition.id, value);
+                                }}
+                              />
+                            ) : definition.fieldType === "textarea" ? (
                               <Textarea
                                 id={field.name}
                                 rows={5}

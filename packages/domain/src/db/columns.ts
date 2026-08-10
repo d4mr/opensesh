@@ -25,6 +25,7 @@ export const formFieldType = pgEnum("form_field_type", [
   "dropdown",
   "checkbox",
   "file",
+  "datetime",
 ]);
 export const targetType = pgEnum("target_type", ["contact", "submission"]);
 export const taskStatus = pgEnum("task_status", ["todo", "done", "waived"]);

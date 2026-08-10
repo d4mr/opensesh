@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { PersonTag } from "@/components/app/person-tag";
 import { StatusBadge } from "@/components/app/status-badge";
+import { formatDateTime } from "@/components/forms/datetime-picker";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -178,11 +179,19 @@ function SubmissionDetailRoute() {
               <CardTitle className="text-sm">Submission answers</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <AnswerSection title="Abstract" answers={abstractAnswers} />
+              <AnswerSection
+                title="Abstract"
+                answers={abstractAnswers}
+                timezone={context.event.timezone}
+              />
               {participantAnswers.length === 0 ? null : (
                 <>
                   <Separator />
-                  <AnswerSection title="Participant answers" answers={participantAnswers} />
+                  <AnswerSection
+                    title="Participant answers"
+                    answers={participantAnswers}
+                    timezone={context.event.timezone}
+                  />
                 </>
               )}
             </CardContent>
@@ -366,14 +375,28 @@ function SubmissionDetailRoute() {
   );
 }
 
+const displayAnswer = (
+  value: string | ReadonlyArray<string>,
+  fieldType: import("@opensesh/domain").FormFieldType,
+  timezone: string,
+) => {
+  if (typeof value !== "string") return value.join(", ") || "Not provided";
+  return fieldType === "datetime" && value !== "Not provided"
+    ? `${formatDateTime(value, timezone)} (${timezone})`
+    : value;
+};
+
 function AnswerSection({
   title,
   answers,
+  timezone,
 }: {
   readonly title: string;
+  readonly timezone: string;
   readonly answers: ReadonlyArray<{
     readonly id: string;
     readonly label: string;
+    readonly fieldType: import("@opensesh/domain").FormFieldType;
     readonly value: string | ReadonlyArray<string>;
   }>;
 }) {
@@ -390,9 +413,7 @@ function AnswerSection({
           >
             <dt className="text-xs font-medium text-muted-foreground">{answer.label}</dt>
             <dd className="mt-1 whitespace-pre-wrap leading-5">
-              {Array.isArray(answer.value)
-                ? answer.value.join(", ") || "Not provided"
-                : answer.value}
+              {displayAnswer(answer.value, answer.fieldType, timezone)}
             </dd>
           </div>
         ))}

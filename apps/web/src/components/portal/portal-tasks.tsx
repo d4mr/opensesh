@@ -267,6 +267,7 @@ function TaskContent({
                     </div>
                     <FormRenderer
                       fields={linkedFormFields}
+                      timezone={data.event.timezone}
                       library={data.library}
                       answers={answers}
                       onAnswersChange={setAnswers}
