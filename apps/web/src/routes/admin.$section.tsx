@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CalendarInviteAction } from "@/components/agenda/calendar-invite-action";
 import { PagePlaceholder } from "@/components/app/page-placeholder";
 import { PortalAdminSection } from "@/components/admin/portal-admin";
 import { adminPortalQuery } from "@/lib/portal-queries";
@@ -31,7 +30,5 @@ function AdminPage() {
   if (["tasks", "portal-forms", "file-requests", "content"].includes(section)) {
     return <PortalAdminSection section={section} />;
   }
-  if (section === "agenda")
-    return <PagePlaceholder title="Agenda" action={<CalendarInviteAction />} />;
   return <PagePlaceholder title={titles[section] ?? "Program"} />;
 }

@@ -11,6 +11,7 @@ import { CalendarCheckIcon, ChevronDownIcon, CircleDotIcon, EyeOffIcon } from "l
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { CalendarInviteAction } from "@/components/agenda/calendar-invite-action";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -228,6 +229,7 @@ export function AgendaPage({
               <CircleDotIcon className="size-3" /> Unpublished changes
             </Badge>
           ) : null}
+          <CalendarInviteAction />
           <div className="flex">
             <Button
               size="sm"
