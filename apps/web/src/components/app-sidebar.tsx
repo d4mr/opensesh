@@ -4,6 +4,7 @@ import {
   CalendarDaysIcon,
   CheckSquareIcon,
   ClipboardCheckIcon,
+  FileCheckIcon,
   FileInputIcon,
   FileTextIcon,
   GaugeIcon,
@@ -30,6 +31,7 @@ const dashboard: ReadonlyArray<AdminNavItem> = [{ title: "Dashboard", icon: <Gau
 const program: ReadonlyArray<AdminNavItem> = [
   { title: "Abstracts", section: "abstracts", icon: <FileTextIcon /> },
   { title: "Sessions", section: "sessions", icon: <SquareStackIcon /> },
+  { title: "Content", section: "content", icon: <FileCheckIcon /> },
   { title: "Speakers", section: "speakers", icon: <UsersIcon /> },
   { title: "Forms", section: "forms", icon: <FileInputIcon /> },
   { title: "Evaluation", section: "evaluation", icon: <ClipboardCheckIcon /> },
@@ -62,6 +64,7 @@ export function AppSidebar({
   eventCreated,
   pathname,
   user,
+  pendingContentChanges = 0,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   readonly event: Event;
@@ -71,6 +74,7 @@ export function AppSidebar({
   readonly eventCreated: (eventId: string) => Promise<void>;
   readonly pathname: string;
   readonly user: CurrentUserValue;
+  readonly pendingContentChanges?: number;
 }) {
   const name = personaNames[user.email] ?? user.email.split("@")[0] ?? user.email;
 
@@ -87,7 +91,13 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={dashboard} pathname={pathname} />
-        <NavMain label="Program" items={program} pathname={pathname} />
+        <NavMain
+          label="Program"
+          items={program.map((item) =>
+            item.section === "content" ? { ...item, badge: pendingContentChanges } : item,
+          )}
+          pathname={pathname}
+        />
         <NavMain label="Portals" items={portals} pathname={pathname} />
         <NavSecondary item={settings} pathname={pathname} className="mt-auto" />
       </SidebarContent>

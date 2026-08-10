@@ -27,7 +27,21 @@ export const formFieldType = pgEnum("form_field_type", [
   "file",
 ]);
 export const targetType = pgEnum("target_type", ["contact", "submission"]);
-export const taskStatus = pgEnum("task_status", ["todo", "done"]);
+export const taskStatus = pgEnum("task_status", ["todo", "done", "waived"]);
+export const fileKind = pgEnum("file_kind", ["request", "headshot", "slides"]);
+export const contentApprovalStatus = pgEnum("content_approval_status", [
+  "approved",
+  "pending_review",
+  "rejected",
+]);
+export const dietaryRequirement = pgEnum("dietary_requirement", [
+  "none",
+  "vegetarian",
+  "vegan",
+  "gluten_free",
+  "other",
+]);
+export const tshirtSize = pgEnum("tshirt_size", ["XS", "S", "M", "L", "XL", "XXL"]);
 export const emailType = pgEnum("email_type", [
   "confirmation",
   "magic_link",

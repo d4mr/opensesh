@@ -1,9 +1,11 @@
 import { Schema, Struct } from "effect";
 
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
+import { FormFieldDefinition } from "./forms";
+import { DietaryRequirement, Submission, SubmissionEditHistory, TshirtSize } from "./submissions";
 
 export const TargetType = Schema.Literals(["contact", "submission"]);
-export const TaskStatus = Schema.Literals(["todo", "done"]);
+export const TaskStatus = Schema.Literals(["todo", "done", "waived"]);
 export type TaskStatus = typeof TaskStatus.Type;
 export const EmailType = Schema.Literals([
   "confirmation",
@@ -17,19 +19,13 @@ export const EmailType = Schema.Literals([
 export const EmailStatus = Schema.Literals(["queued", "sent", "failed"]);
 export type EmailStatus = typeof EmailStatus.Type;
 
-export const PortalFormField = Schema.Struct({
-  label: Schema.String,
-  type: Schema.String,
-  required: Schema.Boolean,
-  options: Schema.NullOr(Schema.Array(Schema.String)),
-  note: NullableString,
-});
-
 export const PortalFormSection = Schema.Struct({
+  id: Schema.String,
   title: Schema.String,
   instructions: Schema.String,
-  fields: Schema.Array(PortalFormField),
+  fields: Schema.Array(FormFieldDefinition),
 });
+export type PortalFormSection = typeof PortalFormSection.Type;
 
 const portalFormFields = {
   eventId: Schema.String,
@@ -81,20 +77,45 @@ export type FileRequestCreate = typeof FileRequestCreate.Type;
 export const FileRequestUpdate = Schema.Struct(Struct.map(fileRequestFields, Schema.optionalKey));
 export type FileRequestUpdate = typeof FileRequestUpdate.Type;
 
+export const FileKind = Schema.Literals(["request", "headshot", "slides"]);
+
 const fileUploadFields = {
-  fileRequestId: Schema.String,
+  fileRequestId: NullableString,
+  kind: FileKind,
   contactId: Schema.String,
   submissionId: NullableString,
-  filename: Schema.String,
-  url: Schema.String,
-  size: Schema.Number,
-  uploadedAt: Schema.Date,
+  speakerLastReadAt: NullableDate,
+  adminLastReadAt: NullableDate,
 };
 
 export const FileUpload = Schema.Struct({ ...EntityFields, ...fileUploadFields });
 export type FileUpload = typeof FileUpload.Type;
 export const FileUploadCreate = Schema.Struct(fileUploadFields);
 export type FileUploadCreate = typeof FileUploadCreate.Type;
+
+export const FileVersion = Schema.Struct({
+  ...EntityFields,
+  fileUploadId: Schema.String,
+  storageKey: Schema.String,
+  filename: Schema.String,
+  contentType: Schema.String,
+  size: Schema.Number,
+  uploaderContactId: NullableString,
+  uploaderEventMemberId: NullableString,
+  uploaderName: Schema.String,
+  uploadedAt: Schema.Date,
+});
+export type FileVersion = typeof FileVersion.Type;
+
+export const FileComment = Schema.Struct({
+  ...EntityFields,
+  fileUploadId: Schema.String,
+  authorContactId: NullableString,
+  authorEventMemberId: NullableString,
+  authorName: Schema.String,
+  body: Schema.String,
+});
+export type FileComment = typeof FileComment.Type;
 
 const taskTemplateFields = {
   eventId: Schema.String,
@@ -150,3 +171,89 @@ export const EmailLogEntry = Schema.Struct({ ...EntityFields, ...emailLogFields 
 export type EmailLogEntry = typeof EmailLogEntry.Type;
 export const EmailLogCreate = Schema.Struct(emailLogFields);
 export type EmailLogCreate = typeof EmailLogCreate.Type;
+
+export const PortalSection = Schema.Literals(["submissions", "profile", "tasks"]);
+export const PortalSubmissionRequest = Schema.Struct({ submissionId: Schema.String });
+export const PortalSubmissionEditRequest = Schema.Struct({
+  submissionId: Schema.String,
+  answers: JsonObject,
+});
+export const PortalProfileUpdateRequest = Schema.Struct({
+  firstName: Schema.optionalKey(Schema.String),
+  lastName: Schema.optionalKey(Schema.String),
+  salutation: Schema.optionalKey(NullableString),
+  honorific: Schema.optionalKey(NullableString),
+  pronouns: Schema.optionalKey(NullableString),
+  gender: Schema.optionalKey(NullableString),
+  bio: Schema.optionalKey(NullableString),
+  linkedinUrl: Schema.optionalKey(NullableString),
+  twitterUrl: Schema.optionalKey(NullableString),
+  facebookUrl: Schema.optionalKey(NullableString),
+  websiteUrl: Schema.optionalKey(NullableString),
+  dietaryRequirements: Schema.optionalKey(DietaryRequirement),
+  tshirtSize: Schema.optionalKey(Schema.NullOr(TshirtSize)),
+});
+export const TaskAssignmentRequest = Schema.Struct({ assignmentId: Schema.String });
+export const PortalFormResponseRequest = Schema.Struct({
+  assignmentId: Schema.String,
+  answers: JsonObject,
+});
+export const FileUploadRequest = Schema.Struct({
+  assignmentId: Schema.NullOr(Schema.String),
+  fileRequestId: Schema.NullOr(Schema.String),
+  submissionId: Schema.NullOr(Schema.String),
+  kind: FileKind,
+  filename: Schema.String,
+  contentType: Schema.String,
+  size: Schema.Number,
+  base64: Schema.String,
+});
+export const FileVersionRequest = Schema.Struct({ versionId: Schema.String });
+export const FileCommentRequest = Schema.Struct({
+  fileUploadId: Schema.String,
+  body: Schema.String,
+});
+
+export const TaskTemplateMutationRequest = Schema.Struct({
+  eventId: Schema.String,
+  id: Schema.NullOr(Schema.String),
+  title: Schema.String,
+  instructions: Schema.String,
+  scope: TargetType,
+  portalFormId: NullableString,
+  fileRequestId: NullableString,
+  autoAssignOnAccept: Schema.Boolean,
+  dueDate: NullableString,
+});
+export const AdminAssignmentRequest = Schema.Struct({ assignmentId: Schema.String });
+export const ManualAssignRequest = Schema.Struct({
+  eventId: Schema.String,
+  taskTemplateId: Schema.String,
+  contactId: NullableString,
+  submissionId: NullableString,
+});
+export const PortalFormMutationRequest = Schema.Struct({
+  eventId: Schema.String,
+  id: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  title: Schema.String,
+  targetType: TargetType,
+  sections: Schema.Array(PortalFormSection),
+  confirmationEmailEnabled: Schema.Boolean,
+  confirmationEmailBody: NullableString,
+});
+export const FileRequestMutationRequest = Schema.Struct({
+  eventId: Schema.String,
+  title: Schema.String,
+  targetType: TargetType,
+  instructions: Schema.String,
+});
+export const ContentReviewRequest = Schema.Struct({ historyId: Schema.String });
+export const RestoreHistoryRequest = Schema.Struct({ historyId: Schema.String });
+
+export const PortalSubmissionDetail = Schema.Struct({
+  submission: Submission,
+  history: Schema.Array(SubmissionEditHistory),
+  fields: Schema.Array(FormFieldDefinition),
+  answers: JsonObject,
+});

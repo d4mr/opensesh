@@ -1,5 +1,12 @@
 import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
+import type {
+  FormFieldCondition,
+  FormFieldOptions,
+  FormSectionSettings,
+  ParticipantRole,
+} from "../../server/schema/forms";
+
 import { formFieldType, formSection, formStatus, id, submissionKind, timestamps } from "../columns";
 import { events } from "./core";
 
@@ -18,9 +25,9 @@ export const forms = pgTable(
     welcomeHeading: text("welcome_heading").notNull(),
     welcomeMessage: text("welcome_message").notNull(),
     showWelcome: boolean("show_welcome").notNull().default(true),
-    abstractSection: jsonb("abstract_section").notNull(),
-    participantSection: jsonb("participant_section").notNull(),
-    participantRoles: jsonb("participant_roles").notNull(),
+    abstractSection: jsonb("abstract_section").$type<FormSectionSettings>().notNull(),
+    participantSection: jsonb("participant_section").$type<FormSectionSettings>().notNull(),
+    participantRoles: jsonb("participant_roles").$type<ReadonlyArray<ParticipantRole>>().notNull(),
     closeDate: timestamp("close_date", { withTimezone: true }),
     submissionLimit: integer("submission_limit"),
     allowMultipleDrafts: boolean("allow_multiple_drafts").notNull().default(false),
@@ -28,7 +35,7 @@ export const forms = pgTable(
     autoRedirectPortal: boolean("auto_redirect_portal").notNull().default(true),
     confirmationEmailEnabled: boolean("confirmation_email_enabled").notNull().default(true),
     confirmationEmailBody: text("confirmation_email_body").notNull(),
-    adminAlertUserIds: jsonb("admin_alert_user_ids").notNull(),
+    adminAlertUserIds: jsonb("admin_alert_user_ids").$type<ReadonlyArray<string>>().notNull(),
     ...timestamps,
   },
   (table) => [index("forms_event_idx").on(table.eventId)],
@@ -48,9 +55,9 @@ export const formFields = pgTable(
     required: boolean("required").notNull().default(false),
     locked: boolean("locked").notNull().default(false),
     position: integer("position").notNull(),
-    options: jsonb("options"),
+    options: jsonb("options").$type<FormFieldOptions>(),
     mapsTo: text("maps_to"),
-    condition: jsonb("condition"),
+    condition: jsonb("condition").$type<FormFieldCondition>(),
     ...timestamps,
   },
   (table) => [index("form_fields_form_position_idx").on(table.formId, table.position)],

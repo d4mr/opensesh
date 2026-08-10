@@ -2,6 +2,7 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { PortalShell } from "@/components/app/portal-shell";
+import { speakerPortalQuery } from "@/lib/portal-queries";
 import { getViewer } from "@/server-fns/auth";
 import { getEvent } from "@/server-fns/get-event";
 
@@ -27,7 +28,11 @@ export const Route = createFileRoute("/portal")({
     }
     return { user: viewer.data };
   },
-  loader: ({ context }) => context.queryClient.ensureQueryData(portalEventQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(portalEventQuery),
+      context.queryClient.ensureQueryData(speakerPortalQuery),
+    ]).then(([event]) => event),
   component: PortalLayout,
 });
 

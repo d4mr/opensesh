@@ -1,10 +1,12 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
 import type { Event } from "@opensesh/domain";
+import { useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDaysIcon,
   CheckSquareIcon,
   ClipboardCheckIcon,
+  FileCheckIcon,
   FileInputIcon,
   FileTextIcon,
   GaugeIcon,
@@ -29,6 +31,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { adminPortalQuery } from "@/lib/portal-queries";
 
 interface NavItem {
   readonly title: string;
@@ -40,6 +43,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Dashboard", icon: GaugeIcon },
   { title: "Abstracts", section: "abstracts", icon: FileTextIcon },
   { title: "Sessions", section: "sessions", icon: SquareStackIcon },
+  { title: "Content", section: "content", icon: FileCheckIcon },
   { title: "Speakers", section: "speakers", icon: UsersIcon },
   { title: "Forms", section: "forms", icon: FileInputIcon },
   { title: "Evaluation", section: "evaluation", icon: ClipboardCheckIcon },
@@ -82,6 +86,13 @@ export function AdminShell({
   const [commandOpen, setCommandOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
+  const portal = useQuery(adminPortalQuery(event.id));
+  const pendingContentChanges =
+    portal.data?.ok === true
+      ? portal.data.data.history.filter(
+          (entry) => entry.history.approvalStatus === "pending_review",
+        ).length
+      : 0;
   const activeTitle =
     allItems.find((item) =>
       item.section === undefined
@@ -135,6 +146,7 @@ export function AdminShell({
           eventCreated={eventCreated}
           pathname={pathname}
           user={user}
+          pendingContentChanges={pendingContentChanges}
         />
         <SidebarInset>
           <SiteHeader title={activeTitle} user={user} />

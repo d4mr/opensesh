@@ -6,6 +6,7 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuBadge,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
@@ -62,6 +63,7 @@ export interface AdminNavItem {
   readonly title: string;
   readonly section?: string;
   readonly icon: React.ReactNode;
+  readonly badge?: number;
 }
 
 export function NavMain({
@@ -90,6 +92,9 @@ export function NavMain({
                 <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
                   <NavItemLink item={item} />
                 </SidebarMenuButton>
+                {item.badge === undefined || item.badge === 0 ? null : (
+                  <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                )}
               </SidebarMenuItem>
             );
           })}

@@ -1,6 +1,9 @@
+CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rejected');--> statement-breakpoint
+CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_status" AS ENUM('queued', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
+CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
 CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file');--> statement-breakpoint
 CREATE TYPE "form_section" AS ENUM('abstract', 'participant');--> statement-breakpoint
 CREATE TYPE "form_status" AS ENUM('open', 'closed');--> statement-breakpoint
@@ -9,7 +12,8 @@ CREATE TYPE "review_decision" AS ENUM('approve', 'maybe', 'deny');--> statement-
 CREATE TYPE "submission_kind" AS ENUM('abstract', 'session');--> statement-breakpoint
 CREATE TYPE "submission_status" AS ENUM('draft', 'pending', 'maybe', 'accepted', 'declined', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "target_type" AS ENUM('contact', 'submission');--> statement-breakpoint
-CREATE TYPE "task_status" AS ENUM('todo', 'done');--> statement-breakpoint
+CREATE TYPE "task_status" AS ENUM('todo', 'done', 'waived');--> statement-breakpoint
+CREATE TYPE "tshirt_size" AS ENUM('XS', 'S', 'M', 'L', 'XL', 'XXL');--> statement-breakpoint
 CREATE TABLE "accounts" (
 	"id" text PRIMARY KEY,
 	"account_id" text NOT NULL,
@@ -238,6 +242,17 @@ CREATE TABLE "email_log" (
 	CONSTRAINT "email_log_submission_type_contact_unique" UNIQUE("submission_id","type","contact_id")
 );
 --> statement-breakpoint
+CREATE TABLE "file_comments" (
+	"id" text PRIMARY KEY,
+	"file_upload_id" text NOT NULL,
+	"author_contact_id" text,
+	"author_event_member_id" text,
+	"author_name" text NOT NULL,
+	"body" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "file_requests" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
@@ -250,12 +265,26 @@ CREATE TABLE "file_requests" (
 --> statement-breakpoint
 CREATE TABLE "file_uploads" (
 	"id" text PRIMARY KEY,
-	"file_request_id" text NOT NULL,
+	"file_request_id" text,
+	"kind" "file_kind" NOT NULL,
 	"contact_id" text NOT NULL,
 	"submission_id" text,
+	"speaker_last_read_at" timestamp with time zone,
+	"admin_last_read_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "file_versions" (
+	"id" text PRIMARY KEY,
+	"file_upload_id" text NOT NULL,
+	"storage_key" text NOT NULL CONSTRAINT "file_versions_storage_key_unique" UNIQUE,
 	"filename" text NOT NULL,
-	"url" text NOT NULL,
+	"content_type" text NOT NULL,
 	"size" integer NOT NULL,
+	"uploader_contact_id" text,
+	"uploader_event_member_id" text,
+	"uploader_name" text NOT NULL,
 	"uploaded_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
@@ -327,6 +356,9 @@ CREATE TABLE "contacts" (
 	"gender" text,
 	"bio" text,
 	"headshot_url" text,
+	"headshot_key" text,
+	"dietary_requirements" "dietary_requirement" DEFAULT 'none'::"dietary_requirement" NOT NULL,
+	"tshirt_size" "tshirt_size",
 	"phone" text,
 	"linkedin_url" text,
 	"twitter_url" text,
@@ -349,6 +381,22 @@ CREATE TABLE "reviews" (
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "reviews_submission_reviewer_unique" UNIQUE("submission_id","reviewer_id")
+);
+--> statement-breakpoint
+CREATE TABLE "submission_edit_history" (
+	"id" text PRIMARY KEY,
+	"submission_id" text NOT NULL,
+	"author_contact_id" text,
+	"author_event_member_id" text,
+	"author_name" text NOT NULL,
+	"changed_fields" jsonb NOT NULL,
+	"previous_values" jsonb NOT NULL,
+	"new_values" jsonb NOT NULL,
+	"approval_status" "content_approval_status" NOT NULL,
+	"reviewed_at" timestamp with time zone,
+	"reviewed_by_event_member_id" text,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "submission_participants" (
@@ -402,6 +450,8 @@ CREATE TABLE "submissions" (
 	"notified_at" timestamp with time zone,
 	"submitted_at" timestamp with time zone,
 	"answers" jsonb NOT NULL,
+	"approved_snapshot" jsonb DEFAULT '{}' NOT NULL,
+	"content_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "submissions_event_code_unique" UNIQUE("event_id","code")
@@ -425,8 +475,11 @@ CREATE INDEX "forms_event_idx" ON "forms" ("event_id");--> statement-breakpoint
 CREATE INDEX "email_log_event_idx" ON "email_log" ("event_id");--> statement-breakpoint
 CREATE INDEX "email_log_contact_idx" ON "email_log" ("contact_id");--> statement-breakpoint
 CREATE INDEX "email_log_submission_idx" ON "email_log" ("submission_id");--> statement-breakpoint
+CREATE INDEX "file_comments_upload_idx" ON "file_comments" ("file_upload_id","created_at");--> statement-breakpoint
 CREATE INDEX "file_requests_event_idx" ON "file_requests" ("event_id");--> statement-breakpoint
 CREATE INDEX "file_uploads_request_idx" ON "file_uploads" ("file_request_id");--> statement-breakpoint
+CREATE INDEX "file_uploads_contact_idx" ON "file_uploads" ("contact_id");--> statement-breakpoint
+CREATE INDEX "file_versions_upload_idx" ON "file_versions" ("file_upload_id","uploaded_at");--> statement-breakpoint
 CREATE INDEX "portal_form_responses_form_idx" ON "portal_form_responses" ("form_id");--> statement-breakpoint
 CREATE INDEX "portal_forms_event_idx" ON "portal_forms" ("event_id");--> statement-breakpoint
 CREATE INDEX "task_assignments_contact_idx" ON "task_assignments" ("contact_id");--> statement-breakpoint
@@ -434,6 +487,7 @@ CREATE INDEX "task_assignments_submission_idx" ON "task_assignments" ("submissio
 CREATE INDEX "task_templates_event_idx" ON "task_templates" ("event_id");--> statement-breakpoint
 CREATE INDEX "contacts_event_idx" ON "contacts" ("event_id");--> statement-breakpoint
 CREATE INDEX "reviews_reviewer_idx" ON "reviews" ("reviewer_id");--> statement-breakpoint
+CREATE INDEX "submission_edit_history_submission_idx" ON "submission_edit_history" ("submission_id");--> statement-breakpoint
 CREATE INDEX "submission_participants_contact_idx" ON "submission_participants" ("contact_id");--> statement-breakpoint
 CREATE INDEX "submission_tags_tag_idx" ON "submission_tags" ("tag_id");--> statement-breakpoint
 CREATE INDEX "submission_tracks_track_idx" ON "submission_tracks" ("track_id");--> statement-breakpoint
@@ -461,10 +515,16 @@ ALTER TABLE "forms" ADD CONSTRAINT "forms_event_id_events_id_fkey" FOREIGN KEY (
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "file_comments" ADD CONSTRAINT "file_comments_file_upload_id_file_uploads_id_fkey" FOREIGN KEY ("file_upload_id") REFERENCES "file_uploads"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "file_comments" ADD CONSTRAINT "file_comments_author_contact_id_contacts_id_fkey" FOREIGN KEY ("author_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "file_comments" ADD CONSTRAINT "file_comments_author_event_member_id_event_members_id_fkey" FOREIGN KEY ("author_event_member_id") REFERENCES "event_members"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "file_requests" ADD CONSTRAINT "file_requests_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_file_request_id_file_requests_id_fkey" FOREIGN KEY ("file_request_id") REFERENCES "file_requests"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "file_versions" ADD CONSTRAINT "file_versions_file_upload_id_file_uploads_id_fkey" FOREIGN KEY ("file_upload_id") REFERENCES "file_uploads"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "file_versions" ADD CONSTRAINT "file_versions_uploader_contact_id_contacts_id_fkey" FOREIGN KEY ("uploader_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "file_versions" ADD CONSTRAINT "file_versions_uploader_event_member_id_event_members_id_fkey" FOREIGN KEY ("uploader_event_member_id") REFERENCES "event_members"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_form_id_portal_forms_id_fkey" FOREIGN KEY ("form_id") REFERENCES "portal_forms"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -478,6 +538,10 @@ ALTER TABLE "task_templates" ADD CONSTRAINT "task_templates_file_request_id_file
 ALTER TABLE "contacts" ADD CONSTRAINT "contacts_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_reviewer_id_event_members_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "event_members"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_author_contact_id_contacts_id_fkey" FOREIGN KEY ("author_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_lGpBq3BATzJH_fkey" FOREIGN KEY ("author_event_member_id") REFERENCES "event_members"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_t1uISl1nyA9l_fkey" FOREIGN KEY ("reviewed_by_event_member_id") REFERENCES "event_members"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "submission_participants" ADD CONSTRAINT "submission_participants_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_participants" ADD CONSTRAINT "submission_participants_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_tags" ADD CONSTRAINT "submission_tags_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
