@@ -232,6 +232,49 @@ importers:
         specifier: ^4.70.0
         version: 4.120.0(@cloudflare/workers-types@5.20260810.1)
 
+  apps/landing:
+    dependencies:
+      '@fontsource-variable/manrope':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/instrument-serif':
+        specifier: ^5.3.0
+        version: 5.3.0
+      lucide-react:
+        specifier: ^1.30.0
+        version: 1.30.0(react@19.2.8)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.5)(typescript@6.0.3))
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.2.4(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^6.0.1
+        version: 6.0.5(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.5)(typescript@6.0.3))
+      tailwindcss:
+        specifier: ^4.3.3
+        version: 4.3.3
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@0.2.8
+        version: '@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.5)(typescript@6.0.3)'
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.8(@types/node@24.13.3)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.5)(typescript@6.0.3))(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.5)(typescript@6.0.3)
+      wrangler:
+        specifier: ^4.70.0
+        version: 4.120.0(@cloudflare/workers-types@5.20260810.1)
+
   apps/web:
     dependencies:
       '@dnd-kit/core':
@@ -244,9 +287,6 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.8)
       '@fontsource-variable/manrope':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource/instrument-serif':
         specifier: ^5.3.0
         version: 5.3.0
       '@opensesh/domain':

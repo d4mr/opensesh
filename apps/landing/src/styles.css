@@ -1,0 +1,118 @@
+@import "tailwindcss";
+@import "@fontsource-variable/manrope";
+@import "@fontsource/instrument-serif";
+
+/* Greenroom palette — light only. Source of truth: docs/themes/greenroom.css. */
+:root {
+  --background: #ffffff;
+  --paper: #fafaf7;
+  --foreground: #1b211d;
+  --muted-foreground: #5f665f;
+  --border: #e5e7e3;
+  --primary: #1d6b4c;
+  --primary-hover: #175a40;
+  --primary-foreground: #f5fbf7;
+  --ink: #131714;
+  --ink-foreground: #edf1ed;
+  --ink-muted: #9aa39c;
+  --ink-border: #2a312c;
+  --status-pending: #7a4f01;
+  --status-pending-bg: #fcefcb;
+  --status-accepted: #14603e;
+  --status-accepted-bg: #d9f0e2;
+  --status-declined: #96362a;
+  --status-declined-bg: #fbe0dc;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-paper: var(--paper);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-border: var(--ink-border);
+  --color-status-pending: var(--status-pending);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-accepted: var(--status-accepted);
+  --color-status-accepted-bg: var(--status-accepted-bg);
+  --color-status-declined: var(--status-declined);
+  --color-status-declined-bg: var(--status-declined-bg);
+  --font-sans: "Manrope Variable", sans-serif;
+  --font-display: "Instrument Serif", Georgia, serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Every clickable presses down. */
+.pressable {
+  transition: transform 120ms var(--ease-out);
+}
+.pressable:active {
+  transform: scale(0.97);
+}
+
+/* Scroll reveal — added by the Reveal component's IntersectionObserver. */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 480ms var(--ease-out),
+    transform 480ms var(--ease-out);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Conditional form fields expand/collapse. */
+.conditional {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms var(--ease-out),
+    opacity 220ms var(--ease-out);
+}
+.conditional.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.conditional > div {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .pressable,
+  .reveal,
+  .conditional {
+    transition: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
