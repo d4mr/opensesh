@@ -742,13 +742,14 @@ export const PortalLive = Layer.effect(
         Effect.gen(function* () {
           const owned = yield* query(database, "Could not load submission for editing", (db) =>
             db
-              .selectDistinct({ submission: submissions, form: forms })
+              .selectDistinct({ submission: submissions, form: forms, author: contacts })
               .from(submissions)
               .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
               .leftJoin(
                 submissionParticipants,
                 eq(submissionParticipants.submissionId, submissions.id),
               )
+              .leftJoin(contacts, eq(contacts.id, contactId))
               .where(
                 and(
                   eq(submissions.id, submissionId),
@@ -820,7 +821,8 @@ export const PortalLive = Layer.effect(
             submissionId,
             authorContactId: contactId,
             authorEventMemberId: null,
-            authorName,
+            authorName:
+              row.author === null ? authorName : `${row.author.firstName} ${row.author.lastName}`,
             changedFields,
             previousValues: Object.fromEntries(changedFields.map((key) => [key, before[key]])),
             newValues: Object.fromEntries(changedFields.map((key) => [key, next[key]])),

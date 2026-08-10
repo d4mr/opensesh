@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import {
   editPortalSubmission,
@@ -270,7 +271,7 @@ function SubmissionContent({
                         <HistoryIcon className="size-3.5" />
                         <span className="font-medium">{entry.authorName}</span>
                         <span className="text-muted-foreground">
-                          edited {entry.changedFields.join(", ")} ·{" "}
+                          edited {describeChangedFields(entry.changedFields)} ·{" "}
                           {new Intl.DateTimeFormat("en", {
                             dateStyle: "medium",
                             timeStyle: "short",
@@ -282,23 +283,19 @@ function SubmissionContent({
                       </summary>
                       <div className="border-t p-3">
                         <div className="grid gap-2">
-                          {entry.changedFields.map((field) => (
-                            <div key={field} className="grid grid-cols-2 gap-2 text-xs">
+                          {contentDiffRows(entry).map((row) => (
+                            <div key={row.key} className="grid grid-cols-2 gap-2 text-xs">
                               <div className="rounded bg-muted p-2">
-                                <p className="mb-1 font-medium text-muted-foreground">
-                                  Before · {field}
+                                <p className="mb-1 font-medium capitalize text-muted-foreground">
+                                  Before · {row.label}
                                 </p>
-                                <pre className="whitespace-pre-wrap font-sans">
-                                  {formatDiff(entry.previousValues[field])}
-                                </pre>
+                                <pre className="whitespace-pre-wrap font-sans">{row.before}</pre>
                               </div>
                               <div className="rounded bg-muted p-2">
-                                <p className="mb-1 font-medium text-muted-foreground">
-                                  After · {field}
+                                <p className="mb-1 font-medium capitalize text-muted-foreground">
+                                  After · {row.label}
                                 </p>
-                                <pre className="whitespace-pre-wrap font-sans">
-                                  {formatDiff(entry.newValues[field])}
-                                </pre>
+                                <pre className="whitespace-pre-wrap font-sans">{row.after}</pre>
                               </div>
                             </div>
                           ))}
@@ -344,11 +341,10 @@ function answersForSubmission(
     if (field.mapsTo === "description") answers[field.id] = submission.description;
     if (field.mapsTo === "format_id") answers[field.id] = submission.formatId ?? "";
     if (field.mapsTo === "level_id") answers[field.id] = submission.levelId ?? "";
-    if (field.mapsTo === "tracks") answers[field.id] = trackIds;
-    if (field.mapsTo === "tags") answers[field.id] = tagIds;
+    if (field.mapsTo === "tracks")
+      answers[field.id] = field.fieldType === "checkbox" ? trackIds : (trackIds[0] ?? "");
+    if (field.mapsTo === "tags")
+      answers[field.id] = field.fieldType === "checkbox" ? tagIds : (tagIds[0] ?? "");
   }
   return answers;
 }
-
-const formatDiff = (value: import("effect").Schema.Json | undefined) =>
-  typeof value === "string" ? value.replace(/<[^>]+>/g, "") : JSON.stringify(value, null, 2);

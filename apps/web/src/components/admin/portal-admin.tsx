@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import {
@@ -1069,7 +1070,7 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                       {submission?.code} — {submission?.title}
                     </p>
                     <p className="text-muted-foreground">
-                      {entry.authorName} changed {entry.changedFields.join(", ")}
+                      {entry.authorName} changed {describeChangedFields(entry.changedFields)}
                     </p>
                   </div>
                   <Dialog>
@@ -1085,15 +1086,20 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
                           {submission?.code} · {entry.authorName}
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="grid gap-2">
-                        {entry.changedFields.map((field) => (
-                          <div key={field} className="grid grid-cols-2 gap-2 text-xs">
-                            <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                              {formatJson(entry.previousValues[field])}
-                            </pre>
-                            <pre className="whitespace-pre-wrap rounded bg-muted p-2">
-                              {formatJson(entry.newValues[field])}
-                            </pre>
+                      <div className="grid gap-3">
+                        {contentDiffRows(entry).map((row) => (
+                          <div key={row.key} className="grid gap-1 text-xs">
+                            <p className="font-medium capitalize text-muted-foreground">
+                              {row.label}
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                                {row.before}
+                              </pre>
+                              <pre className="whitespace-pre-wrap rounded bg-muted p-2">
+                                {row.after}
+                              </pre>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1252,7 +1258,7 @@ function SessionPeek({
                     <details key={entry.id} className="rounded-md border bg-background">
                       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
                         <HistoryIcon className="size-3.5" />
-                        {entry.authorName} · {entry.changedFields.join(", ")}
+                        {entry.authorName} · {describeChangedFields(entry.changedFields)}
                         <span className="ml-auto capitalize text-muted-foreground">
                           {entry.approvalStatus.replace("_", " ")}
                         </span>
@@ -1360,9 +1366,6 @@ function SpeakerCard({
     </div>
   );
 }
-
-const formatJson = (value: import("effect").Schema.Json | undefined) =>
-  typeof value === "string" ? value.replace(/<[^>]+>/g, "") : JSON.stringify(value, null, 2);
 
 function downloadCsv(filename: string, rows: ReadonlyArray<Readonly<Record<string, string>>>) {
   const headers = Object.keys(rows[0] ?? {});

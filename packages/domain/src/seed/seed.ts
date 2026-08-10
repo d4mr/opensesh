@@ -33,18 +33,50 @@ import { seedData } from "./data";
 const seededAt = new Date(1785585600000);
 const DEMO_PASSWORD = "demo-pass-2027";
 const rows = <A extends object>(values: ReadonlyArray<A>) => values.map((value) => ({ ...value }));
-const submissionRows = seedData.submissions.map((submission) => ({
-  ...submission,
-  approvedSnapshot: {
-    title: submission.title,
-    description: submission.description,
-    formatId: submission.formatId,
-    levelId: submission.levelId,
-    language: submission.language,
-    answers: submission.answers,
-  },
-  contentReviewStatus: "approved" as const,
-}));
+const trackIdsBySubmission = new Map<string, Array<string>>();
+for (const row of seedData.submissionTracks) {
+  trackIdsBySubmission.set(row.submissionId, [
+    ...(trackIdsBySubmission.get(row.submissionId) ?? []),
+    row.trackId,
+  ]);
+}
+const tagIdsBySubmission = new Map<string, Array<string>>();
+for (const row of seedData.submissionTags) {
+  tagIdsBySubmission.set(row.submissionId, [
+    ...(tagIdsBySubmission.get(row.submissionId) ?? []),
+    row.tagId,
+  ]);
+}
+// Form-sourced submissions carry per-field answers, exactly as the public
+// wizard would have written them — otherwise a speaker's first portal edit
+// diffs every field against an empty object.
+const answersForSeedSubmission = (submission: (typeof seedData.submissions)[number]) =>
+  submission.sourceFormId === "form_sessions"
+    ? {
+        fld_title: submission.title,
+        fld_description: submission.description,
+        fld_format: submission.formatId ?? "",
+        fld_level: submission.levelId ?? "",
+        fld_track: trackIdsBySubmission.get(submission.id)?.[0] ?? "",
+        fld_tags: tagIdsBySubmission.get(submission.id) ?? [],
+      }
+    : submission.answers;
+const submissionRows = seedData.submissions.map((submission) => {
+  const answers = answersForSeedSubmission(submission);
+  return {
+    ...submission,
+    answers,
+    approvedSnapshot: {
+      title: submission.title,
+      description: submission.description,
+      formatId: submission.formatId,
+      levelId: submission.levelId,
+      language: submission.language,
+      answers,
+    },
+    contentReviewStatus: "approved" as const,
+  };
+});
 
 export const seedDatabase = async (database: Database) => {
   const password = await hashPassword(DEMO_PASSWORD);
