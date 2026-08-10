@@ -14,7 +14,7 @@ Every page has a **Demo roles** button (bottom right) — one click signs you in
 |---|---|---|
 | Dana Organizer | Admin | Dashboard, review desk, content approval, tasks |
 | Rey Reviewer | Reviewer | Evaluation queue (scoped to their tracks only) |
-| Maya Chen | Speaker | Portal: edit an accepted talk → lands in Dana's approval queue |
+| Maya Chen | Speaker | Portal: edit an accepted talk → lands in Dana's approval queue; her bio edit is already pending there |
 | Lina Haddad | Speaker | Portal task checklist mid-flight |
 | Jamal Reed | Speaker | Missing bio — watch the readiness board notice |
 
@@ -28,8 +28,8 @@ Email+password sign-in also works for every persona (password is seeded for the 
 4. **Speaker management** — **Speakers** directory; **Tasks**: templates with auto-assign-on-accept + a live readiness board (dietary/t-shirt, outstanding counts, waive/remind).
 5. **Content management** — **Content**: pending-change approval queue with field-level diffs, per-session speakers + versioned history with restore; **Portal Forms** (structured onboarding forms + responses + CSV); **File Requests** (versioned uploads with cross-role comment threads). Speaker edits to accepted sessions require organizer approval before they go public — the last approved version stays live.
 6. **Agenda** — **Agenda**: day/room schedule builder with drag-and-drop, resize, an unscheduled pool, live room/speaker conflict detection (the seed plants a Hall A overlap — check the Conflicts tab), and an explicit draft → publish step; the public agenda renders only the last published snapshot.
-7. **AI agenda** — criteria → generate → compare → accept-per-change drafts; never touches the live agenda until you commit. *(WP9)*
-8. **Public widgets** — five embeddable views (sessions, speakers, gallery, agenda, itinerary) + an organizer embed builder with live preview and copyable iframe code. Live data — no 60-minute cache. *(WP8)*
+7. **AI agenda** — **Agenda → AI drafts**: criteria (days/rooms/rules) → generate → full-width compare with per-row accept; the live agenda never changes until you accept. Uses Claude when an API key is configured, with a deterministic solver fallback and a conflict-free validation gate either way.
+8. **Public widgets** — five public views under [/e/ai-engineer-nyc-2026](https://opensesh.d4mr.workers.dev/e/ai-engineer-nyc-2026/sessions) (sessions, speakers, gallery, agenda, itinerary) rendered from the published snapshot + approved content only; **Widgets** builder with live preview, filters, theming, and copyable iframe code (`/embed/{id}`). Live data — no 60-minute cache. Speaker CSV import/export lives on **Speakers**.
 9. **Emails** — **Email delivery**: transactional email with typed templates (acceptance/decline with feedback, task reminders, calendar invites with ICS attachments and reschedule sequencing) + an in-app viewer with HTML preview and retry, so judges can verify sends without an inbox. Demo mode records everything; Cloudflare Email/Resend are config swaps.
 
 ## Stack
