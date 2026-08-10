@@ -15,6 +15,7 @@ Open-source clone of Sessionboard's Program module (conference CFP → review �
 - If you write 200 lines and it could be 50, rewrite it.
 - No TODO comments — finish it or report it as open. No dead code, no commented-out code.
 - Do not add dependencies beyond those the spec lists (plus whatever the shadcn CLI itself vendors in).
+- **Pre-prod is FLAT — no migrations, no backwards compatibility, ANYWHERE.** Until the user explicitly declares a production target: there is exactly ONE migration (the init). A schema change = edit `schema.ts` → delete the migrations dir → regenerate a single fresh init migration → wipe local AND remote D1 → apply → `pnpm seed`. Never write an ALTER chain, a data backfill, a versioned/deprecated field, or any compat code path for an old shape (schema, API, or serialized data). The seed is the only data that exists; blowing the database away is always correct. Keep a `pnpm db:reset` script that does the wipe→apply→seed dance for local and `db:reset:remote` for remote.
 
 ## Stack (fixed — do not substitute)
 
