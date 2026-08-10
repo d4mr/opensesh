@@ -17,15 +17,7 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { requestMagicLink } from "@/server-fns/auth";
 
-export function LoginForm({
-  eventName,
-  eventDates,
-  className,
-  ...props
-}: React.ComponentProps<"div"> & {
-  readonly eventName: string;
-  readonly eventDates: string;
-}) {
+export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
   const [error, setError] = useState<string>();
   const [magicSending, setMagicSending] = useState(false);
   const [panelFailed, setPanelFailed] = useState(false);
@@ -83,9 +75,9 @@ export function LoginForm({
               <FieldGroup>
                 <div className="flex flex-col items-center gap-2 text-center">
                   <BrandMark className="mb-1" />
-                  <h1 className="text-lg font-semibold">{eventName}</h1>
+                  <h1 className="text-lg font-semibold">opensesh</h1>
                   <p className="text-sm text-balance text-muted-foreground">
-                    Sign in to manage your program or speaker tasks.
+                    Sign in to your workspace to manage programs and speaker tasks.
                   </p>
                 </div>
                 <form.Field name="email">
@@ -172,12 +164,17 @@ export function LoginForm({
                 alt=""
                 className="absolute inset-0 size-full object-cover opacity-35 mix-blend-multiply dark:mix-blend-luminosity"
                 onError={() => setPanelFailed(true)}
+                ref={(el) => {
+                  if (el?.complete === true && el.naturalWidth === 0) setPanelFailed(true);
+                }}
               />
             )}
             <div className="absolute inset-0 bg-linear-to-t from-primary/30 to-transparent" />
             <div className="relative flex h-full flex-col justify-end p-8">
-              <p className="text-lg font-semibold text-foreground">{eventName}</p>
-              <p className="mt-1 text-sm text-foreground/70">{eventDates}</p>
+              <p className="text-lg font-semibold text-foreground">opensesh</p>
+              <p className="mt-1 text-sm text-foreground/70">
+                The open program OS for conferences.
+              </p>
             </div>
           </div>
         </CardContent>

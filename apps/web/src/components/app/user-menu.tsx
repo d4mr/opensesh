@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -40,18 +41,20 @@ export function UserMenu({ user }: { readonly user: CurrentUserValue }) {
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-          {user.email}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-          {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
-          {resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => void logout()}>
-          <LogOutIcon />
-          Log out
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+            {user.email}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+            {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
+            {resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void logout()}>
+            <LogOutIcon />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

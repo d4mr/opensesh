@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -54,20 +55,22 @@ export function DemoRoleSwitcher() {
           Demo roles
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" className="w-60">
-          <DropdownMenuLabel className="text-xs">Instant sign-in</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {personas.map((persona) => (
-            <DropdownMenuItem
-              key={persona.email}
-              className="items-start py-1.5 text-xs"
-              onClick={() => void choose(persona.email)}
-            >
-              <span className="flex flex-col">
-                <span className="text-xs font-medium">{persona.name}</span>
-                <span className="text-xs text-muted-foreground">{persona.detail}</span>
-              </span>
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs">Instant sign-in</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {personas.map((persona) => (
+              <DropdownMenuItem
+                key={persona.email}
+                className="items-start py-1.5 text-xs"
+                onClick={() => void choose(persona.email)}
+              >
+                <span className="flex flex-col">
+                  <span className="text-xs font-medium">{persona.name}</span>
+                  <span className="text-xs text-muted-foreground">{persona.detail}</span>
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
