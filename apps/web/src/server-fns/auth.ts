@@ -57,22 +57,14 @@ export const switchDemoPersona = createServerFn({ method: "POST" })
     }
 
     const request = getRequest();
-    let captured: CapturedMagicLink | undefined;
-    const auth = makeAuth(env, new URL(request.url).origin, (link) => {
-      captured = link;
-    });
+    const auth = makeAuth(env, new URL(request.url).origin);
     const persona = demoPersonas[data.email];
+    // Personas carry the seeded demo password, so a single password sign-in
+    // replaces the previous issue-then-verify magic-link double flow.
     const program = Effect.tryPromise({
       try: async () => {
-        await auth.api.signInMagicLink({
-          body: { email: data.email, name: persona.name },
-          headers: request.headers,
-        });
-        if (captured === undefined) {
-          return await Promise.reject(new Error("Magic link was not captured"));
-        }
-        await auth.api.magicLinkVerify({
-          query: { token: captured.token },
+        await auth.api.signInEmail({
+          body: { email: data.email, password: "demo-pass-2027" },
           headers: request.headers,
         });
         return { target: persona.target };
