@@ -383,6 +383,18 @@
   box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
+/* Desktop pill nav: the sliding indicator carries the background, the link
+   itself only changes color. Transition color so the swap tracks the pill. */
+.portal-nav-link-current {
+  color: var(--foreground);
+}
+
+.portal-nav-link {
+  transition:
+    color 200ms var(--ease-out),
+    transform 120ms var(--ease-out);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pressable {
     transition-duration: 0ms;

@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { UserMenu } from "@/components/app/user-menu";
 
@@ -10,6 +11,76 @@ const nav = [
   { title: "Tasks", section: "tasks" },
 ];
 
+const activeIndexForPath = (pathname: string) =>
+  nav.findIndex((item) =>
+    "section" in item ? pathname === `/portal/${item.section}` : pathname === "/portal",
+  );
+
+function NavLink({
+  item,
+  className,
+}: {
+  readonly item: (typeof nav)[number];
+  readonly className: string;
+}) {
+  return "section" in item && item.section !== undefined ? (
+    <Link to="/portal/$section" params={{ section: item.section }} className={className}>
+      {item.title}
+    </Link>
+  ) : (
+    <Link to="/portal" className={className}>
+      {item.title}
+    </Link>
+  );
+}
+
+function DesktopPillNav({ pathname }: { readonly pathname: string }) {
+  const listRef = useRef<HTMLElement>(null);
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+  const activeIndex = activeIndexForPath(pathname);
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list === null || activeIndex < 0) {
+      setIndicator(null);
+      return;
+    }
+    const measure = () => {
+      const link = list.querySelectorAll("a")[activeIndex];
+      if (link instanceof HTMLElement) {
+        setIndicator({ left: link.offsetLeft, width: link.offsetWidth });
+      }
+    };
+    measure();
+    // Re-measure on container resize (font swap, viewport changes).
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [activeIndex]);
+
+  return (
+    <nav
+      ref={listRef}
+      className="relative mx-auto hidden items-center rounded-full bg-muted p-1 sm:flex"
+    >
+      {indicator === null ? null : (
+        <span
+          aria-hidden
+          className="absolute inset-y-1 rounded-full bg-background shadow-[0_1px_2px_color-mix(in_srgb,var(--foreground)_10%,transparent)] transition-[transform,width] duration-200 [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
+          style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
+        />
+      )}
+      {nav.map((item, index) => (
+        <NavLink
+          key={item.title}
+          item={item}
+          className={`portal-nav-link pressable relative ${index === activeIndex ? "portal-nav-link-current" : ""}`}
+        />
+      ))}
+    </nav>
+  );
+}
+
 export function PortalShell({
   eventName,
   user,
@@ -18,6 +89,7 @@ export function PortalShell({
   readonly user: CurrentUserValue;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const activeIndex = activeIndexForPath(pathname);
 
   return (
     <div className="min-h-svh">
@@ -26,51 +98,17 @@ export function PortalShell({
           <Link to="/portal" className="pressable truncate font-semibold">
             {eventName}
           </Link>
-          <nav className="mx-auto hidden items-center rounded-full bg-muted p-1 sm:flex">
-            {nav.map((item) => {
-              const section = "section" in item ? item.section : undefined;
-              const active =
-                section === undefined ? pathname === "/portal" : pathname === `/portal/${section}`;
-              const className = `portal-nav-link pressable ${active ? "portal-nav-link-active" : ""}`;
-              return section === undefined ? (
-                <Link key={item.title} to="/portal" className={className}>
-                  {item.title}
-                </Link>
-              ) : (
-                <Link
-                  key={item.title}
-                  to="/portal/$section"
-                  params={{ section }}
-                  className={className}
-                >
-                  {item.title}
-                </Link>
-              );
-            })}
-          </nav>
+          <DesktopPillNav pathname={pathname} />
           <UserMenu user={user} />
         </div>
         <nav className="mx-auto flex max-w-5xl items-center justify-center gap-1 px-4 pb-2 text-sm sm:hidden">
-          {nav.map((item) => {
-            const section = "section" in item ? item.section : undefined;
-            const active =
-              section === undefined ? pathname === "/portal" : pathname === `/portal/${section}`;
-            const className = `portal-nav-link pressable ${active ? "portal-nav-link-active" : ""}`;
-            return section === undefined ? (
-              <Link key={item.title} to="/portal" className={className}>
-                {item.title}
-              </Link>
-            ) : (
-              <Link
-                key={item.title}
-                to="/portal/$section"
-                params={{ section }}
-                className={className}
-              >
-                {item.title}
-              </Link>
-            );
-          })}
+          {nav.map((item, index) => (
+            <NavLink
+              key={item.title}
+              item={item}
+              className={`portal-nav-link pressable ${index === activeIndex ? "portal-nav-link-active" : ""}`}
+            />
+          ))}
         </nav>
       </header>
       <Outlet />
