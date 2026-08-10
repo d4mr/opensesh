@@ -14,7 +14,8 @@ WP0 initialized `components.json` in backward-compat mode (the CLI had retired t
 - **Event switcher = shadcn's native TeamSwitcher pattern, verbatim** (the `SidebarHeader` workspace-selector from the official block/docs): dropdown with `ChevronsUpDown`, event avatar + name + date subtitle; single event today, so the dropdown lists just it (checked) — the full affordance ships, the data catches up later.
 - **`SidebarRail` + native drag-resize — REQUIRED**: the current shadcn sidebar generations are natively resizable; install the component as shipped and wire the rail so drag-resize AND click/⌘B collapse both work. Write NO custom resize code — if resize doesn't work, you installed the wrong/old component; fix the install, don't polyfill. Persist the user's width alongside the open state.
 - **Sidebar footer = `NavUser` card** (avatar + name + email + `ChevronsUpDown`, the block's pattern) as primary identity location; group labels and menu rows at the block's exact type sizes (labels `text-xs`, rows `text-sm`).
-- Portal + public + login layouts: light density pass only (below) — their centered structure is fine; login should match the `login-03`-style card proportions if it deviates.
+- Portal + public layouts: light density pass only (below) — their centered structure is fine.
+- **Login = the `login-04` block** (user-designated: ui.shadcn.com/view/new-york-v4/login-04). Install it and adapt: our single field is email + "Email me a magic link" (no password/OAuth rows — remove, don't hide), event name as the heading, keep the block's split-panel composition and proportions exactly; right/visual panel uses the greenroom treatment (a quiet brand panel — solid `--primary`-tinted surface with the event name/date, no stock illustration). Demo-roles widget unchanged.
 
 ## B — Density pass (Vercel-grade)
 
