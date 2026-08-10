@@ -46,14 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -455,7 +447,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
           </div>
         </TabsContent>
       </Tabs>
-      <TaskTemplateSheet
+      <TaskTemplateDialog
         key={editingId ?? "new"}
         eventId={eventId}
         data={data}
@@ -467,7 +459,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
   );
 }
 
-function TaskTemplateSheet({
+function TaskTemplateDialog({
   eventId,
   data,
   templateId,
@@ -524,13 +516,13 @@ function TaskTemplateSheet({
     },
   });
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{existing === undefined ? "Create task" : "Edit task"}</SheetTitle>
-          <SheetDescription>Configure completion and automatic assignment.</SheetDescription>
-        </SheetHeader>
-        <div className="grid gap-4 px-4">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{existing === undefined ? "Create task" : "Edit task"}</DialogTitle>
+          <DialogDescription>Configure completion and automatic assignment.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
           <div className="grid gap-1.5">
             <Label>Title</Label>
             <Input
@@ -598,7 +590,7 @@ function TaskTemplateSheet({
             <Switch checked={form.auto} onCheckedChange={(auto) => setForm({ ...form, auto })} />
           </label>
         </div>
-        <SheetFooter>
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
@@ -608,9 +600,9 @@ function TaskTemplateSheet({
           >
             Save task
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1077,15 +1069,15 @@ function AdminFileRequests({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Add file request</SheetTitle>
-            <SheetDescription>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add file request</DialogTitle>
+            <DialogDescription>
               Files are stored on this request and versioned on every replacement.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="grid gap-4 px-4">
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
             <div className="grid gap-1.5">
               <Label>Title</Label>
               <Input
@@ -1113,7 +1105,7 @@ function AdminFileRequests({
               />
             </div>
           </div>
-          <SheetFooter>
+          <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -1123,9 +1115,9 @@ function AdminFileRequests({
             >
               Create request
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

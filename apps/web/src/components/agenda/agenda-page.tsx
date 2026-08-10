@@ -44,7 +44,7 @@ import {
 import { deleteLibraryItem, saveLibraryItem } from "@/server-fns/admin";
 import { ConflictsView } from "./conflicts-view";
 import { AgendaDraftCompare } from "./agenda-draft-compare";
-import { AgendaDraftsSheet } from "./agenda-drafts-sheet";
+import { AgendaDraftsDialog } from "./agenda-drafts-dialog";
 import { dateKeyFor, eventDateKeys } from "./date-utils";
 import { AgendaListView } from "./list-view";
 import { RoomsView } from "./rooms-view";
@@ -508,7 +508,7 @@ export function AgendaPage({
           <ConflictsView agenda={data} conflicts={conflicts} jump={jump} />
         </TabsContent>
       </Tabs>
-      <AgendaDraftsSheet
+      <AgendaDraftsDialog
         open={draftsOpen}
         onOpenChange={setDraftsOpen}
         agenda={data}

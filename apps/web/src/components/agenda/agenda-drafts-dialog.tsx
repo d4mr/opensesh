@@ -33,13 +33,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { eventDateKeys, formatLongDay } from "./date-utils";
 
@@ -384,7 +383,7 @@ function CriteriaForm({
         </form.Field>
       </div>
 
-      <SheetFooter className="border-t">
+      <div className="flex flex-col gap-2 border-t p-4">
         <form.Subscribe
           selector={(state) => [
             state.canSubmit,
@@ -416,12 +415,12 @@ function CriteriaForm({
             </>
           )}
         </form.Subscribe>
-      </SheetFooter>
+      </div>
     </form>
   );
 }
 
-export function AgendaDraftsSheet({
+export function AgendaDraftsDialog({
   open,
   onOpenChange,
   agenda,
@@ -440,23 +439,23 @@ export function AgendaDraftsSheet({
 }) {
   const [mode, setMode] = useState<"list" | "new">("list");
   return (
-    <Sheet
+    <Dialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
         if (!next) setMode("list");
       }}
     >
-      <SheetContent className="gap-0 sm:max-w-md">
-        <SheetHeader className="border-b">
+      <DialogContent className="flex max-h-[85svh] flex-col gap-0 p-0 sm:max-w-md">
+        <DialogHeader className="border-b p-4 text-left">
           <div className="flex items-start justify-between gap-4 pr-7">
             <div>
-              <SheetTitle>{mode === "list" ? "AI agenda drafts" : "New agenda draft"}</SheetTitle>
-              <SheetDescription className="mt-0.5 text-xs">
+              <DialogTitle>{mode === "list" ? "AI agenda drafts" : "New agenda draft"}</DialogTitle>
+              <DialogDescription className="mt-0.5 text-xs">
                 {mode === "list"
                   ? "Generate, compare, then explicitly accept changes."
                   : "Choose the scope and constraints for this proposal."}
-              </SheetDescription>
+              </DialogDescription>
             </div>
             {mode === "list" ? (
               <Button size="sm" className="pressable" onClick={() => setMode("new")}>
@@ -464,13 +463,13 @@ export function AgendaDraftsSheet({
               </Button>
             ) : null}
           </div>
-        </SheetHeader>
+        </DialogHeader>
         {mode === "list" ? (
           <DraftList drafts={drafts} compare={compare} action={action} />
         ) : (
           <CriteriaForm agenda={agenda} generate={generate} cancel={() => setMode("list")} />
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

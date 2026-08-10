@@ -31,13 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import {
@@ -293,20 +293,20 @@ function SessionPeek({
   readonly save: (change: ScheduleChange) => Promise<boolean>;
 }) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
         {session === null ? null : (
           <>
-            <SheetHeader className="border-b">
+            <DialogHeader>
               <p className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 {session.code}
               </p>
-              <SheetTitle className="text-base tracking-tight">{session.title}</SheetTitle>
-              <SheetDescription>
+              <DialogTitle className="text-base tracking-tight">{session.title}</DialogTitle>
+              <DialogDescription>
                 {session.formatName ?? "Session"} · {session.durationMinutes} minutes
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-5 overflow-y-auto px-4 text-sm">
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid max-h-[50svh] gap-5 overflow-y-auto text-sm">
               <div>
                 <p className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                   Speakers
@@ -320,13 +320,13 @@ function SessionPeek({
                 <p className="leading-relaxed text-muted-foreground">{session.description}</p>
               </div>
             </div>
-            <SheetFooter className="border-t">
+            <DialogFooter className="border-t pt-4">
               <ScheduleEditor agenda={agenda} session={session} save={save} />
-            </SheetFooter>
+            </DialogFooter>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
