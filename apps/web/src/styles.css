@@ -124,6 +124,20 @@
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
+@theme {
+  /* Flat elevation, Vercel-style (user directive: no harsh shadows — outlines
+     and surface contrast carry depth). The whole Tailwind shadow scale is
+     redefined soft+diffuse so registry components flatten without edits.
+     The demo-roles floating button opts back into lift via shadow-lg. */
+  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.02);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 4px 16px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 8px 24px -6px rgb(0 0 0 / 0.12);
+  --shadow-2xl: 0 12px 32px -8px rgb(0 0 0 / 0.14);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
