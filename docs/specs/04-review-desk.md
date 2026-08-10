@@ -27,7 +27,7 @@ For reviewers (and admins): pending submissions in the viewer's tracks (`reviewe
 
 Decision dialog (single or bulk): decision (accept/decline), optional personal message (prefilled from review comments if any — editable), preview of the email that will be sent (template from WP1/WP7 email templates: acceptance/decline + `{{feedback}}` slot), confirm.
 
-On **accept** — one Effect program, transactional (D1 batch), idempotent:
+On **accept** — one Effect program, transactional (pg transaction via the Db service), idempotent:
 1. status → accepted;
 2. speakers confirmed as contacts (already exist from submission — ensure flags/links);
 3. `auto_assign_on_accept` task templates instantiated per speaker (contact-scope) and per submission (submission-scope) — no duplicates on re-run;
