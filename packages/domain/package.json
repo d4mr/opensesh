@@ -21,6 +21,7 @@
     "seed:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify.ts"
   },
   "dependencies": {
+    "better-auth": "1.6.26",
     "drizzle-orm": "1.0.0-rc.4",
     "effect": "4.0.0-beta.106",
     "nanoid": "5.1.5",

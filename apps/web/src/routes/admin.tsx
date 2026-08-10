@@ -26,5 +26,5 @@ function AdminLayout() {
   if (event.data === undefined) return null;
   if (!event.data.ok) return <p className="p-6">{event.data.error.message}</p>;
 
-  return <AdminShell eventName={event.data.data.name} user={user} />;
+  return <AdminShell event={event.data.data} user={user} />;
 }

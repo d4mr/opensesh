@@ -42,6 +42,33 @@ export const seedData = {
       createdAt: new Date(1785585600000),
       updatedAt: new Date(1785585600000),
     },
+    {
+      id: "usr_maya",
+      email: "maya.chen@retrievallabs.ai",
+      name: "Maya Chen",
+      emailVerified: true,
+      image: null,
+      createdAt: new Date(1785585600000),
+      updatedAt: new Date(1785585600000),
+    },
+    {
+      id: "usr_lina",
+      email: "lina.haddad@checkpoint.health",
+      name: "Lina Haddad",
+      emailVerified: true,
+      image: null,
+      createdAt: new Date(1785585600000),
+      updatedAt: new Date(1785585600000),
+    },
+    {
+      id: "usr_jamal",
+      email: "jamal.reed@agentdesk.co",
+      name: "Jamal Reed",
+      emailVerified: true,
+      image: null,
+      createdAt: new Date(1785585600000),
+      updatedAt: new Date(1785585600000),
+    },
   ],
   eventMembers: [
     {

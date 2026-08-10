@@ -55,6 +55,7 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
             );
             const subject = `Sign in to ${event.name}`;
             const body = `Use this secure link to sign in: ${input.url}`;
+            const logoUrl = `${new URL(input.url).origin}/brand/logo.svg`;
             const rows = yield* query(database, "Could not record magic link email", (db) =>
               db
                 .insert(emailLog)
@@ -81,7 +82,7 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
               to: input.email,
               subject,
               text: body,
-              html: `<p>Use this secure link to sign in:</p><p><a href="${input.url}">Sign in to ${event.name}</a></p>`,
+              html: `<div style="font-family:ui-sans-serif,system-ui,sans-serif;color:#1b211d"><div style="display:flex;align-items:center;gap:10px;margin-bottom:24px"><img src="${logoUrl}" alt="OS" width="32" height="32" style="border-radius:8px;background:#1d6b4c;color:#f5fbf7"><strong>${event.name}</strong></div><p>Use this secure link to sign in:</p><p><a href="${input.url}" style="color:#1d6b4c">Sign in to ${event.name}</a></p></div>`,
             });
 
             yield* delivery.pipe(

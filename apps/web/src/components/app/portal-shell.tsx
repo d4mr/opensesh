@@ -22,7 +22,7 @@ export function PortalShell({
   return (
     <div className="min-h-svh">
       <header className="border-b">
-        <div className="mx-auto flex h-16 max-w-5xl items-center gap-4 px-6">
+        <div className="mx-auto flex h-12 max-w-5xl items-center gap-3 px-4 text-sm">
           <Link to="/portal" className="pressable truncate font-semibold">
             {eventName}
           </Link>
@@ -50,7 +50,7 @@ export function PortalShell({
           </nav>
           <UserMenu user={user} />
         </div>
-        <nav className="mx-auto flex max-w-5xl items-center justify-center gap-1 px-4 pb-3 sm:hidden">
+        <nav className="mx-auto flex max-w-5xl items-center justify-center gap-1 px-4 pb-2 text-sm sm:hidden">
           {nav.map((item) => {
             const section = "section" in item ? item.section : undefined;
             const active =

@@ -25,31 +25,30 @@ export function UserMenu({ user }: { readonly user: CurrentUserValue }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="pressable rounded-full"
-          aria-label="Open user menu"
-        >
-          <Avatar className="size-8">
-            <AvatarFallback>{initial}</AvatarFallback>
-          </Avatar>
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-full"
+            aria-label="Open user menu"
+          />
+        }
+      >
+        <Avatar className="size-8">
+          <AvatarFallback>{initial}</AvatarFallback>
+        </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
           {user.email}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="pressable"
-          onSelect={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-        >
+        <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
           {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
           {resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"}
         </DropdownMenuItem>
-        <DropdownMenuItem className="pressable" onSelect={() => void logout()}>
+        <DropdownMenuItem onClick={() => void logout()}>
           <LogOutIcon />
           Log out
         </DropdownMenuItem>

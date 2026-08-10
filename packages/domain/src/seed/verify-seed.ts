@@ -2,6 +2,7 @@ import { and, asc, count, eq, gt, isNotNull, lt } from "drizzle-orm";
 import { alias, type PgTable } from "drizzle-orm/pg-core";
 
 import {
+  accounts,
   contacts,
   emailLog,
   eventMembers,
@@ -37,9 +38,10 @@ const expectedTables: ReadonlyArray<{
   readonly expected: number;
 }> = [
   { name: "organizations", table: organizations, expected: 1 },
-  { name: "organization_members", table: organizationMembers, expected: 2 },
+  { name: "organization_members", table: organizationMembers, expected: 5 },
   { name: "events", table: events, expected: 1 },
-  { name: "users", table: users, expected: 2 },
+  { name: "users", table: users, expected: 5 },
+  { name: "accounts", table: accounts, expected: 5 },
   { name: "event_members", table: eventMembers, expected: 2 },
   { name: "reviewer_tracks", table: reviewerTracks, expected: 2 },
   { name: "tracks", table: tracks, expected: 4 },
@@ -120,7 +122,7 @@ export const verifySeed = async (database: Database) => {
 
   const statusMatches = statusRows.every(({ status, total }) => expectedStatuses[status] === total);
   const membershipsMatch =
-    memberships.length === 2 &&
+    memberships.length === 5 &&
     memberships.every((membership) => membership.organization === "ai-engineer");
 
   if (

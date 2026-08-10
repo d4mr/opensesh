@@ -71,6 +71,10 @@ export const makeAuth = (
     account: { modelName: "accounts" },
     verification: { modelName: "verifications" },
     advanced: { cookiePrefix: "opensesh" },
+    emailAndPassword: {
+      enabled: true,
+      disableSignUp: true,
+    },
     databaseHooks: {
       user: {
         create: {

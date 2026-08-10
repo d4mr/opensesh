@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -44,6 +46,11 @@
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+  --chart-1: var(--primary);
+  --chart-2: var(--status-accepted);
+  --chart-3: var(--status-maybe);
+  --chart-4: var(--status-pending);
+  --chart-5: var(--status-declined);
 }
 .dark {
   --background: #131714;
@@ -75,6 +82,19 @@
   --status-declined-bg: #3a1712;
   --status-withdrawn: #9c9ca3;
   --status-withdrawn-bg: #26262a;
+  --chart-1: var(--primary);
+  --chart-2: var(--status-accepted);
+  --chart-3: var(--status-maybe);
+  --chart-4: var(--status-pending);
+  --chart-5: var(--status-declined);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 :root {
@@ -124,6 +144,16 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
@@ -134,7 +164,10 @@
   body {
     @apply bg-background text-foreground;
     margin: 0;
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-sans);
+  }
+  html {
+    @apply font-sans;
   }
 }
 
@@ -146,13 +179,22 @@
   transform: scale(0.97);
 }
 
-.admin-nav-link {
-  opacity: 0.72;
-  transition: opacity 150ms var(--ease-out);
+[data-slot="button"],
+[data-slot="dropdown-menu-item"],
+[data-slot="sidebar-menu-button"],
+[data-slot="switch"],
+[data-slot="tabs-trigger"],
+[data-slot="toggle"] {
+  transition: transform 120ms var(--ease-out);
 }
 
-[data-slot="sidebar-menu-button"][data-active="true"] .admin-nav-link {
-  opacity: 1;
+[data-slot="button"]:active,
+[data-slot="dropdown-menu-item"]:active,
+[data-slot="sidebar-menu-button"]:active,
+[data-slot="switch"]:active,
+[data-slot="tabs-trigger"]:active,
+[data-slot="toggle"]:active {
+  transform: scale(0.97);
 }
 
 .portal-nav-link {
@@ -191,15 +233,14 @@
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .admin-nav-link:hover {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .pressable,
-  .admin-nav-link,
+  [data-slot="button"],
+  [data-slot="dropdown-menu-item"],
+  [data-slot="sidebar-menu-button"],
+  [data-slot="switch"],
+  [data-slot="tabs-trigger"],
+  [data-slot="toggle"],
   [data-slot="sheet-overlay"],
   [data-slot="sheet-content"] {
     transition-duration: 0ms;

@@ -17,8 +17,21 @@ export const Route = createRootRoute({
       {
         title: "opensesh",
       },
+      {
+        name: "description",
+        content: "Conference programs from call for proposals through publish.",
+      },
+      {
+        property: "og:image",
+        content: "/brand/og.png",
+      },
     ],
     links: [
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "/brand/opensesh-mark.svg",
+      },
       {
         rel: "stylesheet",
         href: appCss,

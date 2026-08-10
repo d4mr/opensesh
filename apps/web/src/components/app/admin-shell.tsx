@@ -1,5 +1,5 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
-import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDaysIcon,
   CheckSquareIcon,
@@ -9,21 +9,14 @@ import {
   GaugeIcon,
   ListChecksIcon,
   PanelTopIcon,
-  SearchIcon,
   SettingsIcon,
   SquareStackIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { UserMenu } from "@/components/app/user-menu";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SiteHeader } from "@/components/site-header";
 import {
   CommandDialog,
   CommandEmpty,
@@ -32,20 +25,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 interface NavItem {
   readonly title: string;
@@ -53,29 +33,40 @@ interface NavItem {
   readonly icon: LucideIcon;
 }
 
-const dashboard: ReadonlyArray<NavItem> = [{ title: "Dashboard", icon: GaugeIcon }];
-const program: ReadonlyArray<NavItem> = [
+const allItems: ReadonlyArray<NavItem> = [
+  { title: "Dashboard", icon: GaugeIcon },
   { title: "Abstracts", section: "abstracts", icon: FileTextIcon },
   { title: "Sessions", section: "sessions", icon: SquareStackIcon },
   { title: "Forms", section: "forms", icon: FileInputIcon },
   { title: "Evaluation", section: "evaluation", icon: ClipboardCheckIcon },
   { title: "Agenda", section: "agenda", icon: CalendarDaysIcon },
-];
-const portals: ReadonlyArray<NavItem> = [
   { title: "Tasks", section: "tasks", icon: CheckSquareIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
   { title: "File Requests", section: "file-requests", icon: PanelTopIcon },
-];
-const settings: ReadonlyArray<NavItem> = [
   { title: "Settings", section: "settings", icon: SettingsIcon },
 ];
-const allItems = [...dashboard, ...program, ...portals, ...settings];
+
+const readSidebarOpen = () => {
+  if (typeof document === "undefined") return true;
+  const value = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("sidebar_state="))
+    ?.split("=")[1];
+  return value === undefined ? true : value === "true";
+};
+
+const formatEventDates = (startsAt: Date, endsAt: Date) => {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  const month = new Intl.DateTimeFormat("en-US", { month: "short" });
+  return `${month.format(start)} ${start.getDate()}–${end.getDate()}, ${end.getFullYear()}`;
+};
 
 export function AdminShell({
-  eventName,
+  event,
   user,
 }: {
-  readonly eventName: string;
+  readonly event: { readonly name: string; readonly startsAt: Date; readonly endsAt: Date };
   readonly user: CurrentUserValue;
 }) {
   const [commandOpen, setCommandOpen] = useState(false);
@@ -87,9 +78,12 @@ export function AdminShell({
     )?.title ?? "Dashboard";
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
+    const onKeyDown = (keyboardEvent: KeyboardEvent) => {
+      if (
+        (keyboardEvent.metaKey || keyboardEvent.ctrlKey) &&
+        keyboardEvent.key.toLowerCase() === "k"
+      ) {
+        keyboardEvent.preventDefault();
         setCommandOpen((open) => !open);
       }
     };
@@ -104,91 +98,24 @@ export function AdminShell({
       : navigate({ to: "/admin/$section", params: { section } });
   };
 
-  const renderItems = (items: ReadonlyArray<NavItem>) =>
-    items.map((item) => {
-      const { section } = item;
-      const active =
-        section === undefined ? pathname === "/admin" : pathname === `/admin/${section}`;
-      return (
-        <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
-            {section === undefined ? (
-              <Link to="/admin" className="admin-nav-link pressable">
-                <item.icon />
-                <span>{item.title}</span>
-              </Link>
-            ) : (
-              <Link to="/admin/$section" params={{ section }} className="admin-nav-link pressable">
-                <item.icon />
-                <span>{item.title}</span>
-              </Link>
-            )}
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    });
-
   return (
-    <SidebarProvider>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="h-16 justify-center border-b px-3">
-          <Link to="/admin" className="pressable flex items-center gap-2 overflow-hidden">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-              OS
-            </span>
-            <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
-              {eventName}
-            </span>
-          </Link>
-        </SidebarHeader>
-        <SidebarContent className="py-2">
-          <SidebarGroup>
-            <SidebarMenu>{renderItems(dashboard)}</SidebarMenu>
-          </SidebarGroup>
-          <SidebarGroup>
-            <SidebarGroupLabel>Program</SidebarGroupLabel>
-            <SidebarMenu>{renderItems(program)}</SidebarMenu>
-          </SidebarGroup>
-          <SidebarGroup>
-            <SidebarGroupLabel>Portals</SidebarGroupLabel>
-            <SidebarMenu>{renderItems(portals)}</SidebarMenu>
-          </SidebarGroup>
-          <SidebarGroup className="mt-auto">
-            <SidebarMenu>{renderItems(settings)}</SidebarMenu>
-          </SidebarGroup>
-        </SidebarContent>
-      </Sidebar>
+    <SidebarProvider
+      defaultOpen={readSidebarOpen()}
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar
+        variant="inset"
+        event={{ name: event.name, dates: formatEventDates(event.startsAt, event.endsAt) }}
+        pathname={pathname}
+        user={user}
+      />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b px-4">
-          <SidebarTrigger className="pressable" />
-          <Separator orientation="vertical" className="h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage>{activeTitle}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="pressable hidden gap-2 sm:flex"
-              onClick={() => setCommandOpen(true)}
-            >
-              <SearchIcon />
-              Jump to
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                ⌘K
-              </kbd>
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link to="/portal" className="pressable">
-                View portal
-              </Link>
-            </Button>
-            <UserMenu user={user} />
-          </div>
-        </header>
+        <SiteHeader title={activeTitle} user={user} />
         <Outlet />
       </SidebarInset>
 
@@ -197,15 +124,16 @@ export function AdminShell({
         <CommandList>
           <CommandEmpty>No page found.</CommandEmpty>
           <CommandGroup heading="Navigation">
-            {allItems.map((item) => {
-              const { section } = item;
-              return (
-                <CommandItem key={item.title} value={item.title} onSelect={() => void go(section)}>
-                  <item.icon />
-                  {item.title}
-                </CommandItem>
-              );
-            })}
+            {allItems.map((item) => (
+              <CommandItem
+                key={item.title}
+                value={item.title}
+                onSelect={() => void go(item.section)}
+              >
+                <item.icon />
+                {item.title}
+              </CommandItem>
+            ))}
           </CommandGroup>
         </CommandList>
       </CommandDialog>

@@ -47,23 +47,23 @@ export function DemoRoleSwitcher() {
   return (
     <div className="fixed right-4 bottom-4 z-50">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button className="pressable shadow-lg" disabled={switching}>
-            <KeyRoundIcon />
-            Demo roles
-          </Button>
+        <DropdownMenuTrigger
+          render={<Button size="sm" className="shadow-lg" disabled={switching} />}
+        >
+          <KeyRoundIcon />
+          Demo roles
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" side="top" className="w-64">
-          <DropdownMenuLabel>Instant sign-in</DropdownMenuLabel>
+        <DropdownMenuContent align="end" side="top" className="w-60">
+          <DropdownMenuLabel className="text-xs">Instant sign-in</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {personas.map((persona) => (
             <DropdownMenuItem
               key={persona.email}
-              className="pressable items-start"
-              onSelect={() => void choose(persona.email)}
+              className="items-start py-1.5 text-xs"
+              onClick={() => void choose(persona.email)}
             >
               <span className="flex flex-col">
-                <span className="font-medium">{persona.name}</span>
+                <span className="text-xs font-medium">{persona.name}</span>
                 <span className="text-xs text-muted-foreground">{persona.detail}</span>
               </span>
             </DropdownMenuItem>

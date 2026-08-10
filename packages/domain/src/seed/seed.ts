@@ -1,4 +1,5 @@
 import {
+  accounts,
   contacts,
   emailLog,
   eventMembers,
@@ -24,13 +25,16 @@ import {
   tracks,
   users,
 } from "../db/schema";
+import { hashPassword } from "better-auth/crypto";
 import { type Database, wipeSeedData } from "../server/db";
 import { seedData } from "./data";
 
 const seededAt = new Date(1785585600000);
+const DEMO_PASSWORD = "demo-pass-2027";
 const rows = <A extends object>(values: ReadonlyArray<A>) => values.map((value) => ({ ...value }));
 
 export const seedDatabase = async (database: Database) => {
+  const password = await hashPassword(DEMO_PASSWORD);
   await wipeSeedData(database);
   await database.transaction(async (transaction) => {
     await Promise.all([
@@ -61,7 +65,39 @@ export const seedDatabase = async (database: Database) => {
           role: "member",
           createdAt: seededAt,
         },
+        {
+          id: "org_mem_maya",
+          organizationId: "org_ai_engineer",
+          userId: "usr_maya",
+          role: "member",
+          createdAt: seededAt,
+        },
+        {
+          id: "org_mem_lina",
+          organizationId: "org_ai_engineer",
+          userId: "usr_lina",
+          role: "member",
+          createdAt: seededAt,
+        },
+        {
+          id: "org_mem_jamal",
+          organizationId: "org_ai_engineer",
+          userId: "usr_jamal",
+          role: "member",
+          createdAt: seededAt,
+        },
       ]),
+      transaction.insert(accounts).values(
+        seedData.users.map((user) => ({
+          id: `acc_${user.id}`,
+          accountId: user.id,
+          providerId: "credential",
+          userId: user.id,
+          password,
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        })),
+      ),
       transaction.insert(events).values(rows(seedData.events)),
     ]);
 
