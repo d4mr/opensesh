@@ -34,6 +34,16 @@ Five steps, top step indicator with the admin-configured page headings: Welcome 
 
 After submit: submission exists with `SESS-n` code, status `pending` (kind per form), answers mapped (`maps_to` fields → columns, custom → `answers` JSON), participants created/linked as contacts, source = form. Verify against seeded expectations.
 
+## Part C — Event creation + library management (eval-critical)
+
+External evaluators create an event from scratch (name, tagline, dates, location, description) and then define tracks, session formats (with durations, e.g. "Talk (30 min)"), and rooms BEFORE building a form. Today these exist only via seed. Add:
+
+- **`/admin/settings/event`**: edit event fields (name, tagline, start/end dates, timezone, location, description). Plus a **"New event" flow** reachable from the sidebar event-switcher dropdown ("Create event" item → dialog: name, dates, timezone → creates event in current org, switches to it, lands on settings). Keep it one dialog, not a wizard.
+- **`/admin/settings/library`**: CRUD for Tracks (name, color), Formats (name, duration minutes), Rooms (name), Tags, Levels — compact tables with inline add/edit/delete (delete blocked with a clear message when in use). These feed every dropdown binding in Part A.
+- Nav: "Settings" gains these as sub-items (sidebar-03 submenu pattern — this is the sanctioned first use of submenus).
+
+Walkthrough addition: create a second event from the switcher, define 2 tracks + 2 formats + 2 rooms, build a minimal form on it, submit publicly — proves the full from-scratch path with zero seed dependence.
+
 ## Acceptance
 
 1. `pnpm typecheck && pnpm build`; seed still green.

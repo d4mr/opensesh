@@ -15,6 +15,14 @@ Read `AGENTS.md` first. Prereqs: WP0–WP2 merged; WP3's `FormRenderer` (`src/co
 - **Portal forms**: list + 3-step editor (Setup: name/title/scope · Questions: sections + fields, same builder pieces as WP3 · Settings: confirmation email toggle+body). Responses tab per form: table of responses (submitter, submitted at, answers dialog), CSV export.
 - **File requests**: list + create drawer (title, scope, instructions); uploads collected on the request (uploader, file, date, download); bundle download (zip via server fn is fine at demo scale).
 
+## C — Content management depth (eval-critical: this area is 15% of the rubric — build it FULLY)
+
+- **File versioning**: re-uploading to a file-request task (or replacing a headshot/slides) creates a new version, never overwrites — version list per file (uploader, date, size, download each), newest is "current". Schema: `file_versions` child table (FLAT rule applies — regenerate the init migration).
+- **File comment threads**: comments on an uploaded file, visible to BOTH roles — organizer comments ("please re-export at 1920px") appear in the speaker's portal on that file, speaker replies appear in admin. Plain thread (author, timestamp, body), no rich text needed. Unread indicator on the task/file row.
+- **Session edit history + restore**: every edit to a submission's content fields (via portal or admin) records a history entry (who, when, field-level diff of changed fields). Detail views get a History tab: list of edits, expandable diffs, **Restore** button per entry (restores those field values as a NEW edit — history is append-only).
+- **Approval gating**: submission content edits after acceptance land as `pending_review` changes — admin sees a "content changes awaiting approval" queue (badge on Sessions nav), approves/rejects each. Public agenda/pages render the last APPROVED content only; the portal shows the speaker "changes pending approval" state. Simplest correct model: `approved_snapshot` JSON on submission, updated on approve.
+- Speaker profile adds **dietary requirements** (free text or select: None/Vegetarian/Vegan/GF/Other) and **t-shirt size** (XS–XXL) — surfaced in admin speaker views and CSV exports (CRM rubric).
+
 ## Acceptance
 
 1. `pnpm typecheck && pnpm build`; seed green.

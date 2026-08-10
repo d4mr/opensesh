@@ -12,6 +12,8 @@ Three views (tabs, URL-synced): **Rooms** (default) · **List** · **Conflicts (
 - **Conflict detection** (domain layer, pure function over scheduled set, typed + unit-tested): (a) same room, overlapping times; (b) same speaker in two overlapping sessions (via submission_participants). Conflicted blocks: destructive-color ring + warning icon in grid, live as you drag (recompute on drop). **Conflicts view**: each conflict as a card — what, who, where, why + "jump to rooms view" (highlights both blocks, 2s pulse).
 - **List view**: TanStack Table of accepted submissions — scheduled?, day/time, room, duration; inline room/time editing via popover (same validation path).
 - Scheduling/rescheduling records nothing to email yet, BUT sets `schedule_dirty` marker consumed by WP7's calendar-invite sending (add the column if WP1 didn't; note it).
+- **Publish action (eval-critical handoff)**: the agenda is a DRAFT until published. "Publish agenda" button (top right, with "unpublished changes" badge once dirty): snapshots the current schedule to the public agenda page; public pages render the last published snapshot only, never the live draft. Unpublish/republish idempotent. Simplest correct model: `published_at` + published snapshot (JSON or a `published` flag per scheduled slot — pick the one with less code, state which and why).
+- Rooms are creatable inline from this screen too ("+ Add room" column stub → same library CRUD as WP3 Part C) — the eval flow defines rooms right before scheduling.
 
 ## Acceptance
 
