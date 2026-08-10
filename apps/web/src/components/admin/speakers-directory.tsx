@@ -5,13 +5,14 @@ import {
   CheckIcon,
   CopyIcon,
   DownloadIcon,
+  HistoryIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
   SendIcon,
   UploadIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -24,10 +25,12 @@ import {
   WorkflowBadge,
   workflowLabels,
 } from "@/components/admin/speaker-admin-dialogs";
+import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -44,12 +47,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { profileDiffRows } from "@/lib/content-diff";
-import { dataUrlForVersion, downloadVersion } from "@/lib/files";
+import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { speakerDirectoryQuery } from "@/lib/widget-queries";
 import {
   approveProfileChange,
   rejectProfileChange,
+  updateAdminSpeakerProfile,
+  uploadAdminHeadshot,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
 import { inviteSpeakerPortals, setSpeakerWorkflowStatus } from "@/server-fns/speaker-comms";
@@ -86,6 +91,10 @@ const readinessToneClass: Readonly<Record<"accepted" | "pending" | "declined", s
 
 const shortDate = (value: Date) =>
   new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+const fullDateTime = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 const hasRichText = (value: string | null) =>
   value !== null && value.replace(/<[^>]*>/g, "").trim().length > 0;
@@ -337,8 +346,12 @@ function Directory({
   };
   const selectedVisible = filtered.filter((row) => selectedIds.has(row.contact.id)).length;
   const allVisibleSelected = filtered.length > 0 && selectedVisible === filtered.length;
-  const pendingProfile = selected?.profileChanges.find((entry) => !profileDecisions.has(entry.id));
-  const reviewedProfile = selected?.profileChanges.find((entry) => profileDecisions.has(entry.id));
+  const pendingProfile = selected?.profileChanges.find(
+    (entry) => entry.approvalStatus === "pending_review" && !profileDecisions.has(entry.id),
+  );
+  const reviewedProfile = selected?.profileChanges.find(
+    (entry) => entry.approvalStatus === "pending_review" && profileDecisions.has(entry.id),
+  );
   const profileDecision =
     reviewedProfile === undefined ? undefined : profileDecisions.get(reviewedProfile.id);
   const effectiveProfileStatus =
@@ -654,6 +667,12 @@ function Directory({
                     selected.contact.email}
                 </p>
                 <div className="grid gap-5 [&>section]:min-w-0">
+                  <SpeakerProfileEditor
+                    key={selected.contact.id}
+                    eventId={eventId}
+                    row={selected}
+                    refresh={refresh}
+                  />
                   <section>
                     <SectionLabel>Workflow status</SectionLabel>
                     <Select
@@ -998,6 +1017,182 @@ function ProfileReadiness({ row }: { readonly row: SpeakerDirectoryRow }) {
 
 const formatBytes = (size: number) =>
   size < 1024 ? `${size} B` : `${Math.max(1, Math.round(size / 1024))} KB`;
+
+function SpeakerProfileEditor({
+  eventId,
+  row,
+  refresh,
+}: {
+  readonly eventId: string;
+  readonly row: SpeakerDirectoryRow;
+  readonly refresh: () => Promise<unknown>;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [bio, setBio] = useState(row.contact.bio ?? "");
+  const [bioError, setBioError] = useState<string>();
+  const [headshotError, setHeadshotError] = useState<string>();
+  const saveBio = useMutation({
+    mutationFn: () =>
+      updateAdminSpeakerProfile({
+        data: { eventId, contactId: row.contact.id, bio },
+      }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        setBioError(result.error.message);
+        return;
+      }
+      setEditing(false);
+      setBioError(undefined);
+      toast.success(`${row.contact.firstName}'s bio saved and approved`);
+      await refresh();
+    },
+  });
+  const replaceHeadshot = useMutation({
+    mutationFn: async (file: File) =>
+      uploadAdminHeadshot({
+        data: {
+          eventId,
+          contactId: row.contact.id,
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+          base64: await fileAsBase64(file),
+        },
+      }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        setHeadshotError(result.error.message);
+        return;
+      }
+      setHeadshotError(undefined);
+      toast.success(`${row.contact.firstName}'s headshot replaced and approved`);
+      await refresh();
+    },
+  });
+  const history = [...row.profileChanges].sort(
+    (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
+
+  return (
+    <section>
+      <div className="flex items-center justify-between gap-2">
+        <SectionLabel>Edit speaker</SectionLabel>
+        {editing ? null : (
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="pressable"
+            onClick={() => setEditing(true)}
+          >
+            <PencilIcon /> Edit speaker
+          </Button>
+        )}
+      </div>
+      {editing ? (
+        <div className="mt-2 grid gap-3 rounded-lg border p-3">
+          <div className="grid gap-1.5">
+            <Label>Bio</Label>
+            <RichTextEditor value={bio} onChange={setBio} />
+          </div>
+          {bioError === undefined ? null : (
+            <p className="text-xs text-destructive" role="alert">
+              {bioError}
+            </p>
+          )}
+          <div className="grid gap-1">
+            <Label>Headshot</Label>
+            <p className="text-[11px] text-muted-foreground">
+              Accepted: PNG or JPG · Maximum: 5 MB
+            </p>
+            <input
+              ref={input}
+              type="file"
+              accept="image/png,image/jpeg"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file !== undefined) {
+                  setHeadshotError(undefined);
+                  replaceHeadshot.mutate(file);
+                }
+                event.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="pressable mt-1 w-fit"
+              disabled={replaceHeadshot.isPending}
+              onClick={() => input.current?.click()}
+            >
+              <UploadIcon />
+              {replaceHeadshot.isPending ? "Uploading…" : "Replace headshot"}
+            </Button>
+            {headshotError === undefined ? null : (
+              <p className="text-xs text-destructive" role="alert">
+                {headshotError}
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-3">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setBio(row.contact.bio ?? "");
+                setBioError(undefined);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={saveBio.isPending}
+              onClick={() => saveBio.mutate()}
+            >
+              {saveBio.isPending ? "Saving…" : "Save bio"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <SectionLabel>Profile history</SectionLabel>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {history.length} version{history.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      {history.length === 0 ? (
+        <p className="mt-1 italic text-muted-foreground">No profile changes yet.</p>
+      ) : (
+        <div className="mt-1 divide-y border-y">
+          {history.map((entry) => (
+            <details key={entry.id}>
+              <summary className="pressable flex cursor-pointer list-none items-center gap-2 py-2">
+                <HistoryIcon className="size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{entry.authorName}</span>
+                  <span className="block text-[10px] text-muted-foreground tabular-nums">
+                    {fullDateTime.format(new Date(entry.createdAt))}
+                  </span>
+                </span>
+                <span className="capitalize text-muted-foreground">
+                  {entry.approvalStatus.replace("_", " ")}
+                </span>
+              </summary>
+              <ChangeDiff rows={profileDiffRows(entry)} className="border-t py-2" />
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function Headshot({
   row,

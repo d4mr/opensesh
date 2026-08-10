@@ -39,6 +39,19 @@ export const getPublicProgram = createServerFn({ method: "GET" })
     ),
   );
 
+export const getPublicSession = createServerFn({ method: "GET" })
+  .validator(
+    Schema.toStandardSchemaV1(Schema.Struct({ eventSlug: Schema.String, code: Schema.String })),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const widgets = yield* Widgets;
+        return yield* widgets.publicSession(data.eventSlug, data.code);
+      }),
+    ),
+  );
+
 export const getPublicWidget = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(WidgetRequest))
   .handler(async ({ data }) =>

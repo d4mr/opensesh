@@ -5,7 +5,7 @@ import {
   type SubmissionDecision,
   type SubmissionStatus,
 } from "@opensesh/domain";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
@@ -19,6 +19,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightPanelHeader } from "@/components/app/spotlight";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -37,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { reviewDeskDetailQuery, reviewDeskListQuery } from "@/lib/review-desk-queries";
+import { adminPortalQuery } from "@/lib/portal-queries";
 import { cn } from "@/lib/utils";
 import { changeSubmissionStatus, getReviewDeskDetail } from "@/server-fns/review-desk";
 
@@ -76,6 +78,7 @@ export function SubmissionDetail({
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
   const detail = useSuspenseQuery(reviewDeskDetailQuery(eventId, id));
+  const portal = useQuery({ ...adminPortalQuery(eventId), enabled: eventId.length > 0 });
   const queryClient = useQueryClient();
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [decision, setDecision] = useState<SubmissionDecision>("accept");
@@ -88,6 +91,16 @@ export function SubmissionDetail({
   const submission = data.submission;
   const abstractAnswers = data.answers.filter((answer) => answer.section === "abstract");
   const participantAnswers = data.answers.filter((answer) => answer.section === "participant");
+  const contentSubmission =
+    portal.data?.ok === true
+      ? portal.data.data.submissions.find((item) => item.id === submission.id)
+      : undefined;
+  const contentHistory =
+    portal.data?.ok === true
+      ? portal.data.data.history
+          .map((item) => item.history)
+          .filter((item) => item.submissionId === submission.id)
+      : [];
 
   const setDetail = (status: SubmissionStatus, notifiedAt = submission.notifiedAt) => {
     queryClient.setQueryData<DetailResult>(
@@ -213,6 +226,13 @@ export function SubmissionDetail({
           )}
         >
           <div className="space-y-4">
+            {submission.kind !== "session" || contentSubmission === undefined ? null : (
+              <SessionContentEditor
+                eventId={eventId}
+                submission={contentSubmission}
+                history={contentHistory}
+              />
+            )}
             <Card className="gap-0 py-0">
               <CardHeader className="border-b px-4 py-3">
                 <CardTitle className="text-sm">Submission answers</CardTitle>

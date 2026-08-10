@@ -9,6 +9,7 @@ import {
   ClipboardCheckIcon,
   FileCheckIcon,
   FileInputIcon,
+  FilesIcon,
   FileTextIcon,
   GaugeIcon,
   ListChecksIcon,
@@ -57,6 +58,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Communications", section: "communications", icon: SendIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
   { title: "Deliverables", section: "file-requests", icon: PanelTopIcon },
+  { title: "Files", section: "files", icon: FilesIcon },
   { title: "Event Settings", section: "settings", icon: SettingsIcon },
 ];
 

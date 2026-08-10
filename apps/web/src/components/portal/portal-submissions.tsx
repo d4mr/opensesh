@@ -424,6 +424,7 @@ function SessionFileRow({
 }) {
   const input = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const [uploadError, setUploadError] = useState<string>();
   const mutation = useMutation({
     mutationFn: async (file: File) =>
       uploadPortalFile({
@@ -441,9 +442,10 @@ function SessionFileRow({
       }),
     onSuccess: async (result) => {
       if (!result.ok) {
-        toast.error(result.error.message);
+        setUploadError(result.error.message);
         return;
       }
+      setUploadError(undefined);
       toast.success(upload === undefined ? "File uploaded" : "New version uploaded");
       await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
     },
@@ -462,6 +464,15 @@ function SessionFileRow({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{requirement.title}</p>
           <p className="truncate text-xs text-muted-foreground">{requirement.description}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Accepted: {requirement.acceptTypes ?? "any file type"} · Maximum:{" "}
+            {requirement.maxSizeMb ?? 8} MB
+          </p>
+          {uploadError === undefined ? null : (
+            <p className="mt-1 text-xs text-destructive" role="alert">
+              {uploadError}
+            </p>
+          )}
         </div>
         {due === null ? null : (
           <p
@@ -481,7 +492,10 @@ function SessionFileRow({
           className="sr-only"
           onChange={(event) => {
             const file = event.target.files?.[0];
-            if (file !== undefined) mutation.mutate(file);
+            if (file !== undefined) {
+              setUploadError(undefined);
+              mutation.mutate(file);
+            }
             event.target.value = "";
           }}
         />

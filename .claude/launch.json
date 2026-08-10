@@ -128,6 +128,66 @@
         "3007"
       ],
       "port": 3007
+    },
+    {
+      "name": "wp16-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp16/apps/web",
+        "dev",
+        "--port",
+        "3016"
+      ],
+      "port": 3016
+    },
+    {
+      "name": "wp17-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp17/apps/web",
+        "dev",
+        "--port",
+        "3017"
+      ],
+      "port": 3017
+    },
+    {
+      "name": "wp18-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp18/apps/web",
+        "dev",
+        "--port",
+        "3018"
+      ],
+      "port": 3018
+    },
+    {
+      "name": "wp19-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp19/apps/web",
+        "dev",
+        "--port",
+        "3019"
+      ],
+      "port": 3019
+    },
+    {
+      "name": "wp20-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp20/apps/web",
+        "dev",
+        "--port",
+        "3020"
+      ],
+      "port": 3020
     }
   ]
 }

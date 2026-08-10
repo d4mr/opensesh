@@ -21,11 +21,12 @@ import {
   taskTemplates,
 } from "../../db/schema";
 import { Db } from "../db";
-import type { DbError, NotFound } from "../errors";
+import { NotFound, type DbError } from "../errors";
 import {
   defaultWidgetOptions,
   dedupeSpeakerCsvRows,
   PublicProgram,
+  PublicSession,
   type SpeakerCsvRow,
   SpeakerDirectory,
   Widget,
@@ -47,6 +48,14 @@ interface ProgramRow {
 }
 type SessionProgramRow = ProgramRow & { readonly submission: SubmissionRow };
 
+export const publicSubmissionVisible = (
+  submission: Pick<SubmissionRow, "status" | "contentReviewStatus">,
+) => submission.status === "accepted" && submission.contentReviewStatus === "approved";
+
+export const findPublicSession = (program: PublicProgram, code: string) =>
+  program.sessions.find((session) => session.code === code) ??
+  new NotFound({ message: "Public session not found" });
+
 // Confirmed speakers' public-facing fields come from the last organizer-
 // approved profile snapshot (see portal repo); an empty snapshot means no
 // gated edit has happened yet, so the live row is already approved.
@@ -61,6 +70,18 @@ const publicProfileValue = <Key extends "firstName" | "lastName" | "bio" | "head
     approved === null || typeof approved === "string" ? approved : contact[key]
   ) as ContactRow[Key];
 };
+
+const publicHeadshotKey = (contact: ContactRow) => {
+  if (contact.confirmedAt === null || Object.keys(contact.approvedProfile).length === 0)
+    return contact.headshotKey;
+  const approved = contact.approvedProfile.headshotKey;
+  return typeof approved === "string" || approved === null ? approved : contact.headshotKey;
+};
+
+const publicHeadshotUrl = (contact: ContactRow) =>
+  publicHeadshotKey(contact) === null
+    ? publicProfileValue(contact, "headshotUrl")
+    : `/speaker-assets/${contact.id}/headshot`;
 
 const strings = (value: unknown) =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -106,7 +127,11 @@ const programFromRows = (rows: ReadonlyArray<ProgramRow>) =>
     const schedule = new Map(event.publishedAgenda.map((item) => [item.id, item]));
     const grouped = new Map<string, Array<SessionProgramRow>>();
     for (const row of rows) {
-      if (row.submission !== null && schedule.has(row.submission.id))
+      if (
+        row.submission !== null &&
+        publicSubmissionVisible(row.submission) &&
+        schedule.has(row.submission.id)
+      )
         grouped.set(row.submission.id, [
           ...(grouped.get(row.submission.id) ?? []),
           { ...row, submission: row.submission },
@@ -148,7 +173,7 @@ const programFromRows = (rows: ReadonlyArray<ProgramRow>) =>
               title: item.title,
               company: item.company,
               bio: publicProfileValue(item, "bio"),
-              headshotUrl: publicProfileValue(item, "headshotUrl"),
+              headshotUrl: publicHeadshotUrl(item),
             })),
             startsAt: slot.startsAt,
             endsAt: slot.endsAt,
@@ -202,6 +227,11 @@ const tshirt = (value: string | null) => {
 
 interface WidgetsService {
   readonly publicProgram: (slug: string) => Effect.Effect<PublicProgram, DbError | NotFound>;
+  readonly publicSession: (
+    slug: string,
+    code: string,
+  ) => Effect.Effect<PublicSession, DbError | NotFound>;
+  readonly publicSpeakerHeadshot: (contactId: string) => Effect.Effect<string, DbError | NotFound>;
   readonly publicWidget: (
     id: string,
   ) => Effect.Effect<{ widget: Widget; program: PublicProgram }, DbError | NotFound>;
@@ -245,7 +275,11 @@ export const WidgetsLive = Layer.effect(
         .from(events)
         .leftJoin(
           submissions,
-          and(eq(submissions.eventId, events.id), eq(submissions.status, "accepted")),
+          and(
+            eq(submissions.eventId, events.id),
+            eq(submissions.status, "accepted"),
+            eq(submissions.contentReviewStatus, "approved"),
+          ),
         )
         .leftJoin(formats, eq(formats.eventId, events.id))
         .leftJoin(levels, eq(levels.eventId, events.id))
@@ -253,11 +287,33 @@ export const WidgetsLive = Layer.effect(
         .leftJoin(tags, eq(tags.id, submissionTags.tagId))
         .leftJoin(submissionParticipants, eq(submissionParticipants.submissionId, submissions.id))
         .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId));
+    const loadPublicProgram = (slug: string) =>
+      query(database, "Could not load public program", (db) =>
+        programJoins(db).where(eq(events.slug, slug)).execute(),
+      ).pipe(Effect.flatMap(programFromRows));
     return {
-      publicProgram: (slug) =>
-        query(database, "Could not load public program", (db) =>
-          programJoins(db).where(eq(events.slug, slug)).execute(),
-        ).pipe(Effect.flatMap(programFromRows)),
+      publicProgram: loadPublicProgram,
+      publicSession: (slug, code) =>
+        loadPublicProgram(slug).pipe(
+          Effect.flatMap((program) => {
+            const session = findPublicSession(program, code);
+            return session instanceof NotFound
+              ? Effect.fail(session)
+              : decodeFound(PublicSession, "Public session", session);
+          }),
+        ),
+      publicSpeakerHeadshot: (contactId) =>
+        Effect.gen(function* () {
+          const rows = yield* query(database, "Could not load public speaker headshot", (db) =>
+            db.select().from(contacts).where(eq(contacts.id, contactId)).limit(1).execute(),
+          );
+          const contact = rows[0];
+          const storageKey = contact === undefined ? null : publicHeadshotKey(contact);
+          if (storageKey === null) {
+            return yield* Effect.fail(new NotFound({ message: "Headshot not found" }));
+          }
+          return storageKey;
+        }),
       publicWidget: (id) =>
         Effect.gen(function* () {
           const rows = yield* query(database, "Could not load widget program", (db) =>
@@ -275,7 +331,11 @@ export const WidgetsLive = Layer.effect(
               .innerJoin(events, eq(events.id, embeds.eventId))
               .leftJoin(
                 submissions,
-                and(eq(submissions.eventId, events.id), eq(submissions.status, "accepted")),
+                and(
+                  eq(submissions.eventId, events.id),
+                  eq(submissions.status, "accepted"),
+                  eq(submissions.contentReviewStatus, "approved"),
+                ),
               )
               .leftJoin(formats, eq(formats.eventId, events.id))
               .leftJoin(levels, eq(levels.eventId, events.id))
@@ -402,12 +462,7 @@ export const WidgetsLive = Layer.effect(
                   .select({ history: contactEditHistory, contact: contacts })
                   .from(contactEditHistory)
                   .innerJoin(contacts, eq(contacts.id, contactEditHistory.contactId))
-                  .where(
-                    and(
-                      eq(contacts.eventId, eventId),
-                      eq(contactEditHistory.approvalStatus, "pending_review"),
-                    ),
-                  )
+                  .where(eq(contacts.eventId, eventId))
                   .orderBy(desc(contactEditHistory.createdAt))
                   .execute(),
               ),
@@ -505,6 +560,9 @@ export const WidgetsLive = Layer.effect(
                   changedFields: history.changedFields,
                   previousValues: history.previousValues,
                   newValues: history.newValues,
+                  authorName: history.authorName,
+                  approvalStatus: history.approvalStatus,
+                  reviewedAt: history.reviewedAt,
                   createdAt: history.createdAt,
                 })),
             }),

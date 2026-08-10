@@ -8,9 +8,7 @@ import {
   ExternalLinkIcon,
   FileArchiveIcon,
   FilterIcon,
-  HistoryIcon,
   PlusIcon,
-  RotateCcwIcon,
   SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
@@ -18,6 +16,7 @@ import { Fragment, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
+import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
@@ -71,7 +70,6 @@ import {
   manualAssignAdminTask,
   rejectContentChange,
   rejectProfileChange,
-  restoreAdminHistory,
   saveAdminSessionFileRequirement,
   saveAdminTaskTemplate,
   waiveAdminAssignment,
@@ -158,6 +156,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
   const [outstandingOnly, setOutstandingOnly] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
+  const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<ReadonlySet<string>>(new Set());
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
   const waive = useMutation({
     mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
@@ -183,11 +182,11 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
   });
   const remind = useMutation({
     mutationFn: ({
-      contactId,
+      contactIds,
     }: {
-      readonly contactId: string | null;
+      readonly contactIds: ReadonlyArray<string>;
       readonly ids: ReadonlyArray<string>;
-    }) => sendTaskReminders({ data: { eventId, contactId } }),
+    }) => sendTaskReminders({ data: { eventId, contactId: null, contactIds } }),
     onMutate: ({ ids }) => {
       const previous = reminded;
       setReminded((current) => new Set([...current, ...ids]));
@@ -209,6 +208,11 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
           `${result.data.attempted} ${result.data.attempted === 1 ? "reminder" : "reminders"} ${label}`,
         );
       }
+      setSelectedSpeakerIds((current) => {
+        const next = new Set(current);
+        for (const id of _variables.ids) next.delete(id);
+        return next;
+      });
       await queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] });
     },
     onError: (_error, _variables, context) => setReminded(context?.previous ?? new Set()),
@@ -245,6 +249,11 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
     setEditingId(id);
     setDrawer(true);
   };
+  const outstandingIds = speakers
+    .filter((speaker) => speaker.outstanding > 0)
+    .map((speaker) => speaker.contact.id);
+  const allOutstandingSelected =
+    outstandingIds.length > 0 && outstandingIds.every((id) => selectedSpeakerIds.has(id));
 
   return (
     <main className="grid gap-4 p-4 lg:p-6">
@@ -296,33 +305,52 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
         </TabsContent>
         <TabsContent value="assignments" className="pt-3">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
-              <Checkbox
-                checked={outstandingOnly}
-                onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
-              />
-              <FilterIcon className="size-3.5" /> Has outstanding
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                <Checkbox
+                  checked={outstandingOnly}
+                  onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
+                />
+                <FilterIcon className="size-3.5" /> Has outstanding
+              </label>
+              <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                <Checkbox
+                  checked={
+                    allOutstandingSelected
+                      ? true
+                      : outstandingIds.some((id) => selectedSpeakerIds.has(id))
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={(checked) =>
+                    setSelectedSpeakerIds(checked === true ? new Set(outstandingIds) : new Set())
+                  }
+                />
+                Select outstanding
+              </label>
+            </div>
             <Button
               size="sm"
               variant="outline"
-              disabled={remind.isPending || speakers.every((speaker) => speaker.outstanding === 0)}
-              onClick={() =>
-                remind.mutate({
-                  contactId: null,
-                  ids: speakers
-                    .filter((speaker) => speaker.outstanding > 0)
-                    .map((speaker) => speaker.contact.id),
-                })
-              }
+              disabled={remind.isPending || selectedSpeakerIds.size === 0}
+              onClick={() => {
+                const ids = outstandingIds.filter((id) => selectedSpeakerIds.has(id));
+                remind.mutate({ contactIds: ids, ids });
+              }}
             >
-              <SendIcon /> {remind.isPending ? "Sending…" : "Remind all outstanding"}
+              <SendIcon />
+              {remind.isPending
+                ? "Sending…"
+                : `Send ${selectedSpeakerIds.size} reminder${selectedSpeakerIds.size === 1 ? "" : "s"}`}
             </Button>
           </div>
           <div className="overflow-hidden rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-9">
+                    <span className="sr-only">Select</span>
+                  </TableHead>
                   <TableHead>Speaker</TableHead>
                   <TableHead>Dietary</TableHead>
                   <TableHead>T-shirt</TableHead>
@@ -340,6 +368,22 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                         setExpanded(expanded === row.contact.id ? null : row.contact.id)
                       }
                     >
+                      <TableCell className="w-9">
+                        <Checkbox
+                          aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                          checked={selectedSpeakerIds.has(row.contact.id)}
+                          disabled={row.outstanding === 0}
+                          onClick={(event) => event.stopPropagation()}
+                          onCheckedChange={(checked) =>
+                            setSelectedSpeakerIds((current) => {
+                              const next = new Set(current);
+                              if (checked === true) next.add(row.contact.id);
+                              else next.delete(row.contact.id);
+                              return next;
+                            })
+                          }
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <ChevronDownIcon
@@ -369,7 +413,10 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                             disabled={reminded.has(row.contact.id)}
                             onClick={(event) => {
                               event.stopPropagation();
-                              remind.mutate({ contactId: row.contact.id, ids: [row.contact.id] });
+                              remind.mutate({
+                                contactIds: [row.contact.id],
+                                ids: [row.contact.id],
+                              });
                             }}
                           >
                             <SendIcon />
@@ -380,7 +427,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                     </TableRow>
                     {expanded === row.contact.id ? (
                       <TableRow key={`${row.contact.id}-details`}>
-                        <TableCell colSpan={6} className="bg-muted/20 p-3">
+                        <TableCell colSpan={7} className="bg-muted/20 p-3">
                           <div className="grid gap-2">
                             {row.assignments.map((assignment) => (
                               <div
@@ -1253,14 +1300,6 @@ function AdminSessions({
       await refresh();
     },
   });
-  const restore = useMutation({
-    mutationFn: (historyId: string) => restoreAdminHistory({ data: { eventId, historyId } }),
-    onSuccess: async (result) => {
-      if (!result.ok) toast.error(result.error.message);
-      else toast.success("Submission version restored");
-      await refresh();
-    },
-  });
   const accept = useMutation({
     mutationFn: (submissionId: string) =>
       acceptPortalSubmission({ data: { eventId, submissionId } }),
@@ -1495,7 +1534,6 @@ function AdminSessions({
             eventId={eventId}
             submissionId={spotlightId}
             onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
-            onRestore={(historyId) => restore.mutate(historyId)}
           />
         }
       />
@@ -1508,13 +1546,11 @@ function SessionPeek({
   eventId,
   submissionId,
   onClose,
-  onRestore,
 }: {
   readonly data: AdminData;
   readonly eventId: string;
   readonly submissionId: string | undefined;
   readonly onClose: () => void;
-  readonly onRestore: (historyId: string) => void;
 }) {
   const submission = data.submissions.find((item) => item.id === submissionId);
   const speakers = data.participants.filter((row) => row.submission.id === submissionId);
@@ -1577,6 +1613,7 @@ function SessionPeek({
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16">
         <h2 className="mb-4 text-base font-semibold">{submission.title}</h2>
         <div className="grid gap-5">
+          <SessionContentEditor eventId={eventId} submission={submission} history={history} />
           <section className="grid gap-2">
             <h3 className="text-xs font-medium text-muted-foreground">Speakers</h3>
             {speakers.length === 0 ? (
@@ -1640,29 +1677,6 @@ function SessionPeek({
                 );
               })}
             </div>
-          </section>
-          <section className="grid gap-2">
-            <h3 className="text-xs font-medium text-muted-foreground">Content history</h3>
-            {history.length === 0 ? (
-              <p className="text-xs italic text-muted-foreground/70">No content changes yet.</p>
-            ) : (
-              history.map((entry) => (
-                <details key={entry.id} className="rounded-md border bg-background">
-                  <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
-                    <HistoryIcon className="size-3.5" />
-                    {entry.authorName} · {describeChangedFields(entry.changedFields)}
-                    <span className="ml-auto capitalize text-muted-foreground">
-                      {entry.approvalStatus.replace("_", " ")}
-                    </span>
-                  </summary>
-                  <div className="border-t p-3">
-                    <Button size="sm" variant="outline" onClick={() => onRestore(entry.id)}>
-                      <RotateCcwIcon /> Restore
-                    </Button>
-                  </div>
-                </details>
-              ))
-            )}
           </section>
         </div>
       </div>
