@@ -15,6 +15,7 @@ import { ReviewsLive } from "./reviews";
 import { ReviewDeskLive } from "./review-desk";
 import { SubmissionsLive } from "./submissions";
 import { TasksLive } from "./tasks";
+import { WidgetsLive } from "./widgets";
 
 import type { Contacts } from "./contacts";
 import type { Agenda } from "./agenda";
@@ -30,6 +31,7 @@ import type { Reviews } from "./reviews";
 import type { ReviewDesk } from "./review-desk";
 import type { Submissions } from "./submissions";
 import type { Tasks } from "./tasks";
+import type { Widgets } from "./widgets";
 
 export * from "./contacts";
 export * from "./agenda";
@@ -45,6 +47,7 @@ export * from "./reviews";
 export * from "./review-desk";
 export * from "./submissions";
 export * from "./tasks";
+export * from "./widgets";
 
 export type RepositoryServices =
   | Agenda
@@ -60,7 +63,8 @@ export type RepositoryServices =
   | Reviews
   | ReviewDesk
   | Submissions
-  | Tasks;
+  | Tasks
+  | Widgets;
 
 const RepositoriesLive = Layer.mergeAll(
   AgendaLive,
@@ -77,6 +81,7 @@ const RepositoriesLive = Layer.mergeAll(
   ReviewDeskLive,
   SubmissionsLive,
   TasksLive,
+  WidgetsLive,
 );
 
 export const makeRepositoriesLive = (connectionString: string) =>

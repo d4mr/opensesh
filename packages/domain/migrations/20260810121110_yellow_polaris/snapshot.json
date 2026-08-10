@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "408340ac-aa59-4ddd-93ec-15c0ff8ec885",
+  "id": "9513277f-8b94-46ae-b5db-3d7ce55f3ade",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -50,6 +50,18 @@
         "custom"
       ],
       "name": "email_type",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "sessions",
+        "speakers",
+        "speaker_gallery",
+        "agenda",
+        "itinerary"
+      ],
+      "name": "embed_view",
       "entityType": "enums",
       "schema": "public"
     },
@@ -207,6 +219,12 @@
     {
       "isRlsEnabled": false,
       "name": "verifications",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "embeds",
       "entityType": "tables",
       "schema": "public"
     },
@@ -910,6 +928,110 @@
       "entityType": "columns",
       "schema": "public",
       "table": "verifications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "event_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "embed_view",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "view",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "enabled",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "options",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "embeds"
     },
     {
       "type": "text",
@@ -4927,6 +5049,27 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
+      "name": "embeds_event_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "embeds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "event_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
       "name": "event_members_event_idx",
       "entityType": "indexes",
       "schema": "public",
@@ -5701,6 +5844,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "sessions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "event_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "events",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "embeds_event_id_events_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "embeds"
     },
     {
       "nameExplicit": false,
@@ -6668,6 +6828,16 @@
       "name": "verifications_pkey",
       "schema": "public",
       "table": "verifications",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "embeds_pkey",
+      "schema": "public",
+      "table": "embeds",
       "entityType": "pks"
     },
     {

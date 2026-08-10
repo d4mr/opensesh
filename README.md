@@ -1,5 +1,7 @@
 # opensesh
 
+Public widget embeds read the current published program on every load. Widget configuration changes and newly approved content appear immediately—there is no 60-minute embed cache delay.
+
 Open-source event program management — a full rebuild of Sessionboard's Program module for swyx's [Kill My SaaS](https://forge.smol.ai/swyx/killmysaas) challenge. CFP → review → speaker onboarding → content approval → agenda → public widgets, as one connected workflow.
 
 **Live demo:** https://opensesh.d4mr.workers.dev

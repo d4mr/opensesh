@@ -9,7 +9,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 
-import { eventMemberRole, id, timestamps } from "../columns";
+import { embedView, eventMemberRole, id, timestamps } from "../columns";
 import { organizations, users } from "./identity";
 
 interface PublishedAgendaRecord {
@@ -144,4 +144,20 @@ export const reviewerTracks = pgTable(
     unique("reviewer_tracks_member_track_unique").on(table.eventMemberId, table.trackId),
     index("reviewer_tracks_member_idx").on(table.eventMemberId),
   ],
+);
+
+export const embeds = pgTable(
+  "embeds",
+  {
+    id: id(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    view: embedView("view").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    options: jsonb("options").$type<Readonly<Record<string, unknown>>>().notNull().default({}),
+    ...timestamps,
+  },
+  (table) => [index("embeds_event_idx").on(table.eventId)],
 );

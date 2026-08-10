@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDaysIcon,
+  Code2Icon,
   CheckSquareIcon,
   ClipboardCheckIcon,
   FileCheckIcon,
@@ -49,6 +50,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Forms", section: "forms", icon: FileInputIcon },
   { title: "Evaluation", section: "evaluation", icon: ClipboardCheckIcon },
   { title: "Agenda", section: "agenda", icon: CalendarDaysIcon },
+  { title: "Widgets", section: "widgets", icon: Code2Icon },
   { title: "Tasks", section: "tasks", icon: CheckSquareIcon },
   { title: "Email delivery", section: "emails", icon: MailIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
@@ -127,6 +129,8 @@ export function AdminShell({
     if (section === "evaluation") return navigate({ to: "/admin/evaluation" });
     if (section === "agenda")
       return navigate({ to: "/admin/agenda", search: { view: "rooms", day: undefined } });
+    if (section === "widgets")
+      return navigate({ to: "/admin/widgets", search: { widget: undefined } });
     if (section === "emails") return navigate({ to: "/admin/emails" });
     return navigate({ to: "/admin/$section", params: { section } });
   };
