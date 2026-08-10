@@ -34,6 +34,11 @@ export class AgendaGenerationError extends Data.TaggedError("AgendaGenerationErr
   readonly cause: unknown;
 }> {}
 
+export class ReviewGenerationError extends Data.TaggedError("ReviewGenerationError")<{
+  readonly message: string;
+  readonly cause: unknown;
+}> {}
+
 export class AlreadyDecided extends Data.TaggedError("AlreadyDecided")<{
   readonly message: string;
 }> {}

@@ -32,6 +32,7 @@ import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
 import { Route as AdminAbstractsIdRouteImport } from './routes/admin.abstracts_.$id'
+import { Route as AdminEvaluationRoundIdRouteImport } from './routes/admin.evaluation_.$roundId'
 import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms.$formId'
 import { Route as AdminPortalFormsFormIdRouteImport } from './routes/admin.portal-forms.$formId'
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
@@ -162,6 +163,11 @@ const AdminAbstractsIdRoute = AdminAbstractsIdRouteImport.update({
   path: '/abstracts/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminEvaluationRoundIdRoute = AdminEvaluationRoundIdRouteImport.update({
+  id: '/evaluation_/$roundId',
+  path: '/evaluation/$roundId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminFormsFormIdRoute = AdminFormsFormIdRouteImport.update({
   id: '/$formId',
   path: '/$formId',
@@ -258,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
+  '/admin/evaluation/$roundId': typeof AdminEvaluationRoundIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
@@ -294,6 +301,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/portal': typeof PortalIndexRoute
   '/admin/abstracts/$id': typeof AdminAbstractsIdRoute
+  '/admin/evaluation/$roundId': typeof AdminEvaluationRoundIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
@@ -334,6 +342,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/admin/abstracts_/$id': typeof AdminAbstractsIdRoute
+  '/admin/evaluation_/$roundId': typeof AdminEvaluationRoundIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/portal/'
     | '/admin/abstracts/$id'
+    | '/admin/evaluation/$roundId'
     | '/admin/forms/$formId'
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
@@ -411,6 +421,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/portal'
     | '/admin/abstracts/$id'
+    | '/admin/evaluation/$roundId'
     | '/admin/forms/$formId'
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
@@ -450,6 +461,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/portal/'
     | '/admin/abstracts_/$id'
+    | '/admin/evaluation_/$roundId'
     | '/admin/forms/$formId'
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
@@ -641,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAbstractsIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/evaluation_/$roundId': {
+      id: '/admin/evaluation_/$roundId'
+      path: '/evaluation/$roundId'
+      fullPath: '/admin/evaluation/$roundId'
+      preLoaderRoute: typeof AdminEvaluationRoundIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/forms/$formId': {
       id: '/admin/forms/$formId'
       path: '/$formId'
@@ -766,6 +785,7 @@ interface AdminRouteChildren {
   AdminWidgetsRoute: typeof AdminWidgetsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
+  AdminEvaluationRoundIdRoute: typeof AdminEvaluationRoundIdRoute
   AdminPortalFormsFormIdRoute: typeof AdminPortalFormsFormIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
   AdminSettingsLibraryRoute: typeof AdminSettingsLibraryRoute
@@ -783,6 +803,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminWidgetsRoute: AdminWidgetsRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAbstractsIdRoute: AdminAbstractsIdRoute,
+  AdminEvaluationRoundIdRoute: AdminEvaluationRoundIdRoute,
   AdminPortalFormsFormIdRoute: AdminPortalFormsFormIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
   AdminSettingsLibraryRoute: AdminSettingsLibraryRoute,

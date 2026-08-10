@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import {
   AlreadyRecused,
   DropdownValueNotInOptions,
+  InvalidInput,
   NumericOutOfBounds,
   RoundClosed,
 } from "../errors";
@@ -154,6 +155,203 @@ export const ReviewResult = Schema.Struct({
 });
 export type ReviewResult = typeof ReviewResult.Type;
 
+export const EvaluationParticipant = Schema.Struct({
+  name: Schema.String,
+  role: Schema.String,
+});
+export type EvaluationParticipant = typeof EvaluationParticipant.Type;
+
+export const EvaluationSubmission = Schema.Struct({
+  id: Schema.String,
+  code: Schema.String,
+  title: Schema.String,
+  description: Schema.String,
+  status: SubmissionStatus,
+  trackIds: Schema.Array(Schema.String),
+  trackNames: Schema.Array(Schema.String),
+  participants: Schema.Array(EvaluationParticipant),
+});
+export type EvaluationSubmission = typeof EvaluationSubmission.Type;
+
+export const EvaluationReviewer = Schema.Struct({
+  member: ReviewRoundMember,
+  name: Schema.String,
+  email: Schema.String,
+});
+export type EvaluationReviewer = typeof EvaluationReviewer.Type;
+
+export const ReviewProgressRow = Schema.Struct({
+  eventMemberId: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+  assigned: Schema.Number,
+  completed: Schema.Number,
+  recused: Schema.Number,
+  remaining: Schema.Number,
+  percentage: Schema.Number,
+});
+export type ReviewProgressRow = typeof ReviewProgressRow.Type;
+
+export const ReviewResultAnswer = Schema.Struct({
+  criterionId: Schema.String,
+  label: Schema.String,
+  type: ReviewCriterionType,
+  numericValue: NullableNumber,
+  textValue: NullableString,
+  optionValue: NullableString,
+});
+export type ReviewResultAnswer = typeof ReviewResultAnswer.Type;
+
+export const HumanReviewResult = Schema.Struct({
+  assignment: ReviewAssignment,
+  reviewerName: Schema.String,
+  reviewerEmail: Schema.String,
+  answers: Schema.Array(ReviewResultAnswer),
+});
+export type HumanReviewResult = typeof HumanReviewResult.Type;
+
+export const EvaluationResultRow = Schema.Struct({
+  submission: EvaluationSubmission,
+  humanReviews: Schema.Array(HumanReviewResult),
+  reviewerCount: Schema.Number,
+  completedCount: Schema.Number,
+  weightedAggregate: NullableNumber,
+  recommendation: NullableString,
+  aiResult: Schema.NullOr(AiReviewResult),
+  aiOverriddenByName: NullableString,
+});
+export type EvaluationResultRow = typeof EvaluationResultRow.Type;
+
+export const ReviewRoundAdminView = Schema.Struct({
+  configuration: ReviewRoundConfiguration,
+  reviewers: Schema.Array(EvaluationReviewer),
+  assignments: Schema.Array(ReviewAssignment),
+  submissions: Schema.Array(EvaluationSubmission),
+  progress: Schema.Array(ReviewProgressRow),
+  results: Schema.Array(EvaluationResultRow),
+});
+export type ReviewRoundAdminView = typeof ReviewRoundAdminView.Type;
+
+export const EvaluationAdminWorkspace = Schema.Struct({
+  eventId: Schema.String,
+  tracks: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  rounds: Schema.Array(ReviewRoundAdminView),
+});
+export type EvaluationAdminWorkspace = typeof EvaluationAdminWorkspace.Type;
+
+export const ReviewerQueueRound = Schema.Struct({
+  round: ReviewRound,
+  criteria: Schema.Array(ReviewCriterion),
+  items: Schema.Array(
+    Schema.Struct({
+      assignment: ReviewAssignment,
+      code: Schema.String,
+      title: Schema.String,
+      description: Schema.String,
+      status: SubmissionStatus,
+      trackNames: Schema.Array(Schema.String),
+      participants: Schema.Array(EvaluationParticipant),
+      answers: Schema.Array(ReviewAnswer),
+    }),
+  ),
+  pending: Schema.Number,
+  completed: Schema.Number,
+  recused: Schema.Number,
+});
+export type ReviewerQueueRound = typeof ReviewerQueueRound.Type;
+
+export const ReviewerWorkspace = Schema.Struct({
+  eventId: Schema.String,
+  eventMemberId: Schema.String,
+  rounds: Schema.Array(ReviewerQueueRound),
+});
+export type ReviewerWorkspace = typeof ReviewerWorkspace.Type;
+
+export const ReviewerProvisioned = Schema.Struct({
+  reviewer: EvaluationReviewer,
+  accessPath: Schema.String,
+  alreadyInPool: Schema.Boolean,
+  invitationLogged: Schema.Boolean,
+  invitationLogId: NullableString,
+});
+export type ReviewerProvisioned = typeof ReviewerProvisioned.Type;
+
+export const ReviewReminder = Schema.Struct({
+  logId: Schema.String,
+  recipient: Schema.String,
+  pending: Schema.Number,
+});
+export type ReviewReminder = typeof ReviewReminder.Type;
+
+export const EvaluationEventRequest = Schema.Struct({ eventId: Schema.String });
+export const EvaluationRoundRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+});
+export const SaveReviewRoundRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  opensAt: Schema.String,
+  closesAt: Schema.String,
+  blind: Schema.Boolean,
+  position: Schema.Number,
+  criteria: Schema.Array(ReviewCriterionSave),
+});
+export const AddReviewMemberRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+  email: Schema.String,
+  assignmentCap: NullableNumber,
+  accessPath: Schema.String,
+});
+export const AssignReviewsRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+  eventMemberId: Schema.String,
+  submissionIds: Schema.Array(Schema.String),
+});
+export const AutoDistributeReviewsRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+  trackIds: Schema.Array(Schema.String),
+});
+export const UnassignReviewRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+  assignmentId: Schema.String,
+});
+export const SubmitReviewAnswersRequest = Schema.Struct({
+  eventId: Schema.String,
+  assignmentId: Schema.String,
+  answers: Schema.Array(ReviewAnswerInput),
+});
+export const RecuseReviewRequest = Schema.Struct({
+  eventId: Schema.String,
+  assignmentId: Schema.String,
+  reason: Schema.String,
+});
+export const SendReviewRemindersRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+  eventMemberIds: Schema.Array(Schema.String),
+});
+export const GenerateAiReviewRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+  submissionId: Schema.String,
+});
+export const OverrideAiReviewRequest = Schema.Struct({
+  eventId: Schema.String,
+  resultId: Schema.String,
+  score: Schema.Number,
+  reason: Schema.String,
+});
+export const ExportReviewResultsRequest = Schema.Struct({
+  eventId: Schema.String,
+  roundId: Schema.String,
+});
+
 export const ReviewCampaignFilter = JsonObject;
 
 export interface WeightedScore {
@@ -189,6 +387,21 @@ export const validateReviewAnswer = (
     });
   }
   return undefined;
+};
+
+export const validateRequiredReviewAnswer = (
+  criterion: Pick<ReviewCriterion, "label" | "type" | "required">,
+  answer: ReviewAnswerInput | undefined,
+): InvalidInput | undefined => {
+  if (!criterion.required) return undefined;
+  const present =
+    answer !== undefined &&
+    (criterion.type === "numeric"
+      ? answer.numericValue !== null
+      : criterion.type === "dropdown"
+        ? answer.optionValue !== null && answer.optionValue.trim().length > 0
+        : answer.textValue !== null && answer.textValue.trim().length > 0);
+  return present ? undefined : new InvalidInput({ message: `${criterion.label} is required` });
 };
 
 export const ensureRoundOpen = (
@@ -254,7 +467,22 @@ export const redactBlindSubmission = (input: {
   readonly speakerNames: ReadonlyArray<string>;
   readonly companies: ReadonlyArray<string>;
   readonly submitterEmail: string | null;
-}) => ({ code: input.code, title: input.title, description: input.description });
+}) => {
+  const identityValues = [
+    ...input.speakerNames,
+    ...input.companies,
+    ...(input.submitterEmail === null ? [] : [input.submitterEmail]),
+  ].filter((value) => value.trim().length > 0);
+  const redact = (value: string) =>
+    identityValues.reduce(
+      (current, identity) =>
+        current.replaceAll(new RegExp(escapeRegExp(identity), "gi"), "[redacted]"),
+      value,
+    );
+  return { code: input.code, title: redact(input.title), description: redact(input.description) };
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const recuseAssignment = (
   assignment: ReviewAssignment,

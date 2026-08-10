@@ -1,9 +1,13 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { and, asc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 
 import {
   aiReviewResults,
   contacts,
+  emailLog,
+  eventMembers,
+  events,
+  organizationMembers,
   reviewAnswers,
   reviewAssignments,
   reviewCriteria,
@@ -15,6 +19,7 @@ import {
   submissions,
   submissionTracks,
   tracks,
+  users,
 } from "../../db/schema";
 import { Db } from "../db";
 import {
@@ -23,32 +28,43 @@ import {
   type DbError,
   type DropdownValueNotInOptions,
   Forbidden,
-  type NotFound,
+  InvalidInput,
+  NotFound,
   type NumericOutOfBounds,
   RoundClosed,
+  ReviewGenerationError,
 } from "../errors";
 import {
   AiReviewResult,
+  EvaluationAdminWorkspace,
+  EvaluationSubmission,
   ensureRoundOpen,
   planAutoDistribution,
+  ReviewAnswer,
   type ReviewAnswerInput,
   ReviewAssignment,
   ReviewCriterion,
   type ReviewCriterionSave,
   ReviewProgress,
+  ReviewReminder,
   ReviewResult,
   ReviewRound,
   type ReviewRoundConfiguration,
   ReviewRoundMember,
   type ReviewRoundSave,
   ReviewerQueueItem,
+  ReviewerProvisioned,
+  ReviewerWorkspace,
+  type ReviewRoundAdminView,
+  redactBlindSubmission,
   validateReviewAnswer,
+  validateRequiredReviewAnswer,
   weightedAggregate,
 } from "../schema/reviews";
 import { Review, type ReviewUpsert, Submission } from "../schema/submissions";
 import { decode, decodeFound, decodeMany, query } from "./shared";
 
-type ReviewValidationError = NumericOutOfBounds | DropdownValueNotInOptions;
+type ReviewValidationError = NumericOutOfBounds | DropdownValueNotInOptions | InvalidInput;
 
 interface ReviewsService {
   readonly listBySubmission: (
@@ -59,6 +75,15 @@ interface ReviewsService {
   readonly listRounds: (
     eventId: string,
   ) => Effect.Effect<ReadonlyArray<ReviewRoundConfiguration>, DbError>;
+  readonly adminWorkspace: (eventId: string) => Effect.Effect<EvaluationAdminWorkspace, DbError>;
+  readonly eventMemberId: (
+    eventId: string,
+    userId: string,
+  ) => Effect.Effect<string, DbError | NotFound>;
+  readonly reviewerWorkspace: (
+    eventId: string,
+    userId: string,
+  ) => Effect.Effect<ReviewerWorkspace, DbError | Forbidden | NotFound>;
   readonly reviewerQueue: (
     roundId: string,
     eventMemberId: string,
@@ -75,6 +100,12 @@ interface ReviewsService {
     eventMemberId: string,
     assignmentCap: number | null,
   ) => Effect.Effect<ReviewRoundMember, DbError>;
+  readonly provisionMember: (input: {
+    readonly roundId: string;
+    readonly email: string;
+    readonly assignmentCap: number | null;
+    readonly accessPath: string;
+  }) => Effect.Effect<ReviewerProvisioned, DbError | NotFound>;
   readonly assign: (
     roundId: string,
     submissionId: string,
@@ -84,6 +115,10 @@ interface ReviewsService {
     roundId: string,
     trackIds: ReadonlyArray<string>,
   ) => Effect.Effect<ReadonlyArray<ReviewAssignment>, DbError | NotFound | RoundClosed>;
+  readonly unassign: (
+    roundId: string,
+    assignmentId: string,
+  ) => Effect.Effect<void, DbError | NotFound>;
   readonly submitAnswers: (
     assignmentId: string,
     eventMemberId: string,
@@ -97,6 +132,14 @@ interface ReviewsService {
     eventMemberId: string,
     reason: string,
   ) => Effect.Effect<ReviewAssignment, DbError | NotFound | Forbidden | AlreadyRecused>;
+  readonly queueReminders: (
+    roundId: string,
+    eventMemberIds: ReadonlyArray<string>,
+  ) => Effect.Effect<ReadonlyArray<ReviewReminder>, DbError | NotFound>;
+  readonly generateAiResult: (
+    roundId: string,
+    submissionId: string,
+  ) => Effect.Effect<AiReviewResult, DbError | NotFound | ReviewGenerationError>;
   readonly saveAiResult: (input: {
     readonly roundId: string;
     readonly submissionId: string;
@@ -113,12 +156,624 @@ interface ReviewsService {
   ) => Effect.Effect<AiReviewResult, DbError | NotFound>;
 }
 
+const AI_REVIEW_MODEL = "claude-sonnet-5";
+const AiReviewProposal = Schema.Struct({
+  score: Schema.Number,
+  reasoning: Schema.String,
+});
+const AnthropicReviewResponse = Schema.Struct({
+  content: Schema.Array(
+    Schema.Struct({
+      type: Schema.String,
+      name: Schema.optionalKey(Schema.String),
+      input: Schema.optionalKey(Schema.Unknown),
+    }),
+  ),
+});
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const requestAiReview = (input: {
+  readonly apiKey: string;
+  readonly title: string;
+  readonly description: string;
+  readonly criteria: ReadonlyArray<ReviewCriterion>;
+}) =>
+  Effect.gen(function* () {
+    const response = yield* Effect.tryPromise({
+      try: () =>
+        fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+            "x-api-key": input.apiKey,
+          },
+          body: JSON.stringify({
+            model: AI_REVIEW_MODEL,
+            max_tokens: 1_024,
+            temperature: 0.1,
+            system:
+              "Evaluate the conference proposal against the supplied scorecard. Return an overall numeric score and concise written reasoning grounded only in the proposal.",
+            messages: [
+              {
+                role: "user",
+                content: JSON.stringify({
+                  proposal: { title: input.title, description: input.description },
+                  criteria: input.criteria.map((criterion) => ({
+                    label: criterion.label,
+                    type: criterion.type,
+                    min: criterion.min,
+                    max: criterion.max,
+                    options: criterion.options,
+                    weight: criterion.weight,
+                  })),
+                }),
+              },
+            ],
+            tools: [
+              {
+                name: "submit_abstract_review",
+                description: "Return the abstract review.",
+                input_schema: Schema.toJsonSchemaDocument(AiReviewProposal).schema,
+              },
+            ],
+            tool_choice: { type: "tool", name: "submit_abstract_review" },
+          }),
+        }),
+      catch: (cause) =>
+        new ReviewGenerationError({ message: "Claude could not evaluate this proposal", cause }),
+    });
+    const responseText = yield* Effect.tryPromise({
+      try: () => response.text(),
+      catch: (cause) =>
+        new ReviewGenerationError({ message: "Claude returned an unreadable response", cause }),
+    });
+    if (!response.ok) {
+      return yield* Effect.fail(
+        new ReviewGenerationError({
+          message: `Claude could not evaluate this proposal (${response.status})`,
+          cause: responseText,
+        }),
+      );
+    }
+    const decoded = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(AnthropicReviewResponse),
+    )(responseText).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ReviewGenerationError({ message: "Claude returned an invalid response", cause }),
+      ),
+    );
+    const toolUse = decoded.content.find(
+      (content) => content.type === "tool_use" && content.name === "submit_abstract_review",
+    );
+    if (toolUse?.input === undefined) {
+      return yield* Effect.fail(
+        new ReviewGenerationError({
+          message: "Claude did not return an abstract review",
+          cause: decoded,
+        }),
+      );
+    }
+    return yield* Schema.decodeUnknownEffect(AiReviewProposal)(toolUse.input).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ReviewGenerationError({ message: "Claude returned an invalid review", cause }),
+      ),
+    );
+  });
+
 export class Reviews extends Context.Service<Reviews, ReviewsService>()("opensesh/Reviews") {}
 
 export const ReviewsLive = Layer.effect(
   Reviews,
   Effect.gen(function* () {
     const { database } = yield* Db;
+
+    const loadAdminWorkspace = (eventId: string) =>
+      Effect.gen(function* () {
+        const [
+          roundRows,
+          criterionRows,
+          memberRows,
+          assignmentRows,
+          submissionRows,
+          trackRows,
+          aiRows,
+        ] = yield* Effect.all(
+          [
+            query(database, "Could not list review rounds", (db) =>
+              db
+                .select()
+                .from(reviewRounds)
+                .where(eq(reviewRounds.eventId, eventId))
+                .orderBy(asc(reviewRounds.position))
+                .execute(),
+            ),
+            query(database, "Could not list review criteria", (db) =>
+              db
+                .select({ criterion: reviewCriteria })
+                .from(reviewCriteria)
+                .innerJoin(reviewRounds, eq(reviewRounds.id, reviewCriteria.roundId))
+                .where(eq(reviewRounds.eventId, eventId))
+                .orderBy(asc(reviewCriteria.position))
+                .execute(),
+            ),
+            query(database, "Could not list review pools", (db) =>
+              db
+                .select({ member: reviewRoundMembers, name: users.name, email: users.email })
+                .from(reviewRoundMembers)
+                .innerJoin(eventMembers, eq(eventMembers.id, reviewRoundMembers.eventMemberId))
+                .innerJoin(users, eq(users.id, eventMembers.userId))
+                .innerJoin(reviewRounds, eq(reviewRounds.id, reviewRoundMembers.roundId))
+                .where(eq(reviewRounds.eventId, eventId))
+                .orderBy(asc(users.name))
+                .execute(),
+            ),
+            query(database, "Could not list review assignments", (db) =>
+              db
+                .select({
+                  assignment: reviewAssignments,
+                  reviewerName: users.name,
+                  reviewerEmail: users.email,
+                  answer: reviewAnswers,
+                  criterion: reviewCriteria,
+                })
+                .from(reviewAssignments)
+                .innerJoin(reviewRounds, eq(reviewRounds.id, reviewAssignments.roundId))
+                .innerJoin(eventMembers, eq(eventMembers.id, reviewAssignments.eventMemberId))
+                .innerJoin(users, eq(users.id, eventMembers.userId))
+                .leftJoin(reviewAnswers, eq(reviewAnswers.assignmentId, reviewAssignments.id))
+                .leftJoin(reviewCriteria, eq(reviewCriteria.id, reviewAnswers.criterionId))
+                .where(eq(reviewRounds.eventId, eventId))
+                .orderBy(asc(reviewAssignments.assignedAt), asc(reviewCriteria.position))
+                .execute(),
+            ),
+            query(database, "Could not list evaluation submissions", (db) =>
+              db
+                .select({
+                  submission: submissions,
+                  trackId: tracks.id,
+                  trackName: tracks.name,
+                  participantName: users.name,
+                  participantFirstName: contacts.firstName,
+                  participantLastName: contacts.lastName,
+                  participantRole: submissionParticipants.role,
+                })
+                .from(submissions)
+                .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+                .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+                .leftJoin(
+                  submissionParticipants,
+                  eq(submissionParticipants.submissionId, submissions.id),
+                )
+                .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                .leftJoin(users, eq(users.email, contacts.email))
+                .where(and(eq(submissions.eventId, eventId), eq(submissions.kind, "abstract")))
+                .orderBy(asc(submissions.code), asc(submissionParticipants.position))
+                .execute(),
+            ),
+            query(database, "Could not list evaluation tracks", (db) =>
+              db
+                .select({ id: tracks.id, name: tracks.name })
+                .from(tracks)
+                .where(eq(tracks.eventId, eventId))
+                .orderBy(asc(tracks.position))
+                .execute(),
+            ),
+            query(database, "Could not list AI reviews", (db) =>
+              db
+                .select({ result: aiReviewResults, actorName: users.name })
+                .from(aiReviewResults)
+                .innerJoin(reviewRounds, eq(reviewRounds.id, aiReviewResults.roundId))
+                .leftJoin(
+                  eventMembers,
+                  eq(eventMembers.id, aiReviewResults.overriddenByEventMemberId),
+                )
+                .leftJoin(users, eq(users.id, eventMembers.userId))
+                .where(eq(reviewRounds.eventId, eventId))
+                .execute(),
+            ),
+          ],
+          { concurrency: 7 },
+        );
+
+        const decodedRounds = yield* decodeMany(ReviewRound, "review round", roundRows);
+        const decodedCriteria = yield* decodeMany(
+          ReviewCriterion,
+          "review criterion",
+          criterionRows.map((row) => row.criterion),
+        );
+        const decodedMembers = yield* decodeMany(
+          ReviewRoundMember,
+          "review round member",
+          memberRows.map((row) => row.member),
+        );
+        const decodedAssignments = yield* decodeMany(
+          ReviewAssignment,
+          "review assignment",
+          Array.from(
+            new Map(assignmentRows.map((row) => [row.assignment.id, row.assignment])).values(),
+          ),
+        );
+        const decodedAnswers = yield* decodeMany(
+          ReviewAnswer,
+          "review answer",
+          Array.from(
+            new Map(
+              assignmentRows.flatMap((row) =>
+                row.answer === null ? [] : [[row.answer.id, row.answer]],
+              ),
+            ).values(),
+          ),
+        );
+        const decodedAiResults = yield* decodeMany(
+          AiReviewResult,
+          "AI review result",
+          aiRows.map((row) => row.result),
+        );
+        const decodedSubmissions = yield* Effect.forEach(
+          Array.from(new Set(submissionRows.map((row) => row.submission.id))),
+          (submissionId) => {
+            const group = submissionRows.filter((row) => row.submission.id === submissionId);
+            const first = group[0];
+            return decode(
+              EvaluationSubmission,
+              "evaluation submission",
+              first === undefined
+                ? undefined
+                : {
+                    id: first.submission.id,
+                    code: first.submission.code,
+                    title: first.submission.title,
+                    description: first.submission.description,
+                    status: first.submission.status,
+                    trackIds: Array.from(
+                      new Set(group.flatMap((row) => (row.trackId === null ? [] : [row.trackId]))),
+                    ),
+                    trackNames: Array.from(
+                      new Set(
+                        group.flatMap((row) => (row.trackName === null ? [] : [row.trackName])),
+                      ),
+                    ),
+                    participants: Array.from(
+                      new Map(
+                        group.flatMap((row) => {
+                          if (row.participantRole === null) return [];
+                          const name =
+                            row.participantName ??
+                            `${row.participantFirstName ?? ""} ${row.participantLastName ?? ""}`.trim();
+                          return name.length === 0
+                            ? []
+                            : [
+                                [
+                                  `${name}:${row.participantRole}`,
+                                  { name, role: row.participantRole },
+                                ],
+                              ];
+                        }),
+                      ).values(),
+                    ),
+                  },
+            );
+          },
+        );
+
+        const roundViews: ReadonlyArray<ReviewRoundAdminView> = decodedRounds.map((round) => {
+          const criteria = decodedCriteria.filter((criterion) => criterion.roundId === round.id);
+          const members = decodedMembers.filter((member) => member.roundId === round.id);
+          const roundAssignments = decodedAssignments.filter(
+            (assignment) => assignment.roundId === round.id,
+          );
+          const reviewers = members.flatMap((member) => {
+            const identity = memberRows.find((row) => row.member.id === member.id);
+            return identity === undefined
+              ? []
+              : [{ member, name: identity.name, email: identity.email }];
+          });
+          const progress = reviewers.map((reviewer) => {
+            const assigned = roundAssignments.filter(
+              (assignment) => assignment.eventMemberId === reviewer.member.eventMemberId,
+            );
+            const completed = assigned.filter(
+              (assignment) => assignment.status === "completed",
+            ).length;
+            const recused = assigned.filter((assignment) => assignment.status === "recused").length;
+            const remaining = assigned.length - completed - recused;
+            const required = assigned.length - recused;
+            return {
+              eventMemberId: reviewer.member.eventMemberId,
+              name: reviewer.name,
+              email: reviewer.email,
+              assigned: assigned.length,
+              completed,
+              recused,
+              remaining,
+              percentage: required === 0 ? 0 : Math.round((completed / required) * 100),
+            };
+          });
+          const results = decodedSubmissions.map((submission) => {
+            const assigned = roundAssignments.filter(
+              (assignment) => assignment.submissionId === submission.id,
+            );
+            const humanReviews = assigned.map((assignment) => {
+              const identity = assignmentRows.find((row) => row.assignment.id === assignment.id);
+              const answers = decodedAnswers
+                .filter((answer) => answer.assignmentId === assignment.id)
+                .flatMap((answer) => {
+                  const criterion = criteria.find((item) => item.id === answer.criterionId);
+                  return criterion === undefined
+                    ? []
+                    : [
+                        {
+                          criterionId: criterion.id,
+                          label: criterion.label,
+                          type: criterion.type,
+                          numericValue: answer.numericValue,
+                          textValue: answer.textValue,
+                          optionValue: answer.optionValue,
+                        },
+                      ];
+                });
+              return {
+                assignment,
+                reviewerName: identity?.reviewerName ?? "Reviewer",
+                reviewerEmail: identity?.reviewerEmail ?? "",
+                answers,
+              };
+            });
+            const completedReviews = humanReviews.filter(
+              (review) => review.assignment.status === "completed",
+            );
+            const numeric = completedReviews.flatMap((review) =>
+              review.answers.flatMap((answer) => {
+                const criterion = criteria.find((item) => item.id === answer.criterionId);
+                return answer.numericValue === null || criterion === undefined
+                  ? []
+                  : [{ value: answer.numericValue, weight: criterion.weight }];
+              }),
+            );
+            const recommendations = Array.from(
+              new Set(
+                completedReviews.flatMap((review) =>
+                  review.answers.flatMap((answer) =>
+                    answer.type === "dropdown" && answer.optionValue !== null
+                      ? [answer.optionValue]
+                      : [],
+                  ),
+                ),
+              ),
+            );
+            const aiResult =
+              decodedAiResults.find(
+                (result) => result.roundId === round.id && result.submissionId === submission.id,
+              ) ?? null;
+            const aiRow =
+              aiResult === null ? undefined : aiRows.find((row) => row.result.id === aiResult.id);
+            return {
+              submission,
+              humanReviews,
+              reviewerCount: assigned.length,
+              completedCount: completedReviews.length,
+              weightedAggregate: weightedAggregate(numeric),
+              recommendation: recommendations.length === 0 ? null : recommendations.join(", "),
+              aiResult,
+              aiOverriddenByName: aiRow?.actorName ?? null,
+            };
+          });
+          return {
+            configuration: { round, criteria, members },
+            reviewers,
+            assignments: roundAssignments,
+            submissions: decodedSubmissions,
+            progress,
+            results,
+          };
+        });
+
+        return yield* decode(EvaluationAdminWorkspace, "evaluation workspace", {
+          eventId,
+          tracks: trackRows,
+          rounds: roundViews,
+        });
+      });
+
+    const loadReviewerWorkspace = (eventId: string, userId: string) =>
+      Effect.gen(function* () {
+        const memberRows = yield* query(database, "Could not load reviewer membership", (db) =>
+          db
+            .select({ member: eventMembers })
+            .from(eventMembers)
+            .where(
+              and(
+                eq(eventMembers.eventId, eventId),
+                eq(eventMembers.userId, userId),
+                eq(eventMembers.role, "reviewer"),
+              ),
+            )
+            .limit(1)
+            .execute(),
+        );
+        const eventMember = memberRows[0]?.member;
+        if (eventMember === undefined) {
+          return yield* Effect.fail(new Forbidden({ message: "You do not have reviewer access" }));
+        }
+        const [rows, identityRows] = yield* Effect.all(
+          [
+            query(database, "Could not load assigned reviews", (db) =>
+              db
+                .select({
+                  round: reviewRounds,
+                  criterion: reviewCriteria,
+                  assignment: reviewAssignments,
+                  submission: submissions,
+                  trackName: tracks.name,
+                  answer: reviewAnswers,
+                })
+                .from(reviewAssignments)
+                .innerJoin(reviewRounds, eq(reviewRounds.id, reviewAssignments.roundId))
+                .innerJoin(submissions, eq(submissions.id, reviewAssignments.submissionId))
+                .leftJoin(reviewCriteria, eq(reviewCriteria.roundId, reviewRounds.id))
+                .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+                .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+                .leftJoin(reviewAnswers, eq(reviewAnswers.assignmentId, reviewAssignments.id))
+                .where(
+                  and(
+                    eq(reviewRounds.eventId, eventId),
+                    eq(reviewAssignments.eventMemberId, eventMember.id),
+                  ),
+                )
+                .orderBy(
+                  asc(reviewRounds.position),
+                  asc(reviewAssignments.assignedAt),
+                  asc(reviewCriteria.position),
+                )
+                .execute(),
+            ),
+            query(database, "Could not prepare blind review data", (db) =>
+              db
+                .select({
+                  submissionId: submissionParticipants.submissionId,
+                  role: submissionParticipants.role,
+                  firstName: contacts.firstName,
+                  lastName: contacts.lastName,
+                  company: contacts.company,
+                  email: contacts.email,
+                  linkedinUrl: contacts.linkedinUrl,
+                  twitterUrl: contacts.twitterUrl,
+                  facebookUrl: contacts.facebookUrl,
+                  websiteUrl: contacts.websiteUrl,
+                })
+                .from(submissionParticipants)
+                .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                .innerJoin(
+                  reviewAssignments,
+                  eq(reviewAssignments.submissionId, submissionParticipants.submissionId),
+                )
+                .innerJoin(reviewRounds, eq(reviewRounds.id, reviewAssignments.roundId))
+                .where(
+                  and(
+                    eq(reviewRounds.eventId, eventId),
+                    eq(reviewAssignments.eventMemberId, eventMember.id),
+                  ),
+                )
+                .orderBy(asc(submissionParticipants.position))
+                .execute(),
+            ),
+          ],
+          { concurrency: 2 },
+        );
+        const decodedRounds = yield* decodeMany(
+          ReviewRound,
+          "review round",
+          Array.from(new Map(rows.map((row) => [row.round.id, row.round])).values()),
+        );
+        const decodedCriteria = yield* decodeMany(
+          ReviewCriterion,
+          "review criterion",
+          Array.from(
+            new Map(
+              rows.flatMap((row) =>
+                row.criterion === null ? [] : [[row.criterion.id, row.criterion]],
+              ),
+            ).values(),
+          ),
+        );
+        const decodedAssignments = yield* decodeMany(
+          ReviewAssignment,
+          "review assignment",
+          Array.from(new Map(rows.map((row) => [row.assignment.id, row.assignment])).values()),
+        );
+        const decodedAnswers = yield* decodeMany(
+          ReviewAnswer,
+          "review answer",
+          Array.from(
+            new Map(
+              rows.flatMap((row) => (row.answer === null ? [] : [[row.answer.id, row.answer]])),
+            ).values(),
+          ),
+        );
+        return yield* decode(ReviewerWorkspace, "reviewer workspace", {
+          eventId,
+          eventMemberId: eventMember.id,
+          rounds: decodedRounds.map((round) => {
+            const assignments = decodedAssignments.filter(
+              (assignment) => assignment.roundId === round.id,
+            );
+            return {
+              round,
+              criteria: decodedCriteria.filter((criterion) => criterion.roundId === round.id),
+              items: assignments.flatMap((assignment) => {
+                const row = rows.find((item) => item.assignment.id === assignment.id);
+                if (row === undefined) return [];
+                const identities = identityRows.filter(
+                  (identity) => identity.submissionId === assignment.submissionId,
+                );
+                const speakerNames = identities.map(
+                  (identity) => `${identity.firstName} ${identity.lastName}`,
+                );
+                const identityValues = identities.flatMap((identity) => [
+                  ...(identity.company === null ? [] : [identity.company]),
+                  identity.email,
+                  ...(identity.linkedinUrl === null ? [] : [identity.linkedinUrl]),
+                  ...(identity.twitterUrl === null ? [] : [identity.twitterUrl]),
+                  ...(identity.facebookUrl === null ? [] : [identity.facebookUrl]),
+                  ...(identity.websiteUrl === null ? [] : [identity.websiteUrl]),
+                ]);
+                const safe = round.blind
+                  ? redactBlindSubmission({
+                      code: row.submission.code,
+                      title: row.submission.title,
+                      description: row.submission.description,
+                      speakerNames,
+                      companies: identityValues,
+                      submitterEmail: null,
+                    })
+                  : {
+                      code: row.submission.code,
+                      title: row.submission.title,
+                      description: row.submission.description,
+                    };
+                return [
+                  {
+                    assignment,
+                    ...safe,
+                    status: row.submission.status,
+                    trackNames: Array.from(
+                      new Set(
+                        rows.flatMap((item) =>
+                          item.assignment.id === assignment.id && item.trackName !== null
+                            ? [item.trackName]
+                            : [],
+                        ),
+                      ),
+                    ),
+                    participants: round.blind
+                      ? []
+                      : identities.map((identity) => ({
+                          name: `${identity.firstName} ${identity.lastName}`,
+                          role: identity.role,
+                        })),
+                    answers: decodedAnswers.filter(
+                      (answer) => answer.assignmentId === assignment.id,
+                    ),
+                  },
+                ];
+              }),
+              pending: assignments.filter((assignment) => assignment.status === "pending").length,
+              completed: assignments.filter((assignment) => assignment.status === "completed")
+                .length,
+              recused: assignments.filter((assignment) => assignment.status === "recused").length,
+            };
+          }),
+        });
+      });
 
     return {
       listBySubmission: (submissionId) =>
@@ -177,6 +832,23 @@ export const ReviewsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(Review, "review", rows[0]))),
+      adminWorkspace: loadAdminWorkspace,
+      eventMemberId: (eventId, userId) =>
+        query(database, "Could not load event membership", (db) =>
+          db
+            .select({ id: eventMembers.id })
+            .from(eventMembers)
+            .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.userId, userId)))
+            .limit(1)
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) =>
+            rows[0] === undefined
+              ? Effect.fail(new NotFound({ message: "Event member not found" }))
+              : Effect.succeed(rows[0].id),
+          ),
+        ),
+      reviewerWorkspace: loadReviewerWorkspace,
       listRounds: (eventId) =>
         Effect.all(
           [
@@ -415,15 +1087,38 @@ export const ReviewsLive = Layer.effect(
       saveCriteria: (roundId, criteria) =>
         query(database, "Could not save review criteria", (db) =>
           db.transaction(async (transaction) => {
+            const retainedIds = criteria.flatMap((criterion) =>
+              criterion.id === null ? [] : [criterion.id],
+            );
             await transaction
               .delete(reviewCriteria)
-              .where(eq(reviewCriteria.roundId, roundId))
+              .where(
+                and(
+                  eq(reviewCriteria.roundId, roundId),
+                  retainedIds.length === 0 ? undefined : notInArray(reviewCriteria.id, retainedIds),
+                ),
+              )
               .execute();
-            if (criteria.length === 0) return [];
+            for (const criterion of criteria) {
+              const { id, ...values } = criterion;
+              if (id === null) {
+                await transaction
+                  .insert(reviewCriteria)
+                  .values({ ...values, roundId })
+                  .execute();
+              } else {
+                await transaction
+                  .update(reviewCriteria)
+                  .set({ ...values, updatedAt: new Date() })
+                  .where(and(eq(reviewCriteria.id, id), eq(reviewCriteria.roundId, roundId)))
+                  .execute();
+              }
+            }
             return await transaction
-              .insert(reviewCriteria)
-              .values(criteria.map(({ id: _id, ...criterion }) => ({ ...criterion, roundId })))
-              .returning()
+              .select()
+              .from(reviewCriteria)
+              .where(eq(reviewCriteria.roundId, roundId))
+              .orderBy(asc(reviewCriteria.position))
               .execute();
           }),
         ).pipe(Effect.flatMap((rows) => decodeMany(ReviewCriterion, "review criterion", rows))),
@@ -439,6 +1134,141 @@ export const ReviewsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(ReviewRoundMember, "review round member", rows[0]))),
+      provisionMember: (input) =>
+        query(database, "Could not add reviewer", (db) =>
+          db.transaction(async (transaction) => {
+            const email = input.email.trim().toLowerCase();
+            const [round] = await transaction
+              .select({ round: reviewRounds, event: events })
+              .from(reviewRounds)
+              .innerJoin(events, eq(events.id, reviewRounds.eventId))
+              .where(eq(reviewRounds.id, input.roundId))
+              .limit(1)
+              .execute();
+            if (round === undefined) return { kind: "notFound" as const };
+            let [user] = await transaction
+              .select()
+              .from(users)
+              .where(eq(users.email, email))
+              .limit(1)
+              .execute();
+            if (user === undefined) {
+              const [created] = await transaction
+                .insert(users)
+                .values({ email, name: email.split("@")[0] ?? email })
+                .returning()
+                .execute();
+              user = created;
+            }
+            if (user === undefined) return { kind: "notFound" as const };
+            await transaction
+              .insert(organizationMembers)
+              .values({
+                organizationId: round.event.organizationId,
+                userId: user.id,
+                role: "member",
+              })
+              .onConflictDoNothing()
+              .execute();
+            await transaction
+              .insert(eventMembers)
+              .values({ eventId: round.event.id, userId: user.id, role: "reviewer" })
+              .onConflictDoNothing()
+              .execute();
+            const [eventMember] = await transaction
+              .select()
+              .from(eventMembers)
+              .where(
+                and(eq(eventMembers.eventId, round.event.id), eq(eventMembers.userId, user.id)),
+              )
+              .limit(1)
+              .execute();
+            if (eventMember === undefined) return { kind: "notFound" as const };
+            const [existing] = await transaction
+              .select()
+              .from(reviewRoundMembers)
+              .where(
+                and(
+                  eq(reviewRoundMembers.roundId, round.round.id),
+                  eq(reviewRoundMembers.eventMemberId, eventMember.id),
+                ),
+              )
+              .limit(1)
+              .execute();
+            const [member] =
+              existing === undefined
+                ? await transaction
+                    .insert(reviewRoundMembers)
+                    .values({
+                      roundId: round.round.id,
+                      eventMemberId: eventMember.id,
+                      assignmentCap: input.assignmentCap,
+                    })
+                    .returning()
+                    .execute()
+                : await transaction
+                    .update(reviewRoundMembers)
+                    .set({ assignmentCap: input.assignmentCap, updatedAt: new Date() })
+                    .where(eq(reviewRoundMembers.id, existing.id))
+                    .returning()
+                    .execute();
+            if (member === undefined) return { kind: "notFound" as const };
+            let invitationLogged = false;
+            let invitationLogId: string | null = null;
+            if (existing === undefined) {
+              const body = `You have been added to ${round.round.name} for ${round.event.name}. Sign in at ${input.accessPath}.`;
+              const [invitation] = await transaction
+                .insert(emailLog)
+                .values({
+                  eventId: round.event.id,
+                  contactId: null,
+                  submissionId: null,
+                  type: "custom",
+                  recipient: email,
+                  subject: `Review access for ${round.event.name}`,
+                  body,
+                  htmlBody: `<p>${escapeHtml(body)}</p>`,
+                  icsAttached: false,
+                  icsContent: null,
+                  icsSequence: null,
+                  status: "queued",
+                  provider: null,
+                  providerId: null,
+                  error: null,
+                  sentAt: null,
+                })
+                .returning({ id: emailLog.id })
+                .execute();
+              invitationLogged = true;
+              invitationLogId = invitation?.id ?? null;
+            }
+            return {
+              kind: "ok" as const,
+              member,
+              name: user.name,
+              email: user.email,
+              alreadyInPool: existing !== undefined,
+              invitationLogged,
+              invitationLogId,
+            };
+          }),
+        ).pipe(
+          Effect.flatMap((outcome) =>
+            outcome.kind === "notFound"
+              ? decodeFound(ReviewerProvisioned, "Reviewer", undefined)
+              : decode(ReviewerProvisioned, "reviewer access", {
+                  reviewer: {
+                    member: outcome.member,
+                    name: outcome.name,
+                    email: outcome.email,
+                  },
+                  accessPath: input.accessPath,
+                  alreadyInPool: outcome.alreadyInPool,
+                  invitationLogged: outcome.invitationLogged,
+                  invitationLogId: outcome.invitationLogId,
+                }),
+          ),
+        ),
       assign: (roundId, submissionId, eventMemberId) =>
         query(database, "Could not assign review", (db) =>
           db.transaction(async (transaction) => {
@@ -470,6 +1300,19 @@ export const ReviewsLive = Layer.effect(
               .execute();
             if (member === undefined || submission === undefined)
               return { kind: "notFound" as const };
+            const [existing] = await transaction
+              .select()
+              .from(reviewAssignments)
+              .where(
+                and(
+                  eq(reviewAssignments.roundId, roundId),
+                  eq(reviewAssignments.submissionId, submissionId),
+                  eq(reviewAssignments.eventMemberId, eventMemberId),
+                ),
+              )
+              .limit(1)
+              .execute();
+            if (existing !== undefined) return { kind: "ok" as const, row: existing };
             const current = await transaction
               .select({ status: reviewAssignments.status })
               .from(reviewAssignments)
@@ -493,7 +1336,7 @@ export const ReviewsLive = Layer.effect(
               .returning()
               .execute();
             if (created !== undefined) return { kind: "ok" as const, row: created };
-            const [existing] = await transaction
+            const [concurrent] = await transaction
               .select()
               .from(reviewAssignments)
               .where(
@@ -505,9 +1348,9 @@ export const ReviewsLive = Layer.effect(
               )
               .limit(1)
               .execute();
-            return existing === undefined
+            return concurrent === undefined
               ? { kind: "notFound" as const }
-              : { kind: "ok" as const, row: existing };
+              : { kind: "ok" as const, row: concurrent };
           }),
         ).pipe(
           Effect.flatMap(
@@ -607,6 +1450,22 @@ export const ReviewsLive = Layer.effect(
             },
           ),
         ),
+      unassign: (roundId, assignmentId) =>
+        query(database, "Could not unassign review", (db) =>
+          db
+            .delete(reviewAssignments)
+            .where(
+              and(eq(reviewAssignments.id, assignmentId), eq(reviewAssignments.roundId, roundId)),
+            )
+            .returning({ id: reviewAssignments.id })
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) =>
+            rows[0] === undefined
+              ? decodeFound(ReviewAssignment, "Review assignment", undefined).pipe(Effect.asVoid)
+              : Effect.void,
+          ),
+        ),
       submitAnswers: (assignmentId, eventMemberId, answers) =>
         query(database, "Could not submit review answers", (db) =>
           db.transaction(async (transaction) => {
@@ -618,6 +1477,7 @@ export const ReviewsLive = Layer.effect(
               .execute();
             if (assignment === undefined) return { kind: "notFound" as const };
             if (assignment.eventMemberId !== eventMemberId) return { kind: "forbidden" as const };
+            if (assignment.status === "recused") return { kind: "forbidden" as const };
             const [round] = await transaction
               .select()
               .from(reviewRounds)
@@ -632,6 +1492,20 @@ export const ReviewsLive = Layer.effect(
               .from(reviewCriteria)
               .where(eq(reviewCriteria.roundId, round.id))
               .execute();
+            for (const criterion of criteria) {
+              const required = validateRequiredReviewAnswer(
+                criterion,
+                answers.find((answer) => answer.criterionId === criterion.id),
+              );
+              if (required !== undefined) return { kind: "invalid" as const, error: required };
+            }
+            const answerIds = new Set(answers.map((answer) => answer.criterionId));
+            if (answerIds.size !== answers.length) {
+              return {
+                kind: "invalid" as const,
+                error: new InvalidInput({ message: "Submit one answer per criterion" }),
+              };
+            }
             for (const answer of answers) {
               const criterion = criteria.find((item) => item.id === answer.criterionId);
               if (criterion === undefined) return { kind: "forbidden" as const };
@@ -723,6 +1597,186 @@ export const ReviewsLive = Layer.effect(
             },
           ),
         ),
+      queueReminders: (roundId, eventMemberIds) =>
+        query(database, "Could not queue review reminders", (db) =>
+          db.transaction(async (transaction) => {
+            const [round] = await transaction
+              .select({ round: reviewRounds, event: events })
+              .from(reviewRounds)
+              .innerJoin(events, eq(events.id, reviewRounds.eventId))
+              .where(eq(reviewRounds.id, roundId))
+              .limit(1)
+              .execute();
+            if (round === undefined) return { kind: "notFound" as const, rows: [] };
+            const selected = Array.from(new Set(eventMemberIds));
+            if (selected.length === 0) return { kind: "ok" as const, rows: [] };
+            const reviewers = await transaction
+              .select({ eventMemberId: eventMembers.id, name: users.name, email: users.email })
+              .from(reviewRoundMembers)
+              .innerJoin(eventMembers, eq(eventMembers.id, reviewRoundMembers.eventMemberId))
+              .innerJoin(users, eq(users.id, eventMembers.userId))
+              .where(
+                and(eq(reviewRoundMembers.roundId, roundId), inArray(eventMembers.id, selected)),
+              )
+              .execute();
+            const assignments = await transaction
+              .select({ eventMemberId: reviewAssignments.eventMemberId })
+              .from(reviewAssignments)
+              .where(
+                and(
+                  eq(reviewAssignments.roundId, roundId),
+                  eq(reviewAssignments.status, "pending"),
+                  inArray(reviewAssignments.eventMemberId, selected),
+                ),
+              )
+              .execute();
+            const reminders = reviewers.flatMap((reviewer) => {
+              const pending = assignments.filter(
+                (assignment) => assignment.eventMemberId === reviewer.eventMemberId,
+              ).length;
+              return pending === 0 ? [] : [{ ...reviewer, pending }];
+            });
+            if (reminders.length === 0) return { kind: "ok" as const, rows: [] };
+            const deadline = new Intl.DateTimeFormat("en-US", {
+              dateStyle: "medium",
+              timeStyle: "short",
+              timeZone: round.event.timezone,
+            }).format(round.round.closesAt);
+            const inserted = await transaction
+              .insert(emailLog)
+              .values(
+                reminders.map((reminder) => {
+                  const body = `Hello ${reminder.name}, you have ${reminder.pending} pending ${reminder.pending === 1 ? "review" : "reviews"} in ${round.round.name}. The deadline is ${deadline}.`;
+                  return {
+                    eventId: round.event.id,
+                    contactId: null,
+                    submissionId: null,
+                    type: "custom" as const,
+                    recipient: reminder.email,
+                    subject: `${round.round.name}: ${reminder.pending} pending ${reminder.pending === 1 ? "review" : "reviews"}`,
+                    body,
+                    htmlBody: `<p>${escapeHtml(body)}</p>`,
+                    icsAttached: false,
+                    icsContent: null,
+                    icsSequence: null,
+                    status: "queued" as const,
+                    provider: null,
+                    providerId: null,
+                    error: null,
+                    sentAt: null,
+                  };
+                }),
+              )
+              .returning({ id: emailLog.id, recipient: emailLog.recipient })
+              .execute();
+            return {
+              kind: "ok" as const,
+              rows: inserted.flatMap((row) => {
+                const reminder = reminders.find((item) => item.email === row.recipient);
+                return reminder === undefined
+                  ? []
+                  : [{ logId: row.id, recipient: row.recipient, pending: reminder.pending }];
+              }),
+            };
+          }),
+        ).pipe(
+          Effect.flatMap((outcome) =>
+            outcome.kind === "notFound"
+              ? decodeFound(ReviewReminder, "Review round", undefined).pipe(
+                  Effect.map((item) => [item]),
+                )
+              : decodeMany(ReviewReminder, "review reminder", outcome.rows),
+          ),
+        ),
+      generateAiResult: (roundId, submissionId) =>
+        Effect.gen(function* () {
+          const [roundRows, submissionRows, criterionRows] = yield* Effect.all(
+            [
+              query(database, "Could not load AI review round", (db) =>
+                db
+                  .select()
+                  .from(reviewRounds)
+                  .where(eq(reviewRounds.id, roundId))
+                  .limit(1)
+                  .execute(),
+              ),
+              query(database, "Could not load AI review submission", (db) =>
+                db
+                  .select()
+                  .from(submissions)
+                  .where(eq(submissions.id, submissionId))
+                  .limit(1)
+                  .execute(),
+              ),
+              query(database, "Could not load AI review criteria", (db) =>
+                db
+                  .select()
+                  .from(reviewCriteria)
+                  .where(eq(reviewCriteria.roundId, roundId))
+                  .orderBy(asc(reviewCriteria.position))
+                  .execute(),
+              ),
+            ],
+            { concurrency: 3 },
+          );
+          const round = yield* decodeFound(ReviewRound, "Review round", roundRows[0]);
+          const submission = yield* decodeFound(Submission, "Submission", submissionRows[0]);
+          if (submission.eventId !== round.eventId) {
+            return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
+          }
+          const criteria = yield* decodeMany(ReviewCriterion, "review criterion", criterionRows);
+          const apiKey = yield* Config.option(Config.string("ANTHROPIC_API_KEY")).pipe(
+            Effect.mapError(
+              (cause) =>
+                new ReviewGenerationError({
+                  message: "Anthropic configuration is invalid",
+                  cause,
+                }),
+            ),
+          );
+          if (Option.isNone(apiKey)) {
+            return yield* Effect.fail(
+              new ReviewGenerationError({
+                message: "AI first-pass is unavailable because Anthropic is not configured",
+                cause: "ANTHROPIC_API_KEY is missing",
+              }),
+            );
+          }
+          const proposal = yield* requestAiReview({
+            apiKey: apiKey.value,
+            title: submission.title,
+            description: submission.description,
+            criteria,
+          });
+          return yield* query(database, "Could not save AI review", (db) =>
+            db
+              .insert(aiReviewResults)
+              .values({
+                roundId,
+                submissionId,
+                score: proposal.score,
+                reasoning: proposal.reasoning,
+                provider: "anthropic",
+                model: AI_REVIEW_MODEL,
+              })
+              .onConflictDoUpdate({
+                target: [aiReviewResults.roundId, aiReviewResults.submissionId],
+                set: {
+                  score: proposal.score,
+                  reasoning: proposal.reasoning,
+                  provider: "anthropic",
+                  model: AI_REVIEW_MODEL,
+                  overriddenScore: null,
+                  overrideReason: null,
+                  overriddenByEventMemberId: null,
+                  overriddenAt: null,
+                  updatedAt: new Date(),
+                },
+              })
+              .returning()
+              .execute(),
+          ).pipe(Effect.flatMap((rows) => decode(AiReviewResult, "AI review result", rows[0])));
+        }),
       saveAiResult: (input) =>
         query(database, "Could not save AI review", (db) =>
           db

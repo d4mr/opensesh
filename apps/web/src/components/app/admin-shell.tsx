@@ -94,15 +94,18 @@ export function AdminShell({
   const [commandOpen, setCommandOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
-  const portal = useQuery(adminPortalQuery(event.id));
+  const portal = useQuery({ ...adminPortalQuery(event.id), enabled: user.roles.admin });
   const pendingContentChanges =
     portal.data?.ok === true
       ? portal.data.data.history.filter(
           (entry) => entry.history.approvalStatus === "pending_review",
         ).length
       : 0;
+  const navigationItems = user.roles.admin
+    ? allItems
+    : [{ title: "My Reviews", section: "evaluation", icon: ClipboardCheckIcon }];
   const activeTitle =
-    allItems.find((item) =>
+    navigationItems.find((item) =>
       item.section === undefined
         ? pathname === "/admin"
         : pathname === `/admin/${item.section}` || pathname.startsWith(`/admin/${item.section}/`),
@@ -184,21 +187,16 @@ export function AdminShell({
           <CommandList>
             <CommandEmpty>No page found.</CommandEmpty>
             <CommandGroup heading="Navigation">
-              {allItems
-                .filter(
-                  (item) =>
-                    user.roles.admin || item.section === undefined || item.section === "evaluation",
-                )
-                .map((item) => (
-                  <CommandItem
-                    key={item.title}
-                    value={item.title}
-                    onSelect={() => void go(item.section)}
-                  >
-                    <item.icon />
-                    {item.title}
-                  </CommandItem>
-                ))}
+              {navigationItems.map((item) => (
+                <CommandItem
+                  key={item.title}
+                  value={item.title}
+                  onSelect={() => void go(item.section)}
+                >
+                  <item.icon />
+                  {item.title}
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </CommandDialog>

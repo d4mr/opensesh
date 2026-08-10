@@ -54,12 +54,14 @@ export function EventSwitcher({
   dates,
   onSelect,
   onCreated,
+  canCreate = true,
 }: {
   readonly event: Event;
   readonly events: ReadonlyArray<Event>;
   readonly dates: string;
   readonly onSelect: (eventId: string) => void;
   readonly onCreated: (eventId: string) => Promise<void>;
+  readonly canCreate?: boolean;
 }) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
@@ -129,13 +131,17 @@ export function EventSwitcher({
                   {item.id === event.id ? <CheckIcon className="size-4 text-primary" /> : null}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="gap-2 p-2" onSelect={() => setDialogOpen(true)}>
-                <span className="flex size-6 items-center justify-center rounded-md border bg-background">
-                  <PlusIcon className="size-3.5" />
-                </span>
-                <span className="font-medium">Create event</span>
-              </DropdownMenuItem>
+              {canCreate ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="gap-2 p-2" onSelect={() => setDialogOpen(true)}>
+                    <span className="flex size-6 items-center justify-center rounded-md border bg-background">
+                      <PlusIcon className="size-3.5" />
+                    </span>
+                    <span className="font-medium">Create event</span>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>

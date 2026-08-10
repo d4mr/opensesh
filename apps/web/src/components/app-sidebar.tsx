@@ -91,16 +91,21 @@ export function AppSidebar({
           dates={eventDates}
           onSelect={selectEvent}
           onCreated={eventCreated}
+          canCreate={user.roles.admin}
         />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={dashboard} pathname={pathname} />
+        {user.roles.admin ? <NavMain items={dashboard} pathname={pathname} /> : null}
         <NavMain
           label="Program"
           items={program
             .filter((item) => user.roles.admin || item.section === "evaluation")
             .map((item) =>
-              item.section === "content" ? { ...item, badge: pendingContentChanges } : item,
+              !user.roles.admin && item.section === "evaluation"
+                ? { ...item, title: "My Reviews" }
+                : item.section === "content"
+                  ? { ...item, badge: pendingContentChanges }
+                  : item,
             )}
           pathname={pathname}
         />

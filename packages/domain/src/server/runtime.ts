@@ -16,6 +16,7 @@ import type {
   MailError,
   NotFound,
   NumericOutOfBounds,
+  ReviewGenerationError,
   RoundClosed,
   ScheduleConflict,
   ResourceInUse,
@@ -39,6 +40,7 @@ export type AppError =
   | MailError
   | NotFound
   | NumericOutOfBounds
+  | ReviewGenerationError
   | RoundClosed
   | ScheduleConflict
   | ResourceInUse
@@ -64,6 +66,7 @@ const toServerError = Match.type<AppError>().pipe(
     InvalidInput: (error) => ({ status: 400, message: error.message }),
     InvalidPipelineMove: (error) => ({ status: 409, message: error.message }),
     NumericOutOfBounds: (error) => ({ status: 400, message: error.message }),
+    ReviewGenerationError: (error) => ({ status: 502, message: error.message }),
     RoundClosed: (error) => ({ status: 409, message: error.message }),
     SubmissionLimitReached: (error) => ({ status: 409, message: error.message }),
     ScheduleConflict: (error) => ({ status: 409, message: error.message }),
