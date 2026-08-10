@@ -46,6 +46,10 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 - [x] Demo-pill clearance: widget-builder Get-code panel (pb-14) and reviewer scorecard form (pb-14) — Copy/Submit buttons no longer covered
 - [x] Seeded file downloads/ZIP: seed/… storage keys had no R2 object → downloads and exports failed; deterministic placeholder PDF served for seed keys only (63c46ed); ZIP dialog now reaches Ready · Download
 - [x] Post-merge integration sweep (WP16–20 on main): nav labels §5.2 complete incl. Organization → Speaker CRM, Portals → Files/Communications; speakers spotlight union (WP17 dialogs + WP18 inline editor + attributed history verified with live bio edit); communications composer resolved preview; CRM four tabs; event switcher Create event preserved
+- [x] Step 13 rehearsal blockers (2026-08-11, ae6870e): decisions used the session's default event slug (hardcoded ai-engineer) — Accept on DevFlow failed "Submission not found"; requireManagedEvent/eventSlugById now resolve from the managed eventId. Participant role literal filters removed (roles are form-configured labels) so both co-speakers get decision emails, calendar invites, task reminders.
+- [x] CFP form editor unreachable: /admin/forms/$formId rendered the list (layout route without Outlet, same class as WP16 round editor) — un-nested to admin.forms_.$formId (1a01ab5), verified on prod
+- [x] Conditional-field values were free text while dropdown answers store option ids — organizer typing "Workshop" never matched fmt_…; condition editor now offers the source field's options (Select for equals, chips for is-one-of); verified end-to-end on public wizard
+- [x] Submissions-table submitted-at title hydration mismatch (UTC server vs local client) — formatter pinned to event timezone (9bb9ad0)
 
 ## Doctrine (from user, 2026-08-10)
 
