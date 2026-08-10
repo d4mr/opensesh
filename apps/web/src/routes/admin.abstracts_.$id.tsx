@@ -134,8 +134,12 @@ function SubmissionDetailRoute() {
   const completeDecision = (result: DecisionResult) => {
     const updated = result.submissions.find((item) => item.id === submission.id);
     if (updated !== undefined) setDetail(updated.status, updated.notifiedAt);
+    // Acceptance graduates abstracts to kind='session', so both desks change.
     void queryClient.invalidateQueries({
-      queryKey: reviewDeskListQuery(eventId, submission.kind).queryKey,
+      queryKey: reviewDeskListQuery(eventId, "abstract").queryKey,
+    });
+    void queryClient.invalidateQueries({
+      queryKey: reviewDeskListQuery(eventId, "session").queryKey,
     });
     void queryClient.invalidateQueries({ queryKey: reviewDeskDetailQuery(eventId, id).queryKey });
   };

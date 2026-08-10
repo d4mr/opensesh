@@ -65,6 +65,8 @@ const submissionRows = seedData.submissions.map((submission) => {
   const answers = answersForSeedSubmission(submission);
   return {
     ...submission,
+    // Accepted submissions have graduated to sessions (see review-desk accept).
+    kind: submission.status === "accepted" ? ("session" as const) : submission.kind,
     scheduleDirty: false,
     answers,
     approvedSnapshot: {

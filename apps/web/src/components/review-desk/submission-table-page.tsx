@@ -563,6 +563,10 @@ export function SubmissionTablePage({
     table.resetRowSelection(true);
     void queryClient.invalidateQueries({ queryKey: ["review-desk-detail", eventId] });
     void queryClient.invalidateQueries({ queryKey: ["evaluation-queue", eventId] });
+    // Acceptance graduates abstracts to kind='session' — refresh the other desk.
+    void queryClient.invalidateQueries({
+      queryKey: reviewDeskListQuery(eventId, kind === "abstract" ? "session" : "abstract").queryKey,
+    });
   };
 
   return (

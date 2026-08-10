@@ -1294,8 +1294,11 @@ export const PortalLive = Layer.effect(
           const updatedRows = yield* query(database, "Could not accept submission", (db) =>
             db
               .update(submissions)
+              // Accepted abstracts graduate into sessions (Sessionboard
+              // lifecycle); the row keeps its code, reviews, and history.
               .set({
                 status: "accepted",
+                kind: "session",
                 approvedSnapshot,
                 contentReviewStatus: "approved",
                 updatedAt: new Date(),

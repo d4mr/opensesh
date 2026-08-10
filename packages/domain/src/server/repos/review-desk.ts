@@ -282,7 +282,9 @@ const listQuery = (
         submissions,
         and(
           eq(submissions.eventId, events.id),
-          eq(submissions.kind, kind),
+          // Abstracts desk tracks the CFP lifecycle even after acceptance
+          // graduates a row to kind='session'; Sessions desk is kind-based.
+          kind === "abstract" ? isNotNull(submissions.sourceFormId) : eq(submissions.kind, kind),
           eq(submissions.eventId, eventId),
         ),
       )
@@ -1072,7 +1074,10 @@ export const ReviewDeskLive = Layer.effect(
               }
             }
             const candidates = targetRows.flatMap((row) => {
+              // Retry-idempotent: rows already at this status and notified
+              // (same WHERE as the status update below) get no second email.
               if (
+                (row.status === nextStatus && row.notifiedAt !== null) ||
                 row.contactId === null ||
                 row.contactEmail === null ||
                 row.contactFirstName === null
@@ -1150,7 +1155,14 @@ export const ReviewDeskLive = Layer.effect(
             });
             const updated = await transaction
               .update(submissions)
-              .set({ status: nextStatus, notifiedAt: now, updatedAt: now })
+              // Accepted abstracts graduate into sessions (Sessionboard
+              // lifecycle); the row keeps its code, reviews, and history.
+              .set({
+                status: nextStatus,
+                notifiedAt: now,
+                updatedAt: now,
+                ...(nextStatus === "accepted" ? { kind: "session" as const } : {}),
+              })
               .where(
                 and(
                   inArray(submissions.id, uniqueIds),
