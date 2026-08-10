@@ -9,6 +9,7 @@ const pages = [
   { slug: "speakers", label: "Speakers" },
   { slug: "agenda", label: "Agenda" },
   { slug: "itinerary", label: "Itinerary" },
+  { slug: "speakers/gallery", label: "Speaker Gallery" },
 ] as const;
 
 // Format in the event's timezone so SSR (UTC) and the browser agree — a
@@ -29,7 +30,15 @@ export function PublicShell({ event }: { readonly event: PublicProgram["event"] 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const nav = useRef<HTMLElement>(null);
   const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
-  const active = pages.findIndex((item) => pathname.includes(`/${item.slug}`));
+  // Longest matching slug wins so /speakers/gallery activates Gallery, not Speakers.
+  const active = pages.reduce(
+    (best, item, index) =>
+      pathname.includes(`/${item.slug}`) &&
+      item.slug.length > (best < 0 ? -1 : pages[best].slug.length)
+        ? index
+        : best,
+    -1,
+  );
   useEffect(() => {
     if (event.logoUrl === null) return;
     const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');

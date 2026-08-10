@@ -858,7 +858,7 @@ function AdminFileRequests({
     <main className="grid gap-4 p-4 lg:p-6">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-lg font-semibold">File requests</h1>
+          <h1 className="text-lg font-semibold">Deliverables</h1>
           <p className="text-xs text-muted-foreground">
             Versioned uploads and cross-role review threads.
           </p>

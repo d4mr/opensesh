@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { PortalProfile } from "@/components/portal/portal-profile";
+import { PortalSessions } from "@/components/portal/portal-sessions";
 import { PortalSubmissions } from "@/components/portal/portal-submissions";
 import { PortalTasks } from "@/components/portal/portal-tasks";
 import { speakerPortalQuery } from "@/lib/portal-queries";
@@ -26,6 +27,7 @@ function PortalPage() {
         }
       />
     );
+  if (section === "sessions") return <PortalSessions />;
   if (section === "profile") return <PortalProfile />;
   if (section === "tasks") return <PortalTasks />;
   return <p className="p-6 text-sm text-muted-foreground">Portal page not found.</p>;

@@ -85,7 +85,7 @@ function FormsList() {
     <main className="flex-1 p-4 text-sm lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold">Submission forms</h1>
+          <h1 className="text-lg font-semibold">Call for Papers</h1>
           <p className="text-sm text-muted-foreground">
             Collect proposals and participant information for {context.event.name}.
           </p>

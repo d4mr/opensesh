@@ -42,20 +42,20 @@ interface NavItem {
 }
 
 const allItems: ReadonlyArray<NavItem> = [
-  { title: "Dashboard", icon: GaugeIcon },
-  { title: "Abstracts", section: "abstracts", icon: FileTextIcon },
+  { title: "Overview", icon: GaugeIcon },
+  { title: "Submissions", section: "abstracts", icon: FileTextIcon },
   { title: "Sessions", section: "sessions", icon: SquareStackIcon },
   { title: "Content", section: "content", icon: FileCheckIcon },
   { title: "Speakers", section: "speakers", icon: UsersIcon },
-  { title: "Forms", section: "forms", icon: FileInputIcon },
+  { title: "Call for Papers", section: "forms", icon: FileInputIcon },
   { title: "Evaluation", section: "evaluation", icon: ClipboardCheckIcon },
   { title: "Agenda", section: "agenda", icon: CalendarDaysIcon },
   { title: "Widgets", section: "widgets", icon: Code2Icon },
   { title: "Tasks", section: "tasks", icon: CheckSquareIcon },
   { title: "Email delivery", section: "emails", icon: MailIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
-  { title: "File Requests", section: "file-requests", icon: PanelTopIcon },
-  { title: "Settings", section: "settings", icon: SettingsIcon },
+  { title: "Deliverables", section: "file-requests", icon: PanelTopIcon },
+  { title: "Event Settings", section: "settings", icon: SettingsIcon },
 ];
 
 const readSidebarOpen = () => {
@@ -106,7 +106,7 @@ export function AdminShell({
       item.section === undefined
         ? pathname === "/admin"
         : pathname === `/admin/${item.section}` || pathname.startsWith(`/admin/${item.section}/`),
-    )?.title ?? "Dashboard";
+    )?.title ?? "Overview";
 
   useEffect(() => {
     const onKeyDown = (keyboardEvent: KeyboardEvent) => {

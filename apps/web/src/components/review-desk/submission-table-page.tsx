@@ -593,7 +593,9 @@ export function SubmissionTablePage({
         list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
           <div className="flex h-full min-h-0 flex-col p-4 lg:p-6">
             <div className="mb-4">
-              <h1 className="text-lg font-semibold capitalize">{kind}s</h1>
+              <h1 className="text-lg font-semibold">
+                {kind === "abstract" ? "Submissions" : "Sessions"}
+              </h1>
               <p className="text-sm text-muted-foreground">
                 Review and manage {kind} submissions for {context.event.name}.
               </p>

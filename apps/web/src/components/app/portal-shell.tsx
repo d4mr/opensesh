@@ -8,9 +8,10 @@ import { EventIcon } from "@/components/app/event-icon";
 
 const nav = [
   { title: "Home" },
-  { title: "Submissions", section: "submissions" },
-  { title: "Profile", section: "profile" },
+  { title: "My Submissions", section: "submissions" },
+  { title: "My Sessions", section: "sessions" },
   { title: "Tasks", section: "tasks" },
+  { title: "Profile", section: "profile" },
 ];
 
 const activeIndexForPath = (pathname: string) =>
