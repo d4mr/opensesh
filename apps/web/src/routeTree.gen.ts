@@ -19,6 +19,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
 import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
 import { Route as AdminAgendaRouteImport } from './routes/admin.agenda'
+import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
 import { Route as AdminEmailsRouteImport } from './routes/admin.emails'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
@@ -96,6 +97,11 @@ const AdminAbstractsRoute = AdminAbstractsRouteImport.update({
 const AdminAgendaRoute = AdminAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCommunicationsRoute = AdminCommunicationsRouteImport.update({
+  id: '/communications',
+  path: '/communications',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminEmailsRoute = AdminEmailsRouteImport.update({
@@ -250,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
@@ -288,6 +295,7 @@ export interface FileRoutesByTo {
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
@@ -328,6 +336,7 @@ export interface FileRoutesById {
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/communications': typeof AdminCommunicationsRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
+    | '/admin/communications'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
+    | '/admin/communications'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
+    | '/admin/communications'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
@@ -560,6 +572,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/admin/agenda'
       preLoaderRoute: typeof AdminAgendaRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/communications': {
+      id: '/admin/communications'
+      path: '/communications'
+      fullPath: '/admin/communications'
+      preLoaderRoute: typeof AdminCommunicationsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/emails': {
@@ -777,6 +796,7 @@ interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
   AdminAbstractsRoute: typeof AdminAbstractsRoute
   AdminAgendaRoute: typeof AdminAgendaRoute
+  AdminCommunicationsRoute: typeof AdminCommunicationsRoute
   AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
@@ -795,6 +815,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
   AdminAbstractsRoute: AdminAbstractsRoute,
   AdminAgendaRoute: AdminAgendaRoute,
+  AdminCommunicationsRoute: AdminCommunicationsRoute,
   AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,

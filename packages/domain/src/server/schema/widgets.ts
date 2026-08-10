@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
 import { EmailStatus, EmailType, FileKind, TaskStatus } from "./portal";
+import { SpeakerWorkflowStatus } from "./submissions";
 
 export const WidgetView = Schema.Literals([
   "sessions",
@@ -149,8 +150,11 @@ export const SpeakerCsvRow = Schema.Struct({
   facebook: NullableString,
   website: NullableString,
   phone: NullableString,
+  action: Schema.Literals(["create", "update", "skip"]),
 });
 export type SpeakerCsvRow = typeof SpeakerCsvRow.Type;
+export const dedupeSpeakerCsvRows = (rows: ReadonlyArray<SpeakerCsvRow>) =>
+  Array.from(new Map(rows.map((row) => [row.email.trim().toLowerCase(), row])).values());
 export const SpeakerCsvImportRequest = Schema.Struct({
   eventId: Schema.String,
   rows: Schema.Array(SpeakerCsvRow),
@@ -174,6 +178,8 @@ export const SpeakerDirectoryRow = Schema.Struct({
     twitterUrl: NullableString,
     facebookUrl: NullableString,
     websiteUrl: NullableString,
+    workflowStatus: SpeakerWorkflowStatus,
+    custom: JsonObject,
   }),
   sessions: Schema.Array(
     Schema.Struct({ id: Schema.String, code: Schema.String, title: Schema.String }),
@@ -195,6 +201,9 @@ export const SpeakerDirectoryRow = Schema.Struct({
       kind: FileKind,
       label: Schema.String,
       uploadedAt: Schema.Date,
+      contentType: Schema.String,
+      size: Schema.Number,
+      uploaderName: Schema.String,
     }),
   ),
   emails: Schema.Array(

@@ -15,6 +15,7 @@ import { ReadModelsLive } from "./read-models";
 import { ReviewsLive } from "./reviews";
 import { ReviewDeskLive } from "./review-desk";
 import { SubmissionsLive } from "./submissions";
+import { SpeakerCommsLive } from "./speaker-comms";
 import { TasksLive } from "./tasks";
 import { WidgetsLive } from "./widgets";
 
@@ -32,6 +33,7 @@ import type { ReadModels } from "./read-models";
 import type { Reviews } from "./reviews";
 import type { ReviewDesk } from "./review-desk";
 import type { Submissions } from "./submissions";
+import type { SpeakerComms } from "./speaker-comms";
 import type { Tasks } from "./tasks";
 import type { Widgets } from "./widgets";
 
@@ -49,6 +51,7 @@ export * from "./read-models";
 export * from "./reviews";
 export * from "./review-desk";
 export * from "./submissions";
+export * from "./speaker-comms";
 export * from "./tasks";
 export * from "./widgets";
 
@@ -67,6 +70,7 @@ export type RepositoryServices =
   | Reviews
   | ReviewDesk
   | Submissions
+  | SpeakerComms
   | Tasks
   | Widgets;
 
@@ -85,6 +89,7 @@ const RepositoriesLive = Layer.mergeAll(
   ReviewsLive,
   ReviewDeskLive,
   SubmissionsLive,
+  SpeakerCommsLive,
   TasksLive,
   WidgetsLive,
 );
