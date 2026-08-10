@@ -10,6 +10,13 @@
     "MAIL_FROM": "auth@opensesh.io",
   },
   "send_email": [{ "name": "EMAIL" }],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "444bb6f8798144dcaae2dd671459ac2d"
+    }
+  ],
+  "placement": { "mode": "smart" },
   "d1_databases": [
     {
       "binding": "DB",
