@@ -10,6 +10,7 @@
     "./server/cfp": "./src/server/cfp.ts",
     "./server/errors": "./src/server/errors.ts",
     "./server/mail": "./src/server/mail.ts",
+    "./server/mail/ics": "./src/server/mail/ics.ts",
     "./server/repos": "./src/server/repos/index.ts",
     "./server/schema/auth": "./src/server/schema/auth.ts",
     "./server/schema/core": "./src/server/schema/core.ts",

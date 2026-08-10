@@ -119,6 +119,29 @@
   --sidebar-ring: var(--ring);
 }
 
+/* A forced-light embed must override a dark host/system preference inside its
+   own iframe document. These values mirror the canonical :root theme above. */
+.dark .embed-root.light {
+  --background: #fafaf7;
+  --foreground: #1b211d;
+  --card: #ffffff;
+  --card-foreground: #1b211d;
+  --popover: #ffffff;
+  --popover-foreground: #1b211d;
+  --primary: #1d6b4c;
+  --primary-foreground: #f5fbf7;
+  --secondary: #edf3ee;
+  --secondary-foreground: #1d4634;
+  --muted: #f1f2ec;
+  --muted-foreground: #5b6560;
+  --accent: #eaf2eb;
+  --accent-foreground: #1d4634;
+  --border: #e3e5dc;
+  --input: #e3e5dc;
+  --ring: #1d6b4c;
+  color-scheme: light;
+}
+
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -211,6 +234,18 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@media print {
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
   }
 }
 

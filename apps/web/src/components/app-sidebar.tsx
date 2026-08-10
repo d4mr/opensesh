@@ -11,6 +11,7 @@ import {
   ListChecksIcon,
   MailIcon,
   PanelTopIcon,
+  Code2Icon,
   SettingsIcon,
   SquareStackIcon,
   UsersIcon,
@@ -37,6 +38,7 @@ const program: ReadonlyArray<AdminNavItem> = [
   { title: "Forms", section: "forms", icon: <FileInputIcon /> },
   { title: "Evaluation", section: "evaluation", icon: <ClipboardCheckIcon /> },
   { title: "Agenda", section: "agenda", icon: <CalendarDaysIcon /> },
+  { title: "Widgets", section: "widgets", icon: <Code2Icon /> },
 ];
 const portals: ReadonlyArray<AdminNavItem> = [
   { title: "Tasks", section: "tasks", icon: <CheckSquareIcon /> },

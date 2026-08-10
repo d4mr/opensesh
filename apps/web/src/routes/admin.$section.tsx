@@ -11,6 +11,7 @@ const titles: Readonly<Record<string, string>> = {
   forms: "Forms",
   evaluation: "Evaluation",
   agenda: "Agenda",
+  widgets: "Widgets",
   tasks: "Tasks",
   "portal-forms": "Portal Forms",
   "file-requests": "File Requests",

@@ -2,6 +2,7 @@ CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rej
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
+CREATE TYPE "embed_view" AS ENUM('sessions', 'speakers', 'speaker_gallery', 'agenda', 'itinerary');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
 CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
 CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file');--> statement-breakpoint
@@ -67,6 +68,17 @@ CREATE TABLE "verifications" (
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "embeds" (
+	"id" text PRIMARY KEY,
+	"event_id" text NOT NULL,
+	"name" text NOT NULL,
+	"view" "embed_view" NOT NULL,
+	"enabled" boolean DEFAULT true NOT NULL,
+	"options" jsonb DEFAULT '{}' NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
 );
@@ -492,6 +504,7 @@ CREATE INDEX "organization_invitations_email_idx" ON "organization_invitations" 
 CREATE INDEX "organization_members_user_idx" ON "organization_members" ("user_id");--> statement-breakpoint
 CREATE INDEX "sessions_user_id_idx" ON "sessions" ("user_id");--> statement-breakpoint
 CREATE INDEX "verifications_identifier_idx" ON "verifications" ("identifier");--> statement-breakpoint
+CREATE INDEX "embeds_event_idx" ON "embeds" ("event_id");--> statement-breakpoint
 CREATE INDEX "event_members_event_idx" ON "event_members" ("event_id");--> statement-breakpoint
 CREATE INDEX "formats_event_idx" ON "formats" ("event_id");--> statement-breakpoint
 CREATE INDEX "levels_event_idx" ON "levels" ("event_id");--> statement-breakpoint
@@ -530,6 +543,7 @@ ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_organiza
 ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_active_organization_id_organizations_id_fkey" FOREIGN KEY ("active_organization_id") REFERENCES "organizations"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "embeds" ADD CONSTRAINT "embeds_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_members" ADD CONSTRAINT "event_members_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_members" ADD CONSTRAINT "event_members_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint

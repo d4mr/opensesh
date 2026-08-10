@@ -67,3 +67,10 @@ export const invitationStatus = pgEnum("invitation_status", [
   "rejected",
   "canceled",
 ]);
+export const embedView = pgEnum("embed_view", [
+  "sessions",
+  "speakers",
+  "speaker_gallery",
+  "agenda",
+  "itinerary",
+]);

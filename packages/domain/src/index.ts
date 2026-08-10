@@ -17,3 +17,4 @@ export * from "./server/schema/mail";
 export * from "./server/schema/portal";
 export * from "./server/schema/review-desk";
 export * from "./server/schema/submissions";
+export * from "./server/schema/widgets";

@@ -24,7 +24,10 @@ import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminSpeakersRouteImport } from './routes/admin.speakers'
+import { Route as AdminWidgetsRouteImport } from './routes/admin.widgets'
 import { Route as ESplatRouteImport } from './routes/e.$'
+import { Route as EEventSlugRouteImport } from './routes/e.$eventSlug'
+import { Route as EmbedEmbedIdRouteImport } from './routes/embed.$embedId'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
@@ -33,8 +36,14 @@ import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms.$form
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as EEventSlugIndexRouteImport } from './routes/e.$eventSlug.index'
 import { Route as EEventSlugAgendaRouteImport } from './routes/e.$eventSlug.agenda'
+import { Route as EEventSlugItineraryRouteImport } from './routes/e.$eventSlug.itinerary'
+import { Route as EEventSlugSessionsRouteImport } from './routes/e.$eventSlug.sessions'
+import { Route as EEventSlugSpeakersRouteImport } from './routes/e.$eventSlug.speakers'
 import { Route as SubmitEventSlugFormIdRouteImport } from './routes/submit.$eventSlug.$formId'
+import { Route as EEventSlugSessionsCodeRouteImport } from './routes/e.$eventSlug.sessions_.$code'
+import { Route as EEventSlugSpeakersGalleryRouteImport } from './routes/e.$eventSlug.speakers_.gallery'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -111,10 +120,25 @@ const AdminSpeakersRoute = AdminSpeakersRouteImport.update({
   path: '/speakers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminWidgetsRoute = AdminWidgetsRouteImport.update({
+  id: '/widgets',
+  path: '/widgets',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ESplatRoute = ESplatRouteImport.update({
   id: '/$',
   path: '/$',
   getParentRoute: () => ERoute,
+} as any)
+const EEventSlugRoute = EEventSlugRouteImport.update({
+  id: '/$eventSlug',
+  path: '/$eventSlug',
+  getParentRoute: () => ERoute,
+} as any)
+const EmbedEmbedIdRoute = EmbedEmbedIdRouteImport.update({
+  id: '/embed/$embedId',
+  path: '/embed/$embedId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/',
@@ -156,16 +180,47 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EEventSlugIndexRoute = EEventSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EEventSlugRoute,
+} as any)
 const EEventSlugAgendaRoute = EEventSlugAgendaRouteImport.update({
-  id: '/$eventSlug/agenda',
-  path: '/$eventSlug/agenda',
-  getParentRoute: () => ERoute,
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => EEventSlugRoute,
+} as any)
+const EEventSlugItineraryRoute = EEventSlugItineraryRouteImport.update({
+  id: '/itinerary',
+  path: '/itinerary',
+  getParentRoute: () => EEventSlugRoute,
+} as any)
+const EEventSlugSessionsRoute = EEventSlugSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => EEventSlugRoute,
+} as any)
+const EEventSlugSpeakersRoute = EEventSlugSpeakersRouteImport.update({
+  id: '/speakers',
+  path: '/speakers',
+  getParentRoute: () => EEventSlugRoute,
 } as any)
 const SubmitEventSlugFormIdRoute = SubmitEventSlugFormIdRouteImport.update({
   id: '/$eventSlug/$formId',
   path: '/$eventSlug/$formId',
   getParentRoute: () => SubmitRoute,
 } as any)
+const EEventSlugSessionsCodeRoute = EEventSlugSessionsCodeRouteImport.update({
+  id: '/sessions_/$code',
+  path: '/sessions/$code',
+  getParentRoute: () => EEventSlugRoute,
+} as any)
+const EEventSlugSpeakersGalleryRoute =
+  EEventSlugSpeakersGalleryRouteImport.update({
+    id: '/speakers_/gallery',
+    path: '/speakers/gallery',
+    getParentRoute: () => EEventSlugRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -182,7 +237,10 @@ export interface FileRoutesByFullPath {
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
+  '/admin/widgets': typeof AdminWidgetsRoute
   '/e/$': typeof ESplatRoute
+  '/e/$eventSlug': typeof EEventSlugRouteWithChildren
+  '/embed/$embedId': typeof EmbedEmbedIdRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
@@ -193,7 +251,13 @@ export interface FileRoutesByFullPath {
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
+  '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
+  '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
+  '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
+  '/e/$eventSlug/': typeof EEventSlugIndexRoute
+  '/e/$eventSlug/sessions/$code': typeof EEventSlugSessionsCodeRoute
+  '/e/$eventSlug/speakers/gallery': typeof EEventSlugSpeakersGalleryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -208,7 +272,9 @@ export interface FileRoutesByTo {
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
+  '/admin/widgets': typeof AdminWidgetsRoute
   '/e/$': typeof ESplatRoute
+  '/embed/$embedId': typeof EmbedEmbedIdRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin': typeof AdminIndexRoute
@@ -219,7 +285,13 @@ export interface FileRoutesByTo {
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
+  '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
+  '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
+  '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
+  '/e/$eventSlug': typeof EEventSlugIndexRoute
+  '/e/$eventSlug/sessions/$code': typeof EEventSlugSessionsCodeRoute
+  '/e/$eventSlug/speakers/gallery': typeof EEventSlugSpeakersGalleryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -237,7 +309,10 @@ export interface FileRoutesById {
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
+  '/admin/widgets': typeof AdminWidgetsRoute
   '/e/$': typeof ESplatRoute
+  '/e/$eventSlug': typeof EEventSlugRouteWithChildren
+  '/embed/$embedId': typeof EmbedEmbedIdRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
@@ -248,7 +323,13 @@ export interface FileRoutesById {
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
+  '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
+  '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
+  '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
+  '/e/$eventSlug/': typeof EEventSlugIndexRoute
+  '/e/$eventSlug/sessions_/$code': typeof EEventSlugSessionsCodeRoute
+  '/e/$eventSlug/speakers_/gallery': typeof EEventSlugSpeakersGalleryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -267,7 +348,10 @@ export interface FileRouteTypes {
     | '/admin/forms'
     | '/admin/sessions'
     | '/admin/speakers'
+    | '/admin/widgets'
     | '/e/$'
+    | '/e/$eventSlug'
+    | '/embed/$embedId'
     | '/portal/$section'
     | '/submit/$'
     | '/admin/'
@@ -278,7 +362,13 @@ export interface FileRouteTypes {
     | '/admin/settings/library'
     | '/api/auth/$'
     | '/e/$eventSlug/agenda'
+    | '/e/$eventSlug/itinerary'
+    | '/e/$eventSlug/sessions'
+    | '/e/$eventSlug/speakers'
     | '/submit/$eventSlug/$formId'
+    | '/e/$eventSlug/'
+    | '/e/$eventSlug/sessions/$code'
+    | '/e/$eventSlug/speakers/gallery'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -293,7 +383,9 @@ export interface FileRouteTypes {
     | '/admin/forms'
     | '/admin/sessions'
     | '/admin/speakers'
+    | '/admin/widgets'
     | '/e/$'
+    | '/embed/$embedId'
     | '/portal/$section'
     | '/submit/$'
     | '/admin'
@@ -304,7 +396,13 @@ export interface FileRouteTypes {
     | '/admin/settings/library'
     | '/api/auth/$'
     | '/e/$eventSlug/agenda'
+    | '/e/$eventSlug/itinerary'
+    | '/e/$eventSlug/sessions'
+    | '/e/$eventSlug/speakers'
     | '/submit/$eventSlug/$formId'
+    | '/e/$eventSlug'
+    | '/e/$eventSlug/sessions/$code'
+    | '/e/$eventSlug/speakers/gallery'
   id:
     | '__root__'
     | '/'
@@ -321,7 +419,10 @@ export interface FileRouteTypes {
     | '/admin/forms'
     | '/admin/sessions'
     | '/admin/speakers'
+    | '/admin/widgets'
     | '/e/$'
+    | '/e/$eventSlug'
+    | '/embed/$embedId'
     | '/portal/$section'
     | '/submit/$'
     | '/admin/'
@@ -332,7 +433,13 @@ export interface FileRouteTypes {
     | '/admin/settings/library'
     | '/api/auth/$'
     | '/e/$eventSlug/agenda'
+    | '/e/$eventSlug/itinerary'
+    | '/e/$eventSlug/sessions'
+    | '/e/$eventSlug/speakers'
     | '/submit/$eventSlug/$formId'
+    | '/e/$eventSlug/'
+    | '/e/$eventSlug/sessions_/$code'
+    | '/e/$eventSlug/speakers_/gallery'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -342,6 +449,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PortalRoute: typeof PortalRouteWithChildren
   SubmitRoute: typeof SubmitRouteWithChildren
+  EmbedEmbedIdRoute: typeof EmbedEmbedIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -452,12 +560,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSpeakersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/widgets': {
+      id: '/admin/widgets'
+      path: '/widgets'
+      fullPath: '/admin/widgets'
+      preLoaderRoute: typeof AdminWidgetsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/e/$': {
       id: '/e/$'
       path: '/$'
       fullPath: '/e/$'
       preLoaderRoute: typeof ESplatRouteImport
       parentRoute: typeof ERoute
+    }
+    '/e/$eventSlug': {
+      id: '/e/$eventSlug'
+      path: '/$eventSlug'
+      fullPath: '/e/$eventSlug'
+      preLoaderRoute: typeof EEventSlugRouteImport
+      parentRoute: typeof ERoute
+    }
+    '/embed/$embedId': {
+      id: '/embed/$embedId'
+      path: '/embed/$embedId'
+      fullPath: '/embed/$embedId'
+      preLoaderRoute: typeof EmbedEmbedIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/portal/': {
       id: '/portal/'
@@ -515,12 +644,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/e/$eventSlug/': {
+      id: '/e/$eventSlug/'
+      path: '/'
+      fullPath: '/e/$eventSlug/'
+      preLoaderRoute: typeof EEventSlugIndexRouteImport
+      parentRoute: typeof EEventSlugRoute
+    }
     '/e/$eventSlug/agenda': {
       id: '/e/$eventSlug/agenda'
-      path: '/$eventSlug/agenda'
+      path: '/agenda'
       fullPath: '/e/$eventSlug/agenda'
       preLoaderRoute: typeof EEventSlugAgendaRouteImport
-      parentRoute: typeof ERoute
+      parentRoute: typeof EEventSlugRoute
+    }
+    '/e/$eventSlug/itinerary': {
+      id: '/e/$eventSlug/itinerary'
+      path: '/itinerary'
+      fullPath: '/e/$eventSlug/itinerary'
+      preLoaderRoute: typeof EEventSlugItineraryRouteImport
+      parentRoute: typeof EEventSlugRoute
+    }
+    '/e/$eventSlug/sessions': {
+      id: '/e/$eventSlug/sessions'
+      path: '/sessions'
+      fullPath: '/e/$eventSlug/sessions'
+      preLoaderRoute: typeof EEventSlugSessionsRouteImport
+      parentRoute: typeof EEventSlugRoute
+    }
+    '/e/$eventSlug/speakers': {
+      id: '/e/$eventSlug/speakers'
+      path: '/speakers'
+      fullPath: '/e/$eventSlug/speakers'
+      preLoaderRoute: typeof EEventSlugSpeakersRouteImport
+      parentRoute: typeof EEventSlugRoute
     }
     '/submit/$eventSlug/$formId': {
       id: '/submit/$eventSlug/$formId'
@@ -528,6 +685,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/submit/$eventSlug/$formId'
       preLoaderRoute: typeof SubmitEventSlugFormIdRouteImport
       parentRoute: typeof SubmitRoute
+    }
+    '/e/$eventSlug/sessions_/$code': {
+      id: '/e/$eventSlug/sessions_/$code'
+      path: '/sessions/$code'
+      fullPath: '/e/$eventSlug/sessions/$code'
+      preLoaderRoute: typeof EEventSlugSessionsCodeRouteImport
+      parentRoute: typeof EEventSlugRoute
+    }
+    '/e/$eventSlug/speakers_/gallery': {
+      id: '/e/$eventSlug/speakers_/gallery'
+      path: '/speakers/gallery'
+      fullPath: '/e/$eventSlug/speakers/gallery'
+      preLoaderRoute: typeof EEventSlugSpeakersGalleryRouteImport
+      parentRoute: typeof EEventSlugRoute
     }
   }
 }
@@ -553,6 +724,7 @@ interface AdminRouteChildren {
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
   AdminSessionsRoute: typeof AdminSessionsRoute
   AdminSpeakersRoute: typeof AdminSpeakersRoute
+  AdminWidgetsRoute: typeof AdminWidgetsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
@@ -568,6 +740,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminFormsRoute: AdminFormsRouteWithChildren,
   AdminSessionsRoute: AdminSessionsRoute,
   AdminSpeakersRoute: AdminSpeakersRoute,
+  AdminWidgetsRoute: AdminWidgetsRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAbstractsIdRoute: AdminAbstractsIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
@@ -576,14 +749,38 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface EEventSlugRouteChildren {
+  EEventSlugAgendaRoute: typeof EEventSlugAgendaRoute
+  EEventSlugItineraryRoute: typeof EEventSlugItineraryRoute
+  EEventSlugSessionsRoute: typeof EEventSlugSessionsRoute
+  EEventSlugSpeakersRoute: typeof EEventSlugSpeakersRoute
+  EEventSlugIndexRoute: typeof EEventSlugIndexRoute
+  EEventSlugSessionsCodeRoute: typeof EEventSlugSessionsCodeRoute
+  EEventSlugSpeakersGalleryRoute: typeof EEventSlugSpeakersGalleryRoute
+}
+
+const EEventSlugRouteChildren: EEventSlugRouteChildren = {
+  EEventSlugAgendaRoute: EEventSlugAgendaRoute,
+  EEventSlugItineraryRoute: EEventSlugItineraryRoute,
+  EEventSlugSessionsRoute: EEventSlugSessionsRoute,
+  EEventSlugSpeakersRoute: EEventSlugSpeakersRoute,
+  EEventSlugIndexRoute: EEventSlugIndexRoute,
+  EEventSlugSessionsCodeRoute: EEventSlugSessionsCodeRoute,
+  EEventSlugSpeakersGalleryRoute: EEventSlugSpeakersGalleryRoute,
+}
+
+const EEventSlugRouteWithChildren = EEventSlugRoute._addFileChildren(
+  EEventSlugRouteChildren,
+)
+
 interface ERouteChildren {
   ESplatRoute: typeof ESplatRoute
-  EEventSlugAgendaRoute: typeof EEventSlugAgendaRoute
+  EEventSlugRoute: typeof EEventSlugRouteWithChildren
 }
 
 const ERouteChildren: ERouteChildren = {
   ESplatRoute: ESplatRoute,
-  EEventSlugAgendaRoute: EEventSlugAgendaRoute,
+  EEventSlugRoute: EEventSlugRouteWithChildren,
 }
 
 const ERouteWithChildren = ERoute._addFileChildren(ERouteChildren)
@@ -621,6 +818,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PortalRoute: PortalRouteWithChildren,
   SubmitRoute: SubmitRouteWithChildren,
+  EmbedEmbedIdRoute: EmbedEmbedIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
