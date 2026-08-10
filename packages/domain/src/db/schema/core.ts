@@ -1,7 +1,32 @@
-import { index, integer, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 
 import { eventMemberRole, id, timestamps } from "../columns";
 import { organizations, users } from "./identity";
+
+interface PublishedAgendaRecord {
+  readonly id: string;
+  readonly code: string;
+  readonly title: string;
+  readonly description: string;
+  readonly startsAt: string;
+  readonly endsAt: string;
+  readonly roomName: string;
+  readonly tracks: ReadonlyArray<{
+    readonly id: string;
+    readonly name: string;
+    readonly color: string;
+  }>;
+  readonly speakers: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+}
 
 export const events = pgTable("events", {
   id: id(),
@@ -22,6 +47,12 @@ export const events = pgTable("events", {
   logoUrl: text("logo_url"),
   backgroundUrl: text("background_url"),
   defaultSubmissionLimit: integer("default_submission_limit").notNull().default(3),
+  agendaPublishedAt: timestamp("agenda_published_at", { withTimezone: true }),
+  publishedAgenda: jsonb("published_agenda")
+    .$type<ReadonlyArray<PublishedAgendaRecord>>()
+    .notNull()
+    .default([]),
+  agendaDirty: boolean("agenda_dirty").notNull().default(false),
   ...timestamps,
 });
 

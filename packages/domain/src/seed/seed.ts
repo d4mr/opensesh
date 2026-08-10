@@ -65,6 +65,7 @@ const submissionRows = seedData.submissions.map((submission) => {
   const answers = answersForSeedSubmission(submission);
   return {
     ...submission,
+    scheduleDirty: false,
     answers,
     approvedSnapshot: {
       title: submission.title,

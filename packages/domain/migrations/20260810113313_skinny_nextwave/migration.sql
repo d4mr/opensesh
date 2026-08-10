@@ -98,6 +98,9 @@ CREATE TABLE "events" (
 	"logo_url" text,
 	"background_url" text,
 	"default_submission_limit" integer DEFAULT 3 NOT NULL,
+	"agenda_published_at" timestamp with time zone,
+	"published_agenda" jsonb DEFAULT '[]' NOT NULL,
+	"agenda_dirty" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
 );
@@ -444,6 +447,7 @@ CREATE TABLE "submissions" (
 	"starts_at" timestamp with time zone,
 	"ends_at" timestamp with time zone,
 	"room_id" text,
+	"schedule_dirty" boolean DEFAULT false NOT NULL,
 	"capacity" integer,
 	"ceu_credits" integer,
 	"client_session_id" text,

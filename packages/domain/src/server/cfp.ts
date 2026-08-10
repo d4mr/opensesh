@@ -162,6 +162,7 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
       startsAt: null,
       endsAt: null,
       roomId: null,
+      scheduleDirty: false,
       capacity: null,
       ceuCredits: null,
       clientSessionId: null,

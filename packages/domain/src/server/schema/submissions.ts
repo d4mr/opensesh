@@ -83,6 +83,7 @@ const submissionFields = {
   startsAt: NullableDate,
   endsAt: NullableDate,
   roomId: NullableString,
+  scheduleDirty: Schema.Boolean,
   capacity: NullableNumber,
   ceuCredits: NullableNumber,
   clientSessionId: NullableString,

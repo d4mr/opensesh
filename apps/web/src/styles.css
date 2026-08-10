@@ -222,6 +222,38 @@
   transform: scale(0.97);
 }
 
+.agenda-highlight::after {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--primary);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  animation: agenda-highlight-pulse 2s var(--ease-out);
+}
+
+@keyframes agenda-highlight-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  20%,
+  65% {
+    opacity: 1;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .group:hover > .agenda-block-action {
+    opacity: 1;
+  }
+
+  .agenda-resize-handle:hover > span {
+    background: var(--foreground);
+    opacity: 0.45;
+  }
+}
+
 .conditional-field {
   max-height: 0;
   opacity: 0;
@@ -432,6 +464,11 @@
 
   .wizard-fields > * {
     animation: none;
+  }
+
+  .agenda-highlight::after {
+    animation: none;
+    opacity: 1;
   }
 
   .portal-home-card {

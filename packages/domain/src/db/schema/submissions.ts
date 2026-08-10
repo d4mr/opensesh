@@ -1,4 +1,13 @@
-import { index, integer, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 import type { Schema } from "effect";
 
 import {
@@ -72,6 +81,7 @@ export const submissions = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true }),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     roomId: text("room_id").references(() => rooms.id, { onDelete: "set null" }),
+    scheduleDirty: boolean("schedule_dirty").notNull().default(false),
     capacity: integer("capacity"),
     ceuCredits: integer("ceu_credits"),
     clientSessionId: text("client_session_id"),

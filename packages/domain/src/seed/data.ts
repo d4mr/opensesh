@@ -18,6 +18,9 @@ export const seedData = {
         "d" +
         "129620?auto=format&fit=crop&w=1800&q=80",
       defaultSubmissionLimit: 3,
+      agendaPublishedAt: null,
+      publishedAgenda: [],
+      agendaDirty: false,
       createdAt: new Date(1785585600000),
       updatedAt: new Date(1785585600000),
       organizationId: "org_ai_engineer",

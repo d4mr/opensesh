@@ -78,6 +78,9 @@ export const createEvent = createServerFn({ method: "POST" })
             logoUrl: null,
             backgroundUrl: null,
             defaultSubmissionLimit: 3,
+            agendaPublishedAt: null,
+            publishedAgenda: [],
+            agendaDirty: false,
           },
           user.userId,
         );
