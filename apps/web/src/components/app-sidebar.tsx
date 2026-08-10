@@ -4,6 +4,7 @@ import {
   CalendarDaysIcon,
   CheckSquareIcon,
   ClipboardCheckIcon,
+  FileCheckIcon,
   FileInputIcon,
   FileTextIcon,
   GaugeIcon,
@@ -30,6 +31,7 @@ const dashboard: ReadonlyArray<AdminNavItem> = [{ title: "Dashboard", icon: <Gau
 const program: ReadonlyArray<AdminNavItem> = [
   { title: "Abstracts", section: "abstracts", icon: <FileTextIcon /> },
   { title: "Sessions", section: "sessions", icon: <SquareStackIcon /> },
+  { title: "Content", section: "content", icon: <FileCheckIcon /> },
   { title: "Speakers", section: "speakers", icon: <UsersIcon /> },
   { title: "Forms", section: "forms", icon: <FileInputIcon /> },
   { title: "Evaluation", section: "evaluation", icon: <ClipboardCheckIcon /> },
@@ -92,7 +94,7 @@ export function AppSidebar({
         <NavMain
           label="Program"
           items={program.map((item) =>
-            item.section === "sessions" ? { ...item, badge: pendingContentChanges } : item,
+            item.section === "content" ? { ...item, badge: pendingContentChanges } : item,
           )}
           pathname={pathname}
         />

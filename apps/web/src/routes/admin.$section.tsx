@@ -7,6 +7,7 @@ import { adminPortalQuery } from "@/lib/portal-queries";
 const titles: Readonly<Record<string, string>> = {
   abstracts: "Abstracts",
   sessions: "Sessions",
+  content: "Content",
   forms: "Forms",
   evaluation: "Evaluation",
   agenda: "Agenda",
@@ -18,7 +19,7 @@ const titles: Readonly<Record<string, string>> = {
 
 export const Route = createFileRoute("/admin/$section")({
   loader: ({ context, params }) =>
-    ["tasks", "portal-forms", "file-requests", "sessions"].includes(params.section)
+    ["tasks", "portal-forms", "file-requests", "content"].includes(params.section)
       ? context.queryClient.ensureQueryData(adminPortalQuery("evt_aie_nyc_2026"))
       : undefined,
   component: AdminPage,
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/admin/$section")({
 
 function AdminPage() {
   const { section } = Route.useParams();
-  if (["tasks", "portal-forms", "file-requests", "sessions"].includes(section)) {
+  if (["tasks", "portal-forms", "file-requests", "content"].includes(section)) {
     return <PortalAdminSection section={section} />;
   }
   return <PagePlaceholder title={titles[section] ?? "Program"} />;

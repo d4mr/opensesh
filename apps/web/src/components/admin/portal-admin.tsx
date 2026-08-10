@@ -95,7 +95,7 @@ function PortalAdminData({
     return <AdminPortalForms eventId={eventId} data={portal.data.data} />;
   if (section === "file-requests")
     return <AdminFileRequests eventId={eventId} data={portal.data.data} />;
-  if (section === "sessions") return <AdminSessions eventId={eventId} data={portal.data.data} />;
+  if (section === "content") return <AdminSessions eventId={eventId} data={portal.data.data} />;
   return null;
 }
 
@@ -1046,9 +1046,9 @@ function AdminSessions({ eventId, data }: { readonly eventId: string; readonly d
   return (
     <main className="grid gap-4 p-4 lg:p-6">
       <div>
-        <h1 className="text-lg font-semibold">Sessions</h1>
+        <h1 className="text-lg font-semibold">Content</h1>
         <p className="text-xs text-muted-foreground">
-          Accepted content, speakers, and approval history.
+          Accepted session content, speakers, and approval history.
         </p>
       </div>
       {pendingHistory.length === 0 ? null : (
