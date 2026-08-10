@@ -1,4 +1,4 @@
-import { DbError, MailError, Unauthenticated } from "@opensesh/domain";
+import { DbError, Unauthenticated } from "@opensesh/domain";
 import {
   type SessionIdentity,
   type CurrentUser,
@@ -8,11 +8,12 @@ import {
 } from "@opensesh/domain/server/current-user";
 import { makeRepositoriesLive, type RepositoryServices } from "@opensesh/domain/server/repos";
 import { type AppError, run } from "@opensesh/domain/server/runtime";
-import { Mail, makeMailLive } from "@opensesh/domain/server/mail";
+import { Mail } from "@opensesh/domain/server/mail";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Layer } from "effect";
 
 import { makeAuth } from "@/lib/auth";
+import { mailLayerFromEnv } from "@/server/mail-layer";
 
 const EVENT_SLUG = "ai-engineer-nyc-2026";
 
@@ -60,19 +61,7 @@ export const runServer = async <A, E extends AppError>(
   const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
   const connectionString = env.HYPERDRIVE.connectionString;
   const currentUserLive = makeCurrentUserLive(connectionString, loadSession, EVENT_SLUG);
-  const mailLive = makeMailLive(connectionString, env.DEMO_MODE === "1", (mail) =>
-    Effect.tryPromise({
-      try: () =>
-        env.EMAIL.send({
-          to: mail.to,
-          from: env.MAIL_FROM,
-          subject: mail.subject,
-          html: mail.html,
-          text: mail.text,
-        }).then(() => undefined),
-      catch: (cause) => new MailError({ message: "Could not send email", cause }),
-    }),
-  );
+  const mailLive = mailLayerFromEnv(env);
   const services = Layer.mergeAll(
     makeRepositoriesLive(connectionString),
     currentUserLive,

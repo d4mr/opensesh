@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { FormFieldType, FormSection } from "./forms";
 import { NullableDate, NullableNumber, NullableString, Score } from "./common";
 import { ReviewDecision, SubmissionKind, SubmissionStatus } from "./submissions";
+import { accepted, declined } from "../mail/templates";
 
 export const ReviewDeskTrack = Schema.Struct({
   id: Schema.String,
@@ -193,37 +194,9 @@ export interface DecisionEmailInput {
   readonly feedback: string;
 }
 
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
 export const renderDecisionEmail = (input: DecisionEmailInput) => {
-  const accepted = input.decision === "accept";
-  const subject = accepted
-    ? `You're speaking at ${input.eventName}`
-    : `An update on your ${input.eventName} submission`;
-  const introduction = accepted
-    ? `We are delighted to accept “${input.submissionTitle}.” Your onboarding tasks are ready in the speaker portal.`
-    : `Thank you for the thoughtful proposal “${input.submissionTitle}.” We are not able to include it in this year's program.`;
-  const feedback = input.feedback.trim();
-  const text = [
-    `Hi ${input.speakerName},`,
-    introduction,
-    feedback.length === 0 ? "" : `Feedback from the review team:\n${feedback}`,
-    "The OpenSesh program team",
-  ]
-    .filter((part) => part.length > 0)
-    .join("\n\n");
-  const feedbackHtml =
-    feedback.length === 0
-      ? ""
-      : `<div style="margin-top:20px;padding:14px;border:1px solid #e3e5dc;border-radius:8px"><strong>Feedback from the review team</strong><p style="white-space:pre-wrap">${escapeHtml(feedback)}</p></div>`;
-  const html = `<div style="font-family:ui-sans-serif,system-ui,sans-serif;color:#1b211d"><p>Hi ${escapeHtml(input.speakerName)},</p><p>${escapeHtml(introduction)}</p>${feedbackHtml}<p style="margin-top:24px">The OpenSesh program team</p></div>`;
-  return { subject, text, html };
+  const render = input.decision === "accept" ? accepted : declined;
+  return render({ ...input, portalUrl: "https://opensesh.io/portal" });
 };
 
 export const DecisionResult = Schema.Struct({

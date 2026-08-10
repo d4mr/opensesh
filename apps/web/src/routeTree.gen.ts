@@ -18,11 +18,10 @@ import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
 import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
-import { Route as AdminAgendaRouteImport } from './routes/admin.agenda'
+import { Route as AdminEmailsRouteImport } from './routes/admin.emails'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
-import { Route as AdminSpeakersRouteImport } from './routes/admin.speakers'
 import { Route as ESplatRouteImport } from './routes/e.$'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
@@ -32,7 +31,6 @@ import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms.$form
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as EEventSlugAgendaRouteImport } from './routes/e.$eventSlug.agenda'
 import { Route as SubmitEventSlugFormIdRouteImport } from './routes/submit.$eventSlug.$formId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -80,9 +78,9 @@ const AdminAbstractsRoute = AdminAbstractsRouteImport.update({
   path: '/abstracts',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAgendaRoute = AdminAgendaRouteImport.update({
-  id: '/agenda',
-  path: '/agenda',
+const AdminEmailsRoute = AdminEmailsRouteImport.update({
+  id: '/emails',
+  path: '/emails',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminEvaluationRoute = AdminEvaluationRouteImport.update({
@@ -98,11 +96,6 @@ const AdminFormsRoute = AdminFormsRouteImport.update({
 const AdminSessionsRoute = AdminSessionsRouteImport.update({
   id: '/sessions',
   path: '/sessions',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSpeakersRoute = AdminSpeakersRouteImport.update({
-  id: '/speakers',
-  path: '/speakers',
   getParentRoute: () => AdminRoute,
 } as any)
 const ESplatRoute = ESplatRouteImport.update({
@@ -150,11 +143,6 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EEventSlugAgendaRoute = EEventSlugAgendaRouteImport.update({
-  id: '/$eventSlug/agenda',
-  path: '/$eventSlug/agenda',
-  getParentRoute: () => ERoute,
-} as any)
 const SubmitEventSlugFormIdRoute = SubmitEventSlugFormIdRouteImport.update({
   id: '/$eventSlug/$formId',
   path: '/$eventSlug/$formId',
@@ -170,11 +158,10 @@ export interface FileRoutesByFullPath {
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
-  '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
-  '/admin/speakers': typeof AdminSpeakersRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
@@ -185,7 +172,6 @@ export interface FileRoutesByFullPath {
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
 }
 export interface FileRoutesByTo {
@@ -195,11 +181,10 @@ export interface FileRoutesByTo {
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
-  '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
-  '/admin/speakers': typeof AdminSpeakersRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
@@ -210,7 +195,6 @@ export interface FileRoutesByTo {
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
 }
 export interface FileRoutesById {
@@ -223,11 +207,10 @@ export interface FileRoutesById {
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
-  '/admin/agenda': typeof AdminAgendaRoute
+  '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
-  '/admin/speakers': typeof AdminSpeakersRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
@@ -238,7 +221,6 @@ export interface FileRoutesById {
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
 }
 export interface FileRouteTypes {
@@ -252,11 +234,10 @@ export interface FileRouteTypes {
     | '/submit'
     | '/admin/$section'
     | '/admin/abstracts'
-    | '/admin/agenda'
+    | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
-    | '/admin/speakers'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
@@ -267,7 +248,6 @@ export interface FileRouteTypes {
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
-    | '/e/$eventSlug/agenda'
     | '/submit/$eventSlug/$formId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -277,11 +257,10 @@ export interface FileRouteTypes {
     | '/submit'
     | '/admin/$section'
     | '/admin/abstracts'
-    | '/admin/agenda'
+    | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
-    | '/admin/speakers'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
@@ -292,7 +271,6 @@ export interface FileRouteTypes {
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
-    | '/e/$eventSlug/agenda'
     | '/submit/$eventSlug/$formId'
   id:
     | '__root__'
@@ -304,11 +282,10 @@ export interface FileRouteTypes {
     | '/submit'
     | '/admin/$section'
     | '/admin/abstracts'
-    | '/admin/agenda'
+    | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
-    | '/admin/speakers'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
@@ -319,7 +296,6 @@ export interface FileRouteTypes {
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
-    | '/e/$eventSlug/agenda'
     | '/submit/$eventSlug/$formId'
   fileRoutesById: FileRoutesById
 }
@@ -398,11 +374,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAbstractsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/agenda': {
-      id: '/admin/agenda'
-      path: '/agenda'
-      fullPath: '/admin/agenda'
-      preLoaderRoute: typeof AdminAgendaRouteImport
+    '/admin/emails': {
+      id: '/admin/emails'
+      path: '/emails'
+      fullPath: '/admin/emails'
+      preLoaderRoute: typeof AdminEmailsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/evaluation': {
@@ -424,13 +400,6 @@ declare module '@tanstack/react-router' {
       path: '/sessions'
       fullPath: '/admin/sessions'
       preLoaderRoute: typeof AdminSessionsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/speakers': {
-      id: '/admin/speakers'
-      path: '/speakers'
-      fullPath: '/admin/speakers'
-      preLoaderRoute: typeof AdminSpeakersRouteImport
       parentRoute: typeof AdminRoute
     }
     '/e/$': {
@@ -496,13 +465,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/e/$eventSlug/agenda': {
-      id: '/e/$eventSlug/agenda'
-      path: '/$eventSlug/agenda'
-      fullPath: '/e/$eventSlug/agenda'
-      preLoaderRoute: typeof EEventSlugAgendaRouteImport
-      parentRoute: typeof ERoute
-    }
     '/submit/$eventSlug/$formId': {
       id: '/submit/$eventSlug/$formId'
       path: '/$eventSlug/$formId'
@@ -528,11 +490,10 @@ const AdminFormsRouteWithChildren = AdminFormsRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
   AdminAbstractsRoute: typeof AdminAbstractsRoute
-  AdminAgendaRoute: typeof AdminAgendaRoute
+  AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
   AdminSessionsRoute: typeof AdminSessionsRoute
-  AdminSpeakersRoute: typeof AdminSpeakersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
@@ -542,11 +503,10 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
   AdminAbstractsRoute: AdminAbstractsRoute,
-  AdminAgendaRoute: AdminAgendaRoute,
+  AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,
   AdminSessionsRoute: AdminSessionsRoute,
-  AdminSpeakersRoute: AdminSpeakersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAbstractsIdRoute: AdminAbstractsIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
@@ -557,12 +517,10 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface ERouteChildren {
   ESplatRoute: typeof ESplatRoute
-  EEventSlugAgendaRoute: typeof EEventSlugAgendaRoute
 }
 
 const ERouteChildren: ERouteChildren = {
   ESplatRoute: ESplatRoute,
-  EEventSlugAgendaRoute: EEventSlugAgendaRoute,
 }
 
 const ERouteWithChildren = ERoute._addFileChildren(ERouteChildren)

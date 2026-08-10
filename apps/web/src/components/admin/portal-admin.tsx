@@ -9,6 +9,7 @@ import {
   HistoryIcon,
   PlusIcon,
   RotateCcwIcon,
+  SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
 import { Fragment, useState } from "react";
@@ -74,6 +75,7 @@ import {
   saveAdminTaskTemplate,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
+import { sendTaskReminders } from "@/server-fns/mail";
 
 type AdminData = Extract<Awaited<ReturnType<typeof getPortalAdmin>>, { readonly ok: true }>["data"];
 
@@ -107,6 +109,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
   const [editingId, setEditingId] = useState<string | null>(null);
   const [outstandingOnly, setOutstandingOnly] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
   const waive = useMutation({
     mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
@@ -129,6 +132,38 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
       else toast.success("Task assigned");
       await refresh();
     },
+  });
+  const remind = useMutation({
+    mutationFn: ({
+      contactId,
+    }: {
+      readonly contactId: string | null;
+      readonly ids: ReadonlyArray<string>;
+    }) => sendTaskReminders({ data: { eventId, contactId } }),
+    onMutate: ({ ids }) => {
+      const previous = reminded;
+      setReminded((current) => new Set([...current, ...ids]));
+      return { previous };
+    },
+    onSuccess: async (result, _variables, context) => {
+      if (!result.ok) {
+        setReminded(context.previous);
+        toast.error(result.error.message);
+        return;
+      }
+      if (result.data.failed > 0) {
+        toast.error(
+          `${result.data.failed} of ${result.data.attempted} reminders failed. Retry them in Email delivery.`,
+        );
+      } else {
+        const label = result.data.demo > 0 ? "recorded in demo mode" : "sent";
+        toast.success(
+          `${result.data.attempted} ${result.data.attempted === 1 ? "reminder" : "reminders"} ${label}`,
+        );
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] });
+    },
+    onError: (_error, _variables, context) => setReminded(context?.previous ?? new Set()),
   });
   const templateRows = data.templates.map((row) => ({
     ...row,
@@ -214,13 +249,30 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
           </div>
         </TabsContent>
         <TabsContent value="assignments" className="pt-3">
-          <label className="mb-3 flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
-            <Checkbox
-              checked={outstandingOnly}
-              onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
-            />
-            <FilterIcon className="size-3.5" /> Has outstanding
-          </label>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+              <Checkbox
+                checked={outstandingOnly}
+                onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
+              />
+              <FilterIcon className="size-3.5" /> Has outstanding
+            </label>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={remind.isPending || speakers.every((speaker) => speaker.outstanding === 0)}
+              onClick={() =>
+                remind.mutate({
+                  contactId: null,
+                  ids: speakers
+                    .filter((speaker) => speaker.outstanding > 0)
+                    .map((speaker) => speaker.contact.id),
+                })
+              }
+            >
+              <SendIcon /> {remind.isPending ? "Sending…" : "Remind all outstanding"}
+            </Button>
+          </div>
           <div className="overflow-hidden rounded-md border">
             <Table>
               <TableHeader>
@@ -230,6 +282,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                   <TableHead>T-shirt</TableHead>
                   <TableHead className="text-right">Outstanding</TableHead>
                   <TableHead className="text-right">Done</TableHead>
+                  <TableHead className="w-28 text-right">Reminder</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -262,10 +315,26 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                         {row.outstanding}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{row.done}</TableCell>
+                      <TableCell className="text-right">
+                        {row.outstanding === 0 ? null : (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={reminded.has(row.contact.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              remind.mutate({ contactId: row.contact.id, ids: [row.contact.id] });
+                            }}
+                          >
+                            <SendIcon />
+                            {reminded.has(row.contact.id) ? "Queued" : "Remind"}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                     {expanded === row.contact.id ? (
                       <TableRow key={`${row.contact.id}-details`}>
-                        <TableCell colSpan={5} className="bg-muted/20 p-3">
+                        <TableCell colSpan={6} className="bg-muted/20 p-3">
                           <div className="grid gap-2">
                             {row.assignments.map((assignment) => (
                               <div

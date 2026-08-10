@@ -6,6 +6,7 @@ import {
   submitCfpDraft,
 } from "@opensesh/domain/server/cfp";
 import { DbError, Unauthenticated } from "@opensesh/domain/server/errors";
+import { Mail } from "@opensesh/domain/server/mail";
 import {
   CfpClientDraftInput,
   CfpClientSubmitInput,
@@ -70,7 +71,17 @@ export const submitPublicDraft = createServerFn({ method: "POST" })
         if (email === null) {
           return yield* Effect.fail(new Unauthenticated({ message: "Sign in to submit" }));
         }
-        return yield* submitCfpDraft({ ...data, email });
+        const request = getRequest();
+        const submitted = yield* submitCfpDraft({
+          ...data,
+          email,
+          portalUrl: `${new URL(request.url).origin}/portal`,
+        });
+        if (submitted.confirmationLogId !== null) {
+          const mail = yield* Mail;
+          yield* mail.sendQueued(submitted.confirmationLogId);
+        }
+        return { submission: submitted.submission, form: submitted.form };
       }),
     ),
   );

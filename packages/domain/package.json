@@ -25,6 +25,7 @@
     "seed": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/index.ts",
     "cfp:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-cfp.ts",
     "review-desk:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-review-desk.ts",
+    "mail:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-mail.ts",
     "seed:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify.ts"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260810.1",
     "@types/node": "^24.10.1",
-    "tsx": "4.20.5"
+    "tsx": "4.20.5",
+    "vitest": "^4.1.10"
   }
 }

@@ -51,7 +51,7 @@ export const emailType = pgEnum("email_type", [
   "calendar_invite",
   "custom",
 ]);
-export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
+export const emailStatus = pgEnum("email_status", ["queued", "demo", "sent", "failed"]);
 export const submissionStatus = pgEnum("submission_status", [
   "draft",
   "pending",

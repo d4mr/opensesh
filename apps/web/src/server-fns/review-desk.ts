@@ -84,21 +84,11 @@ export const decideSubmissions = createServerFn({ method: "POST" })
         const reviewDesk = yield* ReviewDesk;
         const mail = yield* Mail;
         const decision = yield* reviewDesk.decide("ai-engineer-nyc-2026", data);
-        const deliveryResults = yield* Effect.forEach(
+        yield* Effect.forEach(
           decision.deliveries,
-          (delivery) =>
-            mail.sendDecision(delivery.mail).pipe(
-              Effect.matchEffect({
-                onFailure: (error) =>
-                  reviewDesk.markEmail(delivery.logId, "failed").pipe(Effect.map(() => error)),
-                onSuccess: () =>
-                  reviewDesk.markEmail(delivery.logId, "sent").pipe(Effect.map(() => null)),
-              }),
-            ),
+          (delivery) => mail.sendLogged(delivery.logId, delivery.mail),
           { concurrency: 5 },
         );
-        const deliveryError = deliveryResults.find((result) => result !== null);
-        if (deliveryError !== undefined) return yield* Effect.fail(deliveryError);
         return decision.result;
       }),
       { require: "admin" },

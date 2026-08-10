@@ -13,6 +13,7 @@ export * from "./server/schema/agenda";
 export * from "./server/schema/common";
 export * from "./server/schema/core";
 export * from "./server/schema/forms";
+export * from "./server/schema/mail";
 export * from "./server/schema/portal";
 export * from "./server/schema/review-desk";
 export * from "./server/schema/submissions";

@@ -8,14 +8,13 @@ import {
   users,
   verifications,
 } from "@opensesh/domain/db/auth";
-import { MailError } from "@opensesh/domain/server/errors";
-import { makeMailLive, sendMagicLink } from "@opensesh/domain/server/mail";
+import { sendMagicLink } from "@opensesh/domain/server/mail";
 import { run } from "@opensesh/domain/server/runtime";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { magicLink, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { Effect } from "effect";
+import { mailLayerFromEnv } from "@/server/mail-layer";
 
 export interface CapturedMagicLink {
   readonly token: string;
@@ -35,22 +34,9 @@ const buildAuth = (
   origin: string,
   capture?: (link: CapturedMagicLink) => void,
 ) => {
-  const demoMode = env.DEMO_MODE === "1";
   const connectionString = env.HYPERDRIVE.connectionString;
   const database = makeDatabase(connectionString);
-  const mailLive = makeMailLive(connectionString, demoMode, (mail) =>
-    Effect.tryPromise({
-      try: () =>
-        env.EMAIL.send({
-          to: mail.to,
-          from: env.MAIL_FROM,
-          subject: mail.subject,
-          html: mail.html,
-          text: mail.text,
-        }).then(() => undefined),
-      catch: (cause) => new MailError({ message: "Could not send email", cause }),
-    }),
-  );
+  const mailLive = mailLayerFromEnv(env);
 
   return betterAuth({
     appName: "opensesh",

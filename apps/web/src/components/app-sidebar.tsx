@@ -9,6 +9,7 @@ import {
   FileTextIcon,
   GaugeIcon,
   ListChecksIcon,
+  MailIcon,
   PanelTopIcon,
   SettingsIcon,
   SquareStackIcon,
@@ -39,6 +40,7 @@ const program: ReadonlyArray<AdminNavItem> = [
 ];
 const portals: ReadonlyArray<AdminNavItem> = [
   { title: "Tasks", section: "tasks", icon: <CheckSquareIcon /> },
+  { title: "Email delivery", section: "emails", icon: <MailIcon /> },
   { title: "Portal Forms", section: "portal-forms", icon: <ListChecksIcon /> },
   { title: "File Requests", section: "file-requests", icon: <PanelTopIcon /> },
 ];
