@@ -1,6 +1,6 @@
 import type { LibraryKind } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
@@ -18,9 +18,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteLibraryItem, getEventLibrary, saveLibraryItem } from "@/server-fns/admin";
+import {
+  deleteLibraryItem,
+  getAdminBootstrap,
+  getEventLibrary,
+  saveLibraryItem,
+} from "@/server-fns/admin";
 
-export const Route = createFileRoute("/admin/settings/library")({ component: EventLibrary });
+const adminEventsQuery = queryOptions({
+  queryKey: ["admin-events"],
+  queryFn: () => getAdminBootstrap(),
+  staleTime: 30_000,
+});
+
+const eventLibraryQuery = (eventId: string) =>
+  queryOptions({
+    queryKey: ["event-library", eventId],
+    queryFn: () => getEventLibrary({ data: { eventId } }),
+    staleTime: 30_000,
+  });
+
+export const Route = createFileRoute("/admin/settings/library")({
+  loader: async ({ context }) => {
+    const events = await context.queryClient.ensureQueryData(adminEventsQuery);
+    const eventId = events.ok ? events.data[0]?.id : undefined;
+    if (eventId !== undefined) {
+      await context.queryClient.ensureQueryData(eventLibraryQuery(eventId));
+    }
+  },
+  component: EventLibrary,
+});
 
 interface LibraryRow {
   readonly id: string;
@@ -32,12 +59,8 @@ interface LibraryRow {
 function EventLibrary() {
   const context = useAdminEvent();
   const eventId = context?.event.id;
-  const library = useQuery({
-    queryKey: ["event-library", eventId],
-    queryFn: () => getEventLibrary({ data: { eventId: eventId ?? "" } }),
-    enabled: eventId !== undefined,
-  });
-  if (context === null || eventId === undefined || library.data === undefined) return null;
+  const library = useSuspenseQuery(eventLibraryQuery(eventId ?? ""));
+  if (context === null || eventId === undefined) return null;
   if (!library.data.ok) return <p className="p-6 text-sm">{library.data.error.message}</p>;
   const data = library.data.data;
   return (

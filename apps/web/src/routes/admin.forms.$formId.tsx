@@ -6,7 +6,7 @@ import type {
   FormSectionSettings as FormSectionSettingsValue,
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
@@ -32,8 +32,31 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getFormEditor, saveForm } from "@/server-fns/forms";
+import { getAdminBootstrap } from "@/server-fns/admin";
 
-export const Route = createFileRoute("/admin/forms/$formId")({ component: FormEditorRoute });
+const adminEventsQuery = queryOptions({
+  queryKey: ["admin-events"],
+  queryFn: () => getAdminBootstrap(),
+  staleTime: 30_000,
+});
+
+const formEditorQuery = (eventId: string, formId: string) =>
+  queryOptions({
+    queryKey: ["form-editor", eventId, formId],
+    queryFn: () => getFormEditor({ data: { eventId, formId } }),
+    staleTime: 30_000,
+  });
+
+export const Route = createFileRoute("/admin/forms/$formId")({
+  loader: async ({ context, params }) => {
+    const events = await context.queryClient.ensureQueryData(adminEventsQuery);
+    const eventId = events.ok ? events.data[0]?.id : undefined;
+    if (eventId !== undefined) {
+      await context.queryClient.ensureQueryData(formEditorQuery(eventId, params.formId));
+    }
+  },
+  component: FormEditorRoute,
+});
 
 const steps = [
   ["Setup", "Submission type and participants"],
@@ -69,12 +92,8 @@ function FormEditorRoute() {
   const context = useAdminEvent();
   const { formId } = Route.useParams();
   const eventId = context?.event.id;
-  const editor = useQuery({
-    queryKey: ["form-editor", eventId, formId],
-    queryFn: () => getFormEditor({ data: { eventId: eventId ?? "", formId } }),
-    enabled: eventId !== undefined,
-  });
-  if (context === null || eventId === undefined || editor.data === undefined) return null;
+  const editor = useSuspenseQuery(formEditorQuery(eventId ?? "", formId));
+  if (context === null || eventId === undefined) return null;
   if (!editor.data.ok) return <p className="p-6 text-sm">{editor.data.error.message}</p>;
   return (
     <FormEditor

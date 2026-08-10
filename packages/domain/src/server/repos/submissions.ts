@@ -1,10 +1,13 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, countDistinct, desc, eq, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import {
+  contacts,
   eventMembers,
   events,
   forms,
+  organizationMembers,
   reviews,
   submissionParticipants,
   submissions,
@@ -14,6 +17,7 @@ import {
   users,
 } from "../../db/schema";
 import { Db } from "../db";
+import type { SessionIdentity } from "../current-user";
 import { DbError, Forbidden, FormClosed, type NotFound, SubmissionLimitReached } from "../errors";
 import { Event } from "../schema/core";
 import { Form } from "../schema/forms";
@@ -36,6 +40,10 @@ interface SubmissionsService {
   readonly listDashboardByEvent: (
     eventId: string,
   ) => Effect.Effect<ReadonlyArray<DashboardSubmission>, DbError>;
+  readonly loadDashboard: (
+    session: SessionIdentity,
+    eventSlug: string,
+  ) => Effect.Effect<DashboardStats, DbError | Forbidden>;
   readonly listByFormContact: (
     formId: string,
     contactId: string,
@@ -86,6 +94,19 @@ export class Submissions extends Context.Service<Submissions, SubmissionsService
   "opensesh/Submissions",
 ) {}
 
+export interface DashboardStats {
+  readonly submissions: number;
+  readonly pending: number;
+  readonly accepted: number;
+  readonly speakers: number;
+  readonly activity: ReadonlyArray<{
+    readonly date: string;
+    readonly abstracts: number;
+    readonly sessions: number;
+  }>;
+  readonly recentSubmissions: ReadonlyArray<DashboardSubmission>;
+}
+
 export const SubmissionsLive = Layer.effect(
   Submissions,
   Effect.gen(function* () {
@@ -117,6 +138,14 @@ export const SubmissionsLive = Layer.effect(
       form.status === "closed" || (form.closeDate !== null && form.closeDate <= new Date())
         ? Effect.fail(new FormClosed({ message: "This submission form is closed" }))
         : Effect.succeed(undefined);
+
+    const dashboardContactCounts = database
+      .select({ eventId: contacts.eventId, speakers: countDistinct(contacts.id).as("speakers") })
+      .from(contacts)
+      .groupBy(contacts.eventId)
+      .as("dashboard_contact_counts");
+    const staffMember = alias(eventMembers, "dashboard_staff_member");
+    const reviewerMember = alias(eventMembers, "dashboard_reviewer_member");
 
     return {
       listByEvent: (eventId) =>
@@ -192,6 +221,139 @@ export const SubmissionsLive = Layer.effect(
                 ...submission,
                 track: trackNames.length === 0 ? null : trackNames.join(", "),
               }));
+          }),
+        ),
+      loadDashboard: (session, eventSlug) =>
+        query(database, "Could not load dashboard", (db) =>
+          db
+            .select({
+              submissionId: submissions.id,
+              code: submissions.code,
+              title: submissions.title,
+              kind: submissions.kind,
+              status: submissions.status,
+              createdAt: submissions.createdAt,
+              trackName: tracks.name,
+              reviewerName: users.name,
+              reviewerImage: users.image,
+              speakers: dashboardContactCounts.speakers,
+            })
+            .from(events)
+            .innerJoin(
+              organizationMembers,
+              and(
+                eq(organizationMembers.organizationId, events.organizationId),
+                eq(organizationMembers.userId, session.userId),
+              ),
+            )
+            .innerJoin(
+              staffMember,
+              and(
+                eq(staffMember.eventId, events.id),
+                eq(staffMember.userId, session.userId),
+                inArray(staffMember.role, ["admin", "reviewer"]),
+              ),
+            )
+            .leftJoin(dashboardContactCounts, eq(dashboardContactCounts.eventId, events.id))
+            .leftJoin(submissions, eq(submissions.eventId, events.id))
+            .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+            .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+            .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
+            .leftJoin(reviewerMember, eq(reviewerMember.id, reviews.reviewerId))
+            .leftJoin(users, eq(users.id, reviewerMember.userId))
+            .where(
+              and(
+                eq(events.slug, eventSlug),
+                session.activeOrganizationId === undefined
+                  ? undefined
+                  : eq(events.organizationId, session.activeOrganizationId),
+              ),
+            )
+            .orderBy(desc(submissions.createdAt), asc(tracks.position), asc(reviews.createdAt))
+            .execute(),
+        ).pipe(
+          Effect.filterOrFail(
+            (rows) => rows.length > 0,
+            () => new Forbidden({ message: "You do not have access" }),
+          ),
+          Effect.flatMap((rows) => {
+            const submissionRows = rows.flatMap((row) =>
+              row.submissionId === null ||
+              row.code === null ||
+              row.title === null ||
+              row.kind === null ||
+              row.status === null ||
+              row.createdAt === null
+                ? []
+                : [
+                    {
+                      submissionId: row.submissionId,
+                      code: row.code,
+                      title: row.title,
+                      kind: row.kind,
+                      status: row.status,
+                      createdAt: row.createdAt,
+                      trackName: row.trackName,
+                      reviewerName: row.reviewerName,
+                      reviewerImage: row.reviewerImage,
+                    },
+                  ],
+            );
+            return decodeMany(DashboardSubmissionRow, "dashboard submission", submissionRows).pipe(
+              Effect.map((decodedRows) => {
+                const submissionsById = new Map<
+                  string,
+                  (typeof decodedRows)[number] & { readonly trackNames: Array<string> }
+                >();
+                for (const row of decodedRows) {
+                  const existing = submissionsById.get(row.submissionId);
+                  if (existing !== undefined) {
+                    if (row.trackName !== null && !existing.trackNames.includes(row.trackName)) {
+                      existing.trackNames.push(row.trackName);
+                    }
+                    continue;
+                  }
+                  submissionsById.set(row.submissionId, {
+                    ...row,
+                    trackNames: row.trackName === null ? [] : [row.trackName],
+                  });
+                }
+                const unique = Array.from(submissionsById.values());
+                const activity = new Map<string, { abstracts: number; sessions: number }>();
+                for (const submission of unique) {
+                  const date = submission.createdAt.toISOString().slice(0, 10);
+                  const point = activity.get(date) ?? { abstracts: 0, sessions: 0 };
+                  if (submission.kind === "abstract") point.abstracts += 1;
+                  else point.sessions += 1;
+                  activity.set(date, point);
+                }
+                return {
+                  submissions: unique.length,
+                  pending: unique.filter((submission) => submission.status === "pending").length,
+                  accepted: unique.filter((submission) => submission.status === "accepted").length,
+                  speakers: rows[0]?.speakers ?? 0,
+                  activity: Array.from(activity, ([date, values]) => ({ date, ...values })).sort(
+                    (left, right) => left.date.localeCompare(right.date),
+                  ),
+                  recentSubmissions: unique.slice(0, 20).map((submission) => ({
+                    id: submission.submissionId,
+                    code: submission.code,
+                    title: submission.title,
+                    kind: submission.kind,
+                    status: submission.status,
+                    track:
+                      submission.trackNames.length === 0 ? null : submission.trackNames.join(", "),
+                    reviewer:
+                      submission.reviewerName === null
+                        ? null
+                        : {
+                            name: submission.reviewerName,
+                            image: submission.reviewerImage,
+                          },
+                  })),
+                };
+              }),
+            );
           }),
         ),
       listByFormContact: (formId, contactId) =>

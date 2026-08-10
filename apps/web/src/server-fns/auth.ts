@@ -77,7 +77,11 @@ export const switchDemoPersona = createServerFn({ method: "POST" })
         });
         return { target: persona.target };
       },
-      catch: (cause) => new DbError({ message: "Could not switch demo persona", cause }),
+      catch: (cause) =>
+        new DbError({
+          message: `Could not switch demo persona: ${cause instanceof Error ? cause.message : String(cause)}`,
+          cause,
+        }),
     });
 
     return await run(program, Layer.empty);

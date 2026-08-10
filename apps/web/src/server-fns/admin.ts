@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
-import { Events } from "@opensesh/domain/server/repos";
+import { Events, ReadModels } from "@opensesh/domain/server/repos";
 import {
   EventSettingsRequest,
   LibraryDeleteRequest,
@@ -10,7 +10,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
-import { runServer } from "@/server/runtime";
+import { runServer, runSessionServer } from "@/server/runtime";
 
 const slugify = (value: string) =>
   value
@@ -37,13 +37,11 @@ const requireEvent = Effect.fn("requireAdminEvent")(function* (eventId: string) 
 });
 
 export const getAdminBootstrap = createServerFn({ method: "GET" }).handler(async () =>
-  runServer(
+  runSessionServer((session, eventSlug) =>
     Effect.gen(function* () {
       const events = yield* Events;
-      const user = yield* getCurrentUser;
-      return yield* events.listByOrganization(user.orgId);
+      return yield* events.listForAdmin(session, eventSlug);
     }),
-    { require: "admin" },
   ),
 );
 
@@ -116,21 +114,11 @@ export const updateEventSettings = createServerFn({ method: "POST" })
 export const getEventLibrary = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
   .handler(async ({ data }) =>
-    runServer(
+    runSessionServer((session, eventSlug) =>
       Effect.gen(function* () {
-        const events = yield* Events;
-        yield* requireEvent(data.eventId);
-        const [tracks, formats, rooms, tags, levels, admins] = yield* Effect.all([
-          events.listTracks(data.eventId),
-          events.listFormats(data.eventId),
-          events.listRooms(data.eventId),
-          events.listTags(data.eventId),
-          events.listLevels(data.eventId),
-          events.listAdmins(data.eventId),
-        ]);
-        return { tracks, formats, rooms, tags, levels, admins };
+        const reads = yield* ReadModels;
+        return yield* reads.eventLibraryForAdmin(session, eventSlug, data.eventId);
       }),
-      { require: "admin" },
     ),
   );
 

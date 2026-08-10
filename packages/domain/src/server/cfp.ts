@@ -1,10 +1,9 @@
 import { Effect, Schema } from "effect";
 
-import { InvalidInput, NotFound } from "./errors";
+import { InvalidInput } from "./errors";
 import { Contacts } from "./repos/contacts";
 import { EmailLog } from "./repos/email-log";
-import { Events } from "./repos/events";
-import { Forms } from "./repos/forms";
+import { ReadModels } from "./repos/read-models";
 import { Submissions } from "./repos/submissions";
 import type { ContactCreate, ContactUpdate, Submission } from "./schema/submissions";
 import {
@@ -93,18 +92,8 @@ const contactUpdate = (input: ContactCreate): ContactUpdate => ({
 });
 
 export const loadCfpForm = Effect.fn("loadCfpForm")(function* (eventSlug: string, formId: string) {
-  const events = yield* Events;
-  const forms = yield* Forms;
-  const event = yield* events.getBySlug(eventSlug);
-  const form = yield* forms.getByEvent(event.id, formId);
-  const [fields, tracks, formats, tags, levels] = yield* Effect.all([
-    forms.listFields(form.id),
-    events.listTracks(event.id),
-    events.listFormats(event.id),
-    events.listTags(event.id),
-    events.listLevels(event.id),
-  ]);
-  return { event, form, fields, library: { tracks, formats, tags, levels } };
+  const reads = yield* ReadModels;
+  return yield* reads.publicForm(eventSlug, formId);
 });
 
 const upsertContact = Effect.fn("upsertCfpContact")(function* (input: ContactCreate) {
@@ -264,14 +253,8 @@ export const listCfpSubmissions = Effect.fn("listCfpSubmissions")(function* (
   formId: string,
   email: string,
 ) {
-  const contacts = yield* Contacts;
-  const submissions = yield* Submissions;
-  const bundle = yield* loadCfpForm(eventSlug, formId);
-  const contact = yield* contacts
-    .findByEmail(bundle.event.id, email)
-    .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)));
-  if (contact === null) return [];
-  return yield* submissions.listByFormContact(bundle.form.id, contact.id);
+  const reads = yield* ReadModels;
+  return yield* reads.publicFormAccount(eventSlug, formId, email);
 });
 
 const answersForSubmission = (
@@ -312,28 +295,11 @@ export const loadCfpDraft = Effect.fn("loadCfpDraft")(function* (
   submissionId: string,
   email: string,
 ) {
-  const contacts = yield* Contacts;
-  const submissions = yield* Submissions;
-  const bundle = yield* loadCfpForm(eventSlug, formId);
-  const [submission, submitter] = yield* Effect.all([
-    submissions.get(submissionId),
-    contacts.findByEmail(bundle.event.id, email),
-  ]);
-  if (
-    submission.sourceFormId !== bundle.form.id ||
-    submission.submitterContactId !== submitter.id
-  ) {
-    return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
-  }
-  const [trackIds, tagIds, links] = yield* Effect.all([
-    submissions.listTrackIds(submission.id),
-    submissions.listTagIds(submission.id),
-    submissions.listParticipants(submission.id),
-  ]);
+  const reads = yield* ReadModels;
+  const bundle = yield* reads.publicDraft(eventSlug, formId, submissionId, email);
   const participantFields = bundle.fields.filter((field) => field.section === "participant");
   const participants = [];
-  for (const link of links) {
-    const contact = yield* contacts.get(link.contactId);
+  for (const { link, contact } of bundle.participants) {
     const answers: Record<string, Schema.Json> = { ...contact.custom };
     for (const field of participantFields) {
       if (field.mapsTo === "first_name") answers[field.id] = contact.firstName;
@@ -345,8 +311,8 @@ export const loadCfpDraft = Effect.fn("loadCfpDraft")(function* (
     participants.push({ role: link.role, answers });
   }
   return {
-    submission,
-    answers: answersForSubmission(submission, bundle.fields, trackIds, tagIds),
+    submission: bundle.submission,
+    answers: answersForSubmission(bundle.submission, bundle.fields, bundle.trackIds, bundle.tagIds),
     participants,
   };
 });

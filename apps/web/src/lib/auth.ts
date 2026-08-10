@@ -24,23 +24,11 @@ export interface CapturedMagicLink {
 
 const DEMO_ORGANIZATION_ID = "org_ai_engineer";
 
-// Instances are memoized per origin: betterAuth setup work and its adapter
-// wiring should not repeat on every request. Instances with a `capture`
-// callback are exempt (the callback closes over per-request state).
-const authInstances = new Map<string, ReturnType<typeof buildAuth>>();
-
 export const makeAuth = (
   env: Cloudflare.Env,
   origin: string,
   capture?: (link: CapturedMagicLink) => void,
-) => {
-  if (capture !== undefined) return buildAuth(env, origin, capture);
-  const cached = authInstances.get(origin);
-  if (cached !== undefined) return cached;
-  const auth = buildAuth(env, origin);
-  authInstances.set(origin, auth);
-  return auth;
-};
+) => buildAuth(env, origin, capture);
 
 const buildAuth = (
   env: Cloudflare.Env,

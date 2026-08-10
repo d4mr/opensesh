@@ -7,6 +7,7 @@ import { EventsLive } from "./events";
 import { FilesLive } from "./files";
 import { FormsLive } from "./forms";
 import { PortalFormsLive } from "./portal-forms";
+import { ReadModelsLive } from "./read-models";
 import { ReviewsLive } from "./reviews";
 import { SubmissionsLive } from "./submissions";
 import { TasksLive } from "./tasks";
@@ -17,6 +18,7 @@ import type { Events } from "./events";
 import type { Files } from "./files";
 import type { Forms } from "./forms";
 import type { PortalForms } from "./portal-forms";
+import type { ReadModels } from "./read-models";
 import type { Reviews } from "./reviews";
 import type { Submissions } from "./submissions";
 import type { Tasks } from "./tasks";
@@ -27,6 +29,7 @@ export * from "./events";
 export * from "./files";
 export * from "./forms";
 export * from "./portal-forms";
+export * from "./read-models";
 export * from "./reviews";
 export * from "./submissions";
 export * from "./tasks";
@@ -38,6 +41,7 @@ export type RepositoryServices =
   | Files
   | Forms
   | PortalForms
+  | ReadModels
   | Reviews
   | Submissions
   | Tasks;
@@ -49,6 +53,7 @@ const RepositoriesLive = Layer.mergeAll(
   FilesLive,
   FormsLive,
   PortalFormsLive,
+  ReadModelsLive,
   ReviewsLive,
   SubmissionsLive,
   TasksLive,

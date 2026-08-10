@@ -1,5 +1,6 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { LoaderCircleIcon } from "lucide-react";
 import { routeTree } from "./routeTree.gen";
 
@@ -14,10 +15,8 @@ export function getRouter() {
     defaultPendingMs: 300,
     defaultPendingMinMs: 200,
     defaultPendingComponent: RoutePending,
-    Wrap: ({ children }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    ),
   });
+  setupRouterSsrQueryIntegration({ router, queryClient });
 
   return router;
 }

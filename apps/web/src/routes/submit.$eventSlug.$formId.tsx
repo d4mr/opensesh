@@ -1,6 +1,6 @@
 import type { FormAnswers, FormField, ParticipantAnswers, Submission } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRightIcon, CheckIcon, MailCheckIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -22,7 +22,28 @@ import {
   submitPublicDraft,
 } from "@/server-fns/cfp";
 
-export const Route = createFileRoute("/submit/$eventSlug/$formId")({ component: PublicWizard });
+const publicFormQuery = (eventSlug: string, formId: string) =>
+  queryOptions({
+    queryKey: ["public-form", eventSlug, formId],
+    queryFn: () => getPublicForm({ data: { eventSlug, formId } }),
+    staleTime: 30_000,
+  });
+
+const publicFormAccountQuery = (eventSlug: string, formId: string) =>
+  queryOptions({
+    queryKey: ["public-form-account", eventSlug, formId],
+    queryFn: () => getPublicFormAccount({ data: { eventSlug, formId } }),
+    staleTime: 30_000,
+  });
+
+export const Route = createFileRoute("/submit/$eventSlug/$formId")({
+  loader: ({ context, params }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(publicFormQuery(params.eventSlug, params.formId)),
+      context.queryClient.ensureQueryData(publicFormAccountQuery(params.eventSlug, params.formId)),
+    ]),
+  component: PublicWizard,
+});
 
 const emptyAnswers = (fields: ReadonlyArray<FormField>): FormAnswers => {
   const answers: Record<string, string | ReadonlyArray<string>> = {};
@@ -44,15 +65,8 @@ const participantForEmail = (
 
 function PublicWizard() {
   const { eventSlug, formId } = Route.useParams();
-  const bundle = useQuery({
-    queryKey: ["public-form", eventSlug, formId],
-    queryFn: () => getPublicForm({ data: { eventSlug, formId } }),
-  });
-  const account = useQuery({
-    queryKey: ["public-form-account", eventSlug, formId],
-    queryFn: () => getPublicFormAccount({ data: { eventSlug, formId } }),
-  });
-  if (bundle.data === undefined || account.data === undefined) return null;
+  const bundle = useSuspenseQuery(publicFormQuery(eventSlug, formId));
+  const account = useSuspenseQuery(publicFormAccountQuery(eventSlug, formId));
   if (!bundle.data.ok)
     return <PublicState title="Form not found" message={bundle.data.error.message} />;
   if (!account.data.ok)

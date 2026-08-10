@@ -1,5 +1,5 @@
 import type { FormSummary } from "@opensesh/domain";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   CopyIcon,
@@ -31,8 +31,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createForm, deleteForm, duplicateForm, getFormSummaries } from "@/server-fns/forms";
+import { getAdminBootstrap } from "@/server-fns/admin";
 
-export const Route = createFileRoute("/admin/forms")({ component: FormsList });
+const adminEventsQuery = queryOptions({
+  queryKey: ["admin-events"],
+  queryFn: () => getAdminBootstrap(),
+  staleTime: 30_000,
+});
+
+const formsQuery = (eventId: string) =>
+  queryOptions({
+    queryKey: ["forms", eventId],
+    queryFn: () => getFormSummaries({ data: { eventId } }),
+    staleTime: 30_000,
+  });
+
+export const Route = createFileRoute("/admin/forms")({
+  loader: async ({ context }) => {
+    const events = await context.queryClient.ensureQueryData(adminEventsQuery);
+    const eventId = events.ok ? events.data[0]?.id : undefined;
+    if (eventId !== undefined) await context.queryClient.ensureQueryData(formsQuery(eventId));
+  },
+  component: FormsList,
+});
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -46,12 +67,8 @@ function FormsList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
-  const forms = useQuery({
-    queryKey: ["forms", eventId],
-    queryFn: () => getFormSummaries({ data: { eventId: eventId ?? "" } }),
-    enabled: eventId !== undefined,
-  });
-  if (context === null || eventId === undefined || forms.data === undefined) return null;
+  const forms = useSuspenseQuery(formsQuery(eventId ?? ""));
+  if (context === null || eventId === undefined) return null;
   if (!forms.data.ok) return <p className="p-6 text-sm">{forms.data.error.message}</p>;
   const create = async () => {
     setCreating(true);

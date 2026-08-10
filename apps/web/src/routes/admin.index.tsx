@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 
@@ -14,12 +14,20 @@ const DataTable = lazy(() =>
   import("@/components/data-table").then((module) => ({ default: module.DataTable })),
 );
 
-export const Route = createFileRoute("/admin/")({ component: Dashboard });
+const dashboardQuery = queryOptions({
+  queryKey: ["dashboard-stats"],
+  queryFn: () => getDashboardStats(),
+  staleTime: 30_000,
+});
+
+export const Route = createFileRoute("/admin/")({
+  loader: ({ context }) => context.queryClient.ensureQueryData(dashboardQuery),
+  component: Dashboard,
+});
 
 function Dashboard() {
-  const stats = useQuery({ queryKey: ["dashboard-stats"], queryFn: () => getDashboardStats() });
+  const stats = useSuspenseQuery(dashboardQuery);
 
-  if (stats.data === undefined) return null;
   if (!stats.data.ok) return <p className="p-4 text-sm">{stats.data.error.message}</p>;
 
   return (

@@ -1,11 +1,11 @@
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
-import { Events, Forms } from "@opensesh/domain/server/repos";
+import { Events, Forms, ReadModels } from "@opensesh/domain/server/repos";
 import { FormIdRequest, FormSaveRequest } from "@opensesh/domain/server/schema/forms";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
-import { runServer } from "@/server/runtime";
+import { runServer, runSessionServer } from "@/server/runtime";
 
 const EventIdRequest = Schema.Struct({ eventId: Schema.String });
 
@@ -22,13 +22,11 @@ const requireManagedEvent = Effect.fn("requireManagedFormEvent")(function* (even
 export const getFormSummaries = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(EventIdRequest))
   .handler(async ({ data }) =>
-    runServer(
+    runSessionServer((session, eventSlug) =>
       Effect.gen(function* () {
-        const forms = yield* Forms;
-        yield* requireManagedEvent(data.eventId);
-        return yield* forms.listSummaries(data.eventId);
+        const reads = yield* ReadModels;
+        return yield* reads.formSummariesForAdmin(session, eventSlug, data.eventId);
       }),
-      { require: "admin" },
     ),
   );
 
@@ -129,25 +127,17 @@ export const createForm = createServerFn({ method: "POST" })
 export const getFormEditor = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(FormIdRequest))
   .handler(async ({ data }) =>
-    runServer(
+    runSessionServer((session, eventSlug) =>
       Effect.gen(function* () {
-        const events = yield* Events;
-        const forms = yield* Forms;
-        yield* requireManagedEvent(data.eventId);
-        const form = yield* forms.getByEvent(data.eventId, data.formId);
-        const [fields, library, admins] = yield* Effect.all([
-          forms.listFields(form.id),
-          Effect.all({
-            tracks: events.listTracks(data.eventId),
-            formats: events.listFormats(data.eventId),
-            tags: events.listTags(data.eventId),
-            levels: events.listLevels(data.eventId),
-          }),
-          events.listAdmins(data.eventId),
-        ]);
+        const reads = yield* ReadModels;
+        const { form, fields, library, admins } = yield* reads.formEditorForAdmin(
+          session,
+          eventSlug,
+          data.eventId,
+          data.formId,
+        );
         return { form, fields, library, admins };
       }),
-      { require: "admin" },
     ),
   );
 

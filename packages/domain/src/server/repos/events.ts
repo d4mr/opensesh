@@ -1,4 +1,5 @@
-import { asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import {
@@ -6,6 +7,7 @@ import {
   events,
   formats,
   levels,
+  organizationMembers,
   rooms,
   submissionTags,
   submissionTracks,
@@ -15,7 +17,8 @@ import {
   users,
 } from "../../db/schema";
 import { Db } from "../db";
-import { ResourceInUse, type DbError, type NotFound } from "../errors";
+import type { SessionIdentity } from "../current-user";
+import { Forbidden, ResourceInUse, type DbError, type NotFound } from "../errors";
 import {
   Event,
   type EventCreate,
@@ -42,6 +45,10 @@ interface EventsService {
   readonly listByOrganization: (
     organizationId: string,
   ) => Effect.Effect<ReadonlyArray<Event>, DbError>;
+  readonly listForAdmin: (
+    session: SessionIdentity,
+    eventSlug: string,
+  ) => Effect.Effect<ReadonlyArray<Event>, DbError | Forbidden>;
   readonly get: (id: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly getBySlug: (slug: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly create: (input: EventCreate) => Effect.Effect<Event, DbError>;
@@ -94,6 +101,9 @@ export const EventsLive = Layer.effect(
         db.select().from(events).where(eq(column, value)).limit(1).execute(),
       ).pipe(Effect.flatMap((rows) => decodeFound(Event, "Event", rows[0])));
 
+    const currentEvent = alias(events, "current_event");
+    const organizationEvent = alias(events, "organization_event");
+
     return {
       list: () =>
         query(database, "Could not list events", (db) =>
@@ -108,6 +118,53 @@ export const EventsLive = Layer.effect(
             .orderBy(asc(events.startsAt))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows))),
+      listForAdmin: (session, eventSlug) =>
+        query(database, "Could not load admin events", (db) =>
+          db
+            .select({ event: organizationEvent })
+            .from(currentEvent)
+            .innerJoin(
+              organizationMembers,
+              and(
+                eq(organizationMembers.organizationId, currentEvent.organizationId),
+                eq(organizationMembers.userId, session.userId),
+              ),
+            )
+            .innerJoin(
+              eventMembers,
+              and(
+                eq(eventMembers.eventId, currentEvent.id),
+                eq(eventMembers.userId, session.userId),
+                eq(eventMembers.role, "admin"),
+              ),
+            )
+            .innerJoin(
+              organizationEvent,
+              eq(organizationEvent.organizationId, currentEvent.organizationId),
+            )
+            .where(
+              and(
+                eq(currentEvent.slug, eventSlug),
+                session.activeOrganizationId === undefined
+                  ? undefined
+                  : eq(currentEvent.organizationId, session.activeOrganizationId),
+              ),
+            )
+            .orderBy(asc(organizationEvent.startsAt))
+            .execute(),
+        ).pipe(
+          Effect.filterOrFail(
+            (rows) => rows.length > 0,
+            () => new Forbidden({ message: "You do not have access" }),
+          ),
+          Effect.flatMap((rows) =>
+            decodeMany(
+              Event,
+              "event",
+              rows.map((row) => row.event),
+            ),
+          ),
+        ),
       get: (id) => find(events.id, id),
       getBySlug: (slug) => find(events.slug, slug),
       create: (input) =>

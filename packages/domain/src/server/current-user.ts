@@ -46,69 +46,79 @@ const makeCurrentUserLayer = (
     Effect.gen(function* () {
       const { database } = yield* Db;
 
-      return {
-        get: Effect.gen(function* () {
+      const get = yield* Effect.cached(
+        Effect.gen(function* () {
           const session = yield* loadSession;
           if (session === null) {
             return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
           }
 
-          const [eventRows, organizationMemberRows] = yield* Effect.all([
-            query(database, "Could not load current event", (db) =>
-              db.select().from(events).where(eq(events.slug, eventSlug)).limit(1).execute(),
-            ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows))),
-            query(database, "Could not load organization memberships", (db) =>
-              db
-                .select()
-                .from(organizationMembers)
-                .where(eq(organizationMembers.userId, session.userId))
-                .execute(),
-            ).pipe(
-              Effect.flatMap((rows) =>
-                decodeMany(OrganizationMember, "organization membership", rows),
-              ),
-            ),
-          ]);
-          const event = eventRows[0];
+          const rows = yield* query(database, "Could not load current user", (db) =>
+            db
+              .select({
+                event: events,
+                organizationMember: organizationMembers,
+                eventMember: eventMembers,
+                contact: contacts,
+              })
+              .from(events)
+              .leftJoin(
+                organizationMembers,
+                and(
+                  eq(organizationMembers.organizationId, events.organizationId),
+                  eq(organizationMembers.userId, session.userId),
+                ),
+              )
+              .leftJoin(
+                eventMembers,
+                and(eq(eventMembers.eventId, events.id), eq(eventMembers.userId, session.userId)),
+              )
+              .leftJoin(
+                contacts,
+                and(eq(contacts.eventId, events.id), eq(contacts.email, session.email)),
+              )
+              .where(eq(events.slug, eventSlug))
+              .execute(),
+          );
+          const first = rows[0];
+          const event = yield* decodeMany(
+            Event,
+            "event",
+            first === undefined ? [] : [first.event],
+          ).pipe(Effect.map((decoded) => decoded[0]));
           if (event === undefined) {
             return yield* Effect.fail(
-              new DbError({ message: "Current event is missing", cause: eventRows }),
+              new DbError({ message: "Current event is missing", cause: rows }),
             );
           }
-          const organizationMember =
-            session.activeOrganizationId === undefined
-              ? organizationMemberRows[0]
-              : organizationMemberRows.find(
-                  (member) => member.organizationId === session.activeOrganizationId,
-                );
+          const organizationMember = yield* decodeMany(
+            OrganizationMember,
+            "organization membership",
+            first?.organizationMember === null || first?.organizationMember === undefined
+              ? []
+              : [first.organizationMember],
+          ).pipe(Effect.map((decoded) => decoded[0]));
           if (
             organizationMember === undefined ||
-            organizationMember.organizationId !== event.organizationId
+            organizationMember.organizationId !== event.organizationId ||
+            (session.activeOrganizationId !== undefined &&
+              session.activeOrganizationId !== event.organizationId)
           ) {
             return yield* Effect.fail(
               new Forbidden({ message: "You do not have access to this organization" }),
             );
           }
 
-          const [memberRows, contactRows] = yield* Effect.all([
-            query(database, "Could not load current user roles", (db) =>
-              db
-                .select()
-                .from(eventMembers)
-                .where(
-                  and(eq(eventMembers.eventId, event.id), eq(eventMembers.userId, session.userId)),
-                )
-                .execute(),
-            ).pipe(Effect.flatMap((rows) => decodeMany(EventMember, "event member", rows))),
-            query(database, "Could not load current speaker", (db) =>
-              db
-                .select()
-                .from(contacts)
-                .where(and(eq(contacts.eventId, event.id), eq(contacts.email, session.email)))
-                .limit(1)
-                .execute(),
-            ).pipe(Effect.flatMap((rows) => decodeMany(Contact, "contact", rows))),
-          ]);
+          const memberRows = yield* decodeMany(
+            EventMember,
+            "event member",
+            rows.flatMap((row) => (row.eventMember === null ? [] : [row.eventMember])),
+          );
+          const contactRows = yield* decodeMany(
+            Contact,
+            "contact",
+            first.contact === null ? [] : [first.contact],
+          );
 
           const contact = contactRows[0];
           return {
@@ -122,7 +132,8 @@ const makeCurrentUserLayer = (
             },
           };
         }),
-      };
+      );
+      return { get };
     }),
   );
 

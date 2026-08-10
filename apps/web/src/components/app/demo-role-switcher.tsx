@@ -2,6 +2,7 @@ import type { DemoPersonaEmail } from "@opensesh/domain/server/schema/auth";
 import { useQuery } from "@tanstack/react-query";
 import { KeyRoundIcon } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export function DemoRoleSwitcher() {
       window.location.assign(result.data.target);
       return;
     }
+    toast.error(result.error.message);
     setSwitching(false);
   };
 
