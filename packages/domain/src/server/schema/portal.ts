@@ -1,6 +1,6 @@
 import { Schema, Struct } from "effect";
 
-import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
+import { EntityFields, JsonObject, NullableDate, NullableNumber, NullableString } from "./common";
 import { FormFieldDefinition } from "./forms";
 import { DietaryRequirement, Submission, SubmissionEditHistory, TshirtSize } from "./submissions";
 
@@ -16,7 +16,7 @@ export const EmailType = Schema.Literals([
   "calendar_invite",
   "custom",
 ]);
-export const EmailStatus = Schema.Literals(["queued", "sent", "failed"]);
+export const EmailStatus = Schema.Literals(["queued", "demo", "sent", "failed"]);
 export type EmailStatus = typeof EmailStatus.Type;
 
 export const PortalFormSection = Schema.Struct({
@@ -160,10 +160,17 @@ const emailLogFields = {
   contactId: NullableString,
   submissionId: NullableString,
   type: EmailType,
+  recipient: Schema.String,
   subject: Schema.String,
   body: Schema.String,
+  htmlBody: Schema.String,
   icsAttached: Schema.Boolean,
+  icsContent: NullableString,
+  icsSequence: NullableNumber,
   status: EmailStatus,
+  provider: NullableString,
+  providerId: NullableString,
+  error: NullableString,
   sentAt: NullableDate,
 };
 

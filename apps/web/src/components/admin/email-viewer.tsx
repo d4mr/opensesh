@@ -1,0 +1,316 @@
+import type { AdminEmail, EmailStatus } from "@opensesh/domain";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
+import {
+  CalendarDaysIcon,
+  CheckCircle2Icon,
+  Clock3Icon,
+  DownloadIcon,
+  FlaskConicalIcon,
+  MailWarningIcon,
+  RotateCcwIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { useAdminEvent } from "@/components/app/admin-event-context";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { adminEmailsQuery } from "@/lib/mail-queries";
+import { retryEmail } from "@/server-fns/mail";
+
+const statusMeta: Readonly<
+  Record<EmailStatus, { readonly label: string; readonly icon: typeof Clock3Icon }>
+> = {
+  queued: { label: "Queued", icon: Clock3Icon },
+  demo: { label: "Demo", icon: FlaskConicalIcon },
+  sent: { label: "Sent", icon: CheckCircle2Icon },
+  failed: { label: "Failed", icon: MailWarningIcon },
+};
+
+const typeLabels: Readonly<Record<AdminEmail["type"], string>> = {
+  confirmation: "Confirmation",
+  magic_link: "Magic link",
+  accepted: "Accepted",
+  declined: "Declined",
+  task_reminder: "Task reminder",
+  calendar_invite: "Calendar invite",
+  custom: "Custom",
+};
+
+function DeliveryBadge({ status }: { readonly status: EmailStatus }) {
+  const meta = statusMeta[status];
+  const Icon = meta.icon;
+  return (
+    <Badge
+      variant={status === "failed" ? "destructive" : status === "demo" ? "secondary" : "outline"}
+      className="rounded-md capitalize"
+    >
+      <Icon /> {meta.label}
+    </Badge>
+  );
+}
+
+const formatDate = (date: Date | null) =>
+  date === null
+    ? "—"
+    : new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(date));
+
+const features = tableFeatures({});
+const columnHelper = createColumnHelper<typeof features, AdminEmail>();
+const columns = columnHelper.columns([
+  columnHelper.accessor("recipient", {
+    header: "To",
+    cell: ({ row }) => <span className="text-xs">{row.original.recipient}</span>,
+  }),
+  columnHelper.accessor("type", {
+    header: "Type",
+    cell: ({ row }) => (
+      <Badge variant="secondary" className="rounded-md">
+        {typeLabels[row.original.type]}
+      </Badge>
+    ),
+  }),
+  columnHelper.accessor("subject", {
+    header: "Subject",
+    cell: ({ row }) => (
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate font-medium">{row.original.subject}</span>
+        {row.original.icsAttached ? (
+          <CalendarDaysIcon
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-label="ICS attached"
+          />
+        ) : null}
+      </div>
+    ),
+  }),
+  columnHelper.accessor("status", {
+    header: "Status",
+    cell: ({ row }) => <DeliveryBadge status={row.original.status} />,
+  }),
+  columnHelper.accessor("sentAt", {
+    header: "Sent at",
+    cell: ({ row }) => (
+      <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+        {formatDate(row.original.sentAt)}
+      </span>
+    ),
+  }),
+]);
+
+export function EmailViewer() {
+  const eventContext = useAdminEvent();
+  if (eventContext === null) return null;
+  return <EmailViewerData eventId={eventContext.event.id} />;
+}
+
+function EmailViewerData({ eventId }: { readonly eventId: string }) {
+  const queryClient = useQueryClient();
+  const options = adminEmailsQuery(eventId);
+  const query = useSuspenseQuery(options);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const data = query.data.ok ? query.data.data : [];
+  const selected = data.find((email) => email.id === selectedId) ?? null;
+  const table = useTable({ features, columns, data });
+  const retry = useMutation({
+    mutationFn: (emailId: string) => retryEmail({ data: { eventId, emailId } }),
+    onMutate: async (emailId) => {
+      await queryClient.cancelQueries({ queryKey: options.queryKey });
+      const previous = queryClient.getQueryData(options.queryKey);
+      queryClient.setQueryData(options.queryKey, (current) =>
+        current?.ok
+          ? {
+              ok: true as const,
+              data: current.data.map((email) =>
+                email.id === emailId ? { ...email, status: "queued" as const, error: null } : email,
+              ),
+            }
+          : current,
+      );
+      return { previous };
+    },
+    onSuccess: async (result, _emailId, context) => {
+      if (!result.ok) {
+        queryClient.setQueryData(options.queryKey, context.previous);
+        toast.error(result.error.message);
+        return;
+      }
+      if (result.data.status === "failed") toast.error(result.data.error ?? "Retry failed");
+      else toast.success("Email retried");
+      await queryClient.invalidateQueries({ queryKey: options.queryKey });
+    },
+    onError: (_error, _emailId, context) => {
+      queryClient.setQueryData(options.queryKey, context?.previous);
+    },
+  });
+
+  if (!query.data.ok) return <p className="p-6 text-sm">{query.data.error.message}</p>;
+
+  const downloadIcs = (email: AdminEmail) => {
+    if (email.icsContent === null) return;
+    const url = URL.createObjectURL(new Blob([email.icsContent], { type: "text/calendar" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${email.submissionId ?? "session"}.ics`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <main className="grid gap-4 p-4 lg:p-6">
+      <div>
+        <h1 className="text-lg font-semibold tracking-tight">Email delivery</h1>
+        <p className="text-xs text-muted-foreground">
+          Every transactional message, including demo sends and calendar attachments.
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} colSpan={header.colSpan}>
+                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  No email has been recorded for this event.
+                </TableCell>
+              </TableRow>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  tabIndex={0}
+                  className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
+                  onClick={() => setSelectedId(row.original.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") setSelectedId(row.original.id);
+                  }}
+                >
+                  {row.getAllCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      <table.FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelectedId(null)}>
+        {selected === null ? null : (
+          <DialogContent className="max-h-[90vh] gap-3 overflow-hidden p-0 sm:max-w-4xl">
+            <DialogHeader className="border-b px-5 py-4 pr-12">
+              <div className="flex items-center gap-2">
+                <DialogTitle className="truncate text-base">{selected.subject}</DialogTitle>
+                <DeliveryBadge status={selected.status} />
+              </div>
+              <DialogDescription className="flex flex-wrap items-center gap-x-2 text-xs">
+                <span>To {selected.recipient}</span>
+                <span aria-hidden="true">·</span>
+                <span>{typeLabels[selected.type]}</span>
+                {selected.provider === null ? null : (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="capitalize">{selected.provider}</span>
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <Tabs defaultValue="html" className="min-h-0 gap-0 px-5 pb-5">
+              <div className="flex items-center justify-between border-b">
+                <TabsList variant="line">
+                  <TabsTrigger value="html">Preview</TabsTrigger>
+                  <TabsTrigger value="text">Plain text</TabsTrigger>
+                  {selected.icsContent === null ? null : (
+                    <TabsTrigger value="ics">Raw ICS</TabsTrigger>
+                  )}
+                </TabsList>
+                <div className="flex items-center gap-2 pb-2">
+                  {selected.icsContent === null ? null : (
+                    <Button size="xs" variant="outline" onClick={() => downloadIcs(selected)}>
+                      <DownloadIcon /> Download ICS
+                    </Button>
+                  )}
+                  {selected.status === "failed" ? (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={retry.isPending}
+                      onClick={() => retry.mutate(selected.id)}
+                    >
+                      <RotateCcwIcon /> {retry.isPending ? "Retrying…" : "Retry"}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {selected.error === null ? null : (
+                <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                  {selected.error}
+                </p>
+              )}
+              <TabsContent
+                value="html"
+                className="mt-3 min-h-0 overflow-auto rounded-md border bg-white"
+              >
+                <iframe
+                  title={`Preview of ${selected.subject}`}
+                  sandbox=""
+                  srcDoc={selected.htmlBody}
+                  className="h-[460px] w-full bg-white"
+                />
+              </TabsContent>
+              <TabsContent value="text" className="mt-3 min-h-0 overflow-auto">
+                <pre className="max-h-[460px] whitespace-pre-wrap rounded-md border bg-muted/20 p-4 font-mono text-xs leading-relaxed">
+                  {selected.body}
+                </pre>
+              </TabsContent>
+              {selected.icsContent === null ? null : (
+                <TabsContent value="ics" className="mt-3 min-h-0 overflow-auto">
+                  <pre className="max-h-[460px] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/20 p-4 font-mono text-xs leading-relaxed">
+                    {selected.icsContent}
+                  </pre>
+                </TabsContent>
+              )}
+            </Tabs>
+          </DialogContent>
+        )}
+      </Dialog>
+    </main>
+  );
+}

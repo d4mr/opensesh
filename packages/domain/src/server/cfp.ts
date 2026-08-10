@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 
 import { InvalidInput } from "./errors";
+import { confirmation } from "./mail/templates";
 import { Contacts } from "./repos/contacts";
 import { EmailLog } from "./repos/email-log";
 import { ReadModels } from "./repos/read-models";
@@ -162,6 +163,8 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
       startsAt: null,
       endsAt: null,
       roomId: null,
+      icsSequence: 0,
+      scheduleDirty: false,
       capacity: null,
       ceuCredits: null,
       clientSessionId: null,
@@ -219,7 +222,9 @@ const validateSubmit = Effect.fn("validateCfpSubmit")(function* (
   }
 });
 
-export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (input: CfpSubmitInput) {
+export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (
+  input: CfpSubmitInput & { readonly portalUrl?: string },
+) {
   const contacts = yield* Contacts;
   const emailLog = yield* EmailLog;
   const submissions = yield* Submissions;
@@ -233,26 +238,43 @@ export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (input: CfpS
   const saved = yield* saveCfpDraft({ ...input, submissionId: input.submissionId });
   const submitter = yield* contacts.findByEmail(bundle.event.id, input.email);
   const submission = yield* submissions.submitDraft(saved.id, submitter.id);
+  let confirmationLogId: string | null = null;
   if (bundle.form.confirmationEmailEnabled) {
     const name = submitter.firstName.length > 0 ? submitter.firstName : submitter.email;
-    const body = bundle.form.confirmationEmailBody
+    const portalUrl = input.portalUrl ?? "https://opensesh.io/portal";
+    const customBody = bundle.form.confirmationEmailBody
       .replaceAll("{{name}}", name)
       .replaceAll("{{title}}", submission.title)
       .replaceAll("{{submission.title}}", submission.title)
-      .replaceAll("{{portal_link}}", "/portal");
-    yield* emailLog.create({
+      .replaceAll("{{portal_link}}", portalUrl);
+    const rendered = confirmation({
+      eventName: bundle.event.name,
+      name,
+      submissionTitle: submission.title,
+      portalUrl,
+      customBody,
+    });
+    const entry = yield* emailLog.create({
       eventId: bundle.event.id,
       contactId: submitter.id,
       submissionId: submission.id,
       type: "confirmation",
-      subject: `We received “${submission.title}”`,
-      body,
+      recipient: submitter.email,
+      subject: rendered.subject,
+      body: rendered.text,
+      htmlBody: rendered.html,
       icsAttached: false,
+      icsContent: null,
+      icsSequence: null,
       status: "queued",
+      provider: null,
+      providerId: null,
+      error: null,
       sentAt: null,
     });
+    confirmationLogId = entry.id;
   }
-  return { submission, form: bundle.form };
+  return { submission, form: bundle.form, confirmationLogId };
 });
 
 export const listCfpSubmissions = Effect.fn("listCfpSubmissions")(function* (

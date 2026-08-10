@@ -1,6 +1,6 @@
 CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rejected');--> statement-breakpoint
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
-CREATE TYPE "email_status" AS ENUM('queued', 'sent', 'failed');--> statement-breakpoint
+CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
 CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
@@ -232,14 +232,20 @@ CREATE TABLE "email_log" (
 	"contact_id" text,
 	"submission_id" text,
 	"type" "email_type" NOT NULL,
+	"recipient" text NOT NULL,
 	"subject" text NOT NULL,
 	"body" text NOT NULL,
+	"html_body" text NOT NULL,
 	"ics_attached" boolean DEFAULT false NOT NULL,
+	"ics_content" text,
+	"ics_sequence" integer,
 	"status" "email_status" NOT NULL,
+	"provider" text,
+	"provider_id" text,
+	"error" text,
 	"sent_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "email_log_submission_type_contact_unique" UNIQUE("submission_id","type","contact_id")
+	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "file_comments" (
@@ -444,6 +450,8 @@ CREATE TABLE "submissions" (
 	"starts_at" timestamp with time zone,
 	"ends_at" timestamp with time zone,
 	"room_id" text,
+	"ics_sequence" integer DEFAULT 0 NOT NULL,
+	"schedule_dirty" boolean DEFAULT false NOT NULL,
 	"capacity" integer,
 	"ceu_credits" integer,
 	"client_session_id" text,

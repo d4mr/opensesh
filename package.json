@@ -15,7 +15,8 @@
     "seed": "pnpm --filter @opensesh/domain seed",
     "seed:verify": "pnpm --filter @opensesh/domain seed:verify",
     "cfp:verify": "pnpm --filter @opensesh/domain cfp:verify"
-    ,"review-desk:verify": "pnpm --filter @opensesh/domain review-desk:verify"
+    ,"review-desk:verify": "pnpm --filter @opensesh/domain review-desk:verify",
+    "mail:verify": "pnpm --filter @opensesh/domain mail:verify"
   },
   "devDependencies": {
     "drizzle-kit": "1.0.0-rc.4",

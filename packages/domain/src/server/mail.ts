@@ -4,14 +4,24 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { contacts, emailLog, events } from "../db/schema";
 import { Db, makeDbLive } from "./db";
 import { type DbError, MailError, type NotFound } from "./errors";
-import { Event } from "./schema/core";
+import { magicLink } from "./mail/templates";
 import { decodeFound, query } from "./repos/shared";
+import { Event } from "./schema/core";
+import { EmailLogEntry, EmailType } from "./schema/portal";
+
+export const MailAttachment = Schema.Struct({
+  filename: Schema.String,
+  content: Schema.String,
+  contentType: Schema.String,
+});
+export type MailAttachment = typeof MailAttachment.Type;
 
 export const OutboundMail = Schema.Struct({
   to: Schema.String,
   subject: Schema.String,
   text: Schema.String,
   html: Schema.String,
+  attachment: Schema.optionalKey(MailAttachment),
 });
 export type OutboundMail = typeof OutboundMail.Type;
 
@@ -22,25 +32,134 @@ export const MagicLinkMail = Schema.Struct({
 });
 export type MagicLinkMail = typeof MagicLinkMail.Type;
 
-export type MailTransport = (mail: OutboundMail) => Effect.Effect<void, MailError>;
+export interface TransportResult {
+  readonly providerId: string | null;
+}
+
+export type MailTransport = (mail: OutboundMail) => Effect.Effect<TransportResult, MailError>;
+
+export interface MailDeliveryResult {
+  readonly id: string;
+  readonly status: "demo" | "sent" | "failed";
+  readonly error: string | null;
+}
 
 interface MailService {
   readonly sendMagicLink: (
     input: MagicLinkMail,
-  ) => Effect.Effect<void, DbError | MailError | NotFound>;
+  ) => Effect.Effect<MailDeliveryResult, DbError | NotFound>;
   readonly sendDecision: (mail: OutboundMail) => Effect.Effect<void, MailError>;
+  readonly sendLogged: (
+    logId: string,
+    mail: OutboundMail,
+  ) => Effect.Effect<MailDeliveryResult, DbError>;
+  readonly sendQueued: (logId: string) => Effect.Effect<MailDeliveryResult, DbError | NotFound>;
 }
 
 export class Mail extends Context.Service<Mail, MailService>()("opensesh/Mail") {}
 
-const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
+const failureMessage = (error: MailError) =>
+  error.cause instanceof Error ? error.cause.message : error.message;
+
+const makeMailLayer = (
+  demoMode: boolean,
+  provider: "cloudflare" | "resend",
+  deliver: MailTransport,
+) =>
   Layer.effect(
     Mail,
     Effect.gen(function* () {
       const { database } = yield* Db;
 
+      const updateLog = (
+        id: string,
+        values: Partial<typeof emailLog.$inferInsert>,
+        message: string,
+      ) =>
+        query(database, message, (db) =>
+          db
+            .update(emailLog)
+            .set({ ...values, updatedAt: new Date() })
+            .where(eq(emailLog.id, id))
+            .execute(),
+        ).pipe(Effect.asVoid);
+
+      const sendLogged = (logId: string, mail: OutboundMail) =>
+        Effect.gen(function* () {
+          yield* updateLog(
+            logId,
+            {
+              status: "queued",
+              provider: demoMode ? "demo" : provider,
+              providerId: null,
+              error: null,
+              sentAt: null,
+            },
+            "Could not queue email",
+          );
+          if (demoMode) {
+            yield* updateLog(
+              logId,
+              { status: "demo", provider: "demo", sentAt: new Date() },
+              "Could not mark demo email",
+            );
+            return { id: logId, status: "demo", error: null } as const;
+          }
+          return yield* deliver(mail).pipe(
+            Effect.matchEffect({
+              onFailure: (error) => {
+                const message = failureMessage(error);
+                return updateLog(
+                  logId,
+                  { status: "failed", provider, error: message, sentAt: null },
+                  "Could not mark email failed",
+                ).pipe(Effect.as({ id: logId, status: "failed", error: message } as const));
+              },
+              onSuccess: (result) =>
+                updateLog(
+                  logId,
+                  {
+                    status: "sent",
+                    provider,
+                    providerId: result.providerId,
+                    error: null,
+                    sentAt: new Date(),
+                  },
+                  "Could not mark email sent",
+                ).pipe(Effect.as({ id: logId, status: "sent", error: null } as const)),
+            }),
+          );
+        });
+
+      const sendQueued = (logId: string) =>
+        query(database, "Could not load queued email", (db) =>
+          db.select().from(emailLog).where(eq(emailLog.id, logId)).limit(1).execute(),
+        ).pipe(
+          Effect.flatMap((rows) => decodeFound(EmailLogEntry, "Email", rows[0])),
+          Effect.flatMap((entry) =>
+            sendLogged(entry.id, {
+              to: entry.recipient,
+              subject: entry.subject,
+              text: entry.body,
+              html: entry.htmlBody,
+              ...(entry.icsContent === null
+                ? {}
+                : {
+                    attachment: {
+                      filename: `${entry.submissionId ?? "session"}.ics`,
+                      content: entry.icsContent,
+                      contentType: "text/calendar; method=REQUEST; charset=UTF-8",
+                    },
+                  }),
+            }),
+          ),
+        );
+
       return {
-        sendDecision: (mail) => (demoMode ? Effect.succeed(undefined) : deliver(mail)),
+        sendDecision: (mail) =>
+          demoMode ? Effect.succeed(undefined) : deliver(mail).pipe(Effect.asVoid),
+        sendLogged,
+        sendQueued,
         sendMagicLink: (input) =>
           Effect.gen(function* () {
             const eventRows = yield* query(database, "Could not load email event", (db) =>
@@ -55,9 +174,7 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
                 .limit(1)
                 .execute(),
             );
-            const subject = `Sign in to ${event.name}`;
-            const body = `Use this secure link to sign in: ${input.url}`;
-            const logoUrl = `${new URL(input.url).origin}/brand/logo.svg`;
+            const rendered = magicLink({ eventName: event.name, url: input.url });
             const rows = yield* query(database, "Could not record magic link email", (db) =>
               db
                 .insert(emailLog)
@@ -65,62 +182,54 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
                   eventId: event.id,
                   contactId: contactRows[0]?.id ?? null,
                   submissionId: null,
-                  type: "magic_link",
-                  subject,
-                  body,
+                  type: "magic_link" satisfies typeof EmailType.Type,
+                  recipient: input.email,
+                  subject: rendered.subject,
+                  body: rendered.text,
+                  htmlBody: rendered.html,
                   icsAttached: false,
+                  icsContent: null,
+                  icsSequence: null,
                   status: "queued",
+                  provider: null,
+                  providerId: null,
+                  error: null,
                   sentAt: null,
                 })
                 .returning({ id: emailLog.id })
                 .execute(),
             );
-            const logId = rows[0]?.id;
-
-            if (demoMode) {
-              return;
-            }
-
-            const delivery = deliver({
-              to: input.email,
-              subject,
-              text: body,
-              html: `<div style="font-family:ui-sans-serif,system-ui,sans-serif;color:#1b211d"><div style="display:flex;align-items:center;gap:10px;margin-bottom:24px"><img src="${logoUrl}" alt="OS" width="32" height="32" style="border-radius:8px;background:#1d6b4c;color:#f5fbf7"><strong>${event.name}</strong></div><p>Use this secure link to sign in:</p><p><a href="${input.url}" style="color:#1d6b4c">Sign in to ${event.name}</a></p></div>`,
-            });
-
-            yield* delivery.pipe(
-              Effect.catch((error) =>
-                Effect.gen(function* () {
-                  if (logId !== undefined) {
-                    yield* query(database, "Could not mark email failed", (db) =>
-                      db
-                        .update(emailLog)
-                        .set({ status: "failed", updatedAt: new Date() })
-                        .where(eq(emailLog.id, logId))
-                        .execute(),
-                    );
-                  }
-                  return yield* Effect.fail(error);
-                }),
-              ),
-            );
-
-            if (logId !== undefined) {
-              yield* query(database, "Could not mark email sent", (db) =>
-                db
-                  .update(emailLog)
-                  .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
-                  .where(eq(emailLog.id, logId))
-                  .execute(),
+            const row = rows[0];
+            if (row === undefined) {
+              return yield* Effect.fail(
+                new MailError({ message: "Could not record magic link email", cause: rows }),
               );
             }
-          }),
+            return yield* sendLogged(row.id, {
+              to: input.email,
+              subject: rendered.subject,
+              text: rendered.text,
+              html: rendered.html,
+            });
+          }).pipe(
+            Effect.catchTag("MailError", (error) =>
+              Effect.succeed({
+                id: "unlogged",
+                status: "failed",
+                error: failureMessage(error),
+              } as const),
+            ),
+          ),
       };
     }),
   );
 
-export const makeMailLive = (connectionString: string, demoMode: boolean, deliver: MailTransport) =>
-  makeMailLayer(demoMode, deliver).pipe(Layer.provide(makeDbLive(connectionString)));
+export const makeMailLive = (
+  connectionString: string,
+  demoMode: boolean,
+  deliver: MailTransport,
+  provider: "cloudflare" | "resend" = "cloudflare",
+) => makeMailLayer(demoMode, provider, deliver).pipe(Layer.provide(makeDbLive(connectionString)));
 
 export const sendMagicLink = (input: MagicLinkMail) =>
   Effect.gen(function* () {

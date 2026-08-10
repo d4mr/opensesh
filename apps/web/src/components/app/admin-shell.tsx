@@ -11,6 +11,7 @@ import {
   FileTextIcon,
   GaugeIcon,
   ListChecksIcon,
+  MailIcon,
   PanelTopIcon,
   SettingsIcon,
   SquareStackIcon,
@@ -49,6 +50,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Evaluation", section: "evaluation", icon: ClipboardCheckIcon },
   { title: "Agenda", section: "agenda", icon: CalendarDaysIcon },
   { title: "Tasks", section: "tasks", icon: CheckSquareIcon },
+  { title: "Email delivery", section: "emails", icon: MailIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
   { title: "File Requests", section: "file-requests", icon: PanelTopIcon },
   { title: "Settings", section: "settings", icon: SettingsIcon },
@@ -123,6 +125,7 @@ export function AdminShell({
       return navigate({ to: "/admin/sessions", search: { status: "all" } });
     if (section === "forms") return navigate({ to: "/admin/forms" });
     if (section === "evaluation") return navigate({ to: "/admin/evaluation" });
+    if (section === "emails") return navigate({ to: "/admin/emails" });
     return navigate({ to: "/admin/$section", params: { section } });
   };
 

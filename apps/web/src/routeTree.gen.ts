@@ -18,6 +18,7 @@ import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
 import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
+import { Route as AdminEmailsRouteImport } from './routes/admin.emails'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
@@ -75,6 +76,11 @@ const AdminSectionRoute = AdminSectionRouteImport.update({
 const AdminAbstractsRoute = AdminAbstractsRouteImport.update({
   id: '/abstracts',
   path: '/abstracts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEmailsRoute = AdminEmailsRouteImport.update({
+  id: '/emails',
+  path: '/emails',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminEvaluationRoute = AdminEvaluationRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
+  '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
+  '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/submit': typeof SubmitRouteWithChildren
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
+  '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/submit'
     | '/admin/$section'
     | '/admin/abstracts'
+    | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/submit'
     | '/admin/$section'
     | '/admin/abstracts'
+    | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/submit'
     | '/admin/$section'
     | '/admin/abstracts'
+    | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
@@ -360,6 +372,13 @@ declare module '@tanstack/react-router' {
       path: '/abstracts'
       fullPath: '/admin/abstracts'
       preLoaderRoute: typeof AdminAbstractsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/emails': {
+      id: '/admin/emails'
+      path: '/emails'
+      fullPath: '/admin/emails'
+      preLoaderRoute: typeof AdminEmailsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/evaluation': {
@@ -471,6 +490,7 @@ const AdminFormsRouteWithChildren = AdminFormsRoute._addFileChildren(
 interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
   AdminAbstractsRoute: typeof AdminAbstractsRoute
+  AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
   AdminSessionsRoute: typeof AdminSessionsRoute
@@ -483,6 +503,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
   AdminAbstractsRoute: AdminAbstractsRoute,
+  AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,
   AdminSessionsRoute: AdminSessionsRoute,

@@ -52,6 +52,12 @@ function NavItemLink({
         {content}
       </Link>
     );
+  if (item.section === "emails")
+    return (
+      <Link to="/admin/emails" {...props}>
+        {content}
+      </Link>
+    );
   return (
     <Link to="/admin/$section" params={{ section: item.section }} {...props}>
       {content}

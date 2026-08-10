@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "91da4acb-a6ac-4606-92b0-ea654f3d303e",
+  "id": "5c21f521-a67e-416a-ac3b-51ce44010287",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -31,6 +31,7 @@
     {
       "values": [
         "queued",
+        "demo",
         "sent",
         "failed"
       ],
@@ -2439,6 +2440,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "recipient",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "subject",
       "entityType": "columns",
       "schema": "public",
@@ -2458,6 +2472,19 @@
       "table": "email_log"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "html_body",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
       "type": "boolean",
       "typeSchema": null,
       "notNull": true,
@@ -2471,6 +2498,32 @@
       "table": "email_log"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ics_content",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ics_sequence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
       "type": "email_status",
       "typeSchema": "public",
       "notNull": true,
@@ -2479,6 +2532,45 @@
       "generated": null,
       "identity": null,
       "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provider",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provider_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "error",
       "entityType": "columns",
       "schema": "public",
       "table": "email_log"
@@ -4494,6 +4586,32 @@
       "generated": null,
       "identity": null,
       "name": "room_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submissions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "ics_sequence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submissions"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "schedule_dirty",
       "entityType": "columns",
       "schema": "public",
       "table": "submissions"
@@ -6888,19 +7006,6 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "tracks"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "submission_id",
-        "type",
-        "contact_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "email_log_submission_type_contact_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "email_log"
     },
     {
       "nameExplicit": true,

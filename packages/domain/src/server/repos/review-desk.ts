@@ -1111,14 +1111,20 @@ export const ReviewDeskLive = Layer.effect(
                         contactId: candidate.contactId,
                         submissionId: candidate.submissionId,
                         type: nextStatus,
+                        recipient: candidate.to,
                         subject: candidate.subject,
                         body: candidate.body,
+                        htmlBody: candidate.html,
                         icsAttached: false,
+                        icsContent: null,
+                        icsSequence: null,
                         status: queued,
+                        provider: null,
+                        providerId: null,
+                        error: null,
                         sentAt: null,
                       })),
                     )
-                    .onConflictDoNothing()
                     .returning({
                       id: emailLog.id,
                       contactId: emailLog.contactId,
