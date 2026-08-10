@@ -24,8 +24,11 @@ Open-source clone of Sessionboard's Program module (conference CFP → review �
 - **better-auth** for auth (magic links, Drizzle adapter). **Cloudflare Email** `send_email` binding for mail (dev: log-only Mail layer).
 - **Tailwind v4 + shadcn/ui**: components are installed with the **shadcn CLI, exactly as shipped** (`pnpm dlx shadcn@latest add <component>`), then modified in `src/components/ui/` only when a spec requires it. Never hand-roll a lookalike of a component shadcn ships. Theme tokens: `docs/themes/greenroom.css` (light+dark) — wire once into the global stylesheet; never hardcode colors in components.
 - pnpm. TypeScript strict.
+- **Monorepo (minimal)**: pnpm workspace + Vite+ (`vp run` with caching). Exactly two packages — `apps/web` (the TanStack Start app: routes, components, server fns) and `packages/domain` (drizzle tables, effect/Schema models, Effect services/repos, mail templates+ICS — **no React, no TanStack imports; enforced by its package.json deps**). `apps/web` imports `@opensesh/domain`. Do not add more packages without a spec saying so. Root scripts fan out via `vp run` (`pnpm check` = all packages).
 
-## Effect rules (src/server/**)
+Path mapping: older specs may say `src/server/*` / `src/db/*` — post-monorepo these live in `packages/domain/src/*`; route/component paths live in `apps/web/src/*`.
+
+## Effect rules (packages/domain/**, and any server fn)
 
 - Every domain operation: `Effect` with typed failures via `Data.TaggedError` (`NotFound`, `Forbidden`, `FormClosed`, `SubmissionLimitReached`, `ScheduleConflict`, …). **No `throw`, no naked `Promise`, no `any`, no `@ts-ignore`, no unchecked `as`.**
 - Services via `Effect.Service` + Layers (Db from the D1 binding, Mail, Ics, Clock where it matters). Env/config via `Config`. `Effect.runPromise` is called in exactly one place — the server-fn runtime helper — where tagged errors are exhaustively `Match`ed to `{ status, message }`.
