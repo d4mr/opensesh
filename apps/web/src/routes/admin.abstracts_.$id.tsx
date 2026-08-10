@@ -42,7 +42,7 @@ import { changeSubmissionStatus, getReviewDeskDetail } from "@/server-fns/review
 
 type DetailResult = Awaited<ReturnType<typeof getReviewDeskDetail>>;
 
-export const Route = createFileRoute("/admin/abstracts/$id")({
+export const Route = createFileRoute("/admin/abstracts_/$id")({
   loader: async ({ context, params }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
     const eventId = events.ok ? events.data[0]?.id : undefined;
