@@ -6,13 +6,15 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vp dev --port 3000",
+    "dev": "XDG_CONFIG_HOME=.wrangler/config WRANGLER_WRITE_LOGS=false vp dev --port 3000",
     "check": "vp check",
-    "build": "vp build",
+    "build": "XDG_CONFIG_HOME=.wrangler/config WRANGLER_WRITE_LOGS=false vp build",
     "deploy": "vp build && wrangler deploy",
     "cf-typegen": "wrangler types",
-    "db:migrate:local": "wrangler d1 migrations apply opensesh --local",
-    "db:migrate:remote": "wrangler d1 migrations apply opensesh --remote"
+    "db:migrate:local": "WRANGLER_WRITE_LOGS=false wrangler d1 migrations apply opensesh --local",
+    "db:migrate:remote": "WRANGLER_WRITE_LOGS=false wrangler d1 migrations apply opensesh --remote",
+    "seed": "WRANGLER_WRITE_LOGS=false wrangler d1 execute opensesh --local --file=../../packages/domain/seed.sql",
+    "seed:verify": "node scripts/seed-verify.mjs"
   },
   "dependencies": {
     "@opensesh/domain": "workspace:*",

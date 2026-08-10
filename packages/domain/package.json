@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "drizzle-orm": "1.0.0-rc.4",
-    "effect": "4.0.0-beta.106"
+    "effect": "4.0.0-beta.106",
+    "nanoid": "5.1.5"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260810.1"

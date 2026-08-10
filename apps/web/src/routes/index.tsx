@@ -35,7 +35,7 @@ function Home() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <p>
-            {eventDate.format(new Date(data.startsAt))} – {eventDate.format(new Date(data.endsAt))}
+            {eventDate.format(data.startsAt)} – {eventDate.format(data.endsAt)}
           </p>
           <p className="mt-1">{data.timezone}</p>
         </CardContent>
