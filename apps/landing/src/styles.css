@@ -74,6 +74,23 @@
   background-size: 10px 10px;
 }
 
+/* Diagonal-hatch buffer band between strongly colored sections. */
+.stripe-band {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--border) 0,
+    var(--border) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+
+/* Light dot texture for use on the primary-colored CTA band. */
+.dot-band-light {
+  background-image: radial-gradient(rgb(255 255 255 / 0.28) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
 /* Bayer-dithered white fade — matches the halftone grain of the art assets.
    White at the top, transparent at the bottom; flip with -scale-y-100. */
 .dither-down {

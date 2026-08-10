@@ -9,6 +9,8 @@ const buttonVariants = {
   outline: "border bg-background text-foreground hover:bg-paper",
   "outline-dark": "border border-ink-border bg-transparent text-ink-foreground hover:bg-white/5",
   ghost: "border border-transparent text-foreground hover:bg-paper",
+  inverse: "bg-white text-primary hover:bg-white/90 border border-transparent",
+  "outline-light": "border border-white/40 bg-transparent text-white hover:bg-white/10",
 } as const;
 
 export function ButtonLink({
