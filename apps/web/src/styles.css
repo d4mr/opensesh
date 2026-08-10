@@ -45,6 +45,10 @@
   --status-withdrawn-bg: #ececea;
   --status-draft: #48504b;
   --status-draft-foreground: #ffffff;
+  --status-open: #1d6b4c;
+  --status-open-foreground: #f5fbf7;
+  --status-closed: #6b6b67;
+  --status-closed-foreground: #ffffff;
   --sidebar: var(--card);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
@@ -96,6 +100,10 @@
   --status-withdrawn-bg: #26262a;
   --status-draft: #8d9791;
   --status-draft-foreground: #101512;
+  --status-open: #4caf82;
+  --status-open-foreground: #0b1f15;
+  --status-closed: #8d9791;
+  --status-closed-foreground: #101512;
   --chart-1: var(--primary);
   --chart-2: var(--status-accepted);
   --chart-3: var(--status-maybe);
@@ -200,6 +208,22 @@
   transform: scale(0.97);
 }
 
+.conditional-field {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    max-height 150ms var(--ease-out),
+    opacity 150ms var(--ease-out);
+}
+
+.conditional-field-visible {
+  max-height: 50rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .portal-nav-link {
   border-radius: 9999px;
   padding: 0.375rem 0.75rem;
@@ -217,5 +241,9 @@
 @media (prefers-reduced-motion: reduce) {
   .pressable {
     transition-duration: 0ms;
+  }
+
+  .conditional-field {
+    transition: opacity 150ms linear;
   }
 }

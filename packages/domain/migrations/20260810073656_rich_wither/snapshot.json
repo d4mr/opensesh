@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "cd192011-8608-45ab-95ad-5fa36ed709cc",
+  "id": "fec66ed0-7fa7-409b-bd30-372f4183a106",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -42,6 +42,7 @@
     {
       "values": [
         "text",
+        "textarea",
         "richtext",
         "email",
         "phone",
@@ -978,6 +979,32 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tagline",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "description",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'conference'",
@@ -1205,6 +1232,19 @@
       "generated": null,
       "identity": null,
       "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "formats"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "30",
+      "generated": null,
+      "identity": null,
+      "name": "duration_minutes",
       "entityType": "columns",
       "schema": "public",
       "table": "formats"

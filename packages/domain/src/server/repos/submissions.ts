@@ -1,8 +1,10 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import {
   eventMembers,
+  events,
+  forms,
   reviews,
   submissionParticipants,
   submissions,
@@ -12,7 +14,9 @@ import {
   users,
 } from "../../db/schema";
 import { Db } from "../db";
-import type { DbError, FormClosed, NotFound, SubmissionLimitReached } from "../errors";
+import { DbError, Forbidden, FormClosed, type NotFound, SubmissionLimitReached } from "../errors";
+import { Event } from "../schema/core";
+import { Form } from "../schema/forms";
 import {
   type DashboardSubmission,
   DashboardSubmissionRow,
@@ -32,11 +36,24 @@ interface SubmissionsService {
   readonly listDashboardByEvent: (
     eventId: string,
   ) => Effect.Effect<ReadonlyArray<DashboardSubmission>, DbError>;
+  readonly listByFormContact: (
+    formId: string,
+    contactId: string,
+  ) => Effect.Effect<ReadonlyArray<Submission>, DbError>;
   readonly get: (id: string) => Effect.Effect<Submission, DbError | NotFound>;
   readonly allocateCode: (eventId: string) => Effect.Effect<string, DbError>;
-  readonly create: (
+  readonly create: (input: SubmissionCreate) => Effect.Effect<Submission, DbError>;
+  readonly saveDraft: (
     input: SubmissionCreate,
-  ) => Effect.Effect<Submission, DbError | FormClosed | SubmissionLimitReached>;
+    id: string | null,
+  ) => Effect.Effect<
+    Submission,
+    DbError | Forbidden | FormClosed | NotFound | SubmissionLimitReached
+  >;
+  readonly submitDraft: (
+    id: string,
+    contactId: string,
+  ) => Effect.Effect<Submission, DbError | Forbidden | FormClosed | NotFound>;
   readonly update: (
     id: string,
     input: SubmissionUpdate,
@@ -58,6 +75,11 @@ interface SubmissionsService {
     submissionId: string,
     participants: ReadonlyArray<SubmissionParticipantCreate>,
   ) => Effect.Effect<ReadonlyArray<SubmissionParticipant>, DbError>;
+  readonly listParticipants: (
+    submissionId: string,
+  ) => Effect.Effect<ReadonlyArray<SubmissionParticipant>, DbError>;
+  readonly listTrackIds: (submissionId: string) => Effect.Effect<ReadonlyArray<string>, DbError>;
+  readonly listTagIds: (submissionId: string) => Effect.Effect<ReadonlyArray<string>, DbError>;
 }
 
 export class Submissions extends Context.Service<Submissions, SubmissionsService>()(
@@ -72,13 +94,29 @@ export const SubmissionsLive = Layer.effect(
     const allocateCode = (eventId: string) =>
       query(database, "Could not allocate a submission code", (db) =>
         db
-          .select({
-            next: sql<number>`coalesce(max(cast(substr(${submissions.code}, 6) as integer)), 0) + 1`,
-          })
+          .select({ code: submissions.code })
           .from(submissions)
           .where(eq(submissions.eventId, eventId))
           .execute(),
-      ).pipe(Effect.map((rows) => `SESS-${rows[0]?.next ?? 1}`));
+      ).pipe(
+        Effect.map((rows) => {
+          const current = rows.reduce((maximum, row) => {
+            const value = Number.parseInt(row.code.replace(/^SESS-/, ""), 10);
+            return Number.isNaN(value) ? maximum : Math.max(maximum, value);
+          }, 0);
+          return `SESS-${current + 1}`;
+        }),
+      );
+
+    const loadForm = (formId: string) =>
+      query(database, "Could not load submission form", (db) =>
+        db.select().from(forms).where(eq(forms.id, formId)).limit(1).execute(),
+      ).pipe(Effect.flatMap((rows) => decodeFound(Form, "Form", rows[0])));
+
+    const assertOpen = (form: Form) =>
+      form.status === "closed" || (form.closeDate !== null && form.closeDate <= new Date())
+        ? Effect.fail(new FormClosed({ message: "This submission form is closed" }))
+        : Effect.succeed(undefined);
 
     return {
       listByEvent: (eventId) =>
@@ -156,6 +194,20 @@ export const SubmissionsLive = Layer.effect(
               }));
           }),
         ),
+      listByFormContact: (formId, contactId) =>
+        query(database, "Could not list submitter submissions", (db) =>
+          db
+            .select()
+            .from(submissions)
+            .where(
+              and(
+                eq(submissions.sourceFormId, formId),
+                eq(submissions.submitterContactId, contactId),
+              ),
+            )
+            .orderBy(desc(submissions.updatedAt))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(Submission, "submission", rows))),
       get: (id) =>
         query(database, "Could not load submission", (db) =>
           db.select().from(submissions).where(eq(submissions.id, id)).limit(1).execute(),
@@ -172,6 +224,104 @@ export const SubmissionsLive = Layer.effect(
               .execute(),
           );
           return yield* decode(Submission, "submission", rows[0]);
+        }),
+      saveDraft: (input, id) =>
+        Effect.gen(function* () {
+          if (input.sourceFormId === null || input.submitterContactId === null) {
+            return yield* Effect.fail(
+              new DbError({ message: "Draft identity is missing", cause: input }),
+            );
+          }
+          const sourceFormId = input.sourceFormId;
+          const submitterContactId = input.submitterContactId;
+          const form = yield* loadForm(sourceFormId);
+          yield* assertOpen(form);
+
+          if (id === null) {
+            const [existingRows, eventRows] = yield* Effect.all([
+              query(database, "Could not count submitter submissions", (db) =>
+                db
+                  .select()
+                  .from(submissions)
+                  .where(
+                    and(
+                      eq(submissions.sourceFormId, sourceFormId),
+                      eq(submissions.submitterContactId, submitterContactId),
+                    ),
+                  )
+                  .execute(),
+              ).pipe(Effect.flatMap((rows) => decodeMany(Submission, "submission", rows))),
+              query(database, "Could not load event submission limit", (db) =>
+                db.select().from(events).where(eq(events.id, input.eventId)).limit(1).execute(),
+              ).pipe(Effect.flatMap((rows) => decodeFound(Event, "Event", rows[0]))),
+            ]);
+            const limit = form.submissionLimit ?? eventRows.defaultSubmissionLimit;
+            if (existingRows.length >= limit) {
+              return yield* Effect.fail(
+                new SubmissionLimitReached({
+                  message: `You have reached the limit of ${limit} submissions`,
+                }),
+              );
+            }
+            if (
+              !form.allowMultipleDrafts &&
+              existingRows.some((submission) => submission.status === "draft")
+            ) {
+              return yield* Effect.fail(
+                new SubmissionLimitReached({ message: "Resume your existing draft to continue" }),
+              );
+            }
+            const code = yield* allocateCode(input.eventId);
+            const rows = yield* query(database, "Could not save draft", (db) =>
+              db
+                .insert(submissions)
+                .values({ ...input, code, status: "draft" })
+                .returning()
+                .execute(),
+            );
+            return yield* decode(Submission, "submission", rows[0]);
+          }
+
+          const rows = yield* query(database, "Could not save draft", (db) =>
+            db
+              .update(submissions)
+              .set({ ...input, status: "draft", updatedAt: new Date() })
+              .where(
+                and(
+                  eq(submissions.id, id),
+                  eq(submissions.sourceFormId, sourceFormId),
+                  eq(submissions.submitterContactId, submitterContactId),
+                ),
+              )
+              .returning()
+              .execute(),
+          );
+          if (rows.length === 0) {
+            return yield* Effect.fail(
+              new Forbidden({ message: "You cannot edit this submission" }),
+            );
+          }
+          return yield* decode(Submission, "submission", rows[0]);
+        }),
+      submitDraft: (id, contactId) =>
+        Effect.gen(function* () {
+          const submission = yield* query(database, "Could not load draft", (db) =>
+            db.select().from(submissions).where(eq(submissions.id, id)).limit(1).execute(),
+          ).pipe(Effect.flatMap((rows) => decodeFound(Submission, "Submission", rows[0])));
+          if (submission.submitterContactId !== contactId || submission.sourceFormId === null) {
+            return yield* Effect.fail(new Forbidden({ message: "You cannot submit this draft" }));
+          }
+          const form = yield* loadForm(submission.sourceFormId);
+          yield* assertOpen(form);
+          const rows = yield* query(database, "Could not submit draft", (db) =>
+            db
+              .update(submissions)
+              .set({ status: "pending", submittedAt: new Date(), updatedAt: new Date() })
+              .where(eq(submissions.id, id))
+              .returning()
+              .execute(),
+          );
+          return yield* decodeFound(Submission, "Submission", rows[0]);
         }),
       update: (id, input) =>
         query(database, "Could not update submission", (db) =>
@@ -253,6 +403,35 @@ export const SubmissionsLive = Layer.effect(
           );
           return yield* decodeMany(SubmissionParticipant, "submission participant", rows);
         }),
+      listParticipants: (submissionId) =>
+        query(database, "Could not list submission participants", (db) =>
+          db
+            .select()
+            .from(submissionParticipants)
+            .where(eq(submissionParticipants.submissionId, submissionId))
+            .orderBy(asc(submissionParticipants.position))
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) =>
+            decodeMany(SubmissionParticipant, "submission participant", rows),
+          ),
+        ),
+      listTrackIds: (submissionId) =>
+        query(database, "Could not list submission tracks", (db) =>
+          db
+            .select({ id: submissionTracks.trackId })
+            .from(submissionTracks)
+            .where(eq(submissionTracks.submissionId, submissionId))
+            .execute(),
+        ).pipe(Effect.map((rows) => rows.map((row) => row.id))),
+      listTagIds: (submissionId) =>
+        query(database, "Could not list submission tags", (db) =>
+          db
+            .select({ id: submissionTags.tagId })
+            .from(submissionTags)
+            .where(eq(submissionTags.submissionId, submissionId))
+            .execute(),
+        ).pipe(Effect.map((rows) => rows.map((row) => row.id))),
     };
   }),
 );

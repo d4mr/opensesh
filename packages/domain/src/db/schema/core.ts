@@ -10,6 +10,8 @@ export const events = pgTable("events", {
     .references(() => organizations.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  tagline: text("tagline"),
+  description: text("description"),
   type: text("type").notNull().default("conference"),
   websiteUrl: text("website_url"),
   location: text("location"),
@@ -69,10 +71,14 @@ export const tags = pgTable("tags", libraryColumns, (table) => [
   index("tags_event_idx").on(table.eventId),
 ]);
 
-export const formats = pgTable("formats", libraryColumns, (table) => [
-  unique("formats_event_name_unique").on(table.eventId, table.name),
-  index("formats_event_idx").on(table.eventId),
-]);
+export const formats = pgTable(
+  "formats",
+  { ...libraryColumns, durationMinutes: integer("duration_minutes").notNull().default(30) },
+  (table) => [
+    unique("formats_event_name_unique").on(table.eventId, table.name),
+    index("formats_event_idx").on(table.eventId),
+  ],
+);
 
 export const levels = pgTable("levels", libraryColumns, (table) => [
   unique("levels_event_name_unique").on(table.eventId, table.name),

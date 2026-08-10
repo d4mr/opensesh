@@ -1,4 +1,6 @@
-import { DbError, Forbidden, getEventBySlug, run } from "@opensesh/domain";
+import { DbError, Forbidden } from "@opensesh/domain";
+import { getEventBySlug } from "@opensesh/domain/server/events";
+import { run } from "@opensesh/domain/server/runtime";
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
 import { DemoPersonaRequest, MagicLinkRequest } from "@opensesh/domain/server/schema/auth";
 import { createServerFn } from "@tanstack/react-start";
@@ -30,7 +32,7 @@ export const requestMagicLink = createServerFn({ method: "POST" })
     const program = Effect.tryPromise({
       try: () =>
         auth.api.signInMagicLink({
-          body: { email: data.email, name: data.email, callbackURL: "/" },
+          body: { email: data.email, name: data.email, callbackURL: data.callbackUrl ?? "/" },
           headers: request.headers,
         }),
       catch: (cause) => new DbError({ message: "Could not create magic link", cause }),

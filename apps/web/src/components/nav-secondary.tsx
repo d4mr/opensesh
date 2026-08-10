@@ -1,12 +1,17 @@
 import { Link } from "@tanstack/react-router";
+import { ChevronRightIcon } from "lucide-react";
 
 import type { AdminNavItem } from "@/components/nav-main";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
 export function NavSecondary({
@@ -21,18 +26,38 @@ export function NavSecondary({
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === `/admin/${item.section}`}
-              tooltip={item.title}
-            >
-              <Link to="/admin/$section" params={{ section: item.section }}>
-                {item.icon}
-                <span>{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <Collapsible
+            asChild
+            defaultOpen={pathname.startsWith("/admin/settings")}
+            className="group/collapsible"
+          >
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton
+                  isActive={pathname.startsWith("/admin/settings")}
+                  tooltip={item.title}
+                >
+                  {item.icon}
+                  <span>{item.title}</span>
+                  <ChevronRightIcon className="ml-auto transition-transform duration-200 [transition-timing-function:var(--ease-in-out)] group-data-[state=open]/collapsible:rotate-90 motion-reduce:transition-none" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild isActive={pathname === "/admin/settings/event"}>
+                      <Link to="/admin/settings/event">Event</Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild isActive={pathname === "/admin/settings/library"}>
+                      <Link to="/admin/settings/library">Library</Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

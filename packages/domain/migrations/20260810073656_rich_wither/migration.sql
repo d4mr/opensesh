@@ -1,7 +1,7 @@
 CREATE TYPE "email_status" AS ENUM('queued', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
-CREATE TYPE "form_field_type" AS ENUM('text', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file');--> statement-breakpoint
+CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file');--> statement-breakpoint
 CREATE TYPE "form_section" AS ENUM('abstract', 'participant');--> statement-breakpoint
 CREATE TYPE "form_status" AS ENUM('open', 'closed');--> statement-breakpoint
 CREATE TYPE "invitation_status" AS ENUM('pending', 'accepted', 'rejected', 'canceled');--> statement-breakpoint
@@ -82,6 +82,8 @@ CREATE TABLE "events" (
 	"organization_id" text NOT NULL,
 	"name" text NOT NULL,
 	"slug" text NOT NULL UNIQUE,
+	"tagline" text,
+	"description" text,
 	"type" text DEFAULT 'conference' NOT NULL,
 	"website_url" text,
 	"location" text,
@@ -103,6 +105,7 @@ CREATE TABLE "formats" (
 	"position" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
+	"duration_minutes" integer DEFAULT 30 NOT NULL,
 	CONSTRAINT "formats_event_name_unique" UNIQUE("event_id","name")
 );
 --> statement-breakpoint

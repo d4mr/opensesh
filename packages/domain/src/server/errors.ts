@@ -17,6 +17,14 @@ export class SubmissionLimitReached extends Data.TaggedError("SubmissionLimitRea
   readonly message: string;
 }> {}
 
+export class ResourceInUse extends Data.TaggedError("ResourceInUse")<{
+  readonly message: string;
+}> {}
+
+export class InvalidInput extends Data.TaggedError("InvalidInput")<{
+  readonly message: string;
+}> {}
+
 export class ScheduleConflict extends Data.TaggedError("ScheduleConflict")<{
   readonly message: string;
 }> {}

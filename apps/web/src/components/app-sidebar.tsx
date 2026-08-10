@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
+import type { Event } from "@opensesh/domain";
 import {
   CalendarDaysIcon,
   CheckSquareIcon,
@@ -53,11 +54,19 @@ const personaNames: Readonly<Record<string, string>> = {
 
 export function AppSidebar({
   event,
+  events,
+  eventDates,
+  selectEvent,
+  eventCreated,
   pathname,
   user,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
-  readonly event: { readonly name: string; readonly dates: string };
+  readonly event: Event;
+  readonly events: ReadonlyArray<Event>;
+  readonly eventDates: string;
+  readonly selectEvent: (eventId: string) => void;
+  readonly eventCreated: (eventId: string) => Promise<void>;
   readonly pathname: string;
   readonly user: CurrentUserValue;
 }) {
@@ -66,7 +75,13 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <EventSwitcher event={event} />
+        <EventSwitcher
+          event={event}
+          events={events}
+          dates={eventDates}
+          onSelect={selectEvent}
+          onCreated={eventCreated}
+        />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={dashboard} pathname={pathname} />

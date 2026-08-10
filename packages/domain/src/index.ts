@@ -1,14 +1,14 @@
+// Browser-safe surface ONLY: pure effect schemas, form logic, typed errors,
+// and drizzle table definitions. Server-only modules (db driver, repos, cfp,
+// runtime) must be imported via their subpaths — exporting them here pulls the
+// Postgres driver into client bundles.
 export * from "./db/schema/core";
 export * from "./db/schema/forms";
 export * from "./db/schema/portal";
 export * from "./db/schema/submissions";
-export { Db, makeDatabase, makeDbLive, type Database } from "./server/db";
 export * from "./server/errors";
-export { Event, getEventBySlug } from "./server/events";
-export * from "./server/repos";
 export * from "./server/schema/common";
 export * from "./server/schema/core";
 export * from "./server/schema/forms";
 export * from "./server/schema/portal";
 export * from "./server/schema/submissions";
-export { run, type AppError, type ServerResult } from "./server/runtime";

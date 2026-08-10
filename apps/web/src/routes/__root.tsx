@@ -1,10 +1,12 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 
 import { DemoRoleSwitcher } from "@/components/app/demo-role-switcher";
+import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       {
@@ -56,6 +58,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         >
           {children}
           <DemoRoleSwitcher />
+          <Toaster />
         </ThemeProvider>
 
         <Scripts />

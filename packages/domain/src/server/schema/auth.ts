@@ -1,6 +1,9 @@
 import { Schema } from "effect";
 
-export const MagicLinkRequest = Schema.Struct({ email: Schema.String });
+export const MagicLinkRequest = Schema.Struct({
+  email: Schema.String,
+  callbackUrl: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\//))),
+});
 export type MagicLinkRequest = typeof MagicLinkRequest.Type;
 
 export const DemoPersonaEmail = Schema.Literals([

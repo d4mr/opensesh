@@ -1,4 +1,4 @@
-import { makeDatabase } from "@opensesh/domain";
+import { makeDatabase } from "@opensesh/domain/server/db";
 import {
   accounts,
   organizationInvitations,
@@ -24,7 +24,25 @@ export interface CapturedMagicLink {
 
 const DEMO_ORGANIZATION_ID = "org_ai_engineer";
 
+// Instances are memoized per origin: betterAuth setup work and its adapter
+// wiring should not repeat on every request. Instances with a `capture`
+// callback are exempt (the callback closes over per-request state).
+const authInstances = new Map<string, ReturnType<typeof buildAuth>>();
+
 export const makeAuth = (
+  env: Cloudflare.Env,
+  origin: string,
+  capture?: (link: CapturedMagicLink) => void,
+) => {
+  if (capture !== undefined) return buildAuth(env, origin, capture);
+  const cached = authInstances.get(origin);
+  if (cached !== undefined) return cached;
+  const auth = buildAuth(env, origin);
+  authInstances.set(origin, auth);
+  return auth;
+};
+
+const buildAuth = (
   env: Cloudflare.Env,
   origin: string,
   capture?: (link: CapturedMagicLink) => void,
@@ -67,6 +85,13 @@ export const makeAuth = (
       modelName: "sessions",
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
+      // Session checks guard every navigation and server fn; the signed
+      // cookie cache answers them without touching the database. Revocation
+      // lags by at most maxAge, which the demo accepts.
+      cookieCache: {
+        enabled: true,
+        maxAge: 5 * 60,
+      },
     },
     account: { modelName: "accounts" },
     verification: { modelName: "verifications" },

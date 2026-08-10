@@ -13,7 +13,8 @@
     "db:generate": "vp run @opensesh/domain#db:generate",
     "db:reset": "pnpm --filter @opensesh/domain db:reset",
     "seed": "pnpm --filter @opensesh/domain seed",
-    "seed:verify": "pnpm --filter @opensesh/domain seed:verify"
+    "seed:verify": "pnpm --filter @opensesh/domain seed:verify",
+    "cfp:verify": "pnpm --filter @opensesh/domain cfp:verify"
   },
   "devDependencies": {
     "drizzle-kit": "1.0.0-rc.4",

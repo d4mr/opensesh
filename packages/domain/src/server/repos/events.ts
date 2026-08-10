@@ -1,14 +1,29 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { events, formats, levels, rooms, tags, tracks } from "../../db/schema";
+import {
+  eventMembers,
+  events,
+  formats,
+  levels,
+  rooms,
+  submissionTags,
+  submissionTracks,
+  submissions,
+  tags,
+  tracks,
+  users,
+} from "../../db/schema";
 import { Db } from "../db";
-import type { DbError, NotFound } from "../errors";
+import { ResourceInUse, type DbError, type NotFound } from "../errors";
 import {
   Event,
   type EventCreate,
+  EventAdmin,
   type EventUpdate,
   Format,
+  type FormatCreate,
+  type FormatUpdate,
   Level,
   type LibraryItemCreate,
   type LibraryItemUpdate,
@@ -24,37 +39,47 @@ import { decode, decodeFound, decodeMany, query } from "./shared";
 
 interface EventsService {
   readonly list: () => Effect.Effect<ReadonlyArray<Event>, DbError>;
+  readonly listByOrganization: (
+    organizationId: string,
+  ) => Effect.Effect<ReadonlyArray<Event>, DbError>;
   readonly get: (id: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly getBySlug: (slug: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly create: (input: EventCreate) => Effect.Effect<Event, DbError>;
+  readonly createForAdmin: (input: EventCreate, userId: string) => Effect.Effect<Event, DbError>;
   readonly update: (id: string, input: EventUpdate) => Effect.Effect<Event, DbError | NotFound>;
+  readonly listAdmins: (eventId: string) => Effect.Effect<ReadonlyArray<EventAdmin>, DbError>;
   readonly listTracks: (eventId: string) => Effect.Effect<ReadonlyArray<Track>, DbError>;
   readonly createTrack: (input: TrackCreate) => Effect.Effect<Track, DbError>;
   readonly updateTrack: (
     id: string,
     input: TrackUpdate,
   ) => Effect.Effect<Track, DbError | NotFound>;
+  readonly deleteTrack: (id: string) => Effect.Effect<void, DbError | ResourceInUse>;
   readonly listTags: (eventId: string) => Effect.Effect<ReadonlyArray<Tag>, DbError>;
   readonly createTag: (input: LibraryItemCreate) => Effect.Effect<Tag, DbError>;
   readonly updateTag: (
     id: string,
     input: LibraryItemUpdate,
   ) => Effect.Effect<Tag, DbError | NotFound>;
+  readonly deleteTag: (id: string) => Effect.Effect<void, DbError | ResourceInUse>;
   readonly listFormats: (eventId: string) => Effect.Effect<ReadonlyArray<Format>, DbError>;
-  readonly createFormat: (input: LibraryItemCreate) => Effect.Effect<Format, DbError>;
+  readonly createFormat: (input: FormatCreate) => Effect.Effect<Format, DbError>;
   readonly updateFormat: (
     id: string,
-    input: LibraryItemUpdate,
+    input: FormatUpdate,
   ) => Effect.Effect<Format, DbError | NotFound>;
+  readonly deleteFormat: (id: string) => Effect.Effect<void, DbError | ResourceInUse>;
   readonly listLevels: (eventId: string) => Effect.Effect<ReadonlyArray<Level>, DbError>;
   readonly createLevel: (input: LibraryItemCreate) => Effect.Effect<Level, DbError>;
   readonly updateLevel: (
     id: string,
     input: LibraryItemUpdate,
   ) => Effect.Effect<Level, DbError | NotFound>;
+  readonly deleteLevel: (id: string) => Effect.Effect<void, DbError | ResourceInUse>;
   readonly listRooms: (eventId: string) => Effect.Effect<ReadonlyArray<Room>, DbError>;
   readonly createRoom: (input: RoomCreate) => Effect.Effect<Room, DbError>;
   readonly updateRoom: (id: string, input: RoomUpdate) => Effect.Effect<Room, DbError | NotFound>;
+  readonly deleteRoom: (id: string) => Effect.Effect<void, DbError | ResourceInUse>;
 }
 
 export class Events extends Context.Service<Events, EventsService>()("opensesh/Events") {}
@@ -74,12 +99,35 @@ export const EventsLive = Layer.effect(
         query(database, "Could not list events", (db) =>
           db.select().from(events).orderBy(asc(events.startsAt)).execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows))),
+      listByOrganization: (organizationId) =>
+        query(database, "Could not list organization events", (db) =>
+          db
+            .select()
+            .from(events)
+            .where(eq(events.organizationId, organizationId))
+            .orderBy(asc(events.startsAt))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows))),
       get: (id) => find(events.id, id),
       getBySlug: (slug) => find(events.slug, slug),
       create: (input) =>
         query(database, "Could not create event", (db) =>
           db.insert(events).values(input).returning().execute(),
         ).pipe(Effect.flatMap((rows) => decode(Event, "event", rows[0]))),
+      createForAdmin: (input, userId) =>
+        query(database, "Could not create event", (db) =>
+          db.transaction(async (transaction) => {
+            const rows = await transaction.insert(events).values(input).returning().execute();
+            const event = rows[0];
+            if (event !== undefined) {
+              await transaction
+                .insert(eventMembers)
+                .values({ eventId: event.id, userId, role: "admin" })
+                .execute();
+            }
+            return event;
+          }),
+        ).pipe(Effect.flatMap((row) => decode(Event, "event", row))),
       update: (id, input) =>
         query(database, "Could not update event", (db) =>
           db
@@ -89,6 +137,16 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Event, "Event", rows[0]))),
+      listAdmins: (eventId) =>
+        query(database, "Could not list event admins", (db) =>
+          db
+            .select({ id: users.id, name: users.name, email: users.email })
+            .from(eventMembers)
+            .innerJoin(users, eq(users.id, eventMembers.userId))
+            .where(eq(eventMembers.eventId, eventId))
+            .orderBy(asc(users.name))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(EventAdmin, "event admin", rows))),
       listTracks: (eventId) =>
         query(database, "Could not list tracks", (db) =>
           db
@@ -111,6 +169,24 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Track, "Track", rows[0]))),
+      deleteTrack: (id) =>
+        Effect.gen(function* () {
+          const usage = yield* query(database, "Could not check track usage", (db) =>
+            db
+              .select({ value: count() })
+              .from(submissionTracks)
+              .where(eq(submissionTracks.trackId, id))
+              .execute(),
+          );
+          if ((usage[0]?.value ?? 0) > 0) {
+            return yield* Effect.fail(
+              new ResourceInUse({ message: "Track cannot be deleted because it is in use" }),
+            );
+          }
+          yield* query(database, "Could not delete track", (db) =>
+            db.delete(tracks).where(eq(tracks.id, id)).execute(),
+          );
+        }),
       listTags: (eventId) =>
         query(database, "Could not list tags", (db) =>
           db
@@ -133,6 +209,24 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Tag, "Tag", rows[0]))),
+      deleteTag: (id) =>
+        Effect.gen(function* () {
+          const usage = yield* query(database, "Could not check tag usage", (db) =>
+            db
+              .select({ value: count() })
+              .from(submissionTags)
+              .where(eq(submissionTags.tagId, id))
+              .execute(),
+          );
+          if ((usage[0]?.value ?? 0) > 0) {
+            return yield* Effect.fail(
+              new ResourceInUse({ message: "Tag cannot be deleted because it is in use" }),
+            );
+          }
+          yield* query(database, "Could not delete tag", (db) =>
+            db.delete(tags).where(eq(tags.id, id)).execute(),
+          );
+        }),
       listFormats: (eventId) =>
         query(database, "Could not list formats", (db) =>
           db
@@ -155,6 +249,24 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Format, "Format", rows[0]))),
+      deleteFormat: (id) =>
+        Effect.gen(function* () {
+          const usage = yield* query(database, "Could not check format usage", (db) =>
+            db
+              .select({ value: count() })
+              .from(submissions)
+              .where(eq(submissions.formatId, id))
+              .execute(),
+          );
+          if ((usage[0]?.value ?? 0) > 0) {
+            return yield* Effect.fail(
+              new ResourceInUse({ message: "Format cannot be deleted because it is in use" }),
+            );
+          }
+          yield* query(database, "Could not delete format", (db) =>
+            db.delete(formats).where(eq(formats.id, id)).execute(),
+          );
+        }),
       listLevels: (eventId) =>
         query(database, "Could not list levels", (db) =>
           db
@@ -177,6 +289,24 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Level, "Level", rows[0]))),
+      deleteLevel: (id) =>
+        Effect.gen(function* () {
+          const usage = yield* query(database, "Could not check level usage", (db) =>
+            db
+              .select({ value: count() })
+              .from(submissions)
+              .where(eq(submissions.levelId, id))
+              .execute(),
+          );
+          if ((usage[0]?.value ?? 0) > 0) {
+            return yield* Effect.fail(
+              new ResourceInUse({ message: "Level cannot be deleted because it is in use" }),
+            );
+          }
+          yield* query(database, "Could not delete level", (db) =>
+            db.delete(levels).where(eq(levels.id, id)).execute(),
+          );
+        }),
       listRooms: (eventId) =>
         query(database, "Could not list rooms", (db) =>
           db
@@ -199,6 +329,24 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Room, "Room", rows[0]))),
+      deleteRoom: (id) =>
+        Effect.gen(function* () {
+          const usage = yield* query(database, "Could not check room usage", (db) =>
+            db
+              .select({ value: count() })
+              .from(submissions)
+              .where(eq(submissions.roomId, id))
+              .execute(),
+          );
+          if ((usage[0]?.value ?? 0) > 0) {
+            return yield* Effect.fail(
+              new ResourceInUse({ message: "Room cannot be deleted because it is in use" }),
+            );
+          }
+          yield* query(database, "Could not delete room", (db) =>
+            db.delete(rooms).where(eq(rooms.id, id)).execute(),
+          );
+        }),
     };
   }),
 );

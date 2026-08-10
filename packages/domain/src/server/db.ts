@@ -1,7 +1,11 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { Context, Layer } from "effect";
 
-export const makeDatabase = (connectionString: string, maxConnections = 1) => {
+// One client per isolate+connection string: connection setup costs several
+// round trips to the origin, so per-request clients multiply latency.
+const clients = new Map<string, ReturnType<typeof createDatabase>>();
+
+const createDatabase = (connectionString: string, maxConnections: number) => {
   const url = new URL(connectionString);
   url.searchParams.delete("sslrootcert");
   return drizzle({
@@ -14,6 +18,15 @@ export const makeDatabase = (connectionString: string, maxConnections = 1) => {
       onnotice: () => undefined,
     },
   });
+};
+
+export const makeDatabase = (connectionString: string, maxConnections = 5) => {
+  const key = `${connectionString}#${maxConnections}`;
+  const cached = clients.get(key);
+  if (cached !== undefined) return cached;
+  const database = createDatabase(connectionString, maxConnections);
+  clients.set(key, database);
+  return database;
 };
 
 export type Database = ReturnType<typeof makeDatabase>;

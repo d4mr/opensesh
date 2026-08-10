@@ -8,6 +8,8 @@ const eventFields = {
   organizationId: Schema.String,
   name: Schema.String,
   slug: Schema.String,
+  tagline: NullableString,
+  description: NullableString,
   type: Schema.String,
   websiteUrl: NullableString,
   location: NullableString,
@@ -83,8 +85,22 @@ export type TrackUpdate = typeof TrackUpdate.Type;
 export const Tag = Schema.Struct({ ...EntityFields, ...libraryFields });
 export type Tag = typeof Tag.Type;
 
-export const Format = Schema.Struct({ ...EntityFields, ...libraryFields });
+export const Format = Schema.Struct({
+  ...EntityFields,
+  ...libraryFields,
+  durationMinutes: Schema.Number,
+});
 export type Format = typeof Format.Type;
+export const FormatCreate = Schema.Struct({
+  ...libraryFields,
+  durationMinutes: Schema.Number,
+});
+export type FormatCreate = typeof FormatCreate.Type;
+export const FormatUpdate = Schema.Struct({
+  ...libraryUpdateFields,
+  durationMinutes: Schema.optionalKey(Schema.Number),
+});
+export type FormatUpdate = typeof FormatUpdate.Type;
 
 export const Level = Schema.Struct({ ...EntityFields, ...libraryFields });
 export type Level = typeof Level.Type;
@@ -109,3 +125,46 @@ export const ReviewerTrack = Schema.Struct({
   trackId: Schema.String,
 });
 export type ReviewerTrack = typeof ReviewerTrack.Type;
+
+export const EventAdmin = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+});
+export type EventAdmin = typeof EventAdmin.Type;
+
+export const LibraryKind = Schema.Literals(["track", "format", "room", "tag", "level"]);
+export type LibraryKind = typeof LibraryKind.Type;
+
+export const NewEventRequest = Schema.Struct({
+  name: Schema.String,
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+  timezone: Schema.String,
+});
+
+export const EventSettingsRequest = Schema.Struct({
+  eventId: Schema.String,
+  name: Schema.String,
+  tagline: NullableString,
+  description: NullableString,
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+  timezone: Schema.String,
+  location: NullableString,
+});
+
+export const LibraryMutationRequest = Schema.Struct({
+  eventId: Schema.String,
+  kind: LibraryKind,
+  id: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  color: NullableString,
+  durationMinutes: NullableNumber,
+});
+
+export const LibraryDeleteRequest = Schema.Struct({
+  eventId: Schema.String,
+  kind: LibraryKind,
+  id: Schema.String,
+});

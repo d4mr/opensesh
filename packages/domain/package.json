@@ -7,17 +7,23 @@
     ".": "./src/index.ts",
     "./db/auth": "./src/db/auth.ts",
     "./server/current-user": "./src/server/current-user.ts",
+    "./server/cfp": "./src/server/cfp.ts",
     "./server/errors": "./src/server/errors.ts",
     "./server/mail": "./src/server/mail.ts",
     "./server/repos": "./src/server/repos/index.ts",
     "./server/schema/auth": "./src/server/schema/auth.ts",
-    "./server/runtime": "./src/server/runtime.ts"
+    "./server/schema/core": "./src/server/schema/core.ts",
+    "./server/schema/forms": "./src/server/schema/forms.ts",
+    "./server/runtime": "./src/server/runtime.ts",
+    "./server/db": "./src/server/db.ts",
+    "./server/events": "./src/server/events.ts"
   },
   "scripts": {
     "check": "vp check",
     "db:generate": "drizzle-kit generate",
     "db:reset": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/reset.ts",
     "seed": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/index.ts",
+    "cfp:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-cfp.ts",
     "seed:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify.ts"
   },
   "dependencies": {

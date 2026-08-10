@@ -18,6 +18,7 @@ export const formStatus = pgEnum("form_status", ["open", "closed"]);
 export const formSection = pgEnum("form_section", ["abstract", "participant"]);
 export const formFieldType = pgEnum("form_field_type", [
   "text",
+  "textarea",
   "richtext",
   "email",
   "phone",
