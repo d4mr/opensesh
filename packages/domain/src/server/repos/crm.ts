@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -10,23 +11,28 @@ import {
   emailCampaignRecipients,
   emailCampaigns,
   emailLog,
+  eventMembers,
   events,
   organizationContactEvents,
   organizationContactNotes,
   organizationContacts,
   organizationContactTags,
   organizationTags,
+  organizations,
   reminderRules,
   submissionParticipants,
   submissions,
+  users,
 } from "../../db/schema";
 import { Db } from "../db";
+import { normalizeCrmEmail } from "../../crm/operations";
 import {
   type DbError,
   DuplicateMerge,
   Forbidden,
   InvalidPipelineMove,
   type NotFound,
+  ResourceInUse,
 } from "../errors";
 import {
   EmailCampaign,
@@ -36,7 +42,16 @@ import {
 } from "../schema/communications";
 import {
   type CrmContactDetail,
+  CrmCampaignView,
+  type CrmCampaignView as CrmCampaignViewType,
+  CrmContactDetailView,
+  type CrmContactDetailView as CrmContactDetailViewType,
+  type CrmCsvContact,
   type CrmDirectoryRow,
+  CrmEventSummary,
+  type CrmEventSummary as CrmEventSummaryType,
+  CrmImportResult,
+  type CrmImportResult as CrmImportResultType,
   CrmPipelineBoard,
   CrmPipelineCard,
   CrmPipelineStage,
@@ -53,21 +68,71 @@ import { decode, decodeFound, decodeMany, query } from "./shared";
 type JsonObject = Readonly<Record<string, Schema.Json>>;
 
 interface CrmService {
+  readonly organization: (
+    organizationId: string,
+    userId: string,
+  ) => Effect.Effect<
+    { readonly id: string; readonly name: string; readonly actorEventMemberId: string },
+    DbError | NotFound
+  >;
+  readonly listEvents: (
+    organizationId: string,
+  ) => Effect.Effect<ReadonlyArray<CrmEventSummaryType>, DbError>;
   readonly directory: (
     organizationId: string,
   ) => Effect.Effect<ReadonlyArray<CrmDirectoryRow>, DbError>;
   readonly contactDetail: (id: string) => Effect.Effect<CrmContactDetail, DbError | NotFound>;
+  readonly contactDetailView: (
+    organizationId: string,
+    id: string,
+  ) => Effect.Effect<CrmContactDetailViewType, DbError | NotFound>;
+  readonly listTags: (
+    organizationId: string,
+  ) => Effect.Effect<ReadonlyArray<OrganizationTag>, DbError>;
+  readonly listSegments: (
+    organizationId: string,
+  ) => Effect.Effect<ReadonlyArray<CrmSegment>, DbError>;
+  readonly listCampaigns: (
+    organizationId: string,
+  ) => Effect.Effect<ReadonlyArray<CrmCampaignViewType>, DbError>;
   readonly pipelineBoard: (organizationId: string) => Effect.Effect<CrmPipelineBoard, DbError>;
   readonly addNote: (
     organizationContactId: string,
     body: string,
     authorEventMemberId: string,
   ) => Effect.Effect<OrganizationContactNote, DbError>;
+  readonly saveContact: (
+    organizationId: string,
+    input: {
+      readonly id: string | null;
+      readonly firstName: string;
+      readonly lastName: string;
+      readonly email: string;
+      readonly title: string | null;
+      readonly company: string | null;
+      readonly bio: string | null;
+      readonly linkedinUrl: string | null;
+      readonly twitterUrl: string | null;
+      readonly facebookUrl: string | null;
+      readonly websiteUrl: string | null;
+      readonly headshotUrl: string | null;
+      readonly custom: JsonObject;
+    },
+  ) => Effect.Effect<OrganizationContact, DbError | NotFound>;
   readonly saveTag: (
     organizationId: string,
     organizationContactId: string,
     name: string,
   ) => Effect.Effect<OrganizationTag, DbError>;
+  readonly removeTag: (
+    organizationContactId: string,
+    tagId: string,
+  ) => Effect.Effect<void, DbError>;
+  readonly importContacts: (
+    organizationId: string,
+    rows: ReadonlyArray<CrmCsvContact>,
+    behavior: "update" | "skip",
+  ) => Effect.Effect<CrmImportResultType, DbError>;
   readonly saveSegment: (
     organizationId: string,
     name: string,
@@ -80,12 +145,29 @@ interface CrmService {
     readonly semanticStatus: CrmSemanticStatus;
     readonly position: number;
   }) => Effect.Effect<CrmPipelineStage, DbError | NotFound>;
+  readonly deleteStage: (
+    organizationId: string,
+    stageId: string,
+  ) => Effect.Effect<void, DbError | NotFound | ResourceInUse>;
+  readonly reorderStages: (
+    organizationId: string,
+    stageIds: ReadonlyArray<string>,
+  ) => Effect.Effect<void, DbError>;
+  readonly saveCard: (
+    organizationId: string,
+    organizationContactId: string,
+    stageId: string,
+    note: string | null,
+    actorEventMemberId: string,
+  ) => Effect.Effect<CrmPipelineCard, DbError | NotFound | InvalidPipelineMove>;
   readonly moveCard: (
+    organizationId: string,
     cardId: string,
     toStageId: string,
     actorEventMemberId: string,
   ) => Effect.Effect<CrmPipelineCard, DbError | NotFound | InvalidPipelineMove>;
   readonly merge: (
+    organizationId: string,
     primaryId: string,
     duplicateId: string,
   ) => Effect.Effect<OrganizationContact, DbError | NotFound | DuplicateMerge>;
@@ -129,8 +211,50 @@ export const CrmLive = Layer.effect(
   Crm,
   Effect.gen(function* () {
     const { database } = yield* Db;
+    const noteAuthorMember = alias(eventMembers, "crm_note_author_member");
+    const noteAuthor = alias(users, "crm_note_author");
+    const historyActorMember = alias(eventMembers, "crm_history_actor_member");
+    const historyActor = alias(users, "crm_history_actor");
+    const fromStage = alias(crmPipelineStages, "crm_from_stage");
+    const toStage = alias(crmPipelineStages, "crm_to_stage");
 
     return {
+      organization: (organizationId, userId) =>
+        query(database, "Could not load CRM organization", (db) =>
+          db
+            .select({
+              id: organizations.id,
+              name: organizations.name,
+              actorEventMemberId: eventMembers.id,
+            })
+            .from(organizations)
+            .innerJoin(events, eq(events.organizationId, organizations.id))
+            .innerJoin(
+              eventMembers,
+              and(eq(eventMembers.eventId, events.id), eq(eventMembers.userId, userId)),
+            )
+            .where(eq(organizations.id, organizationId))
+            .orderBy(asc(events.startsAt))
+            .limit(1)
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) =>
+            rows[0] === undefined
+              ? decodeFound(OrganizationContact, "CRM organization", undefined).pipe(
+                  Effect.map(() => ({ id: "", name: "", actorEventMemberId: "" })),
+                )
+              : Effect.succeed(rows[0]),
+          ),
+        ),
+      listEvents: (organizationId) =>
+        query(database, "Could not load CRM events", (db) =>
+          db
+            .select({ id: events.id, name: events.name, slug: events.slug })
+            .from(events)
+            .where(eq(events.organizationId, organizationId))
+            .orderBy(desc(events.startsAt))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(CrmEventSummary, "CRM event", rows))),
       directory: (organizationId) =>
         query(database, "Could not load CRM directory", (db) =>
           db
@@ -218,7 +342,7 @@ export const CrmLive = Layer.effect(
                 .select()
                 .from(organizationContactNotes)
                 .where(eq(organizationContactNotes.organizationContactId, id))
-                .orderBy(asc(organizationContactNotes.createdAt))
+                .orderBy(desc(organizationContactNotes.createdAt))
                 .execute(),
             ),
             query(database, "Could not load CRM contact pipeline", (db) =>
@@ -269,6 +393,211 @@ export const CrmLive = Layer.effect(
             }),
           ),
         ),
+      contactDetailView: (organizationId, id) =>
+        Effect.all(
+          [
+            query(database, "Could not load CRM contact", (db) =>
+              db
+                .select()
+                .from(organizationContacts)
+                .where(
+                  and(
+                    eq(organizationContacts.id, id),
+                    eq(organizationContacts.organizationId, organizationId),
+                  ),
+                )
+                .limit(1)
+                .execute(),
+            ),
+            query(database, "Could not load CRM linked events", (db) =>
+              db
+                .select({
+                  link: organizationContactEvents,
+                  event: { name: events.name, slug: events.slug },
+                  session: {
+                    id: submissions.id,
+                    code: submissions.code,
+                    title: submissions.title,
+                  },
+                })
+                .from(organizationContactEvents)
+                .innerJoin(events, eq(events.id, organizationContactEvents.eventId))
+                .leftJoin(
+                  submissionParticipants,
+                  eq(submissionParticipants.contactId, organizationContactEvents.contactId),
+                )
+                .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+                .where(eq(organizationContactEvents.organizationContactId, id))
+                .orderBy(desc(organizationContactEvents.createdAt), asc(submissions.title))
+                .execute(),
+            ),
+            query(database, "Could not load CRM contact tags", (db) =>
+              db
+                .select({ tag: organizationTags })
+                .from(organizationContactTags)
+                .innerJoin(organizationTags, eq(organizationTags.id, organizationContactTags.tagId))
+                .where(eq(organizationContactTags.organizationContactId, id))
+                .orderBy(asc(organizationTags.name))
+                .execute(),
+            ),
+            query(database, "Could not load CRM contact notes", (db) =>
+              db
+                .select({ note: organizationContactNotes, authorName: noteAuthor.name })
+                .from(organizationContactNotes)
+                .innerJoin(
+                  noteAuthorMember,
+                  eq(noteAuthorMember.id, organizationContactNotes.authorEventMemberId),
+                )
+                .innerJoin(noteAuthor, eq(noteAuthor.id, noteAuthorMember.userId))
+                .where(eq(organizationContactNotes.organizationContactId, id))
+                .orderBy(desc(organizationContactNotes.createdAt))
+                .execute(),
+            ),
+            query(database, "Could not load CRM contact card", (db) =>
+              db
+                .select()
+                .from(crmPipelineCards)
+                .where(eq(crmPipelineCards.organizationContactId, id))
+                .limit(1)
+                .execute(),
+            ),
+            query(database, "Could not load CRM stage history", (db) =>
+              db
+                .select({
+                  history: crmStageHistory,
+                  fromStageName: fromStage.name,
+                  toStageName: toStage.name,
+                  actorName: historyActor.name,
+                })
+                .from(crmStageHistory)
+                .innerJoin(crmPipelineCards, eq(crmPipelineCards.id, crmStageHistory.cardId))
+                .leftJoin(fromStage, eq(fromStage.id, crmStageHistory.fromStageId))
+                .innerJoin(toStage, eq(toStage.id, crmStageHistory.toStageId))
+                .innerJoin(
+                  historyActorMember,
+                  eq(historyActorMember.id, crmStageHistory.actorEventMemberId),
+                )
+                .innerJoin(historyActor, eq(historyActor.id, historyActorMember.userId))
+                .where(eq(crmPipelineCards.organizationContactId, id))
+                .orderBy(desc(crmStageHistory.createdAt))
+                .execute(),
+            ),
+          ],
+          { concurrency: 6 },
+        ).pipe(
+          Effect.flatMap(([contactRows, eventRows, tagRows, noteRows, cardRows, historyRows]) => {
+            const linkedEvents = Array.from(new Set(eventRows.map((row) => row.link.id))).map(
+              (linkId) => {
+                const group = eventRows.filter((row) => row.link.id === linkId);
+                const first = group[0];
+                return {
+                  link: first?.link,
+                  name: first?.event.name,
+                  slug: first?.event.slug,
+                  sessions: Array.from(
+                    new Map(
+                      group.flatMap((row) =>
+                        row.session === null
+                          ? []
+                          : [
+                              [
+                                row.session.id,
+                                {
+                                  id: row.session.id,
+                                  code: row.session.code ?? "",
+                                  title: row.session.title ?? "",
+                                },
+                              ],
+                            ],
+                      ),
+                    ).values(),
+                  ),
+                };
+              },
+            );
+            return decode(CrmContactDetailView, "CRM contact detail", {
+              contact: contactRows[0],
+              events: linkedEvents,
+              tags: tagRows.map((row) => row.tag),
+              notes: noteRows,
+              card: cardRows[0] ?? null,
+              stageHistory: historyRows,
+            });
+          }),
+        ),
+      listTags: (organizationId) =>
+        query(database, "Could not load CRM tags", (db) =>
+          db
+            .select()
+            .from(organizationTags)
+            .where(eq(organizationTags.organizationId, organizationId))
+            .orderBy(asc(organizationTags.name))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(OrganizationTag, "organization tag", rows))),
+      listSegments: (organizationId) =>
+        query(database, "Could not load CRM segments", (db) =>
+          db
+            .select()
+            .from(crmSegments)
+            .where(eq(crmSegments.organizationId, organizationId))
+            .orderBy(asc(crmSegments.name))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(CrmSegment, "CRM segment", rows))),
+      listCampaigns: (organizationId) =>
+        query(database, "Could not load CRM campaigns", (db) =>
+          db
+            .select({
+              campaign: emailCampaigns,
+              eventName: events.name,
+              recipient: emailCampaignRecipients,
+              contact: contacts,
+            })
+            .from(emailCampaigns)
+            .innerJoin(events, eq(events.id, emailCampaigns.eventId))
+            .leftJoin(
+              emailCampaignRecipients,
+              eq(emailCampaignRecipients.campaignId, emailCampaigns.id),
+            )
+            .leftJoin(contacts, eq(contacts.id, emailCampaignRecipients.contactId))
+            .where(eq(events.organizationId, organizationId))
+            .orderBy(desc(emailCampaigns.createdAt))
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) => {
+            const crmRows = rows.filter((row) => row.campaign.recipientFilter.source === "crm");
+            return decodeMany(
+              CrmCampaignView,
+              "CRM campaign",
+              Array.from(new Set(crmRows.map((row) => row.campaign.id))).map((campaignId) => {
+                const group = crmRows.filter((row) => row.campaign.id === campaignId);
+                const first = group[0];
+                return {
+                  id: campaignId,
+                  eventId: first?.campaign.eventId,
+                  eventName: first?.eventName,
+                  subject: first?.campaign.subjectSnapshot,
+                  status: first?.campaign.status,
+                  sentAt: first?.campaign.sentAt,
+                  createdAt: first?.campaign.createdAt,
+                  recipients: group.flatMap((row) =>
+                    row.recipient === null || row.contact === null
+                      ? []
+                      : [
+                          {
+                            id: row.recipient.id,
+                            name: `${row.contact.firstName} ${row.contact.lastName}`,
+                            email: row.contact.email,
+                            resolvedSubject: row.recipient.resolvedSubject,
+                            resolvedBody: row.recipient.resolvedBody,
+                            deliveryStatus: row.recipient.deliveryStatus,
+                          },
+                        ],
+                  ),
+                };
+              }),
+            );
+          }),
+        ),
       pipelineBoard: (organizationId) =>
         query(database, "Could not load CRM pipeline", (db) =>
           db
@@ -312,6 +641,33 @@ export const CrmLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(OrganizationContactNote, "CRM note", rows[0]))),
+      saveContact: (organizationId, input) => {
+        const { id: contactId, ...values } = input;
+        const normalized = { ...values, email: normalizeCrmEmail(values.email) };
+        return contactId === null
+          ? query(database, "Could not create CRM contact", (db) =>
+              db
+                .insert(organizationContacts)
+                .values({ organizationId, ...normalized })
+                .returning()
+                .execute(),
+            ).pipe(Effect.flatMap((rows) => decode(OrganizationContact, "CRM contact", rows[0])))
+          : query(database, "Could not update CRM contact", (db) =>
+              db
+                .update(organizationContacts)
+                .set({ ...normalized, updatedAt: new Date() })
+                .where(
+                  and(
+                    eq(organizationContacts.id, contactId),
+                    eq(organizationContacts.organizationId, organizationId),
+                  ),
+                )
+                .returning()
+                .execute(),
+            ).pipe(
+              Effect.flatMap((rows) => decodeFound(OrganizationContact, "CRM contact", rows[0])),
+            );
+      },
       saveTag: (organizationId, organizationContactId, name) =>
         query(database, "Could not save CRM tag", (db) =>
           db.transaction(async (transaction) => {
@@ -333,6 +689,83 @@ export const CrmLive = Layer.effect(
             return tag;
           }),
         ).pipe(Effect.flatMap((row) => decode(OrganizationTag, "organization tag", row))),
+      removeTag: (organizationContactId, tagId) =>
+        query(database, "Could not remove CRM tag", (db) =>
+          db
+            .delete(organizationContactTags)
+            .where(
+              and(
+                eq(organizationContactTags.organizationContactId, organizationContactId),
+                eq(organizationContactTags.tagId, tagId),
+              ),
+            )
+            .execute(),
+        ).pipe(Effect.asVoid),
+      importContacts: (organizationId, rows, behavior) =>
+        query(database, "Could not import CRM contacts", (db) =>
+          db.transaction(async (transaction) => {
+            const existing = await transaction
+              .select()
+              .from(organizationContacts)
+              .where(eq(organizationContacts.organizationId, organizationId))
+              .execute();
+            const byEmail = new Map(
+              existing.map((contact) => [normalizeCrmEmail(contact.email), contact]),
+            );
+            const outcomes: Array<{
+              email: string;
+              action: "created" | "updated" | "skipped";
+            }> = [];
+            for (const row of rows) {
+              const email = normalizeCrmEmail(row.email);
+              const match = byEmail.get(email);
+              if (match !== undefined && behavior === "skip") {
+                outcomes.push({ email, action: "skipped" });
+                continue;
+              }
+              if (match !== undefined) {
+                const [updated] = await transaction
+                  .update(organizationContacts)
+                  .set({
+                    firstName: row.firstName,
+                    lastName: row.lastName,
+                    title: row.title,
+                    company: row.company,
+                    bio: row.bio,
+                    updatedAt: new Date(),
+                  })
+                  .where(eq(organizationContacts.id, match.id))
+                  .returning()
+                  .execute();
+                if (updated !== undefined) byEmail.set(email, updated);
+                outcomes.push({ email, action: "updated" });
+                continue;
+              }
+              const [created] = await transaction
+                .insert(organizationContacts)
+                .values({
+                  organizationId,
+                  firstName: row.firstName,
+                  lastName: row.lastName,
+                  email,
+                  title: row.title,
+                  company: row.company,
+                  bio: row.bio,
+                  custom: {},
+                })
+                .returning()
+                .execute();
+              if (created !== undefined) byEmail.set(email, created);
+              outcomes.push({ email, action: "created" });
+            }
+            return {
+              created: outcomes.filter((outcome) => outcome.action === "created").length,
+              updated: outcomes.filter((outcome) => outcome.action === "updated").length,
+              skipped: outcomes.filter((outcome) => outcome.action === "skipped").length,
+              outcomes,
+            };
+          }),
+        ).pipe(Effect.flatMap((result) => decode(CrmImportResult, "CRM import", result))),
       saveSegment: (organizationId, name, filter) =>
         query(database, "Could not save CRM segment", (db) =>
           db
@@ -355,12 +788,160 @@ export const CrmLive = Layer.effect(
               db
                 .update(crmPipelineStages)
                 .set({ ...values, updatedAt: new Date() })
-                .where(eq(crmPipelineStages.id, stageId))
+                .where(
+                  and(
+                    eq(crmPipelineStages.id, stageId),
+                    eq(crmPipelineStages.organizationId, input.organizationId),
+                  ),
+                )
                 .returning()
                 .execute(),
             ).pipe(Effect.flatMap((rows) => decodeFound(CrmPipelineStage, "CRM stage", rows[0])));
       },
-      moveCard: (cardId, toStageId, actorEventMemberId) =>
+      deleteStage: (organizationId, stageId) =>
+        query(database, "Could not delete CRM stage", (db) =>
+          db.transaction(async (transaction) => {
+            const [stage] = await transaction
+              .select()
+              .from(crmPipelineStages)
+              .where(
+                and(
+                  eq(crmPipelineStages.id, stageId),
+                  eq(crmPipelineStages.organizationId, organizationId),
+                ),
+              )
+              .limit(1)
+              .execute();
+            if (stage === undefined) return { kind: "notFound" as const };
+            const cards = await transaction
+              .select({ id: crmPipelineCards.id })
+              .from(crmPipelineCards)
+              .where(eq(crmPipelineCards.stageId, stageId))
+              .limit(1)
+              .execute();
+            if (cards.length > 0) return { kind: "inUse" as const };
+            await transaction
+              .delete(crmPipelineStages)
+              .where(eq(crmPipelineStages.id, stageId))
+              .execute();
+            return { kind: "ok" as const };
+          }),
+        ).pipe(
+          Effect.flatMap((outcome): Effect.Effect<void, DbError | NotFound | ResourceInUse> => {
+            if (outcome.kind === "notFound")
+              return decodeFound(CrmPipelineStage, "CRM stage", undefined).pipe(Effect.asVoid);
+            if (outcome.kind === "inUse")
+              return Effect.fail(
+                new ResourceInUse({ message: "Move this stage's contacts before deleting it" }),
+              );
+            return Effect.void;
+          }),
+        ),
+      reorderStages: (organizationId, stageIds) =>
+        query(database, "Could not reorder CRM stages", (db) =>
+          db.transaction(async (transaction) => {
+            for (const [index, stageId] of stageIds.entries()) {
+              await transaction
+                .update(crmPipelineStages)
+                .set({ position: index + 1, updatedAt: new Date() })
+                .where(
+                  and(
+                    eq(crmPipelineStages.id, stageId),
+                    eq(crmPipelineStages.organizationId, organizationId),
+                  ),
+                )
+                .execute();
+            }
+          }),
+        ).pipe(Effect.asVoid),
+      saveCard: (organizationId, organizationContactId, stageId, note, actorEventMemberId) =>
+        query(database, "Could not save CRM card", (db) =>
+          db.transaction(async (transaction) => {
+            const [contact] = await transaction
+              .select({ id: organizationContacts.id })
+              .from(organizationContacts)
+              .where(
+                and(
+                  eq(organizationContacts.id, organizationContactId),
+                  eq(organizationContacts.organizationId, organizationId),
+                ),
+              )
+              .limit(1)
+              .execute();
+            const [stage] = await transaction
+              .select()
+              .from(crmPipelineStages)
+              .where(
+                and(
+                  eq(crmPipelineStages.id, stageId),
+                  eq(crmPipelineStages.organizationId, organizationId),
+                ),
+              )
+              .limit(1)
+              .execute();
+            if (contact === undefined || stage === undefined) return { kind: "notFound" as const };
+            const [existing] = await transaction
+              .select()
+              .from(crmPipelineCards)
+              .where(eq(crmPipelineCards.organizationContactId, organizationContactId))
+              .limit(1)
+              .execute();
+            const now = new Date();
+            if (existing === undefined) {
+              const [created] = await transaction
+                .insert(crmPipelineCards)
+                .values({
+                  organizationContactId,
+                  stageId,
+                  note,
+                  ownerEventMemberId: actorEventMemberId,
+                })
+                .returning()
+                .execute();
+              if (created !== undefined)
+                await transaction
+                  .insert(crmStageHistory)
+                  .values({
+                    cardId: created.id,
+                    fromStageId: null,
+                    toStageId: stageId,
+                    actorEventMemberId,
+                    createdAt: now,
+                  })
+                  .execute();
+              return created === undefined
+                ? { kind: "notFound" as const }
+                : { kind: "ok" as const, row: created };
+            }
+            const [updated] = await transaction
+              .update(crmPipelineCards)
+              .set({ stageId, note, updatedAt: now })
+              .where(eq(crmPipelineCards.id, existing.id))
+              .returning()
+              .execute();
+            if (existing.stageId !== stageId)
+              await transaction
+                .insert(crmStageHistory)
+                .values({
+                  cardId: existing.id,
+                  fromStageId: existing.stageId,
+                  toStageId: stageId,
+                  actorEventMemberId,
+                  createdAt: now,
+                })
+                .execute();
+            return updated === undefined
+              ? { kind: "notFound" as const }
+              : { kind: "ok" as const, row: updated };
+          }),
+        ).pipe(
+          Effect.flatMap((outcome) =>
+            outcome.kind === "notFound"
+              ? decodeFound(CrmPipelineCard, "CRM card", undefined)
+              : decode(CrmPipelineCard, "CRM card", outcome.row),
+          ),
+        ),
+      moveCard: (organizationId, cardId, toStageId, actorEventMemberId) =>
         query(database, "Could not move CRM card", (db) =>
           db.transaction(async (transaction) => {
             const [card] = await transaction
@@ -378,7 +959,8 @@ export const CrmLive = Layer.effect(
               .execute();
             if (card === undefined || target === undefined) return { kind: "notFound" as const };
             if (
-              card.stage.organizationId !== target.organizationId ||
+              card.stage.organizationId !== organizationId ||
+              target.organizationId !== organizationId ||
               card.card.stageId === toStageId
             )
               return { kind: "invalid" as const };
@@ -416,7 +998,7 @@ export const CrmLive = Layer.effect(
             },
           ),
         ),
-      merge: (primaryId, duplicateId) =>
+      merge: (organizationId, primaryId, duplicateId) =>
         query(database, "Could not merge CRM contacts", (db) =>
           db.transaction(async (transaction) => {
             if (primaryId === duplicateId) return { kind: "duplicate" as const };
@@ -429,8 +1011,28 @@ export const CrmLive = Layer.effect(
             const duplicate = selected.find((contact) => contact.id === duplicateId);
             if (primary === undefined || duplicate === undefined)
               return { kind: "notFound" as const };
-            if (primary.organizationId !== duplicate.organizationId)
+            if (
+              primary.organizationId !== organizationId ||
+              duplicate.organizationId !== organizationId
+            )
               return { kind: "duplicate" as const };
+            const [mergedPrimary] = await transaction
+              .update(organizationContacts)
+              .set({
+                title: primary.title ?? duplicate.title,
+                company: primary.company ?? duplicate.company,
+                bio: primary.bio ?? duplicate.bio,
+                linkedinUrl: primary.linkedinUrl ?? duplicate.linkedinUrl,
+                twitterUrl: primary.twitterUrl ?? duplicate.twitterUrl,
+                facebookUrl: primary.facebookUrl ?? duplicate.facebookUrl,
+                websiteUrl: primary.websiteUrl ?? duplicate.websiteUrl,
+                headshotUrl: primary.headshotUrl ?? duplicate.headshotUrl,
+                custom: { ...duplicate.custom, ...primary.custom },
+                updatedAt: new Date(),
+              })
+              .where(eq(organizationContacts.id, primaryId))
+              .returning()
+              .execute();
             const duplicateTags = await transaction
               .select({ tagId: organizationContactTags.tagId })
               .from(organizationContactTags)
@@ -500,7 +1102,7 @@ export const CrmLive = Layer.effect(
               .delete(organizationContacts)
               .where(eq(organizationContacts.id, duplicateId))
               .execute();
-            return { kind: "ok" as const, row: primary };
+            return { kind: "ok" as const, row: mergedPrimary ?? primary };
           }),
         ).pipe(
           Effect.flatMap(
@@ -559,6 +1161,12 @@ export const CrmLive = Layer.effect(
                   title: canonical.title,
                   company: canonical.company,
                   bio: canonical.bio,
+                  headshotUrl: canonical.headshotUrl,
+                  linkedinUrl: canonical.linkedinUrl,
+                  twitterUrl: canonical.twitterUrl,
+                  facebookUrl: canonical.facebookUrl,
+                  websiteUrl: canonical.websiteUrl,
+                  custom: canonical.custom,
                   updatedAt: new Date(),
                 },
               })

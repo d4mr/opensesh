@@ -74,6 +74,16 @@ function NavItemLink({
         {content}
       </Link>
     );
+  if (item.section === "crm")
+    return (
+      <Link
+        to="/admin/crm"
+        search={{ tab: "directory", contact: undefined, segment: undefined }}
+        {...props}
+      >
+        {content}
+      </Link>
+    );
   if (item.section === "speakers")
     return (
       <Link to="/admin/speakers" search={{ spotlight: undefined }} {...props}>

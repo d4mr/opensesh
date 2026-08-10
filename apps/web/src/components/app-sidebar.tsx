@@ -2,6 +2,7 @@ import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
 import type { Event } from "@opensesh/domain";
 import {
   CalendarDaysIcon,
+  Building2Icon,
   CheckSquareIcon,
   ClipboardCheckIcon,
   FileCheckIcon,
@@ -17,6 +18,7 @@ import {
   SettingsIcon,
   SquareStackIcon,
   UsersIcon,
+  ContactRoundIcon,
 } from "lucide-react";
 
 import { EventSwitcher } from "@/components/event-switcher";
@@ -32,6 +34,9 @@ import {
 } from "@/components/ui/sidebar";
 
 const dashboard: ReadonlyArray<AdminNavItem> = [{ title: "Overview", icon: <GaugeIcon /> }];
+const organization: ReadonlyArray<AdminNavItem> = [
+  { title: "Speaker CRM", section: "crm", icon: <ContactRoundIcon /> },
+];
 const program: ReadonlyArray<AdminNavItem> = [
   { title: "Call for Papers", section: "forms", icon: <FileInputIcon /> },
   { title: "Submissions", section: "abstracts", icon: <FileTextIcon /> },
@@ -73,6 +78,8 @@ export function AppSidebar({
   pathname,
   user,
   pendingContentChanges = 0,
+  organizationMode = false,
+  organizationName,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   readonly event: Event;
@@ -83,23 +90,44 @@ export function AppSidebar({
   readonly pathname: string;
   readonly user: CurrentUserValue;
   readonly pendingContentChanges?: number;
+  readonly organizationMode?: boolean;
+  readonly organizationName?: string;
 }) {
   const name = personaNames[user.email] ?? user.email.split("@")[0] ?? user.email;
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <EventSwitcher
-          event={event}
-          events={events}
-          dates={eventDates}
-          onSelect={selectEvent}
-          onCreated={eventCreated}
-          canCreate={user.roles.admin}
-        />
+        {organizationMode ? (
+          <div className="flex h-12 items-center gap-2 rounded-md border bg-sidebar-accent/40 px-2 group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:px-0">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
+              <Building2Icon className="size-4" />
+            </span>
+            <span className="min-w-0 group-data-[collapsible=icon]:hidden">
+              <span className="block truncate text-sm font-medium">
+                {organizationName ?? "Organization"}
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                Organization workspace
+              </span>
+            </span>
+          </div>
+        ) : (
+          <EventSwitcher
+            event={event}
+            events={events}
+            dates={eventDates}
+            onSelect={selectEvent}
+            onCreated={eventCreated}
+            canCreate={user.roles.admin}
+          />
+        )}
       </SidebarHeader>
       <SidebarContent>
         {user.roles.admin ? <NavMain items={dashboard} pathname={pathname} /> : null}
+        {user.roles.admin ? (
+          <NavMain label="Organization" items={organization} pathname={pathname} />
+        ) : null}
         <NavMain
           label="Program"
           items={program

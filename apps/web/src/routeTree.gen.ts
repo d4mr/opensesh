@@ -20,6 +20,7 @@ import { Route as AdminSectionRouteImport } from './routes/admin.$section'
 import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
 import { Route as AdminAgendaRouteImport } from './routes/admin.agenda'
 import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
+import { Route as AdminCrmRouteImport } from './routes/admin.crm'
 import { Route as AdminEmailsRouteImport } from './routes/admin.emails'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFilesRouteImport } from './routes/admin.files'
@@ -104,6 +105,11 @@ const AdminAgendaRoute = AdminAgendaRouteImport.update({
 const AdminCommunicationsRoute = AdminCommunicationsRouteImport.update({
   id: '/communications',
   path: '/communications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCrmRoute = AdminCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminEmailsRoute = AdminEmailsRouteImport.update({
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
   '/admin/communications': typeof AdminCommunicationsRoute
+  '/admin/crm': typeof AdminCrmRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/files': typeof AdminFilesRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
   '/admin/communications': typeof AdminCommunicationsRoute
+  '/admin/crm': typeof AdminCrmRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/files': typeof AdminFilesRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
   '/admin/communications': typeof AdminCommunicationsRoute
+  '/admin/crm': typeof AdminCrmRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/files': typeof AdminFilesRoute
@@ -399,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/abstracts'
     | '/admin/agenda'
     | '/admin/communications'
+    | '/admin/crm'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/files'
@@ -440,6 +450,7 @@ export interface FileRouteTypes {
     | '/admin/abstracts'
     | '/admin/agenda'
     | '/admin/communications'
+    | '/admin/crm'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/files'
@@ -482,6 +493,7 @@ export interface FileRouteTypes {
     | '/admin/abstracts'
     | '/admin/agenda'
     | '/admin/communications'
+    | '/admin/crm'
     | '/admin/emails'
     | '/admin/evaluation'
     | '/admin/files'
@@ -605,6 +617,13 @@ declare module '@tanstack/react-router' {
       path: '/communications'
       fullPath: '/admin/communications'
       preLoaderRoute: typeof AdminCommunicationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/crm': {
+      id: '/admin/crm'
+      path: '/crm'
+      fullPath: '/admin/crm'
+      preLoaderRoute: typeof AdminCrmRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/emails': {
@@ -837,6 +856,7 @@ interface AdminRouteChildren {
   AdminAbstractsRoute: typeof AdminAbstractsRoute
   AdminAgendaRoute: typeof AdminAgendaRoute
   AdminCommunicationsRoute: typeof AdminCommunicationsRoute
+  AdminCrmRoute: typeof AdminCrmRoute
   AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFilesRoute: typeof AdminFilesRoute
@@ -857,6 +877,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAbstractsRoute: AdminAbstractsRoute,
   AdminAgendaRoute: AdminAgendaRoute,
   AdminCommunicationsRoute: AdminCommunicationsRoute,
+  AdminCrmRoute: AdminCrmRoute,
   AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFilesRoute: AdminFilesRoute,

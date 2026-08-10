@@ -12,6 +12,7 @@ export * from "./db/schema/submissions";
 export * from "./agenda/conflicts";
 export * from "./agenda/schedule";
 export * from "./agenda/solver";
+export * from "./crm/operations";
 export * from "./files/zip";
 export * from "./public-program";
 export * from "./server/errors";
