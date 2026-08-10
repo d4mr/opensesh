@@ -165,6 +165,25 @@ export const uploadAdminHeadshot = createServerFn({ method: "POST" })
     );
   });
 
+// Seeded upload rows reference `seed/…` keys that have no stored object;
+// serve a deterministic placeholder so demo downloads and exports work.
+const SEED_PDF = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj
+4 0 obj<</Length 68>>stream
+BT /F1 18 Tf 72 720 Td (OpenSesh demo fixture file) Tj ET
+endstream
+endobj
+5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
+trailer<</Root 1 0 R>>
+%%EOF`;
+const seedPlaceholder = (storageKey: string, contentType: string): Uint8Array | null => {
+  if (!storageKey.startsWith("seed/")) return null;
+  if (contentType.includes("pdf")) return new TextEncoder().encode(SEED_PDF);
+  return new TextEncoder().encode(`OpenSesh demo fixture file (${storageKey})`);
+};
+
 const safeZipSegment = (value: string, fallback: string) =>
   value
     .replaceAll("/", "-")
@@ -213,12 +232,17 @@ export const exportAdminFilesZip = createServerFn({ method: "POST" })
                 try: () => env.FILES.get(latest.storageKey),
                 catch: (cause) => new DbError({ message: "Could not load an export file", cause }),
               });
-              if (object === null) {
+              const fallback =
+                object === null ? seedPlaceholder(latest.storageKey, latest.contentType) : null;
+              if (object === null && fallback === null) {
                 return yield* Effect.fail(
                   new DbError({ message: "A selected export file is missing", cause: latest.id }),
                 );
               }
-              const bytes = new Uint8Array(yield* Effect.promise(() => object.arrayBuffer()));
+              const bytes =
+                object === null
+                  ? (fallback as Uint8Array)
+                  : new Uint8Array(yield* Effect.promise(() => object.arrayBuffer()));
               const group =
                 data.grouping === "session"
                   ? safeZipSegment(row.submission?.code ?? "No session", "No session")
@@ -423,12 +447,17 @@ export const downloadPortalFile = createServerFn({ method: "GET" })
           try: () => env.FILES.get(version.storageKey),
           catch: (cause) => new DbError({ message: "Could not load the file", cause }),
         });
-        if (object === null) {
+        const fallback =
+          object === null ? seedPlaceholder(version.storageKey, version.contentType) : null;
+        if (object === null && fallback === null) {
           return yield* Effect.fail(
             new DbError({ message: "The stored file is missing", cause: version }),
           );
         }
-        const bytes = new Uint8Array(yield* Effect.promise(() => object.arrayBuffer()));
+        const bytes =
+          object === null
+            ? (fallback as Uint8Array)
+            : new Uint8Array(yield* Effect.promise(() => object.arrayBuffer()));
         let binary = "";
         for (const byte of bytes) binary += String.fromCharCode(byte);
         return {
