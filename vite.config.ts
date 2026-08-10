@@ -1,24 +1,23 @@
-import { defineConfig } from 'vite'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from "vite-plus";
 
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
+const generated = [
+  "apps/web/src/routeTree.gen.ts",
+  "apps/web/worker-configuration.d.ts",
+  "packages/domain/migrations/**",
+];
 
-import viteReact from '@vitejs/plugin-react'
-import { cloudflare } from '@cloudflare/vite-plugin'
-
-const config = defineConfig({
-  resolve: { tsconfigPaths: true },
-  plugins: [
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
-
-    tanstackStart({
-      spa: {
-        enabled: true,
-      },
-    }),
-    viteReact(),
-    tailwindcss(),
-  ],
-})
-
-export default config
+export default defineConfig({
+  test: {
+    include: ["apps/**/*.{test,spec}.{ts,tsx}", "packages/**/*.{test,spec}.ts"],
+  },
+  lint: {
+    ignorePatterns: generated,
+    options: {
+      typeAware: true,
+      typeCheck: true,
+    },
+  },
+  fmt: {
+    ignorePatterns: generated,
+  },
+});

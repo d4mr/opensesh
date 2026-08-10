@@ -1,6 +1,28 @@
+packages:
+  - apps/*
+  - packages/*
+
 allowBuilds:
   esbuild: true
   lightningcss: true
   msgpackr-extract: true
   sharp: true
   workerd: true
+onlyBuiltDependencies:
+  - esbuild
+  - lightningcss
+  - msgpackr-extract
+  - sharp
+  - workerd
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.8
+  vite-plus: 0.2.8
+overrides:
+  vite: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20260810.1'
