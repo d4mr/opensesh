@@ -1,10 +1,14 @@
 import type { SpeakerCsvRow, SpeakerDirectoryRow } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { DownloadIcon, SearchIcon, UploadIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { CheckIcon, CopyIcon, DownloadIcon, SearchIcon, UploadIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { ChangeDiff } from "@/components/app/change-diff";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,8 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { profileDiffRows } from "@/lib/content-diff";
+import { downloadVersion } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { speakerDirectoryQuery } from "@/lib/widget-queries";
+import {
+  approveProfileChange,
+  rejectProfileChange,
+  waiveAdminAssignment,
+} from "@/server-fns/portal";
 import { importSpeakerCsv } from "@/server-fns/widgets";
 
 const dietaryLabels: Readonly<Record<string, string>> = {
@@ -34,6 +45,60 @@ const dietaryLabels: Readonly<Record<string, string>> = {
   gluten_free: "Gluten-free",
   other: "Other",
 };
+
+const emailTypeLabels: Readonly<Record<SpeakerDirectoryRow["emails"][number]["type"], string>> = {
+  confirmation: "Confirmation",
+  magic_link: "Magic link",
+  accepted: "Accepted",
+  declined: "Declined",
+  task_reminder: "Task reminder",
+  calendar_invite: "Calendar invite",
+  custom: "Custom",
+};
+
+const taskStatusLabels: Readonly<Record<SpeakerDirectoryRow["tasks"][number]["status"], string>> = {
+  todo: "Open",
+  done: "Done",
+  waived: "Waived",
+};
+
+const readinessToneClass: Readonly<Record<"accepted" | "pending" | "declined", string>> = {
+  accepted: "bg-[var(--status-accepted)]",
+  pending: "bg-[var(--status-pending)]",
+  declined: "bg-[var(--status-declined)]",
+};
+
+const shortDate = (value: Date) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+
+const hasRichText = (value: string | null) =>
+  value !== null && value.replace(/<[^>]*>/g, "").trim().length > 0;
+
+function ReadinessLine({
+  label,
+  detail,
+  tone,
+}: {
+  readonly label: string;
+  readonly detail: string;
+  readonly tone: "accepted" | "pending" | "declined";
+}) {
+  return (
+    <div className="flex h-8 items-center gap-2 border-b last:border-b-0">
+      <span className={cn("size-1.5 shrink-0 rounded-full", readinessToneClass[tone])} />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="shrink-0 text-muted-foreground">{detail}</span>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { readonly children: string }) {
+  return (
+    <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </h3>
+  );
+}
 
 export function SpeakersDirectory({
   spotlightId,
@@ -99,6 +164,74 @@ function Directory({
 }) {
   const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState<string>();
+  const [waivedIds, setWaivedIds] = useState<ReadonlySet<string>>(new Set());
+  const [profileDecisions, setProfileDecisions] = useState<
+    ReadonlyMap<string, "approve" | "reject">
+  >(new Map());
+  const queryClient = useQueryClient();
+  const directoryOptions = speakerDirectoryQuery(eventId);
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: directoryOptions.queryKey }),
+      queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] }),
+    ]);
+  const waive = useMutation({
+    mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
+    onMutate: (assignmentId) => setWaivedIds((current) => new Set([...current, assignmentId])),
+    onSuccess: async (result, assignmentId) => {
+      if (!result.ok) {
+        setWaivedIds((current) => {
+          const next = new Set(current);
+          next.delete(assignmentId);
+          return next;
+        });
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Task waived");
+      await refresh();
+    },
+    onError: (_error, assignmentId) =>
+      setWaivedIds((current) => {
+        const next = new Set(current);
+        next.delete(assignmentId);
+        return next;
+      }),
+  });
+  const reviewProfile = useMutation({
+    mutationFn: ({
+      historyId,
+      decision,
+    }: {
+      readonly historyId: string;
+      readonly decision: "approve" | "reject";
+    }) =>
+      decision === "approve"
+        ? approveProfileChange({ data: { eventId, historyId } })
+        : rejectProfileChange({ data: { eventId, historyId } }),
+    onMutate: ({ historyId, decision }) =>
+      setProfileDecisions((current) => new Map(current).set(historyId, decision)),
+    onSuccess: async (result, { historyId }) => {
+      if (!result.ok) {
+        setProfileDecisions((current) => {
+          const next = new Map(current);
+          next.delete(historyId);
+          return next;
+        });
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Profile review updated");
+      await refresh();
+    },
+    onError: (_error, { historyId }) =>
+      setProfileDecisions((current) => {
+        const next = new Map(current);
+        next.delete(historyId);
+        return next;
+      }),
+  });
   const filtered = useMemo(
     () =>
       rows.filter((row) =>
@@ -116,6 +249,29 @@ function Directory({
     [rows, search],
   );
   const selected = rows.find((row) => row.contact.id === spotlightId);
+  const pendingProfile = selected?.profileChanges.find((entry) => !profileDecisions.has(entry.id));
+  const reviewedProfile = selected?.profileChanges.find((entry) => profileDecisions.has(entry.id));
+  const profileDecision =
+    reviewedProfile === undefined ? undefined : profileDecisions.get(reviewedProfile.id);
+  const effectiveProfileStatus =
+    profileDecision === "approve"
+      ? "approved"
+      : profileDecision === "reject"
+        ? "rejected"
+        : selected?.contact.profileReviewStatus;
+  const copyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedEmail(email);
+      toast.success("Email copied");
+    } catch {
+      toast.error("Could not copy email");
+    }
+  };
+  const downloadFile = async (versionId: string) => {
+    const result = await downloadVersion(versionId);
+    if (result !== undefined && !result.ok) toast.error(result.error.message);
+  };
   const download = () => {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
@@ -264,16 +420,92 @@ function Directory({
                     </span>
                   </div>
                 }
+                status={
+                  effectiveProfileStatus === "pending_review" ? (
+                    <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                      Profile pending
+                    </span>
+                  ) : undefined
+                }
+                actions={
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="pressable"
+                    aria-label={`Copy ${selected.contact.email}`}
+                    title={copiedEmail === selected.contact.email ? "Email copied" : "Copy email"}
+                    onClick={() => void copyEmail(selected.contact.email)}
+                  >
+                    {copiedEmail === selected.contact.email ? <CheckIcon /> : <CopyIcon />}
+                  </Button>
+                }
                 onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
               />
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                <p className="mb-5 text-xs text-muted-foreground">
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16 text-xs">
+                <p className="mb-4 text-muted-foreground">
                   {[selected.contact.title, selected.contact.company].filter(Boolean).join(" · ") ||
                     selected.contact.email}
                 </p>
-                <div className="grid gap-5 text-xs">
+                <div className="grid gap-5 [&>section]:min-w-0">
                   <section>
-                    <h3 className="font-medium text-muted-foreground">Contact and logistics</h3>
+                    <SectionLabel>Profile readiness</SectionLabel>
+                    <div className="mt-1 border-y">
+                      <ReadinessLine
+                        label="Bio"
+                        detail={hasRichText(selected.contact.bio) ? "Present" : "Missing"}
+                        tone={hasRichText(selected.contact.bio) ? "accepted" : "pending"}
+                      />
+                      <ReadinessLine
+                        label="Headshot"
+                        detail={
+                          selected.contact.headshotUrl !== null ||
+                          selected.files.some((file) => file.kind === "headshot")
+                            ? "Present"
+                            : "Missing"
+                        }
+                        tone={
+                          selected.contact.headshotUrl !== null ||
+                          selected.files.some((file) => file.kind === "headshot")
+                            ? "accepted"
+                            : "pending"
+                        }
+                      />
+                      <ReadinessLine
+                        label="Dietary"
+                        detail={
+                          dietaryLabels[selected.contact.dietaryRequirements] === "—"
+                            ? "Answered"
+                            : (dietaryLabels[selected.contact.dietaryRequirements] ?? "Answered")
+                        }
+                        tone="accepted"
+                      />
+                      <ReadinessLine
+                        label="T-shirt"
+                        detail={selected.contact.tshirtSize ?? "Missing"}
+                        tone={selected.contact.tshirtSize === null ? "pending" : "accepted"}
+                      />
+                      <ReadinessLine
+                        label="Profile approval"
+                        detail={
+                          effectiveProfileStatus === "approved"
+                            ? "Approved"
+                            : effectiveProfileStatus === "rejected"
+                              ? "Rejected"
+                              : "Pending review"
+                        }
+                        tone={
+                          effectiveProfileStatus === "approved"
+                            ? "accepted"
+                            : effectiveProfileStatus === "rejected"
+                              ? "declined"
+                              : "pending"
+                        }
+                      />
+                    </div>
+                  </section>
+                  <section>
+                    <SectionLabel>Contact and logistics</SectionLabel>
                     <p className="mt-1">
                       {selected.contact.email}
                       {selected.contact.phone === null ? "" : ` · ${selected.contact.phone}`}
@@ -286,33 +518,201 @@ function Directory({
                         ? ""
                         : ` · T-shirt ${selected.contact.tshirtSize}`}
                     </p>
-                  </section>
-                  <section>
-                    <h3 className="font-medium text-muted-foreground">Bio</h3>
-                    {selected.contact.bio === null ? (
-                      <p className="mt-1 italic text-muted-foreground">No bio yet.</p>
+                    {!hasRichText(selected.contact.bio) ? (
+                      <p className="mt-2 italic text-muted-foreground">No bio yet.</p>
                     ) : (
                       <div
-                        className="rte-content mt-1 text-muted-foreground"
-                        dangerouslySetInnerHTML={{ __html: selected.contact.bio }}
+                        className="rte-content mt-2 border-t pt-2 text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: selected.contact.bio ?? "" }}
                       />
                     )}
                   </section>
                   <section>
-                    <h3 className="font-medium text-muted-foreground">Sessions</h3>
-                    <div className="mt-2 divide-y overflow-hidden rounded-lg border">
+                    <SectionLabel>Sessions</SectionLabel>
+                    <div className="mt-1 divide-y border-y">
                       {selected.sessions.length === 0 ? (
-                        <p className="p-3 text-muted-foreground">No sessions attached.</p>
+                        <p className="flex h-8 items-center text-muted-foreground">
+                          No sessions attached.
+                        </p>
                       ) : (
                         selected.sessions.map((session) => (
-                          <p key={session.id} className="px-3 py-2">
-                            <span className="font-mono tabular-nums">{session.code}</span> —{" "}
-                            {session.title}
-                          </p>
+                          <Link
+                            key={session.id}
+                            to="/admin/sessions"
+                            search={{ status: "all", spotlight: session.id }}
+                            className="pressable flex h-8 min-w-0 items-center gap-2 transition-colors hover:text-foreground"
+                          >
+                            <span className="shrink-0 font-mono tabular-nums">{session.code}</span>
+                            <span className="truncate text-muted-foreground">{session.title}</span>
+                          </Link>
                         ))
                       )}
                     </div>
                   </section>
+                  <section>
+                    <SectionLabel>Tasks</SectionLabel>
+                    <div className="mt-1 divide-y border-y">
+                      {selected.tasks.length === 0 ? (
+                        <p className="flex h-8 items-center text-muted-foreground">
+                          No tasks assigned.
+                        </p>
+                      ) : (
+                        selected.tasks.map((task) => {
+                          const status = waivedIds.has(task.id) ? "waived" : task.status;
+                          return (
+                            <div key={task.id} className="flex h-8 min-w-0 items-center gap-2">
+                              <span className="min-w-0 flex-1 truncate">
+                                {task.title}
+                                {task.submissionCode === null ? null : (
+                                  <span className="ml-1 font-mono text-[11px] text-muted-foreground tabular-nums">
+                                    {task.submissionCode}
+                                  </span>
+                                )}
+                              </span>
+                              <Badge
+                                variant={status === "todo" ? "outline" : "secondary"}
+                                className="h-5 rounded-sm px-1.5 text-[10px] font-normal"
+                              >
+                                {taskStatusLabels[status]}
+                              </Badge>
+                              <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
+                                {task.dueDate === null ? "No due" : shortDate(task.dueDate)}
+                              </span>
+                              {status === "todo" ? (
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="ghost"
+                                  className="pressable h-6 px-1.5 text-[11px]"
+                                  onClick={() => waive.mutate(task.id)}
+                                >
+                                  Waive
+                                </Button>
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+                  <section>
+                    <SectionLabel>Files</SectionLabel>
+                    <div className="mt-1 divide-y border-y">
+                      {selected.files.length === 0 ? (
+                        <p className="flex h-8 items-center text-muted-foreground">No files yet.</p>
+                      ) : (
+                        selected.files.map((file) => (
+                          <div key={file.id} className="flex h-8 min-w-0 items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate">{file.filename}</p>
+                              <p className="truncate text-[10px] leading-none text-muted-foreground">
+                                {file.label}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                              {shortDate(file.uploadedAt)}
+                            </span>
+                            <Button
+                              type="button"
+                              size="icon-xs"
+                              variant="ghost"
+                              className="pressable"
+                              aria-label={`Download ${file.filename}`}
+                              onClick={() => void downloadFile(file.versionId)}
+                            >
+                              <DownloadIcon />
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                  <section>
+                    <SectionLabel>Emails</SectionLabel>
+                    <div className="mt-1 divide-y border-y">
+                      {selected.emails.length === 0 ? (
+                        <p className="flex h-8 items-center text-muted-foreground">
+                          No emails sent.
+                        </p>
+                      ) : (
+                        selected.emails.map((email) => (
+                          <Link
+                            key={email.id}
+                            to="/admin/emails"
+                            search={{ email: email.id }}
+                            className="pressable flex h-8 min-w-0 items-center gap-2 transition-colors hover:text-foreground"
+                          >
+                            <span className="min-w-0 flex-1 truncate">{email.subject}</span>
+                            <Badge
+                              variant="secondary"
+                              className="h-5 max-w-24 truncate rounded-sm px-1.5 text-[10px] font-normal"
+                            >
+                              {emailTypeLabels[email.type]}
+                            </Badge>
+                            <span className="flex shrink-0 items-center gap-1 text-[11px] capitalize text-muted-foreground">
+                              <span
+                                className={cn(
+                                  "size-1.5 rounded-full",
+                                  email.status === "sent"
+                                    ? readinessToneClass.accepted
+                                    : email.status === "failed"
+                                      ? readinessToneClass.declined
+                                      : readinessToneClass.pending,
+                                )}
+                              />
+                              {email.status}
+                            </span>
+                            <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
+                              {email.sentAt === null ? "—" : shortDate(email.sentAt)}
+                            </span>
+                          </Link>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                  {pendingProfile === undefined ? null : (
+                    <section>
+                      <div className="flex items-center justify-between gap-2">
+                        <SectionLabel>Profile changes</SectionLabel>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {shortDate(pendingProfile.createdAt)}
+                        </span>
+                      </div>
+                      <ChangeDiff
+                        rows={profileDiffRows(pendingProfile)}
+                        className="mt-2 border-y py-2"
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          className="pressable"
+                          onClick={() =>
+                            reviewProfile.mutate({
+                              historyId: pendingProfile.id,
+                              decision: "reject",
+                            })
+                          }
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          type="button"
+                          size="xs"
+                          className="pressable"
+                          onClick={() =>
+                            reviewProfile.mutate({
+                              historyId: pendingProfile.id,
+                              decision: "approve",
+                            })
+                          }
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </section>
+                  )}
                 </div>
               </div>
             </div>
