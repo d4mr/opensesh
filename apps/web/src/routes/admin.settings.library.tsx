@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -95,15 +95,21 @@ function LibrarySection({
 }) {
   const [editing, setEditing] = useState<LibraryRow | null>(null);
   return (
-    <Card className="gap-0 py-0">
-      <CardHeader className="flex-row items-center justify-between border-b py-3">
-        <CardTitle className="text-sm">{title}</CardTitle>
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b bg-muted/30 px-3">
+        <span className="text-xs font-medium">{title}</span>
+        <span className="text-xs tabular-nums text-muted-foreground">{rows.length}</span>
         {editing === null ? (
-          <Button size="sm" variant="ghost" onClick={() => setEditing({ id: "", name: "" })}>
-            <PlusIcon /> Add
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-7 px-2 text-xs"
+            onClick={() => setEditing({ id: "", name: "" })}
+          >
+            <PlusIcon className="size-3.5" /> Add
           </Button>
         ) : null}
-      </CardHeader>
+      </div>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
@@ -135,7 +141,7 @@ function LibrarySection({
             ))}
             {rows.length === 0 && editing === null ? (
               <TableRow>
-                <TableCell colSpan={3} className="h-16 text-center text-muted-foreground">
+                <TableCell colSpan={3} className="h-12 text-center text-xs text-muted-foreground">
                   No {title.toLowerCase()} yet.
                 </TableCell>
               </TableRow>
