@@ -21,13 +21,15 @@ Working list of surface polish. Rule of thumb per docs/DESIGN.md: dense h-9 sect
 - [ ] Hydration error on every page load — server/client text mismatch ending "…2026" (likely a date formatted in server TZ vs browser TZ); forces full client re-render. Find with React hydration diff in dev console.
 - [x] Event settings — WP12 merged: grouped Basics/Schedule/Branding/Submissions, dense rails, datetime+tz pickers, icon previews (verified in browser)
 - [ ] Forms list + form builder page — check header rails, empty states
-- [ ] Portal Forms admin page — "Edit portal form" sheet → dedicated page w/ preview (WP12/13 territory; sheet is banned per overlay doctrine)
+- [ ] Portal Forms admin page — "Edit portal form" sheet → dedicated page w/ preview (WP13 dispatched)
 - [ ] Task templates drawer — overlay doctrine review (modal vs page)
-- [ ] File Requests page — header rails + WP10 will add requirements block; polish at merge
-- [ ] Email delivery viewer — rails, empty states, retry affordance density
-- [ ] Evaluation queue — density + keyboard hints surfacing
-- [ ] Dashboard — needs-attention rows already dense; check card paddings
-- [ ] Widgets builder — two-pane paddings, Get-code dialog density (WP8 self-reviewed; verify)
+- [x] File Requests page — requirements block landed dense with WP10 (verified)
+- [x] Email delivery viewer — already dense: status badges, retry w/ optimistic update, sent-at, HTML dialog (verified)
+- [x] Evaluation queue — dense card, keyboard hints (1/2/3), prev/next, Save & next (verified)
+- [x] Dashboard — cards + needs-attention verified dense
+- [x] Widgets builder — list verified clean; toggles + Updated dates
+- [x] SSR timezone sweep — sidebar/public-shell/event-switcher/public-agenda/portal-home format in event TZ (hydration errors eliminated)
+- [x] Speaker spotlight depth — WP14 dispatched (readiness/tasks/files/emails/profile changes)
 - [ ] Empty states sweep — every table/list: quiet one-liner + primary affordance
 - [ ] Seeded storytelling — email_log legacy rows need real HTML bodies
 - [ ] Full role walkthrough (Dana/Rey/Maya/Lina/Jamal) after WP10–12 merges
