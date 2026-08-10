@@ -89,13 +89,13 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 | ID | Status | Owner/notes |
 |---|---|---|
 | AIA-01 | done | Multi-day builder |
-| AIA-02 | done | Rooms/tracks CRUD in library; verify in-agenda add (integration) |
+| AIA-02 | done | Rooms/tracks CRUD in library; in-agenda Add room browser-verified 2026-08-11 (column appears, Room added toast, Undo restores) |
 | AIA-03 | done | Placement persists |
 | AIA-04 | done | Speaker conflict warnings |
 | AIA-05 | done | Room overlap flagged |
 | AIA-06 | done | Move clears conflicts |
 | AIA-07 | done | Publish → public snapshot |
-| AIA-08 | done | AI drafts + accept (verify one-action auto-schedule path) |
+| AIA-08 | done | AI drafts + accept browser-verified 2026-08-11: Balanced v1 draft (deterministic solver, no key needed) → compare page 12 changes w/ reasons → accept → all placed, Conflicts 0, unscheduled rail empty |
 
 ## Public Widgets (16)
 
