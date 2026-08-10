@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 
-import data from "@/app/dashboard/data.json";
 import { SectionCards } from "@/components/section-cards";
 import { getDashboardStats } from "@/server-fns/dashboard";
 
@@ -30,9 +29,9 @@ function Dashboard() {
           <SectionCards stats={stats.data.data} />
           <Suspense fallback={null}>
             <div className="px-4 lg:px-6">
-              <ChartAreaInteractive />
+              <ChartAreaInteractive data={stats.data.data.activity} />
             </div>
-            <DataTable data={data} />
+            <DataTable data={stats.data.data.recentSubmissions} />
           </Suspense>
         </div>
       </div>

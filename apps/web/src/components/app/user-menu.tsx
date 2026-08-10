@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -26,35 +25,26 @@ export function UserMenu({ user }: { readonly user: CurrentUserValue }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-full"
-            aria-label="Open user menu"
-          />
-        }
-      >
-        <Avatar className="size-8">
-          <AvatarFallback>{initial}</AvatarFallback>
-        </Avatar>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Open user menu">
+          <Avatar className="size-8">
+            <AvatarFallback>{initial}</AvatarFallback>
+          </Avatar>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
-            {user.email}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-            {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
-            {resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void logout()}>
-            <LogOutIcon />
-            Log out
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+        <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+          {user.email}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+          {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
+          {resolvedTheme === "dark" ? "Use light theme" : "Use dark theme"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void logout()}>
+          <LogOutIcon />
+          Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

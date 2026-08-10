@@ -10,11 +10,12 @@
   --border: #E3E5DC;      --input: #E3E5DC;  --ring: #1D6B4C;
   --radius: 0.5rem;
   /* status (shared across directions) */
-  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
-  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
-  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
-  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
-  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+  --status-pending: #7A4F01;   --status-pending-foreground: #FFFFFF;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-foreground: #FFFFFF;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-foreground: #FFFFFF;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-foreground: #FFFFFF;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-foreground: #FFFFFF; --status-withdrawn-bg: #ECECEA;
+  --status-draft: #48504B;     --status-draft-foreground: #FFFFFF;
 }
 .dark {
   --background: #131714;  --foreground: #E7EAE5;
@@ -26,9 +27,10 @@
   --accent: #213028;      --accent-foreground: #A7D4BC;
   --destructive: #E06C55; --destructive-foreground: #1C0E0A;
   --border: #2A332D;      --input: #2A332D;  --ring: #4CAF82;
-  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
-  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
-  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
-  --status-declined: #EE9384;  --status-declined-bg: #3A1712;
-  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+  --status-pending: #EFC25E;   --status-pending-foreground: #1A1407;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-foreground: #171329;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-foreground: #0B1F15;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384;  --status-declined-foreground: #29100C;  --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-foreground: #161618; --status-withdrawn-bg: #26262A;
+  --status-draft: #8D9791;     --status-draft-foreground: #101512;
 }

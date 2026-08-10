@@ -23,12 +23,14 @@ export function NavSecondary({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link to="/admin/$section" params={{ section: item.section }} />}
+              asChild
               isActive={pathname === `/admin/${item.section}`}
               tooltip={item.title}
             >
-              {item.icon}
-              <span>{item.title}</span>
+              <Link to="/admin/$section" params={{ section: item.section }}>
+                {item.icon}
+                <span>{item.title}</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

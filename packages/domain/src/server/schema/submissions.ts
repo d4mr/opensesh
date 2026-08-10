@@ -77,6 +77,36 @@ const submissionFields = {
 
 export const Submission = Schema.Struct({ ...EntityFields, ...submissionFields });
 export type Submission = typeof Submission.Type;
+
+export const DashboardSubmissionRow = Schema.Struct({
+  submissionId: Schema.String,
+  code: Schema.String,
+  title: Schema.String,
+  kind: SubmissionKind,
+  status: SubmissionStatus,
+  createdAt: Schema.Date,
+  trackName: NullableString,
+  reviewerName: NullableString,
+  reviewerImage: NullableString,
+});
+export type DashboardSubmissionRow = typeof DashboardSubmissionRow.Type;
+
+export const DashboardSubmission = Schema.Struct({
+  id: Schema.String,
+  code: Schema.String,
+  title: Schema.String,
+  kind: SubmissionKind,
+  status: SubmissionStatus,
+  track: NullableString,
+  reviewer: Schema.NullOr(
+    Schema.Struct({
+      name: Schema.String,
+      image: NullableString,
+    }),
+  ),
+});
+export type DashboardSubmission = typeof DashboardSubmission.Type;
+
 export const SubmissionCreate = Schema.Struct(Struct.omit(submissionFields, ["code"]));
 export type SubmissionCreate = typeof SubmissionCreate.Type;
 export const SubmissionUpdate = Schema.Struct(

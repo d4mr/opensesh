@@ -16,6 +16,14 @@ export default defineConfig({
       typeAware: true,
       typeCheck: true,
     },
+    overrides: [
+      {
+        files: ["apps/web/src/components/ui/chart.tsx"],
+        rules: {
+          "typescript/restrict-template-expressions": "off",
+        },
+      },
+    ],
   },
   fmt: {
     ignorePatterns: generated,

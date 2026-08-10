@@ -26,11 +26,7 @@ export function NavMain({
 }) {
   return (
     <SidebarGroup>
-      {label === undefined ? null : (
-        <SidebarGroupLabel className="text-[11px] font-medium uppercase tracking-wide">
-          {label}
-        </SidebarGroupLabel>
-      )}
+      {label === undefined ? null : <SidebarGroupLabel>{label}</SidebarGroupLabel>}
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
@@ -38,18 +34,21 @@ export function NavMain({
               item.section === undefined
                 ? pathname === "/admin"
                 : pathname === `/admin/${item.section}`;
-            const link =
-              item.section === undefined ? (
-                <Link to="/admin" />
-              ) : (
-                <Link to="/admin/$section" params={{ section: item.section }} />
-              );
 
             return (
               <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton render={link} isActive={active} tooltip={item.title}>
-                  {item.icon}
-                  <span>{item.title}</span>
+                <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+                  {item.section === undefined ? (
+                    <Link to="/admin">
+                      {item.icon}
+                      <span>{item.title}</span>
+                    </Link>
+                  ) : (
+                    <Link to="/admin/$section" params={{ section: item.section }}>
+                      {item.icon}
+                      <span>{item.title}</span>
+                    </Link>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

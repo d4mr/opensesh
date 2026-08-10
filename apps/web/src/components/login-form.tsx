@@ -75,9 +75,9 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               <FieldGroup>
                 <div className="flex flex-col items-center gap-2 text-center">
                   <BrandMark className="mb-1" />
-                  <h1 className="text-lg font-semibold">opensesh</h1>
-                  <p className="text-sm text-balance text-muted-foreground">
-                    Sign in to your workspace to manage programs and speaker tasks.
+                  <h1 className="text-2xl font-bold">Welcome back</h1>
+                  <p className="text-balance text-muted-foreground">
+                    Sign in to manage programs and speaker tasks.
                   </p>
                 </div>
                 <form.Field name="email">
@@ -128,13 +128,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                   </form.Subscribe>
                 </Field>
                 <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
-                  Or
+                  Or continue with
                 </FieldSeparator>
                 <Field>
                   <Button
-                    variant="link"
+                    variant="outline"
                     type="button"
-                    className="w-full"
                     disabled={magicSending}
                     onClick={() => void sendMagicLink()}
                   >
@@ -150,31 +149,30 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                   We sent a sign-in link to {sent.email}.
                 </p>
                 {sent.demoLink === undefined ? null : (
-                  <Button className="mt-5" render={<a href={sent.demoLink} />}>
-                    Open demo magic link
+                  <Button className="mt-5" asChild>
+                    <a href={sent.demoLink}>Open demo magic link</a>
                   </Button>
                 )}
               </div>
             )}
           </form>
-          <div className="relative hidden min-h-[32rem] overflow-hidden bg-primary/12 md:block">
+          <div className="relative hidden bg-primary/10 md:block">
             {panelFailed ? null : (
               <img
                 src="/brand/login-panel.jpg"
                 alt=""
-                className="absolute inset-0 size-full object-cover opacity-35 mix-blend-multiply dark:mix-blend-luminosity"
+                className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
                 onError={() => setPanelFailed(true)}
-                ref={(el) => {
-                  if (el?.complete === true && el.naturalWidth === 0) setPanelFailed(true);
+                ref={(element) => {
+                  if (element?.complete === true && element.naturalWidth === 0) {
+                    setPanelFailed(true);
+                  }
                 }}
               />
             )}
-            <div className="absolute inset-0 bg-linear-to-t from-primary/30 to-transparent" />
-            <div className="relative flex h-full flex-col justify-end p-8">
-              <p className="text-lg font-semibold text-foreground">opensesh</p>
-              <p className="mt-1 text-sm text-foreground/70">
-                The open program OS for conferences.
-              </p>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/80 to-transparent p-8">
+              <p className="text-lg font-semibold">opensesh</p>
+              <p className="text-sm text-muted-foreground">The open program OS for conferences.</p>
             </div>
           </div>
         </CardContent>

@@ -1,15 +1,21 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import {
+  eventMembers,
+  reviews,
   submissionParticipants,
   submissions,
   submissionTags,
   submissionTracks,
+  tracks,
+  users,
 } from "../../db/schema";
 import { Db } from "../db";
 import type { DbError, FormClosed, NotFound, SubmissionLimitReached } from "../errors";
 import {
+  type DashboardSubmission,
+  DashboardSubmissionRow,
   Submission,
   type SubmissionCreate,
   SubmissionParticipant,
@@ -23,6 +29,9 @@ import { decode, decodeFound, decodeMany, query } from "./shared";
 
 interface SubmissionsService {
   readonly listByEvent: (eventId: string) => Effect.Effect<ReadonlyArray<Submission>, DbError>;
+  readonly listDashboardByEvent: (
+    eventId: string,
+  ) => Effect.Effect<ReadonlyArray<DashboardSubmission>, DbError>;
   readonly get: (id: string) => Effect.Effect<Submission, DbError | NotFound>;
   readonly allocateCode: (eventId: string) => Effect.Effect<string, DbError>;
   readonly create: (
@@ -81,6 +90,72 @@ export const SubmissionsLive = Layer.effect(
             .orderBy(desc(submissions.createdAt))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Submission, "submission", rows))),
+      listDashboardByEvent: (eventId) =>
+        query(database, "Could not list dashboard submissions", (db) =>
+          db
+            .select({
+              submissionId: submissions.id,
+              code: submissions.code,
+              title: submissions.title,
+              kind: submissions.kind,
+              status: submissions.status,
+              createdAt: submissions.createdAt,
+              trackName: tracks.name,
+              reviewerName: users.name,
+              reviewerImage: users.image,
+            })
+            .from(submissions)
+            .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+            .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+            .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
+            .leftJoin(eventMembers, eq(eventMembers.id, reviews.reviewerId))
+            .leftJoin(users, eq(users.id, eventMembers.userId))
+            .where(eq(submissions.eventId, eventId))
+            .orderBy(desc(submissions.createdAt), asc(tracks.position), asc(reviews.createdAt))
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) =>
+            decodeMany(DashboardSubmissionRow, "dashboard submission", rows),
+          ),
+          Effect.map((rows) => {
+            const grouped = new Map<
+              string,
+              DashboardSubmission & { readonly trackNames: Array<string> }
+            >();
+
+            for (const row of rows) {
+              const existing = grouped.get(row.submissionId);
+              if (existing !== undefined) {
+                if (row.trackName !== null && !existing.trackNames.includes(row.trackName)) {
+                  existing.trackNames.push(row.trackName);
+                }
+                continue;
+              }
+
+              const trackNames = row.trackName === null ? [] : [row.trackName];
+              grouped.set(row.submissionId, {
+                id: row.submissionId,
+                code: row.code,
+                title: row.title,
+                kind: row.kind,
+                status: row.status,
+                track: row.trackName,
+                reviewer:
+                  row.reviewerName === null
+                    ? null
+                    : { name: row.reviewerName, image: row.reviewerImage },
+                trackNames,
+              });
+            }
+
+            return Array.from(grouped.values())
+              .slice(0, 20)
+              .map(({ trackNames, ...submission }) => ({
+                ...submission,
+                track: trackNames.length === 0 ? null : trackNames.join(", "),
+              }));
+          }),
+        ),
       get: (id) =>
         query(database, "Could not load submission", (db) =>
           db.select().from(submissions).where(eq(submissions.id, id)).limit(1).execute(),
