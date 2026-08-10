@@ -7,6 +7,7 @@ if (connectionString === undefined || connectionString.length === 0) {
 }
 
 const command = process.argv[2];
+const commandArguments = process.argv.slice(3);
 if (command !== "build" && command !== "dev") {
   process.stderr.write("Expected a Vite+ command: build or dev.\n");
   process.exit(1);
@@ -14,7 +15,12 @@ if (command !== "build" && command !== "dev") {
 
 const child = spawn(
   "pnpm",
-  ["exec", "vp", command, ...(command === "dev" ? ["--port", "3000"] : [])],
+  [
+    "exec",
+    "vp",
+    command,
+    ...(command === "dev" && commandArguments.length === 0 ? ["--port", "3000"] : commandArguments),
+  ],
   {
     stdio: "inherit",
     env: {

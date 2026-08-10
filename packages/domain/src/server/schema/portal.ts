@@ -137,6 +137,7 @@ export type TaskAssignmentCreate = typeof TaskAssignmentCreate.Type;
 const emailLogFields = {
   eventId: Schema.String,
   contactId: NullableString,
+  submissionId: NullableString,
   type: EmailType,
   subject: Schema.String,
   body: Schema.String,

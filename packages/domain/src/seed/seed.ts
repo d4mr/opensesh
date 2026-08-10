@@ -109,7 +109,22 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(levels).values(rows(seedData.levels)),
       transaction.insert(rooms).values(rows(seedData.rooms)),
       transaction.insert(forms).values(rows(seedData.forms)),
-      transaction.insert(contacts).values(rows(seedData.contacts)),
+      transaction.insert(contacts).values(
+        seedData.contacts.map((contact) => ({
+          ...contact,
+          confirmedAt: seedData.submissions.some(
+            (submission) =>
+              submission.status === "accepted" &&
+              seedData.submissionParticipants.some(
+                (participant) =>
+                  participant.submissionId === submission.id &&
+                  participant.contactId === contact.id,
+              ),
+          )
+            ? new Date(1788264000000)
+            : null,
+        })),
+      ),
       transaction.insert(portalForms).values(rows(seedData.portalForms)),
     ]);
 

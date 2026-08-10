@@ -14,7 +14,7 @@ const EVENT_SLUG = "ai-engineer-nyc-2026";
 
 const demoPersonas = {
   "demo@opensesh.io": { name: "Dana Organizer", target: "/admin" },
-  "reviewer@opensesh.io": { name: "Rey Reviewer", target: "/admin" },
+  "reviewer@opensesh.io": { name: "Rey Reviewer", target: "/admin/evaluation" },
   "maya.chen@retrievallabs.ai": { name: "Maya Chen", target: "/portal" },
   "lina.haddad@checkpoint.health": { name: "Lina Haddad", target: "/portal" },
   "jamal.reed@agentdesk.co": { name: "Jamal Reed", target: "/portal" },

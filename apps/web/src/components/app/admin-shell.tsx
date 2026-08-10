@@ -82,7 +82,9 @@ export function AdminShell({
   const navigate = useNavigate();
   const activeTitle =
     allItems.find((item) =>
-      item.section === undefined ? pathname === "/admin" : pathname === `/admin/${item.section}`,
+      item.section === undefined
+        ? pathname === "/admin"
+        : pathname === `/admin/${item.section}` || pathname.startsWith(`/admin/${item.section}/`),
     )?.title ?? "Dashboard";
 
   useEffect(() => {
@@ -101,9 +103,14 @@ export function AdminShell({
 
   const go = (section?: string) => {
     setCommandOpen(false);
-    return section === undefined
-      ? navigate({ to: "/admin" })
-      : navigate({ to: "/admin/$section", params: { section } });
+    if (section === undefined) return navigate({ to: "/admin" });
+    if (section === "abstracts")
+      return navigate({ to: "/admin/abstracts", search: { status: "all" } });
+    if (section === "sessions")
+      return navigate({ to: "/admin/sessions", search: { status: "all" } });
+    if (section === "forms") return navigate({ to: "/admin/forms" });
+    if (section === "evaluation") return navigate({ to: "/admin/evaluation" });
+    return navigate({ to: "/admin/$section", params: { section } });
   };
 
   return (

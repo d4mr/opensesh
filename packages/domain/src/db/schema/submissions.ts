@@ -27,6 +27,7 @@ export const contacts = pgTable(
     twitterUrl: text("twitter_url"),
     facebookUrl: text("facebook_url"),
     websiteUrl: text("website_url"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     custom: jsonb("custom").notNull(),
     ...timestamps,
   },

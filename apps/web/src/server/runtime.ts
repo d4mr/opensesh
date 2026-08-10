@@ -1,4 +1,4 @@
-import { DbError, Unauthenticated } from "@opensesh/domain";
+import { DbError, MailError, Unauthenticated } from "@opensesh/domain";
 import {
   type SessionIdentity,
   type CurrentUser,
@@ -8,6 +8,7 @@ import {
 } from "@opensesh/domain/server/current-user";
 import { makeRepositoriesLive, type RepositoryServices } from "@opensesh/domain/server/repos";
 import { type AppError, run } from "@opensesh/domain/server/runtime";
+import { Mail, makeMailLive } from "@opensesh/domain/server/mail";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Layer } from "effect";
 
@@ -51,7 +52,7 @@ export const runSessionServer = async <A, E extends AppError>(
 };
 
 export const runServer = async <A, E extends AppError>(
-  program: Effect.Effect<A, E, RepositoryServices | CurrentUser>,
+  program: Effect.Effect<A, E, RepositoryServices | CurrentUser | Mail>,
   options?: { readonly require?: RequiredRole },
 ) => {
   const { env } = await import("cloudflare:workers");
@@ -59,7 +60,24 @@ export const runServer = async <A, E extends AppError>(
   const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
   const connectionString = env.HYPERDRIVE.connectionString;
   const currentUserLive = makeCurrentUserLive(connectionString, loadSession, EVENT_SLUG);
-  const services = Layer.merge(makeRepositoriesLive(connectionString), currentUserLive);
+  const mailLive = makeMailLive(connectionString, env.DEMO_MODE === "1", (mail) =>
+    Effect.tryPromise({
+      try: () =>
+        env.EMAIL.send({
+          to: mail.to,
+          from: env.MAIL_FROM,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+        }).then(() => undefined),
+      catch: (cause) => new MailError({ message: "Could not send email", cause }),
+    }),
+  );
+  const services = Layer.mergeAll(
+    makeRepositoriesLive(connectionString),
+    currentUserLive,
+    mailLive,
+  );
   const secured =
     options?.require === undefined
       ? program

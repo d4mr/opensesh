@@ -55,7 +55,7 @@ export function DataTable({ data }: { readonly data: ReadonlyArray<DashboardSubm
           <p className="text-sm text-muted-foreground">The latest 20 abstracts and sessions.</p>
         </div>
         <Button variant="link" size="sm" asChild className="shrink-0">
-          <Link to="/admin/$section" params={{ section: "abstracts" }}>
+          <Link to="/admin/abstracts" search={{ status: "all" }}>
             View all
             <ArrowRightIcon />
           </Link>

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "fec66ed0-7fa7-409b-bd30-372f4183a106",
+  "id": "c3d48bd4-2950-451b-af11-fbdf4b2472d3",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -2342,6 +2342,19 @@
       "table": "email_log"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "submission_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
       "type": "email_type",
       "typeSchema": "public",
       "notNull": true,
@@ -3395,6 +3408,19 @@
       "table": "contacts"
     },
     {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "confirmed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contacts"
+    },
+    {
       "type": "jsonb",
       "typeSchema": null,
       "notNull": true,
@@ -4425,6 +4451,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "submission_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "email_log_submission_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "event_id",
           "isExpression": false,
           "asc": true,
@@ -5089,6 +5136,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "email_log_contact_id_contacts_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "submission_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "submissions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "email_log_submission_id_submissions_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "email_log"
@@ -5981,6 +6045,43 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "tracks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "submission_id",
+        "type",
+        "contact_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "email_log_submission_type_contact_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "task_template_id",
+        "contact_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "task_assignments_template_contact_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "task_assignments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "task_template_id",
+        "submission_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "task_assignments_template_submission_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "task_assignments"
     },
     {
       "nameExplicit": true,

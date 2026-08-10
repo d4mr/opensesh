@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
@@ -135,7 +135,7 @@ export const EventsLive = Layer.effect(
               and(
                 eq(eventMembers.eventId, currentEvent.id),
                 eq(eventMembers.userId, session.userId),
-                eq(eventMembers.role, "admin"),
+                inArray(eventMembers.role, ["admin", "reviewer"]),
               ),
             )
             .innerJoin(

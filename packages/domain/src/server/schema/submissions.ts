@@ -42,6 +42,7 @@ const contactFields = {
   twitterUrl: NullableString,
   facebookUrl: NullableString,
   websiteUrl: NullableString,
+  confirmedAt: NullableDate,
   custom: JsonObject,
 };
 

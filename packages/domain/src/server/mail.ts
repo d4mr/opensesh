@@ -28,6 +28,7 @@ interface MailService {
   readonly sendMagicLink: (
     input: MagicLinkMail,
   ) => Effect.Effect<void, DbError | MailError | NotFound>;
+  readonly sendDecision: (mail: OutboundMail) => Effect.Effect<void, MailError>;
 }
 
 export class Mail extends Context.Service<Mail, MailService>()("opensesh/Mail") {}
@@ -39,6 +40,7 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
       const { database } = yield* Db;
 
       return {
+        sendDecision: (mail) => (demoMode ? Effect.succeed(undefined) : deliver(mail)),
         sendMagicLink: (input) =>
           Effect.gen(function* () {
             const eventRows = yield* query(database, "Could not load email event", (db) =>
@@ -62,6 +64,7 @@ const makeMailLayer = (demoMode: boolean, deliver: MailTransport) =>
                 .values({
                   eventId: event.id,
                   contactId: contactRows[0]?.id ?? null,
+                  submissionId: null,
                   type: "magic_link",
                   subject,
                   body,

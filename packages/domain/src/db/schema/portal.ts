@@ -1,4 +1,13 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 
 import { emailStatus, emailType, id, targetType, taskStatus, timestamps } from "../columns";
 import { events } from "./core";
@@ -121,6 +130,11 @@ export const taskAssignments = pgTable(
   (table) => [
     index("task_assignments_contact_idx").on(table.contactId),
     index("task_assignments_submission_idx").on(table.submissionId),
+    unique("task_assignments_template_contact_unique").on(table.taskTemplateId, table.contactId),
+    unique("task_assignments_template_submission_unique").on(
+      table.taskTemplateId,
+      table.submissionId,
+    ),
   ],
 );
 
@@ -132,6 +146,9 @@ export const emailLog = pgTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    submissionId: text("submission_id").references(() => submissions.id, {
+      onDelete: "set null",
+    }),
     type: emailType("type").notNull(),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
@@ -143,5 +160,11 @@ export const emailLog = pgTable(
   (table) => [
     index("email_log_event_idx").on(table.eventId),
     index("email_log_contact_idx").on(table.contactId),
+    index("email_log_submission_idx").on(table.submissionId),
+    unique("email_log_submission_type_contact_unique").on(
+      table.submissionId,
+      table.type,
+      table.contactId,
+    ),
   ],
 );

@@ -226,6 +226,7 @@ CREATE TABLE "email_log" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"contact_id" text,
+	"submission_id" text,
 	"type" "email_type" NOT NULL,
 	"subject" text NOT NULL,
 	"body" text NOT NULL,
@@ -233,7 +234,8 @@ CREATE TABLE "email_log" (
 	"status" "email_status" NOT NULL,
 	"sent_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "email_log_submission_type_contact_unique" UNIQUE("submission_id","type","contact_id")
 );
 --> statement-breakpoint
 CREATE TABLE "file_requests" (
@@ -291,7 +293,9 @@ CREATE TABLE "task_assignments" (
 	"status" "task_status" DEFAULT 'todo'::"task_status" NOT NULL,
 	"completed_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "task_assignments_template_contact_unique" UNIQUE("task_template_id","contact_id"),
+	CONSTRAINT "task_assignments_template_submission_unique" UNIQUE("task_template_id","submission_id")
 );
 --> statement-breakpoint
 CREATE TABLE "task_templates" (
@@ -328,6 +332,7 @@ CREATE TABLE "contacts" (
 	"twitter_url" text,
 	"facebook_url" text,
 	"website_url" text,
+	"confirmed_at" timestamp with time zone,
 	"custom" jsonb NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
@@ -419,6 +424,7 @@ CREATE INDEX "form_fields_form_position_idx" ON "form_fields" ("form_id","positi
 CREATE INDEX "forms_event_idx" ON "forms" ("event_id");--> statement-breakpoint
 CREATE INDEX "email_log_event_idx" ON "email_log" ("event_id");--> statement-breakpoint
 CREATE INDEX "email_log_contact_idx" ON "email_log" ("contact_id");--> statement-breakpoint
+CREATE INDEX "email_log_submission_idx" ON "email_log" ("submission_id");--> statement-breakpoint
 CREATE INDEX "file_requests_event_idx" ON "file_requests" ("event_id");--> statement-breakpoint
 CREATE INDEX "file_uploads_request_idx" ON "file_uploads" ("file_request_id");--> statement-breakpoint
 CREATE INDEX "portal_form_responses_form_idx" ON "portal_form_responses" ("form_id");--> statement-breakpoint
@@ -454,6 +460,7 @@ ALTER TABLE "form_fields" ADD CONSTRAINT "form_fields_form_id_forms_id_fkey" FOR
 ALTER TABLE "forms" ADD CONSTRAINT "forms_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "email_log" ADD CONSTRAINT "email_log_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "file_requests" ADD CONSTRAINT "file_requests_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_file_request_id_file_requests_id_fkey" FOREIGN KEY ("file_request_id") REFERENCES "file_requests"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint

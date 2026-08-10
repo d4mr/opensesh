@@ -1,6 +1,7 @@
 import { Effect, Layer, Match } from "effect";
 
 import type {
+  AlreadyDecided,
   DbError,
   Forbidden,
   FormClosed,
@@ -14,6 +15,7 @@ import type {
 } from "./errors";
 
 export type AppError =
+  | AlreadyDecided
   | DbError
   | Forbidden
   | FormClosed
@@ -30,6 +32,7 @@ export type ServerResult<A> =
   | { readonly ok: false; readonly error: { readonly status: number; readonly message: string } };
 
 const toServerError = Match.type<AppError>().pipe(
+  Match.tag("AlreadyDecided", (error) => ({ status: 409, message: error.message })),
   Match.tag("DbError", (error) => ({ status: 500, message: error.message })),
   Match.tag("NotFound", (error) => ({ status: 404, message: error.message })),
   Match.tag("FormClosed", (error) => ({ status: 409, message: error.message })),
