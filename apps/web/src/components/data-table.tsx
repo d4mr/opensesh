@@ -5,7 +5,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { useState } from "react";
 
 import { PersonTag } from "@/components/app/person-tag";
-import { StatusBadge, statusIcon } from "@/components/app/status-badge";
+import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -19,13 +19,6 @@ import { cn } from "@/lib/utils";
 
 const statusTabs = ["all", "pending", "maybe", "accepted", "declined"] as const;
 type StatusTab = (typeof statusTabs)[number];
-
-const statusTextClass: Readonly<Record<Exclude<StatusTab, "all">, string>> = {
-  pending: "text-status-pending",
-  maybe: "text-status-maybe",
-  accepted: "text-status-accepted",
-  declined: "text-status-declined",
-};
 
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, DashboardSubmission>();

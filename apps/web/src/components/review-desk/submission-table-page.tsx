@@ -34,7 +34,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
-import { StatusBadge } from "@/components/app/status-badge";
+import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
+import { cn } from "@/lib/utils";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -581,14 +582,26 @@ export function SubmissionTablePage({
         }}
       >
         <TabsList variant="line" className="max-w-full justify-start overflow-x-auto border-b pb-1">
-          {statusTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="flex-none text-xs">
-              {tab.label}
-              <span className="tabular-nums text-muted-foreground">
-                {counts.get(tab.value) ?? 0}
-              </span>
-            </TabsTrigger>
-          ))}
+          {statusTabs.map((tab) => {
+            const value = tab.value === "all" ? null : tab.value;
+            const Icon = value === null ? null : statusIcon[value];
+            return (
+              <TabsTrigger key={tab.value} value={tab.value} className="flex-none text-xs">
+                {Icon === null || value === null ? null : (
+                  <Icon className={cn("size-3.5", statusTextClass[value])} />
+                )}
+                {tab.label}
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    value === null ? "text-muted-foreground" : statusTextClass[value],
+                  )}
+                >
+                  {counts.get(tab.value) ?? 0}
+                </span>
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
         <TabsContent value={status} className="mt-2 space-y-2">
           <div className="flex flex-wrap items-center gap-2">

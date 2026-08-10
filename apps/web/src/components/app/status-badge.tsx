@@ -25,6 +25,17 @@ const statusClassName: Readonly<Record<Status, string>> = {
   closed: "bg-[var(--status-closed)] text-[var(--status-closed-foreground)]",
 };
 
+export const statusTextClass: Readonly<Record<Status, string>> = {
+  draft: "text-[var(--status-draft)]",
+  pending: "text-[var(--status-pending)]",
+  maybe: "text-[var(--status-maybe)]",
+  accepted: "text-[var(--status-accepted)]",
+  declined: "text-[var(--status-declined)]",
+  withdrawn: "text-[var(--status-withdrawn)]",
+  open: "text-[var(--status-open)]",
+  closed: "text-[var(--status-closed)]",
+};
+
 export const statusIcon: Readonly<Record<Status, typeof CircleCheckIcon>> = {
   draft: CircleDashedIcon,
   pending: LoaderIcon,
