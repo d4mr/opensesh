@@ -6,8 +6,8 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 
 | ID | Status | Owner/notes |
 |---|---|---|
-| CFP-01 | partial | Builder has field types + required; verify blocked-invalid evidence path |
-| CFP-02 | partial | Conditional fields exist (WP3); rehearse format/track condition |
+| CFP-01 | done | Empty Continue on DevFlow Proposal step blocked with per-field inline errors (Title/Description/Format/Track/Audience level is required) — browser 2026-08-11 |
+| CFP-02 | done | Full rehearsal 2026-08-11: found+fixed editor-unreachable route bug and free-text condition values (1a01ab5); Format=Workshop reveals field on public wizard, Talk hides it |
 | CFP-03 | done | Anonymous /submit URL with branding/deadline (WP3) |
 | CFP-04 | partial | Close window enforced; verify closed-state copy + WP12 settings flip |
 | CFP-05 | done | Wizard + drafts + confirmation + portal dashboard |
@@ -129,8 +129,8 @@ Companion to `docs/EVAL-100-PERCENT-SPEC.md` §8. One row per rubric item. Statu
 - [x] §5.2 organizer nav labels (verified on merged main: Organization/Speaker CRM, Program group, Portals incl. Files+Communications, Event Settings): Overview, Call for Papers, Submissions, Evaluation, Speakers, Tasks, Deliverables, Sessions, Agenda, Files, Communications, Widgets, Speaker CRM, Event Settings
 - [x] Speaker nav: Home, My Submissions, My Sessions, Tasks, Profile; reviewer nav: My Reviews only
 - [x] Public header exposes Speaker Gallery
-- [ ] §5.3: filled-state headings + record counts on every list; Clear filters; sort direction indicators
-- [ ] §15 rules: text-labelled statuses, counts on bulk toasts, no hover-only controls, filters in URL params
+- [x] §5.3 (2026-08-11): submissions/sessions table shows "N of M rows" + tri-state sort icons (ArrowUp/Down/UpDown) + Clear filters; files-library "N records"; speakers "N of M speakers"; CRM "N of M contacts"; portal-admin tab counts; communications "N recipients/campaigns"; browser spot-check /admin/emails (honest empty state) + /admin/tasks (heading, Templates (0), Add task above fold)
+- [x] §15 rules (2026-08-11): statuses are text Badges throughout; bulk toasts carry counts (Sent N invitations/task reminders/personalized emails, Exported N submissions); zero hover-only controls (no opacity-0/invisible group-hover matches); validateSearch URL filters on abstracts/sessions/speakers/files/emails/agenda/crm/widgets + public views
 - [x] Step 12 scoping/negative-path audit (2026-08-10): all 123 server fns audited — every mutation wrapped in require:admin/speaker/reviewer or requireEvent membership check; session-join reads (runSessionServer) verified to Forbidden on empty membership (listForAdmin pattern); HTTP probes: Priya→/admin redirects to /portal, anonymous→/login, pending/unknown session codes render not-found while approved SESS-16 renders; Sam forcing /admin/abstracts sees "You cannot manage these submissions" with zero identity in SSR HTML; blind reviewer DOM identity scan clean (WP16 verification)
 - [x] Step 13 chained DevFlow rehearsal (2026-08-11): CFP submit → assign → blind review → Accept (caught + fixed two release blockers: hardcoded session slug in decide/changeStatus, and `role = "speaker"` literal filters vs form-configured labels — commit ae6870e) → acceptance emails logged for Priya AND Marcus → drag-schedule SESS-1 to Main Stage 9:00 AM (dnd works; earlier synthetic-drag failures were the test harness's visibilitychange cancelling the sensor, not an app bug) → Publish agenda → public /sessions + /agenda show full session meta → Priya portal My Sessions shows slot. Gates + 3 verifiers green on fixed code; deployed eca19373 + prod DB reset + UA smoke green incl. sign-in
 - [ ] Steps 14–15 deployed evaluator runs + manual-results.json
