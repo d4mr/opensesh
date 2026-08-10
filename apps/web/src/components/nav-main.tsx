@@ -30,13 +30,13 @@ function NavItemLink({
     );
   if (item.section === "abstracts")
     return (
-      <Link to="/admin/abstracts" search={{ status: "all" }} {...props}>
+      <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }} {...props}>
         {content}
       </Link>
     );
   if (item.section === "sessions")
     return (
-      <Link to="/admin/sessions" search={{ status: "all" }} {...props}>
+      <Link to="/admin/sessions" search={{ status: "all", spotlight: undefined }} {...props}>
         {content}
       </Link>
     );
@@ -69,7 +69,12 @@ function NavItemLink({
       </Link>
     );
   return (
-    <Link to="/admin/$section" params={{ section: item.section }} {...props}>
+    <Link
+      to="/admin/$section"
+      params={{ section: item.section }}
+      search={{ spotlight: undefined }}
+      {...props}
+    >
       {content}
     </Link>
   );

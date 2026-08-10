@@ -7,7 +7,6 @@ import {
   type SubmissionStatus,
 } from "@opensesh/domain";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import {
   columnVisibilityFeature,
   createColumnHelper,
@@ -30,13 +29,14 @@ import {
   DownloadIcon,
   SearchIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
-import { cn } from "@/lib/utils";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
+import { SubmissionDetail } from "@/components/review-desk/submission-detail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { reviewDeskListQuery } from "@/lib/review-desk-queries";
+import { cn } from "@/lib/utils";
 import {
   changeSubmissionStatus,
   exportSubmissionsCsv,
@@ -233,17 +234,23 @@ function StatusEditor({
 export function SubmissionTablePage({
   kind,
   status,
+  spotlightId,
   onStatusChange,
+  onSpotlightChange,
 }: {
   readonly kind: "abstract" | "session";
   readonly status: SubmissionStatusFilter;
+  readonly spotlightId: string | undefined;
   readonly onStatusChange: (status: SubmissionStatusFilter) => void;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
 }) {
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
   const list = useSuspenseQuery(reviewDeskListQuery(eventId, kind));
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [track, setTrack] = useState("all");
   const [format, setFormat] = useState("all");
@@ -510,6 +517,7 @@ export function SubmissionTablePage({
     counts.set(submission.status, (counts.get(submission.status) ?? 0) + 1);
   }
   const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
+  const orderedIds = table.getRowModel().rows.map((row) => row.original.id);
   const exportRows = async (rows: ReadonlyArray<ReviewDeskListItem>) => {
     const columns = table
       .getVisibleLeafColumns()
@@ -570,217 +578,294 @@ export function SubmissionTablePage({
   };
 
   return (
-    <main className="flex flex-1 flex-col p-4 text-sm lg:p-6">
-      <div className="mb-4">
-        <h1 className="text-lg font-semibold capitalize">{kind}s</h1>
-        <p className="text-sm text-muted-foreground">
-          Review and manage {kind} submissions for {context.event.name}.
-        </p>
-      </div>
-
-      <Tabs
-        value={status}
-        onValueChange={(value) => {
-          const next = statusTabs.find((tab) => tab.value === value);
-          if (next !== undefined) onStatusChange(next.value);
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
+      <SpotlightLayout
+        spotlightId={spotlightId}
+        orderedIds={orderedIds}
+        onSpotlightChange={onSpotlightChange}
+        clearFilters={() => {
+          setSearch("");
+          setTrack("all");
+          setFormat("all");
+          setTag("all");
+          onStatusChange("all");
         }}
-      >
-        <TabsList variant="line" className="max-w-full justify-start overflow-x-auto border-b pb-1">
-          {statusTabs.map((tab) => {
-            const value = tab.value === "all" ? null : tab.value;
-            const Icon = value === null ? null : statusIcon[value];
-            return (
-              <TabsTrigger key={tab.value} value={tab.value} className="flex-none text-xs">
-                {Icon === null || value === null ? null : (
-                  <Icon className={cn("size-3.5", statusTextClass[value])} />
-                )}
-                {tab.label}
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    value === null ? "text-muted-foreground" : statusTextClass[value],
-                  )}
-                >
-                  {counts.get(tab.value) ?? 0}
-                </span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-        <TabsContent value={status} className="mt-2 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-56 flex-1 sm:max-w-sm">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={`Search ${kind}s…`}
-                className="h-8 pl-8"
-              />
+        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+          <div className="flex h-full min-h-0 flex-col p-4 lg:p-6">
+            <div className="mb-4">
+              <h1 className="text-lg font-semibold capitalize">{kind}s</h1>
+              <p className="text-sm text-muted-foreground">
+                Review and manage {kind} submissions for {context.event.name}.
+              </p>
             </div>
-            <Select value={track} onValueChange={(value) => value !== null && setTrack(value)}>
-              <SelectTrigger size="sm">
-                <SelectValue placeholder="Track" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All tracks</SelectItem>
-                {readyData.tracks.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={format} onValueChange={(value) => value !== null && setFormat(value)}>
-              <SelectTrigger size="sm">
-                <SelectValue placeholder="Format" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All formats</SelectItem>
-                {readyData.formats.map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={tag} onValueChange={(value) => value !== null && setTag(value)}>
-              <SelectTrigger size="sm">
-                <SelectValue placeholder="Tag" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All tags</SelectItem>
-                {readyData.tags.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <Columns3Icon /> Columns
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {table
-                  .getAllLeafColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(checked) => column.toggleVisibility(checked === true)}
-                      onSelect={(event) => event.preventDefault()}
-                    >
-                      {columnLabels[column.id] ?? column.id}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void exportRows(table.getRowModel().rows.map((row) => row.original))}
+
+            <Tabs
+              value={status}
+              className="flex min-h-0 flex-1 flex-col"
+              onValueChange={(value) => {
+                const next = statusTabs.find((tab) => tab.value === value);
+                if (next !== undefined) onStatusChange(next.value);
+              }}
             >
-              <DownloadIcon /> Export CSV
-            </Button>
-          </div>
-
-          {selectedRows.length > 0 ? (
-            <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
-              <span className="mr-auto text-xs font-medium tabular-nums">
-                {selectedRows.length} selected
-              </span>
-              <Button size="xs" onClick={() => openDecision(selectedRows, "accept")}>
-                Accept
-              </Button>
-              <Button
-                size="xs"
-                variant="destructive"
-                onClick={() => openDecision(selectedRows, "decline")}
+              <TabsList
+                variant="line"
+                className="max-w-full justify-start overflow-x-auto border-b pb-1"
               >
-                Decline
-              </Button>
-              <Button size="xs" variant="outline" onClick={() => void exportRows(selectedRows)}>
-                Export selection
-              </Button>
-            </div>
-          ) : null}
-
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-muted">
-                {table.getHeaderGroups().map((group) => (
-                  <TableRow key={group.id} className="h-8 hover:bg-transparent">
-                    {group.headers.map((header) => (
-                      <TableHead key={header.id} colSpan={header.colSpan} className="h-8 text-xs">
-                        {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            <table.FlexRender header={header} />
-                            {header.column.getIsSorted() === "asc" ? (
-                              <ArrowUpIcon className="size-3" />
-                            ) : header.column.getIsSorted() === "desc" ? (
-                              <ArrowDownIcon className="size-3" />
-                            ) : (
-                              <ArrowUpDownIcon className="size-3 text-muted-foreground" />
-                            )}
-                          </button>
-                        ) : (
-                          <table.FlexRender header={header} />
+                {statusTabs.map((tab) => {
+                  const value = tab.value === "all" ? null : tab.value;
+                  const Icon = value === null ? null : statusIcon[value];
+                  return (
+                    <TabsTrigger key={tab.value} value={tab.value} className="flex-none text-xs">
+                      {Icon === null || value === null ? null : (
+                        <Icon className={cn("size-3.5", statusTextClass[value])} />
+                      )}
+                      {tab.label}
+                      <span
+                        className={cn(
+                          "tabular-nums",
+                          value === null ? "text-muted-foreground" : statusTextClass[value],
                         )}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={table.getVisibleLeafColumns().length}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      No submissions match these filters.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() ? "selected" : undefined}
-                      className="h-9 cursor-pointer"
-                      onClick={() =>
-                        void navigate({
-                          to: "/admin/abstracts/$id",
-                          params: { id: row.original.id },
-                          search: { status },
-                        })
-                      }
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="h-9 py-1.5">
-                          <table.FlexRender cell={cell} />
-                        </TableCell>
+                      >
+                        {counts.get(tab.value) ?? 0}
+                      </span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+              <TabsContent value={status} className="mt-2 flex min-h-0 flex-1 flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative min-w-56 flex-1 sm:max-w-sm">
+                    <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder={`Search ${kind}s…`}
+                      className="h-8 pl-8"
+                    />
+                  </div>
+                  <Select
+                    value={track}
+                    onValueChange={(value) => value !== null && setTrack(value)}
+                  >
+                    <SelectTrigger size="sm">
+                      <SelectValue placeholder="Track" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tracks</SelectItem>
+                      {readyData.tracks.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
                       ))}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={format}
+                    onValueChange={(value) => value !== null && setFormat(value)}
+                  >
+                    <SelectTrigger size="sm">
+                      <SelectValue placeholder="Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All formats</SelectItem>
+                      {readyData.formats.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={tag} onValueChange={(value) => value !== null && setTag(value)}>
+                    <SelectTrigger size="sm">
+                      <SelectValue placeholder="Tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tags</SelectItem>
+                      {readyData.tags.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        <Columns3Icon /> Columns
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {table
+                        .getAllLeafColumns()
+                        .filter((column) => column.getCanHide())
+                        .map((column) => (
+                          <DropdownMenuCheckboxItem
+                            key={column.id}
+                            checked={column.getIsVisible()}
+                            onCheckedChange={(checked) => column.toggleVisibility(checked === true)}
+                            onSelect={(event) => event.preventDefault()}
+                          >
+                            {columnLabels[column.id] ?? column.id}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      void exportRows(table.getRowModel().rows.map((row) => row.original))
+                    }
+                  >
+                    <DownloadIcon /> Export CSV
+                  </Button>
+                </div>
+
+                {selectedRows.length > 0 ? (
+                  <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
+                    <span className="mr-auto text-xs font-medium tabular-nums">
+                      {selectedRows.length} selected
+                    </span>
+                    <Button size="xs" onClick={() => openDecision(selectedRows, "accept")}>
+                      Accept
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={() => openDecision(selectedRows, "decline")}
+                    >
+                      Decline
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => void exportRows(selectedRows)}
+                    >
+                      Export selection
+                    </Button>
+                  </div>
+                ) : null}
+
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-lg border">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-muted">
+                      {compact ? (
+                        <TableRow className="h-8 hover:bg-transparent">
+                          <TableHead className="h-8 w-28 text-xs">Status</TableHead>
+                          <TableHead className="h-8 w-24 text-xs">Code</TableHead>
+                          <TableHead className="h-8 text-xs">Title</TableHead>
+                        </TableRow>
+                      ) : (
+                        table.getHeaderGroups().map((group) => (
+                          <TableRow key={group.id} className="h-8 hover:bg-transparent">
+                            {group.headers.map((header) => (
+                              <TableHead
+                                key={header.id}
+                                colSpan={header.colSpan}
+                                className="h-8 text-xs"
+                              >
+                                {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1"
+                                    onClick={header.column.getToggleSortingHandler()}
+                                  >
+                                    <table.FlexRender header={header} />
+                                    {header.column.getIsSorted() === "asc" ? (
+                                      <ArrowUpIcon className="size-3" />
+                                    ) : header.column.getIsSorted() === "desc" ? (
+                                      <ArrowDownIcon className="size-3" />
+                                    ) : (
+                                      <ArrowUpDownIcon className="size-3 text-muted-foreground" />
+                                    )}
+                                  </button>
+                                ) : (
+                                  <table.FlexRender header={header} />
+                                )}
+                              </TableHead>
+                            ))}
+                          </TableRow>
+                        ))
+                      )}
+                    </TableHeader>
+                    <TableBody>
+                      {table.getRowModel().rows.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={table.getVisibleLeafColumns().length}
+                            className="h-24 text-center text-muted-foreground"
+                          >
+                            No submissions match these filters.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        table.getRowModel().rows.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            ref={rowRef(row.original.id)}
+                            data-state={row.getIsSelected() ? "selected" : undefined}
+                            className={cn("h-9 cursor-pointer", rowClassName(row.original.id))}
+                            onClick={() => openSpotlight(row.original.id)}
+                          >
+                            {compact ? (
+                              <>
+                                <TableCell className="h-9 w-28 py-1.5">
+                                  <StatusBadge status={row.original.status} />
+                                </TableCell>
+                                <TableCell className="h-9 w-24 py-1.5 font-mono text-xs tabular-nums">
+                                  {row.original.code}
+                                </TableCell>
+                                <TableCell className="h-9 min-w-0 py-1.5">
+                                  <span className="block truncate font-medium">
+                                    {row.original.title}
+                                  </span>
+                                </TableCell>
+                              </>
+                            ) : (
+                              row.getVisibleCells().map((cell) => (
+                                <TableCell key={cell.id} className="h-9 py-1.5">
+                                  <table.FlexRender cell={cell} />
+                                </TableCell>
+                              ))
+                            )}
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {table.getRowModel().rows.length} of {readyData.submissions.length} rows
+                </p>
+              </TabsContent>
+            </Tabs>
           </div>
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {table.getRowModel().rows.length} of {readyData.submissions.length} rows
-          </p>
-        </TabsContent>
-      </Tabs>
+        )}
+        panel={
+          spotlightId === undefined ? null : (
+            <Suspense
+              fallback={
+                <div className="flex h-full min-h-0 flex-col">
+                  <SpotlightPanelHeader
+                    identity={
+                      <span className="text-xs text-muted-foreground">Loading submission…</span>
+                    }
+                    onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+                  />
+                </div>
+              }
+            >
+              <SubmissionDetail
+                id={spotlightId}
+                variant="spotlight"
+                onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+              />
+            </Suspense>
+          )
+        }
+      />
 
       <DecisionDialog
         open={decisionOpen}

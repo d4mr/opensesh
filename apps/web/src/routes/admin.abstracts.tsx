@@ -5,6 +5,7 @@ import {
   type SubmissionStatusFilter,
 } from "@/components/review-desk/submission-table-page";
 import { adminEventsQuery, reviewDeskListQuery } from "@/lib/review-desk-queries";
+import { reviewDeskDetailQuery } from "@/lib/review-desk-queries";
 
 const parseStatus = (value: unknown): SubmissionStatusFilter => {
   if (
@@ -21,25 +22,41 @@ const parseStatus = (value: unknown): SubmissionStatusFilter => {
 };
 
 export const Route = createFileRoute("/admin/abstracts")({
-  validateSearch: (search: Record<string, unknown>) => ({ status: parseStatus(search.status) }),
-  loader: async ({ context }) => {
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: parseStatus(search.status),
+    spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
+  }),
+  loaderDeps: ({ search }) => ({ spotlight: search.spotlight }),
+  loader: async ({ context, deps }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
     const eventId = events.ok ? events.data[0]?.id : undefined;
     if (eventId !== undefined) {
       await context.queryClient.ensureQueryData(reviewDeskListQuery(eventId, "abstract"));
+      if (deps.spotlight !== undefined) {
+        void context.queryClient.prefetchQuery(reviewDeskDetailQuery(eventId, deps.spotlight));
+      }
     }
   },
   component: AbstractsRoute,
 });
 
 function AbstractsRoute() {
-  const { status } = Route.useSearch();
+  const { status, spotlight } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   return (
     <SubmissionTablePage
       kind="abstract"
       status={status}
-      onStatusChange={(next) => void navigate({ search: { status: next }, replace: true })}
+      spotlightId={spotlight}
+      onStatusChange={(next) =>
+        void navigate({ search: (current) => ({ ...current, status: next }), replace: true })
+      }
+      onSpotlightChange={(id, options) =>
+        void navigate({
+          search: (current) => ({ ...current, spotlight: id }),
+          replace: options.replace,
+        })
+      }
     />
   );
 }

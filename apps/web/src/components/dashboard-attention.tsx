@@ -105,6 +105,7 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
                     key={item.label}
                     to="/admin/$section"
                     params={{ section: item.section }}
+                    search={{ spotlight: undefined }}
                     className={className}
                   >
                     {content}

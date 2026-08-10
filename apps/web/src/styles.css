@@ -257,6 +257,54 @@
   transform: scale(0.97);
 }
 
+.spotlight-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0fr;
+  transition: grid-template-columns 220ms var(--ease-out);
+}
+
+.spotlight-layout[data-open="true"] {
+  grid-template-columns: minmax(18rem, 45fr) minmax(0, 55fr);
+}
+
+.spotlight-panel-inner {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    transform 220ms var(--ease-out),
+    opacity 180ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+.spotlight-row-highlight {
+  animation: spotlight-row-highlight 1.5s var(--ease-out);
+}
+
+@keyframes spotlight-row-highlight {
+  0%,
+  55% {
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.spotlight-layout[data-keyboard-action="true"],
+.spotlight-layout[data-keyboard-action="true"] .spotlight-panel-inner,
+.spotlight-layout[data-keyboard-action="true"] .spotlight-row {
+  transition: none;
+}
+
+.spotlight-layout[data-keyboard-action="true"] .spotlight-row-highlight {
+  animation: none;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
 .agenda-highlight::after {
   position: absolute;
   inset: 0;
@@ -504,6 +552,20 @@
   .agenda-highlight::after {
     animation: none;
     opacity: 1;
+  }
+
+  .spotlight-layout,
+  .spotlight-panel-inner {
+    transition: none;
+  }
+
+  .spotlight-panel-inner {
+    transform: none;
+  }
+
+  .spotlight-row-highlight {
+    animation: none;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
   }
 
   .portal-home-card {

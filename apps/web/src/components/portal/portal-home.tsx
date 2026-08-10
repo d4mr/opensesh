@@ -47,6 +47,7 @@ export function PortalHome() {
             <Link
               to="/portal/$section"
               params={{ section: "submissions" }}
+              search={{ spotlight: undefined }}
               className="text-xs text-primary"
             >
               View all
@@ -93,6 +94,7 @@ export function PortalHome() {
               <Link
                 to="/portal/$section"
                 params={{ section: "profile" }}
+                search={{ spotlight: undefined }}
                 className="mt-1 inline-block text-xs font-medium text-primary"
               >
                 Add your bio
@@ -124,6 +126,7 @@ export function PortalHome() {
           <Link
             to="/portal/$section"
             params={{ section: "tasks" }}
+            search={{ spotlight: undefined }}
             className="pressable rounded-md border px-3 py-1.5 text-xs font-medium"
           >
             Open tasks

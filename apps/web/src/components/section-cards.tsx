@@ -92,6 +92,7 @@ export function SectionCards({ stats }: { readonly stats: DashboardStats }) {
             key={card.label}
             to="/admin/$section"
             params={{ section: card.section }}
+            search={{ spotlight: undefined }}
             className="group/stat block"
           >
             {content}
