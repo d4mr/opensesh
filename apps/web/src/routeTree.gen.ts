@@ -36,7 +36,7 @@ import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
 import { Route as AdminAbstractsIdRouteImport } from './routes/admin.abstracts_.$id'
 import { Route as AdminEvaluationRoundIdRouteImport } from './routes/admin.evaluation_.$roundId'
-import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms.$formId'
+import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms_.$formId'
 import { Route as AdminPortalFormsFormIdRouteImport } from './routes/admin.portal-forms.$formId'
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
@@ -188,9 +188,9 @@ const AdminEvaluationRoundIdRoute = AdminEvaluationRoundIdRouteImport.update({
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminFormsFormIdRoute = AdminFormsFormIdRouteImport.update({
-  id: '/$formId',
-  path: '/$formId',
-  getParentRoute: () => AdminFormsRoute,
+  id: '/forms_/$formId',
+  path: '/forms/$formId',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminPortalFormsFormIdRoute = AdminPortalFormsFormIdRouteImport.update({
   id: '/portal-forms/$formId',
@@ -280,7 +280,7 @@ export interface FileRoutesByFullPath {
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/files': typeof AdminFilesRoute
-  '/admin/forms': typeof AdminFormsRouteWithChildren
+  '/admin/forms': typeof AdminFormsRoute
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/widgets': typeof AdminWidgetsRoute
@@ -322,7 +322,7 @@ export interface FileRoutesByTo {
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/files': typeof AdminFilesRoute
-  '/admin/forms': typeof AdminFormsRouteWithChildren
+  '/admin/forms': typeof AdminFormsRoute
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/widgets': typeof AdminWidgetsRoute
@@ -366,7 +366,7 @@ export interface FileRoutesById {
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/files': typeof AdminFilesRoute
-  '/admin/forms': typeof AdminFormsRouteWithChildren
+  '/admin/forms': typeof AdminFormsRoute
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/widgets': typeof AdminWidgetsRoute
@@ -379,7 +379,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/admin/abstracts_/$id': typeof AdminAbstractsIdRoute
   '/admin/evaluation_/$roundId': typeof AdminEvaluationRoundIdRoute
-  '/admin/forms/$formId': typeof AdminFormsFormIdRoute
+  '/admin/forms_/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
@@ -510,7 +510,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/admin/abstracts_/$id'
     | '/admin/evaluation_/$roundId'
-    | '/admin/forms/$formId'
+    | '/admin/forms_/$formId'
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
@@ -731,12 +731,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminEvaluationRoundIdRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/forms/$formId': {
-      id: '/admin/forms/$formId'
-      path: '/$formId'
+    '/admin/forms_/$formId': {
+      id: '/admin/forms_/$formId'
+      path: '/forms/$formId'
       fullPath: '/admin/forms/$formId'
       preLoaderRoute: typeof AdminFormsFormIdRouteImport
-      parentRoute: typeof AdminFormsRoute
+      parentRoute: typeof AdminRoute
     }
     '/admin/portal-forms/$formId': {
       id: '/admin/portal-forms/$formId'
@@ -839,18 +839,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AdminFormsRouteChildren {
-  AdminFormsFormIdRoute: typeof AdminFormsFormIdRoute
-}
-
-const AdminFormsRouteChildren: AdminFormsRouteChildren = {
-  AdminFormsFormIdRoute: AdminFormsFormIdRoute,
-}
-
-const AdminFormsRouteWithChildren = AdminFormsRoute._addFileChildren(
-  AdminFormsRouteChildren,
-)
-
 interface AdminRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
   AdminAbstractsRoute: typeof AdminAbstractsRoute
@@ -860,13 +848,14 @@ interface AdminRouteChildren {
   AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFilesRoute: typeof AdminFilesRoute
-  AdminFormsRoute: typeof AdminFormsRouteWithChildren
+  AdminFormsRoute: typeof AdminFormsRoute
   AdminSessionsRoute: typeof AdminSessionsRoute
   AdminSpeakersRoute: typeof AdminSpeakersRoute
   AdminWidgetsRoute: typeof AdminWidgetsRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
   AdminEvaluationRoundIdRoute: typeof AdminEvaluationRoundIdRoute
+  AdminFormsFormIdRoute: typeof AdminFormsFormIdRoute
   AdminPortalFormsFormIdRoute: typeof AdminPortalFormsFormIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
   AdminSettingsLibraryRoute: typeof AdminSettingsLibraryRoute
@@ -881,13 +870,14 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFilesRoute: AdminFilesRoute,
-  AdminFormsRoute: AdminFormsRouteWithChildren,
+  AdminFormsRoute: AdminFormsRoute,
   AdminSessionsRoute: AdminSessionsRoute,
   AdminSpeakersRoute: AdminSpeakersRoute,
   AdminWidgetsRoute: AdminWidgetsRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAbstractsIdRoute: AdminAbstractsIdRoute,
   AdminEvaluationRoundIdRoute: AdminEvaluationRoundIdRoute,
+  AdminFormsFormIdRoute: AdminFormsFormIdRoute,
   AdminPortalFormsFormIdRoute: AdminPortalFormsFormIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
   AdminSettingsLibraryRoute: AdminSettingsLibraryRoute,

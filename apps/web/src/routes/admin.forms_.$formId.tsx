@@ -21,6 +21,7 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
+import type { FormRendererLibrary } from "@/components/forms/form-renderer";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +49,7 @@ const formEditorQuery = (eventId: string, formId: string) =>
     staleTime: 30_000,
   });
 
-export const Route = createFileRoute("/admin/forms/$formId")({
+export const Route = createFileRoute("/admin/forms_/$formId")({
   loader: async ({ context, params }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
     const eventId = events.ok ? events.data[0]?.id : undefined;
@@ -116,6 +117,7 @@ function FormEditor({
     readonly form: Form;
     readonly fields: ReadonlyArray<FormField>;
     readonly admins: ReadonlyArray<EventAdmin>;
+    readonly library: FormRendererLibrary;
   };
   readonly eventSlug: string;
   readonly eventTimezone: string;
@@ -384,6 +386,7 @@ function FormEditor({
                   section="abstract"
                   fields={fields}
                   timezone={eventTimezone}
+                  library={data.library}
                   onChange={setFields}
                 />
               </>
@@ -445,6 +448,7 @@ function FormEditor({
                   section="participant"
                   fields={fields}
                   timezone={eventTimezone}
+                  library={data.library}
                   onChange={setFields}
                 />
               </>

@@ -354,6 +354,7 @@ function PortalFormEditorPage({
                       <FormFieldBuilder
                         section="abstract"
                         timezone={timezone}
+                        library={data.library}
                         fields={section.fields.map((field) => ({
                           ...field,
                           section: "abstract" as const,

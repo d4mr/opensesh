@@ -31,6 +31,7 @@ import {
 import { useState } from "react";
 
 import { DateTimePicker } from "@/components/forms/datetime-picker";
+import type { FormRendererLibrary } from "@/components/forms/form-renderer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,16 +91,34 @@ const parseBinding = (value: string): FormLibraryBinding => {
 
 const fieldId = (field: FormFieldReplacement) => field.id ?? `${field.section}-${field.position}`;
 
+// Answers store option ids (library ids or custom labels), so condition
+// values must be picked from the source field's options — typed labels like
+// "Workshop" would never match the stored "fmt_…" id.
+const conditionValueOptions = (
+  field: FormFieldReplacement | undefined,
+  library: FormRendererLibrary,
+): ReadonlyArray<{ id: string; name: string }> => {
+  if (field === undefined || field.options === null) return [];
+  if ("custom" in field.options) return field.options.custom.map((name) => ({ id: name, name }));
+  if (!("bind" in field.options)) return [];
+  if (field.options.bind === "track") return library.tracks;
+  if (field.options.bind === "format") return library.formats;
+  if (field.options.bind === "tags") return library.tags;
+  return library.levels;
+};
+
 export function FormFieldBuilder({
   section,
   fields,
   onChange,
   timezone,
+  library,
 }: {
   readonly section: FormSection;
   readonly fields: ReadonlyArray<FormFieldReplacement>;
   readonly onChange: (fields: ReadonlyArray<FormFieldReplacement>) => void;
   readonly timezone: string;
+  readonly library: FormRendererLibrary;
 }) {
   const sectionFields = fields.filter((field) => field.section === section);
   const [dragMotion, setDragMotion] = useState(false);
@@ -170,6 +189,7 @@ export function FormFieldBuilder({
                 )}
                 onChange={(next) => update(fieldId(field), next)}
                 timezone={timezone}
+                library={library}
                 onRemove={() =>
                   onChange(fields.filter((candidate) => fieldId(candidate) !== fieldId(field)))
                 }
@@ -193,6 +213,7 @@ function SortableField({
   moveUp,
   moveDown,
   timezone,
+  library,
 }: {
   readonly field: FormFieldReplacement;
   readonly animate: boolean;
@@ -202,6 +223,7 @@ function SortableField({
   readonly moveUp: () => void;
   readonly moveDown: () => void;
   readonly timezone: string;
+  readonly library: FormRendererLibrary;
 }) {
   const id = fieldId(field);
   const sortable = useSortable({
@@ -212,6 +234,11 @@ function SortableField({
     field.options !== null && "custom" in field.options ? field.options.custom.join(", ") : "";
   const binding = field.options !== null && "bind" in field.options ? field.options.bind : null;
   const bounds = field.options !== null && "min" in field.options ? field.options : null;
+  const conditionSource =
+    field.condition === null
+      ? undefined
+      : candidates.find((candidate) => fieldId(candidate) === field.condition?.fieldId);
+  const conditionChoices = conditionValueOptions(conditionSource, library);
   return (
     <div
       ref={sortable.setNodeRef}
@@ -354,7 +381,7 @@ function SortableField({
               if (value !== "always") {
                 onChange({
                   ...field,
-                  condition: { fieldId: value, operator: "equals", values: [""] },
+                  condition: { fieldId: value, operator: "equals", values: [] },
                 });
               }
             }}
@@ -381,7 +408,8 @@ function SortableField({
                   condition: {
                     fieldId: fieldIdValue,
                     operator: field.condition?.operator ?? "equals",
-                    values: field.condition?.values ?? [],
+                    // Old values belong to the previous source field's options.
+                    values: fieldIdValue === field.condition?.fieldId ? field.condition.values : [],
                   },
                 })
               }
@@ -418,25 +446,83 @@ function SortableField({
                 <SelectItem value="is_one_of">Is one of</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              aria-label="Condition value"
-              className="h-8 min-w-0 flex-1"
-              placeholder="equals value"
-              value={field.condition.values.join(", ")}
-              onChange={(event) =>
-                onChange({
-                  ...field,
-                  condition: {
-                    fieldId: field.condition?.fieldId ?? "",
-                    operator: field.condition?.operator ?? "equals",
-                    values: event.target.value
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean),
-                  },
-                })
-              }
-            />
+            {conditionChoices.length > 0 && field.condition.operator === "equals" ? (
+              <Select
+                value={field.condition.values[0] ?? ""}
+                onValueChange={(value) =>
+                  onChange({
+                    ...field,
+                    condition: {
+                      fieldId: field.condition?.fieldId ?? "",
+                      operator: "equals",
+                      values: [value],
+                    },
+                  })
+                }
+              >
+                <SelectTrigger aria-label="Condition value" className="h-8 min-w-0 flex-1">
+                  <SelectValue placeholder="Choose option" />
+                </SelectTrigger>
+                <SelectContent>
+                  {conditionChoices.map((choice) => (
+                    <SelectItem key={choice.id} value={choice.id}>
+                      {choice.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : conditionChoices.length > 0 ? (
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+                {conditionChoices.map((choice) => {
+                  const active = field.condition?.values.includes(choice.id) === true;
+                  return (
+                    <Button
+                      key={choice.id}
+                      size="sm"
+                      variant={active ? "secondary" : "outline"}
+                      className="h-7 px-2 text-xs"
+                      aria-pressed={active}
+                      onClick={() =>
+                        onChange({
+                          ...field,
+                          condition: {
+                            fieldId: field.condition?.fieldId ?? "",
+                            operator: field.condition?.operator ?? "is_one_of",
+                            values: active
+                              ? (field.condition?.values ?? []).filter(
+                                  (value) => value !== choice.id,
+                                )
+                              : [...(field.condition?.values ?? []), choice.id],
+                          },
+                        })
+                      }
+                    >
+                      {choice.name}
+                    </Button>
+                  );
+                })}
+              </div>
+            ) : (
+              <Input
+                aria-label="Condition value"
+                className="h-8 min-w-0 flex-1"
+                placeholder="equals value"
+                value={field.condition.values.join(", ")}
+                onChange={(event) =>
+                  onChange({
+                    ...field,
+                    condition: {
+                      fieldId: field.condition?.fieldId ?? "",
+                      operator: field.condition?.operator ?? "equals",
+                      values: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    },
+                  })
+                }
+              />
+            )}
             <Button
               size="icon-sm"
               variant="ghost"
