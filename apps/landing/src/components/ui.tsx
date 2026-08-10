@@ -108,13 +108,27 @@ export function Reveal({
   );
 }
 
-/** Vercel-style plus markers where a section rule meets the page frame. */
+/** Vercel-style plus markers centered on the rule/rail intersection. */
 export function Crosses() {
   return (
     <>
-      <CrossMark className="-bottom-[5.5px] -left-[5.5px]" />
-      <CrossMark className="-right-[5.5px] -bottom-[5.5px]" />
+      <CrossMark className="-bottom-[6px] -left-[6.5px]" />
+      <CrossMark className="-right-[6.5px] -bottom-[6px]" />
     </>
+  );
+}
+
+/** Full-viewport breakout inside the framed column, so image bands escape
+    the rails and the dither blends straight into the page background. */
+export function Breakout({
+  children,
+  className,
+}: {
+  readonly children: React.ReactNode;
+  readonly className?: string;
+}) {
+  return (
+    <div className={cn("relative left-1/2 w-screen -translate-x-1/2", className)}>{children}</div>
   );
 }
 

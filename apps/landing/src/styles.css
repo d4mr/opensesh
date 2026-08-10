@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@fontsource-variable/manrope";
-@import "@fontsource/instrument-serif";
 
 /* Greenroom palette — light only. Source of truth: docs/themes/greenroom.css. */
 :root {
@@ -45,7 +44,6 @@
   --color-status-declined: var(--status-declined);
   --color-status-declined-bg: var(--status-declined-bg);
   --font-sans: "Manrope Variable", sans-serif;
-  --font-display: "Instrument Serif", Georgia, serif;
 }
 
 @layer base {
@@ -58,10 +56,22 @@
   body {
     margin: 0;
     background: var(--background);
+    /* Dot grid shows in the gutters outside the page frame. */
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--border) 80%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 14px 14px;
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+}
+
+/* Dotted spacer band inside the frame, Vercel/Cloudflare style. */
+.dot-band {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 10px 10px;
 }
 
 /* Bayer-dithered white fade — matches the halftone grain of the art assets.

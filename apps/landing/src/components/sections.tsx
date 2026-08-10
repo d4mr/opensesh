@@ -6,19 +6,19 @@ import { EmbedDemo } from "./demos/embed-demo";
 import { FormDemo } from "./demos/form-demo";
 import { PortalDemo } from "./demos/portal-demo";
 import { ReviewDemo } from "./demos/review-demo";
-import { BrandMark, ButtonLink, cn, Crosses, GithubIcon, Overline, Reveal } from "./ui";
+import { BrandMark, Breakout, ButtonLink, cn, Crosses, GithubIcon, Overline, Reveal } from "./ui";
 
 /* ------------------------------------------------------------------ stats */
 
 const stats = [
-  { value: "$40,000/yr", label: "what the tool this replaces charges" },
-  { value: "$0", label: "what opensesh costs — MIT, forever" },
-  { value: "1 command", label: "to deploy on your own Cloudflare" },
+  { value: "$40,000/yr", label: "what Sessionboard charges for this workflow" },
+  { value: "$0", label: "what opensesh costs. MIT-licensed, forever" },
+  { value: "1 command", label: "deploys it to your own Cloudflare account" },
 ];
 
 export function Stats() {
   return (
-    <section className="relative border-b bg-paper">
+    <section className="relative border-y bg-paper">
       <div className="grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {stats.map((stat) => (
           <div key={stat.value} className="px-6 py-8 text-center">
@@ -37,26 +37,26 @@ export function Stats() {
 /* ------------------------------------------------------------------ loop */
 
 const loopSteps = [
-  { step: "01", name: "Collect", detail: "A CFP form speakers actually finish." },
-  { step: "02", name: "Review", detail: "Scores and decisions, not spreadsheets." },
-  { step: "03", name: "Onboard", detail: "Speakers complete their own profiles." },
-  { step: "04", name: "Schedule", detail: "Drag until it fits; conflicts get caught." },
-  { step: "05", name: "Publish", detail: "One tag embeds it on your site." },
+  { step: "01", name: "Collect", detail: "Publish a call for papers speakers finish in minutes." },
+  { step: "02", name: "Review", detail: "Score submissions with your team and decide." },
+  { step: "03", name: "Onboard", detail: "Accepted speakers get a portal, not an email thread." },
+  { step: "04", name: "Schedule", detail: "Build the agenda and catch conflicts as you drag." },
+  { step: "05", name: "Publish", detail: "Embed the schedule on your site with one tag." },
 ];
 
 export function Loop() {
   return (
-    <section id="workflow" className="border-b">
+    <section id="workflow" className="relative border-b">
       <div className="px-6 py-20 md:px-10 md:py-24">
         <Reveal className="max-w-2xl">
-          <Overline>The workflow</Overline>
+          <Overline>How it works</Overline>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-            Five stages. One system. Zero re-keying.
+            Run the whole program in one place.
           </h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            Everything downstream is created by the stage before it: acceptance opens the speaker
-            portal, completed profiles feed the agenda, the agenda feeds your public site. No
-            exports, no copy-paste, no spreadsheet glue.
+            Accept a talk and the speaker gets their portal. A speaker finishes onboarding and their
+            session is ready to schedule. You move a session and your website updates. You never
+            copy data between tools again.
           </p>
         </Reveal>
       </div>
@@ -76,6 +76,7 @@ export function Loop() {
           </Reveal>
         ))}
       </div>
+      <Crosses />
     </section>
   );
 }
@@ -86,61 +87,61 @@ const features = [
   {
     id: "collect",
     overline: "Collect",
-    title: "Forms that ask the right follow-up.",
-    body: "Build your call for speakers with conditional questions — workshops get asked about capacity, panels about panelists, talks about neither. Every submission routes to the right track's reviewers the moment it lands.",
+    title: "A call for papers speakers actually finish.",
+    body: "Ask workshops about capacity and panels about panelists without making everyone else scroll past irrelevant fields. Drafts save as speakers type, and every submission lands in the right reviewer's queue by track.",
     bullets: [
-      "Conditional logic per answer, not per form",
-      "Per-track routing to reviewer queues",
-      "Autosaved drafts with magic-link return",
-      "A public review step before anything submits",
+      "Conditional questions keep the form short",
+      "Submissions route to reviewers by track",
+      "Drafts autosave; speakers return by magic link",
+      "A review step catches mistakes before submit",
     ],
     demo: <FormDemo />,
   },
   {
     id: "review",
     overline: "Review",
-    title: "Decisions, not spreadsheet debates.",
-    body: "Reviewers see only their tracks. They score one to five, comment, and decide — and acceptance isn't a status change, it's a trigger: the speaker portal opens, onboarding tasks are assigned, and the session enters the agenda pool.",
+    title: "Decide in an afternoon, not a month of meetings.",
+    body: "Reviewers see their track's queue, score one to five, and leave comments. When you accept a talk, opensesh creates the session, opens the speaker's portal, and assigns their onboarding tasks for you.",
     bullets: [
-      "Track-scoped queues with team averages",
-      "Scores, comments, and one-click decisions",
-      "Acceptance auto-creates the session and its tasks",
+      "Queues scoped to each reviewer's tracks",
+      "Scores, comments, and team averages in one view",
+      "Accepting a talk starts onboarding automatically",
     ],
     demo: <ReviewDemo />,
   },
   {
     id: "onboard",
     overline: "Onboard",
-    title: "Speakers onboard themselves.",
-    body: "Accepted speakers get a magic link — no account creation, no password reset tickets. They confirm details, upload bios, headshots, and slides, and their progress shows up on your dashboard without a single chase email.",
+    title: "Stop chasing speakers over email.",
+    body: "Accepted speakers sign in with a magic link. No account setup, no password resets. They upload bios, headshots, and slides themselves, and you watch progress from your dashboard instead of digging through an inbox.",
     bullets: [
-      "Magic-link sign-in, zero accounts to manage",
-      "Bios, headshots, slides, and custom file requests",
-      "Task progress visible to organizers in real time",
+      "Magic-link sign-in, nothing for speakers to set up",
+      "Bios, headshots, slides, and file requests in one place",
+      "See who's done and who needs a nudge",
     ],
     demo: <PortalDemo />,
   },
   {
     id: "schedule",
     overline: "Schedule",
-    title: "Drag until it fits. We catch what doesn't.",
-    body: "Lay out days, rooms, and tracks on a grid. Move a session and conflicts surface the moment they happen — a speaker in two rooms, a track colliding with itself — before your attendees find out at the venue.",
+    title: "Catch the double-booking before your attendees do.",
+    body: "Drag sessions across rooms and time slots. If a speaker ends up in two rooms at once, or a room gets two sessions in the same slot, you see it immediately, while it's still cheap to fix.",
     bullets: [
-      "Day, room, and list views over the same data",
-      "Speaker, room, and track conflicts flagged live",
-      "Unscheduled accepted sessions kept in a tray",
+      "Day, room, and list views of the same agenda",
+      "Speaker and room conflicts flagged as you drag",
+      "Accepted but unscheduled sessions wait in a tray",
     ],
     demo: <AgendaDemo />,
   },
   {
     id: "publish",
     overline: "Publish",
-    title: "Your agenda, on your site, in one tag.",
-    body: "Drop a script tag into your conference site and get a mobile-friendly schedule and speaker gallery that restyle to your page. Change the agenda in opensesh and the embed updates — no redeploys, no stale PDFs.",
+    title: "Your schedule on your website, always current.",
+    body: "Paste one script tag into your conference site and get a schedule and speaker gallery that match your styling. Move a session in opensesh and the page updates. No PDF exports, no rebuilds, no stale agendas.",
     bullets: [
-      "Schedule and speaker-gallery widgets",
-      "Mobile-friendly, styled to inherit your site",
-      "Always current — the agenda is the source of truth",
+      "Schedule and speaker gallery widgets",
+      "Looks native on your site, works on phones",
+      "Updates the moment the agenda changes",
     ],
     demo: <EmbedDemo />,
   },
@@ -153,11 +154,10 @@ export function Features() {
         <Reveal className="max-w-2xl">
           <Overline>The product</Overline>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-            Every screen your program team touches, rebuilt properly.
+            Everything between "call for papers" and doors open.
           </h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            These aren't screenshots — each panel below is a working miniature of the real thing.
-            Click around.
+            The panels below are small working demos, not screenshots. Try them.
           </p>
         </Reveal>
       </div>
@@ -197,19 +197,26 @@ export function Features() {
 
 export function GardenBand() {
   return (
-    <figure className="relative border-b">
-      <img
-        src="/art/garden-congress.png"
-        alt="Engraving of a large open-air congress in a classical garden"
-        className="h-[38svh] w-full object-cover object-center md:h-[52svh]"
-      />
-      <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
-      <div className="dither-down pointer-events-none absolute inset-x-0 bottom-0 h-40 -scale-y-100" />
-      <figcaption className="absolute right-4 bottom-4 border bg-white/90 px-2 py-1 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
-        Programs are better planned in the open
-      </figcaption>
-    </figure>
+    <Breakout>
+      <figure className="relative">
+        <img
+          src="/art/garden-congress.png"
+          alt="Engraving of a large open-air congress in a classical garden"
+          className="h-[44svh] w-full object-cover object-center md:h-[56svh]"
+        />
+        <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
+        <div className="dither-down pointer-events-none absolute inset-x-0 bottom-0 h-40 -scale-y-100" />
+        <figcaption className="absolute right-6 bottom-6 border bg-white/90 px-2 py-1 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
+          Programs are better planned in the open
+        </figcaption>
+      </figure>
+    </Breakout>
   );
+}
+
+/** Dotted spacer band inside the frame, Vercel/Cloudflare style. */
+export function DotBand({ className }: { readonly className?: string }) {
+  return <div aria-hidden="true" className={cn("dot-band h-12 border-b", className)} />;
 }
 
 /* ------------------------------------------------------------------ compare */
@@ -231,12 +238,12 @@ const compareRows: ReadonlyArray<{
   { capability: "Automated speaker communications", opensesh: true, sessionboard: true },
   { capability: "Full source code, MIT-licensed", opensesh: true, sessionboard: false },
   { capability: "Self-hosted on your own infrastructure", opensesh: true, sessionboard: false },
-  { capability: "Your data in your own database", opensesh: true, sessionboard: false },
+  { capability: "Your data in your own Postgres database", opensesh: true, sessionboard: false },
 ];
 
 export function Compare() {
   return (
-    <section id="compare" className="relative border-b bg-paper">
+    <section id="compare" className="relative border-y bg-paper">
       <div className="px-6 py-20 md:px-10 md:py-24">
         <Reveal className="mx-auto max-w-3xl text-center">
           <Overline>The comparison</Overline>
@@ -303,7 +310,7 @@ export function Compare() {
 
 /* ------------------------------------------------------------------ open source */
 
-const stack = ["Cloudflare Workers", "D1", "TanStack Start", "Drizzle", "Better Auth"];
+const stack = ["Cloudflare Workers", "Postgres", "Drizzle", "TanStack Start", "Better Auth"];
 
 export function OpenSource() {
   return (
@@ -315,10 +322,10 @@ export function OpenSource() {
             Own the whole stack.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
-            opensesh is MIT-licensed, end to end. Clone it, deploy it to your own Cloudflare
-            account, and your speakers, submissions, and schedules live in your database under your
-            domain. Fork it, rebrand it, keep it after the conference — there is no contract to
-            renew.
+            opensesh is MIT-licensed, end to end. Deploy it to your own Cloudflare account with your
+            own Postgres database. Your speakers, submissions, and schedules stay on infrastructure
+            you control, under your domain. Fork it, rebrand it, keep it after the conference. There
+            is no contract to renew.
           </p>
           <ul className="mt-6 flex flex-wrap gap-2">
             {stack.map((item) => (
@@ -356,7 +363,7 @@ export function OpenSource() {
             </pre>
           </div>
           <p className="mt-3 text-xs text-ink-muted">
-            One command builds and ships the app, database migrations included.
+            One command builds the app and runs the database migrations.
           </p>
         </Reveal>
       </div>
@@ -369,35 +376,37 @@ export function OpenSource() {
 
 export function FinalCta() {
   return (
-    <section className="relative overflow-hidden">
-      <img
-        src="/art/renaissance-salon-full-green-haze.png"
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 h-full w-full scale-x-[-1] object-cover object-bottom"
-      />
-      <div className="absolute inset-0 bg-white/45" />
-      <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
-      <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-24 text-center md:py-28">
-        <h2 className="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
-          Run your next CFP in the open.
-        </h2>
-        <p className="mt-4 max-w-xl text-balance text-base text-muted-foreground">
-          The demo is seeded with a full conference — 32 submissions, 3 tracks, a half-built agenda
-          with one conflict left for you to find.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <ButtonLink href={demoHref("organizer")} size="lg">
-            Explore the live demo
-            <ArrowRightIcon className="size-4" aria-hidden="true" />
-          </ButtonLink>
-          <ButtonLink href={GITHUB_URL} variant="outline" size="lg" external>
-            <GithubIcon className="size-4" />
-            Star on GitHub
-          </ButtonLink>
+    <Breakout>
+      <section className="relative overflow-hidden">
+        <img
+          src="/art/renaissance-salon-full-green-haze.png"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full scale-x-[-1] object-cover object-bottom"
+        />
+        <div className="absolute inset-0 bg-white/45" />
+        <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
+        <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-24 text-center md:py-28">
+          <h2 className="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
+            Run your next CFP in the open.
+          </h2>
+          <p className="mt-4 max-w-xl text-balance text-base text-muted-foreground">
+            The demo is seeded with a full conference: 32 submissions, 3 tracks, and a half-built
+            agenda with one conflict left for you to find.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <ButtonLink href={demoHref("organizer")} size="lg">
+              Explore the live demo
+              <ArrowRightIcon className="size-4" aria-hidden="true" />
+            </ButtonLink>
+            <ButtonLink href={GITHUB_URL} variant="outline" size="lg" external>
+              <GithubIcon className="size-4" />
+              Star on GitHub
+            </ButtonLink>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </Breakout>
   );
 }
 
@@ -407,7 +416,7 @@ export function Footer() {
       <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-8 text-xs text-muted-foreground md:px-10">
         <div className="flex items-center gap-2">
           <BrandMark className="size-4" />
-          <span>opensesh — built for the AI Engineer Kill My SaaS challenge, 2026</span>
+          <span>opensesh, built for the AI Engineer Kill My SaaS challenge, 2026</span>
         </div>
         <div className="flex items-center gap-5">
           <a

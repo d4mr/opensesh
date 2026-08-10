@@ -2,6 +2,7 @@ import { Hero } from "./components/hero";
 import { Nav } from "./components/nav";
 import {
   Compare,
+  DotBand,
   Features,
   FinalCta,
   Footer,
@@ -13,17 +14,20 @@ import {
 
 export function App() {
   return (
-    <div className="min-h-svh">
+    <div className="min-h-svh overflow-x-clip">
       <Nav />
-      {/* Vercel-style page frame: one bounded column, sections ruled inside it. */}
-      <div className="mx-auto w-full max-w-6xl border-x">
+      {/* Bounded page frame; the dotted body grid shows in the gutters.
+          Image bands break out of the rails at full viewport width. */}
+      <div className="mx-auto w-full max-w-6xl border-x bg-background">
         <main>
           <Hero />
           <Stats />
+          <DotBand />
           <Loop />
           <Features />
           <GardenBand />
           <Compare />
+          <DotBand />
           <OpenSource />
           <FinalCta />
         </main>

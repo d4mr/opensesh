@@ -68,7 +68,7 @@ export function PortalDemo() {
         </div>
         <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
           {allDone
-            ? "Profile complete — the organizer sees it instantly."
+            ? "Profile complete. The organizer sees it instantly."
             : "Progress shows up on the organizer's dashboard in real time."}
         </p>
       </div>

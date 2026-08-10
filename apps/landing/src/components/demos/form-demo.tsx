@@ -21,7 +21,7 @@ export function FormDemo() {
     <div className="rounded-xl border bg-background">
       <div className="flex h-10 items-center justify-between border-b bg-paper px-4">
         <p className="text-[13px] font-medium">Call for speakers</p>
-        <p className="text-xs text-muted-foreground">Try it — it's live</p>
+        <p className="text-xs text-muted-foreground">Try it, it's live</p>
       </div>
       <div className="space-y-5 p-5">
         <div>

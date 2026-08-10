@@ -90,7 +90,7 @@ export function AgendaDemo() {
         {conflicted === undefined ? (
           <>
             <CircleCheckIcon className="size-3.5 text-status-accepted" aria-hidden="true" />
-            <span className="text-muted-foreground">No conflicts — 3 sessions scheduled.</span>
+            <span className="text-muted-foreground">No conflicts. 3 sessions scheduled.</span>
           </>
         ) : (
           <>
