@@ -1,0 +1,528 @@
+<meta charset="utf-8">
+<title>Theme Directions — Sessionboard Clone</title>
+<style>
+  /* ---------- page chrome tokens (quiet, neutral — specimens own the color) ---------- */
+  :root {
+    --pg-bg: #FAFAF9; --pg-fg: #1E1E1C; --pg-mut: #6E6E68; --pg-line: #E5E4E0;
+    --pg-card: #FFFFFF; --pg-code: #F4F4F1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --pg-bg: #131312; --pg-fg: #EAEAE6; --pg-mut: #97978F; --pg-line: #2A2A27; --pg-card: #1B1B19; --pg-code: #202020; }
+  }
+  :root[data-theme="dark"] { --pg-bg: #131312; --pg-fg: #EAEAE6; --pg-mut: #97978F; --pg-line: #2A2A27; --pg-card: #1B1B19; --pg-code: #202020; }
+  :root[data-theme="light"] { --pg-bg: #FAFAF9; --pg-fg: #1E1E1C; --pg-mut: #6E6E68; --pg-line: #E5E4E0; --pg-card: #FFFFFF; --pg-code: #F4F4F1; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--pg-bg); color: var(--pg-fg);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 48px 24px 96px; }
+  header.intro { max-width: 62ch; margin-bottom: 8px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--pg-mut); margin: 0 0 10px; }
+  h1 { font-size: 30px; line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 12px; text-wrap: balance; }
+  .lede { color: var(--pg-mut); margin: 0; }
+
+  /* ---------- controls ---------- */
+  .controls {
+    position: sticky; top: 0; z-index: 5; background: var(--pg-bg);
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+    padding: 16px 0 14px; margin-top: 28px; border-bottom: 1px solid var(--pg-line);
+  }
+  .seg { display: flex; gap: 4px; background: var(--pg-code); border: 1px solid var(--pg-line); border-radius: 9px; padding: 3px; }
+  .seg button {
+    appearance: none; border: 0; background: transparent; color: var(--pg-mut);
+    font: 600 13px/1 inherit; font-family: inherit; padding: 8px 14px; border-radius: 6px; cursor: pointer;
+  }
+  .seg button:hover { color: var(--pg-fg); }
+  .seg button[aria-pressed="true"] { background: var(--pg-card); color: var(--pg-fg); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .seg button:focus-visible, .copy:focus-visible, a:focus-visible { outline: 2px solid #7B7BEF; outline-offset: 2px; }
+
+  .rationale { margin: 22px 0 18px; max-width: 74ch; min-height: 3.2em; }
+  .rationale strong { font-weight: 650; }
+  .rationale p { margin: 0; color: var(--pg-mut); }
+  .rationale p b { color: var(--pg-fg); font-weight: 650; }
+
+  /* =====================================================================
+     SPECIMEN — every component below styles ONLY from --s-* variables
+     ===================================================================== */
+  .spec {
+    border: 1px solid var(--pg-line); border-radius: 14px; overflow: hidden;
+    background: var(--s-bg); color: var(--s-fg);
+    font-size: 13.5px;
+  }
+  .spec, .spec * { transition: background-color .18s ease, border-color .18s ease, color .18s ease; }
+  @media (prefers-reduced-motion: reduce) { .spec, .spec * { transition: none; } }
+
+  /* ----- theme: GREENROOM ----- */
+  .spec[data-spec="greenroom"][data-mode="light"] {
+    --s-bg:#FAFAF7; --s-fg:#1B211D; --s-card:#FFFFFF; --s-mut:#F1F2EC; --s-mut-fg:#5B6560;
+    --s-line:#E3E5DC; --s-primary:#1D6B4C; --s-primary-fg:#F5FBF7; --s-sec:#EDF3EE; --s-sec-fg:#1D4634;
+    --s-ring:#1D6B4C; --s-destr:#B3402F; --s-radius:8px;
+    --st-pen-bg:#FCEFCB; --st-pen-fg:#7A4F01; --st-may-bg:#EAE6FB; --st-may-fg:#4C3D99;
+    --st-acc-bg:#D9F0E2; --st-acc-fg:#14603E; --st-dec-bg:#FBE0DC; --st-dec-fg:#96362A;
+    --st-wdr-bg:#ECECEA; --st-wdr-fg:#6B6B67;
+  }
+  .spec[data-spec="greenroom"][data-mode="dark"] {
+    --s-bg:#131714; --s-fg:#E7EAE5; --s-card:#1A201C; --s-mut:#222923; --s-mut-fg:#93A096;
+    --s-line:#2A332D; --s-primary:#4CAF82; --s-primary-fg:#0B1F15; --s-sec:#213028; --s-sec-fg:#A7D4BC;
+    --s-ring:#4CAF82; --s-destr:#E06C55; --s-radius:8px;
+    --st-pen-bg:#3A2D0E; --st-pen-fg:#EFC25E; --st-may-bg:#2A2547; --st-may-fg:#B4A8F2;
+    --st-acc-bg:#11301F; --st-acc-fg:#6BC796; --st-dec-bg:#3A1712; --st-dec-fg:#EE9384;
+    --st-wdr-bg:#26262A; --st-wdr-fg:#9C9CA3;
+  }
+  /* ----- theme: SIGNAL ----- */
+  .spec[data-spec="signal"][data-mode="light"] {
+    --s-bg:#FAFBFC; --s-fg:#16181D; --s-card:#FFFFFF; --s-mut:#F0F2F5; --s-mut-fg:#5D6470;
+    --s-line:#E2E5EA; --s-primary:#2B59E0; --s-primary-fg:#FFFFFF; --s-sec:#EEF2FB; --s-sec-fg:#24408F;
+    --s-ring:#2B59E0; --s-destr:#C6362B; --s-radius:4px;
+    --st-pen-bg:#FCEFCB; --st-pen-fg:#7A4F01; --st-may-bg:#EAE6FB; --st-may-fg:#4C3D99;
+    --st-acc-bg:#D9F0E2; --st-acc-fg:#14603E; --st-dec-bg:#FBE0DC; --st-dec-fg:#96362A;
+    --st-wdr-bg:#ECECEA; --st-wdr-fg:#6B6B67;
+  }
+  .spec[data-spec="signal"][data-mode="dark"] {
+    --s-bg:#101216; --s-fg:#E8EAEF; --s-card:#171A20; --s-mut:#1E232B; --s-mut-fg:#8B93A1;
+    --s-line:#262C36; --s-primary:#6D8DFF; --s-primary-fg:#0A0F2E; --s-sec:#1E2637; --s-sec-fg:#A9BCF5;
+    --s-ring:#6D8DFF; --s-destr:#E5695C; --s-radius:4px;
+    --st-pen-bg:#3A2D0E; --st-pen-fg:#EFC25E; --st-may-bg:#2A2547; --st-may-fg:#B4A8F2;
+    --st-acc-bg:#11301F; --st-acc-fg:#6BC796; --st-dec-bg:#3A1712; --st-dec-fg:#EE9384;
+    --st-wdr-bg:#26262A; --st-wdr-fg:#9C9CA3;
+  }
+  /* ----- theme: MARQUEE ----- */
+  .spec[data-spec="marquee"][data-mode="light"] {
+    --s-bg:#FCFBF8; --s-fg:#201D18; --s-card:#FFFFFF; --s-mut:#F3F1EA; --s-mut-fg:#6B655A;
+    --s-line:#E6E2D8; --s-primary:#9A6200; --s-primary-fg:#FFFCF2; --s-sec:#F6F1E3; --s-sec-fg:#6B4E0E;
+    --s-ring:#9A6200; --s-destr:#B3402F; --s-radius:6px;
+    --st-pen-bg:#FCEFCB; --st-pen-fg:#7A4F01; --st-may-bg:#EAE6FB; --st-may-fg:#4C3D99;
+    --st-acc-bg:#D9F0E2; --st-acc-fg:#14603E; --st-dec-bg:#FBE0DC; --st-dec-fg:#96362A;
+    --st-wdr-bg:#ECECEA; --st-wdr-fg:#6B6B67;
+  }
+  .spec[data-spec="marquee"][data-mode="dark"] {
+    --s-bg:#161411; --s-fg:#EDEAE3; --s-card:#1D1A16; --s-mut:#262219; --s-mut-fg:#A39C8D;
+    --s-line:#2E2A22; --s-primary:#EBAF3F; --s-primary-fg:#221703; --s-sec:#2E2718; --s-sec-fg:#E4C687;
+    --s-ring:#EBAF3F; --s-destr:#E06C55; --s-radius:6px;
+    --st-pen-bg:#3A2D0E; --st-pen-fg:#EFC25E; --st-may-bg:#2A2547; --st-may-fg:#B4A8F2;
+    --st-acc-bg:#11301F; --st-acc-fg:#6BC796; --st-dec-bg:#3A1712; --st-dec-fg:#EE9384;
+    --st-wdr-bg:#26262A; --st-wdr-fg:#9C9CA3;
+  }
+
+  /* ----- specimen layout: admin shell ----- */
+  .shell { display: grid; grid-template-columns: 196px 1fr; min-height: 380px; }
+  @media (max-width: 720px) { .shell { grid-template-columns: 1fr; } .snav { display: none; } }
+  .snav { border-right: 1px solid var(--s-line); padding: 14px 10px; background: color-mix(in srgb, var(--s-mut) 45%, var(--s-bg)); }
+  .snav .ev { display: flex; gap: 8px; align-items: center; padding: 8px; margin-bottom: 10px; border: 1px solid var(--s-line); border-radius: var(--s-radius); background: var(--s-card); }
+  .snav .ev .dot { width: 26px; height: 26px; border-radius: 6px; background: var(--s-primary); color: var(--s-primary-fg); display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+  .snav .ev b { font-size: 12px; display: block; line-height: 1.2; }
+  .snav .ev span { font-size: 10.5px; color: var(--s-mut-fg); }
+  .snav .lbl { font-size: 10px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; color: var(--s-mut-fg); padding: 10px 8px 4px; }
+  .snav a { display: block; padding: 6px 8px; border-radius: calc(var(--s-radius) - 2px); color: var(--s-fg); text-decoration: none; font-size: 12.5px; }
+  .snav a.on { background: var(--s-sec); color: var(--s-sec-fg); font-weight: 650; }
+  .snav a:hover { background: var(--s-mut); }
+
+  .smain { padding: 18px 20px 22px; min-width: 0; }
+  .shead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .shead h2 { font-size: 17px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .shead p { margin: 0; font-size: 12px; color: var(--s-mut-fg); }
+
+  /* ----- buttons ----- */
+  .btn {
+    appearance: none; font: 600 12.5px/1 inherit; font-family: inherit; cursor: pointer;
+    padding: 8px 13px; border-radius: var(--s-radius); border: 1px solid transparent;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:focus-visible { outline: 2px solid var(--s-ring); outline-offset: 2px; }
+  .btn-primary { background: var(--s-primary); color: var(--s-primary-fg); }
+  .btn-primary:hover { filter: brightness(1.07); }
+  .btn-sec { background: var(--s-sec); color: var(--s-sec-fg); }
+  .btn-outline { background: var(--s-card); color: var(--s-fg); border-color: var(--s-line); }
+  .btn-outline:hover { background: var(--s-mut); }
+  .btn-ghost { background: transparent; color: var(--s-mut-fg); }
+  .btn-ghost:hover { background: var(--s-mut); color: var(--s-fg); }
+  .btn-destr { background: transparent; color: var(--s-destr); border-color: color-mix(in srgb, var(--s-destr) 35%, transparent); }
+  .btn-destr:hover { background: color-mix(in srgb, var(--s-destr) 10%, transparent); }
+
+  /* ----- status tabs / filter row ----- */
+  .ftabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--s-line); margin-bottom: 0; }
+  .ftabs button {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+    font: 600 12.5px/1 inherit; font-family: inherit; color: var(--s-mut-fg); padding: 8px 10px 9px; cursor: pointer;
+  }
+  .ftabs button .n { font-weight: 500; opacity: .75; margin-left: 3px; font-variant-numeric: tabular-nums; }
+  .ftabs button.on { color: var(--s-fg); border-bottom-color: var(--s-primary); }
+  .ftabs button:hover { color: var(--s-fg); }
+
+  /* ----- table ----- */
+  .tblwrap { overflow-x: auto; border: 1px solid var(--s-line); border-top: 0; border-radius: 0 0 var(--s-radius) var(--s-radius); background: var(--s-card); }
+  table.t { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 12.5px; }
+  .t th { text-align: left; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--s-mut-fg); font-weight: 650; padding: 9px 12px; border-bottom: 1px solid var(--s-line); white-space: nowrap; }
+  .t td { padding: 9px 12px; border-bottom: 1px solid var(--s-line); white-space: nowrap; vertical-align: middle; }
+  .t tr:last-child td { border-bottom: 0; }
+  .t tr:hover td { background: color-mix(in srgb, var(--s-mut) 55%, transparent); }
+  .t .title { font-weight: 600; color: var(--s-fg); max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .t .num { font-variant-numeric: tabular-nums; }
+  .code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; color: var(--s-mut-fg); }
+
+  /* ----- pills & chips ----- */
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 650; padding: 3px 9px; border-radius: 999px; line-height: 1.35; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.pen { background: var(--st-pen-bg); color: var(--st-pen-fg); }
+  .pill.may { background: var(--st-may-bg); color: var(--st-may-fg); }
+  .pill.acc { background: var(--st-acc-bg); color: var(--st-acc-fg); }
+  .pill.dec { background: var(--st-dec-bg); color: var(--st-dec-fg); }
+  .pill.wdr { background: var(--st-wdr-bg); color: var(--st-wdr-fg); }
+  .pill.drf { background: transparent; color: var(--st-wdr-fg); border: 1px dashed var(--st-wdr-fg); }
+  .chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 2.5px 8px; border-radius: calc(var(--s-radius) - 2px); background: var(--s-sec); color: var(--s-sec-fg); }
+
+  /* ----- lower grid: components / portal / public ----- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px 20px 20px; border-top: 1px solid var(--s-line); background: color-mix(in srgb, var(--s-mut) 30%, var(--s-bg)); }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .panel { background: var(--s-card); border: 1px solid var(--s-line); border-radius: var(--s-radius); padding: 16px; min-width: 0; }
+  .panel h3 { margin: 0 0 12px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--s-mut-fg); font-weight: 650; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .row:last-child { margin-bottom: 0; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 150px; min-width: 0; }
+  .field label { font-size: 11.5px; font-weight: 650; }
+  .field label .req { color: var(--s-destr); }
+  .input, .selectbox {
+    font: 400 12.5px/1.2 inherit; font-family: inherit; color: var(--s-fg);
+    background: var(--s-card); border: 1px solid var(--s-line); border-radius: var(--s-radius);
+    padding: 8px 10px; width: 100%;
+  }
+  .input:focus { outline: 2px solid var(--s-ring); outline-offset: -1px; border-color: var(--s-ring); }
+  .selectbox { display: flex; justify-content: space-between; align-items: center; color: var(--s-mut-fg); }
+  .selectbox b { color: var(--s-fg); font-weight: 500; }
+
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+  .switch .tr { width: 32px; height: 18px; border-radius: 999px; background: var(--s-primary); position: relative; flex: none; }
+  .switch .tr::after { content: ""; position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--s-primary-fg); }
+  .switch.off .tr { background: var(--s-mut); border: 1px solid var(--s-line); }
+  .switch.off .tr::after { right: auto; left: 2px; background: var(--s-mut-fg); }
+
+  /* portal */
+  .subcard { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid var(--s-line); border-radius: var(--s-radius); padding: 10px 12px; margin-bottom: 8px; }
+  .subcard b { font-size: 12.5px; display: block; }
+  .subcard span { font-size: 11.5px; color: var(--s-mut-fg); }
+  .task { display: flex; gap: 9px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--s-line); font-size: 12.5px; }
+  .task:last-child { border-bottom: 0; }
+  .task .box { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--s-line); flex: none; }
+  .task.done .box { background: var(--s-primary); border-color: var(--s-primary); position: relative; }
+  .task.done .box::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--s-primary-fg); font-size: 10px; font-weight: 700; }
+  .task.done .tt { color: var(--s-mut-fg); text-decoration: line-through; }
+  .task .due { margin-left: auto; font-size: 11px; color: var(--s-mut-fg); font-variant-numeric: tabular-nums; }
+
+  /* public wizard */
+  .steps { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin-bottom: 12px; }
+  .step { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--s-mut-fg); }
+  .step i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--s-line); display: grid; place-items: center; font-size: 10px; }
+  .step.on { color: var(--s-primary); }
+  .step.on i { border-color: var(--s-primary); background: var(--s-primary); color: var(--s-primary-fg); }
+  .step + .step::before { content: "→"; color: var(--s-mut-fg); margin-right: 8px; font-weight: 400; }
+  .notice { border: 1px solid var(--s-line); background: var(--s-mut); border-radius: var(--s-radius); font-size: 12px; padding: 9px 12px; text-align: center; color: var(--s-mut-fg); margin-bottom: 12px; }
+  .pubh { font-size: 18px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .pubp { font-size: 12.5px; color: var(--s-mut-fg); margin: 0 0 14px; max-width: 52ch; }
+
+  /* ---------- tokens section ---------- */
+  section.tokens { margin-top: 44px; }
+  section.tokens > h2 { font-size: 20px; letter-spacing: -0.01em; margin: 0 0 6px; }
+  section.tokens > p { color: var(--pg-mut); margin: 0 0 18px; max-width: 70ch; }
+  details { border: 1px solid var(--pg-line); border-radius: 10px; background: var(--pg-card); margin-bottom: 10px; overflow: hidden; }
+  summary { cursor: pointer; padding: 13px 16px; font-weight: 650; font-size: 14px; display: flex; align-items: center; gap: 10px; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary .sw { width: 14px; height: 14px; border-radius: 4px; flex: none; }
+  summary .hint { margin-left: auto; font-weight: 500; font-size: 12px; color: var(--pg-mut); }
+  .tokenbody { border-top: 1px solid var(--pg-line); position: relative; }
+  .copy {
+    position: absolute; top: 10px; right: 12px; z-index: 2;
+    font: 600 12px/1 inherit; font-family: inherit; padding: 6px 11px; border-radius: 7px;
+    border: 1px solid var(--pg-line); background: var(--pg-card); color: var(--pg-fg); cursor: pointer;
+  }
+  .copy:hover { background: var(--pg-code); }
+  pre { margin: 0; padding: 16px 18px; overflow-x: auto; background: var(--pg-code); font: 11.5px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  footer.note { margin-top: 36px; color: var(--pg-mut); font-size: 13px; max-width: 70ch; }
+  footer.note code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--pg-code); padding: 1px 5px; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <p class="eyebrow">Sessionboard clone · Brand exploration</p>
+    <h1>Three theme directions on shadcn tokens</h1>
+    <p class="lede">Same surfaces, same components, different skin — each direction is a complete shadcn/ui variable set (light and dark), so switching is a one-file swap. Status colors stay fixed across all three; only the brand voice changes.</p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Theme controls">
+    <div class="seg" role="group" aria-label="Direction">
+      <button data-t="greenroom" aria-pressed="true">Greenroom</button>
+      <button data-t="signal" aria-pressed="false">Signal</button>
+      <button data-t="marquee" aria-pressed="false">Marquee</button>
+    </div>
+    <div class="seg" role="group" aria-label="Mode">
+      <button data-m="light" aria-pressed="true">Light</button>
+      <button data-m="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+
+  <div class="rationale" id="rationale" aria-live="polite">
+    <p><b>Greenroom</b> — the room where speakers wait. Stage green on warm paper neutrals, 8px radius. Calm and hospitable; reads “events,” not “devtool.” The furthest from stock shadcn, still nowhere near flashy. Note: accepted-green sits near the brand green — pills are tinted, buttons are solid, so they never collide.</p>
+  </div>
+
+  <!-- ================= SPECIMEN ================= -->
+  <div class="spec" id="spec" data-spec="greenroom" data-mode="light">
+    <div class="shell">
+      <nav class="snav" aria-label="Admin navigation (specimen)">
+        <div class="ev"><div class="dot">AE</div><div><b>AI.Engineer 2026</b><span>Oct 12–14 · NYC</span></div></div>
+        <div class="lbl">Program</div>
+        <a href="#" onclick="return false">Dashboard</a>
+        <a href="#" onclick="return false" class="on">Abstracts</a>
+        <a href="#" onclick="return false">Sessions</a>
+        <a href="#" onclick="return false">Forms</a>
+        <a href="#" onclick="return false">Evaluation</a>
+        <a href="#" onclick="return false">Agenda</a>
+        <div class="lbl">Portals</div>
+        <a href="#" onclick="return false">Tasks</a>
+        <a href="#" onclick="return false">Speakers</a>
+        <a href="#" onclick="return false">Settings</a>
+      </nav>
+      <div class="smain">
+        <div class="shead">
+          <div><h2>Abstracts</h2><p>Review and manage submissions</p></div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-outline">Export CSV</button>
+            <button class="btn btn-primary">+ Add abstract</button>
+          </div>
+        </div>
+        <div class="ftabs">
+          <button class="on">All <span class="n">24</span></button>
+          <button>Pending <span class="n">9</span></button>
+          <button>Maybe <span class="n">4</span></button>
+          <button>Accepted <span class="n">7</span></button>
+          <button>Declined <span class="n">3</span></button>
+          <button>Withdrawn <span class="n">1</span></button>
+        </div>
+        <div class="tblwrap">
+          <table class="t">
+            <thead><tr><th>Status</th><th>ID</th><th>Title</th><th>Track</th><th>Speakers</th><th>Rating</th><th>Submitted</th></tr></thead>
+            <tbody>
+              <tr><td><span class="pill acc">Accepted</span></td><td class="code">SESS-4</td><td class="title">Evals that don’t lie: grading agents in production</td><td><span class="chip">Evals</span></td><td>Priya Natarajan</td><td class="num">4.6</td><td class="num">Aug 7</td></tr>
+              <tr><td><span class="pill pen">Pending</span></td><td class="code">SESS-9</td><td class="title">RAG is dead, long live retrieval</td><td><span class="chip">RAG</span></td><td>Marco Silva</td><td class="num">—</td><td class="num">Aug 7</td></tr>
+              <tr><td><span class="pill may">Maybe</span></td><td class="code">SESS-7</td><td class="title">Shipping voice agents on a $200 budget</td><td><span class="chip">Agents</span></td><td>Lena Fischer, Tom Okafor</td><td class="num">3.8</td><td class="num">Aug 6</td></tr>
+              <tr><td><span class="pill dec">Declined</span></td><td class="code">SESS-2</td><td class="title">Why our chain-of-thought tokens deserve equity</td><td><span class="chip">Infra</span></td><td>D. Hoffman</td><td class="num">1.9</td><td class="num">Aug 5</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center;">
+          <span class="pill drf">Draft</span>
+          <span class="pill pen">Pending</span>
+          <span class="pill may">Maybe</span>
+          <span class="pill acc">Accepted</span>
+          <span class="pill dec">Declined</span>
+          <span class="pill wdr">Withdrawn</span>
+          <span style="font-size:11px; color:var(--s-mut-fg); margin-left:auto;">status palette — identical in every direction</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>Form controls</h3>
+        <div class="row">
+          <button class="btn btn-primary">Save form</button>
+          <button class="btn btn-sec">Preview</button>
+          <button class="btn btn-outline">Copy link</button>
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-destr">Delete</button>
+        </div>
+        <div class="row">
+          <div class="field"><label>Session title <span class="req">*</span></label><input class="input" value="Evals that don’t lie" readonly></div>
+          <div class="field"><label>Track</label><div class="selectbox"><b>Evals</b><span>▾</span></div></div>
+        </div>
+        <div class="row" style="gap:20px;">
+          <span class="switch"><span class="tr"></span>Required</span>
+          <span class="switch off"><span class="tr"></span>Allow drafts</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Speaker portal</h3>
+        <div class="subcard"><div><b>SESS-4 · Evals that don’t lie</b><span>Featured Keynote</span></div><span class="pill acc">Accepted</span></div>
+        <div class="task done"><span class="box"></span><span class="tt">Hotel stay requirements</span><span class="due">done</span></div>
+        <div class="task"><span class="box"></span><span class="tt">Flight reimbursement form</span><span class="due">due Sep 1</span></div>
+        <div class="task"><span class="box"></span><span class="tt">Finalize bio &amp; headshot</span><span class="due">due Sep 8</span></div>
+      </div>
+
+      <div class="panel" style="grid-column: 1 / -1;">
+        <h3>Public CFP</h3>
+        <div class="steps">
+          <span class="step on"><i>1</i>Welcome!</span>
+          <span class="step"><i>2</i>Account</span>
+          <span class="step"><i>3</i>Submission</span>
+          <span class="step"><i>4</i>Participant</span>
+          <span class="step"><i>5</i>Review</span>
+        </div>
+        <div class="notice">Submissions close September 15 at 11:59 PM PDT · Limit: 3 per user</div>
+        <h4 class="pubh">Call for Speakers — AI.Engineer 2026</h4>
+        <p class="pubp">Sessions for our agenda will be selected from these submissions. Tell us what you want to present, keep track of your status in the portal, and complete your tasks once accepted.</p>
+        <button class="btn btn-primary">Continue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TOKENS ================= -->
+  <section class="tokens">
+    <h2>Drop-in tokens</h2>
+    <p>Each block is a complete <code>globals.css</code> variable set in shadcn/ui format — paste over the defaults and every component follows. The same files live in the repo at <code>docs/themes/</code>.</p>
+
+    <details open>
+      <summary><span class="sw" style="background:#1D6B4C"></span>greenroom.css <span class="hint">warm paper · stage green · 8px radius</span></summary>
+      <div class="tokenbody">
+        <button class="copy" data-copy="tok-greenroom">Copy</button>
+        <pre id="tok-greenroom">:root {
+  --background: #FAFAF7;  --foreground: #1B211D;
+  --card: #FFFFFF;        --card-foreground: #1B211D;
+  --popover: #FFFFFF;     --popover-foreground: #1B211D;
+  --primary: #1D6B4C;     --primary-foreground: #F5FBF7;
+  --secondary: #EDF3EE;   --secondary-foreground: #1D4634;
+  --muted: #F1F2EC;       --muted-foreground: #5B6560;
+  --accent: #EAF2EB;      --accent-foreground: #1D4634;
+  --destructive: #B3402F; --destructive-foreground: #FFF7F5;
+  --border: #E3E5DC;      --input: #E3E5DC;  --ring: #1D6B4C;
+  --radius: 0.5rem;
+  /* status (shared across directions) */
+  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+}
+.dark {
+  --background: #131714;  --foreground: #E7EAE5;
+  --card: #1A201C;        --card-foreground: #E7EAE5;
+  --popover: #1A201C;     --popover-foreground: #E7EAE5;
+  --primary: #4CAF82;     --primary-foreground: #0B1F15;
+  --secondary: #213028;   --secondary-foreground: #A7D4BC;
+  --muted: #222923;       --muted-foreground: #93A096;
+  --accent: #213028;      --accent-foreground: #A7D4BC;
+  --destructive: #E06C55; --destructive-foreground: #1C0E0A;
+  --border: #2A332D;      --input: #2A332D;  --ring: #4CAF82;
+  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384;  --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+}</pre>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="sw" style="background:#2B59E0"></span>signal.css <span class="hint">cool gray · cobalt · 4px radius · mono IDs</span></summary>
+      <div class="tokenbody">
+        <button class="copy" data-copy="tok-signal">Copy</button>
+        <pre id="tok-signal">:root {
+  --background: #FAFBFC;  --foreground: #16181D;
+  --card: #FFFFFF;        --card-foreground: #16181D;
+  --popover: #FFFFFF;     --popover-foreground: #16181D;
+  --primary: #2B59E0;     --primary-foreground: #FFFFFF;
+  --secondary: #EEF2FB;   --secondary-foreground: #24408F;
+  --muted: #F0F2F5;       --muted-foreground: #5D6470;
+  --accent: #EEF2FB;      --accent-foreground: #24408F;
+  --destructive: #C6362B; --destructive-foreground: #FFF6F5;
+  --border: #E2E5EA;      --input: #E2E5EA;  --ring: #2B59E0;
+  --radius: 0.25rem;
+  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+}
+.dark {
+  --background: #101216;  --foreground: #E8EAEF;
+  --card: #171A20;        --card-foreground: #E8EAEF;
+  --popover: #171A20;     --popover-foreground: #E8EAEF;
+  --primary: #6D8DFF;     --primary-foreground: #0A0F2E;
+  --secondary: #1E2637;   --secondary-foreground: #A9BCF5;
+  --muted: #1E232B;       --muted-foreground: #8B93A1;
+  --accent: #1E2637;      --accent-foreground: #A9BCF5;
+  --destructive: #E5695C; --destructive-foreground: #1C0B09;
+  --border: #262C36;      --input: #262C36;  --ring: #6D8DFF;
+  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384;  --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+}</pre>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="sw" style="background:#9A6200"></span>marquee.css <span class="hint">warm graphite · marigold · 6px radius</span></summary>
+      <div class="tokenbody">
+        <button class="copy" data-copy="tok-marquee">Copy</button>
+        <pre id="tok-marquee">:root {
+  --background: #FCFBF8;  --foreground: #201D18;
+  --card: #FFFFFF;        --card-foreground: #201D18;
+  --popover: #FFFFFF;     --popover-foreground: #201D18;
+  --primary: #9A6200;     --primary-foreground: #FFFCF2;
+  --secondary: #F6F1E3;   --secondary-foreground: #6B4E0E;
+  --muted: #F3F1EA;       --muted-foreground: #6B655A;
+  --accent: #F6F1E3;      --accent-foreground: #6B4E0E;
+  --destructive: #B3402F; --destructive-foreground: #FFF7F5;
+  --border: #E6E2D8;      --input: #E6E2D8;  --ring: #9A6200;
+  --radius: 0.375rem;
+  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+}
+.dark {
+  --background: #161411;  --foreground: #EDEAE3;
+  --card: #1D1A16;        --card-foreground: #EDEAE3;
+  --popover: #1D1A16;     --popover-foreground: #EDEAE3;
+  --primary: #EBAF3F;     --primary-foreground: #221703;
+  --secondary: #2E2718;   --secondary-foreground: #E4C687;
+  --muted: #262219;       --muted-foreground: #A39C8D;
+  --accent: #2E2718;      --accent-foreground: #E4C687;
+  --destructive: #E06C55; --destructive-foreground: #1C0E0A;
+  --border: #2E2A22;      --input: #2E2A22;  --ring: #EBAF3F;
+  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384;  --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+}</pre>
+      </div>
+    </details>
+  </section>
+
+  <footer class="note">
+    <p>Typography stays system-stack (or Geist/Inter if we ship a font) in all three — the identity is carried by hue, temperature, and radius, so no direction gets in the way of data-dense screens. Session IDs (<code>SESS-4</code>) always render in mono with tabular numerals.</p>
+  </footer>
+</div>
+
+<script>
+  const spec = document.getElementById('spec');
+  const rationale = document.getElementById('rationale');
+  const blurbs = {
+    greenroom: '<p><b>Greenroom</b> — the room where speakers wait. Stage green on warm paper neutrals, 8px radius. Calm and hospitable; reads “events,” not “devtool.” The furthest from stock shadcn, still nowhere near flashy. Note: accepted-green sits near the brand green — pills are tinted, buttons are solid, so they never collide.</p>',
+    signal: '<p><b>Signal</b> — a precision instrument for an AI-engineer audience. Cool grays, one electric cobalt, 4px radius, mono session codes. Closest to tools this crowd already trusts (judges included) — distinct mostly through discipline, temperature, and density.</p>',
+    marquee: '<p><b>Marquee</b> — marquee-light warmth over graphite. Warm neutrals that disappear behind data; marigold appears only on primary actions and focus rings. The quietest option in light mode, the most distinctive in dark.</p>'
+  };
+  document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-t]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    spec.dataset.spec = b.dataset.t;
+    rationale.innerHTML = blurbs[b.dataset.t];
+  }));
+  document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-m]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    spec.dataset.mode = b.dataset.m;
+  }));
+  document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
+    const el = document.getElementById(b.dataset.copy);
+    try { await navigator.clipboard.writeText(el.textContent); b.textContent = 'Copied ✓'; }
+    catch { b.textContent = 'Select + ⌘C'; }
+    setTimeout(() => b.textContent = 'Copy', 1600);
+  }));
+</script>

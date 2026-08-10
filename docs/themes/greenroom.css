@@ -1,0 +1,34 @@
+:root {
+  --background: #FAFAF7;  --foreground: #1B211D;
+  --card: #FFFFFF;        --card-foreground: #1B211D;
+  --popover: #FFFFFF;     --popover-foreground: #1B211D;
+  --primary: #1D6B4C;     --primary-foreground: #F5FBF7;
+  --secondary: #EDF3EE;   --secondary-foreground: #1D4634;
+  --muted: #F1F2EC;       --muted-foreground: #5B6560;
+  --accent: #EAF2EB;      --accent-foreground: #1D4634;
+  --destructive: #B3402F; --destructive-foreground: #FFF7F5;
+  --border: #E3E5DC;      --input: #E3E5DC;  --ring: #1D6B4C;
+  --radius: 0.5rem;
+  /* status (shared across directions) */
+  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+}
+.dark {
+  --background: #131714;  --foreground: #E7EAE5;
+  --card: #1A201C;        --card-foreground: #E7EAE5;
+  --popover: #1A201C;     --popover-foreground: #E7EAE5;
+  --primary: #4CAF82;     --primary-foreground: #0B1F15;
+  --secondary: #213028;   --secondary-foreground: #A7D4BC;
+  --muted: #222923;       --muted-foreground: #93A096;
+  --accent: #213028;      --accent-foreground: #A7D4BC;
+  --destructive: #E06C55; --destructive-foreground: #1C0E0A;
+  --border: #2A332D;      --input: #2A332D;  --ring: #4CAF82;
+  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384;  --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+}

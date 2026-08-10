@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "theme-preview",
+      "url": "http://localhost:8734",
+      "port": 8734
+    }
+  ]
+}

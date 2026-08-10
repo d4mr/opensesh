@@ -1,0 +1,33 @@
+:root {
+  --background: #FCFBF8;  --foreground: #201D18;
+  --card: #FFFFFF;        --card-foreground: #201D18;
+  --popover: #FFFFFF;     --popover-foreground: #201D18;
+  --primary: #9A6200;     --primary-foreground: #FFFCF2;
+  --secondary: #F6F1E3;   --secondary-foreground: #6B4E0E;
+  --muted: #F3F1EA;       --muted-foreground: #6B655A;
+  --accent: #F6F1E3;      --accent-foreground: #6B4E0E;
+  --destructive: #B3402F; --destructive-foreground: #FFF7F5;
+  --border: #E6E2D8;      --input: #E6E2D8;  --ring: #9A6200;
+  --radius: 0.375rem;
+  --status-pending: #7A4F01;   --status-pending-bg: #FCEFCB;
+  --status-maybe: #4C3D99;     --status-maybe-bg: #EAE6FB;
+  --status-accepted: #14603E;  --status-accepted-bg: #D9F0E2;
+  --status-declined: #96362A;  --status-declined-bg: #FBE0DC;
+  --status-withdrawn: #6B6B67; --status-withdrawn-bg: #ECECEA;
+}
+.dark {
+  --background: #161411;  --foreground: #EDEAE3;
+  --card: #1D1A16;        --card-foreground: #EDEAE3;
+  --popover: #1D1A16;     --popover-foreground: #EDEAE3;
+  --primary: #EBAF3F;     --primary-foreground: #221703;
+  --secondary: #2E2718;   --secondary-foreground: #E4C687;
+  --muted: #262219;       --muted-foreground: #A39C8D;
+  --accent: #2E2718;      --accent-foreground: #E4C687;
+  --destructive: #E06C55; --destructive-foreground: #1C0E0A;
+  --border: #2E2A22;      --input: #2E2A22;  --ring: #EBAF3F;
+  --status-pending: #EFC25E;   --status-pending-bg: #3A2D0E;
+  --status-maybe: #B4A8F2;     --status-maybe-bg: #2A2547;
+  --status-accepted: #6BC796;  --status-accepted-bg: #11301F;
+  --status-declined: #EE9384;  --status-declined-bg: #3A1712;
+  --status-withdrawn: #9C9CA3; --status-withdrawn-bg: #26262A;
+}
