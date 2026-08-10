@@ -37,6 +37,7 @@ function TaskContent({
   const [openId, setOpenId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<FormAnswers>({});
   const [celebratingId, setCelebratingId] = useState<string | null>(null);
+  const [fileErrors, setFileErrors] = useState<ReadonlyMap<string, string>>(new Map());
 
   const setOptimisticDone = (assignmentId: string) => {
     queryClient.setQueryData(speakerPortalQuery.queryKey, (current) =>
@@ -132,9 +133,16 @@ function TaskContent({
       }),
     onSuccess: async (result, variables) => {
       if (!result.ok) {
-        toast.error(result.error.message);
+        setFileErrors((current) =>
+          new Map(current).set(variables.assignmentId, result.error.message),
+        );
         return;
       }
+      setFileErrors((current) => {
+        const next = new Map(current);
+        next.delete(variables.assignmentId);
+        return next;
+      });
       celebrate(variables.assignmentId, true);
       toast.success("File uploaded as a new version");
       await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
@@ -280,6 +288,9 @@ function TaskContent({
                   </div>
                 ) : item.fileRequest !== null ? (
                   <div className="grid gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      Accepted: any file type · Maximum: 8 MB
+                    </p>
                     <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed p-4 text-xs font-medium">
                       <FileUpIcon className="size-4" />
                       {upload === undefined ? "Choose file" : "Upload a new version"}
@@ -288,16 +299,27 @@ function TaskContent({
                         className="sr-only"
                         onChange={(event) => {
                           const file = event.target.files?.[0];
-                          if (file !== undefined)
+                          if (file !== undefined) {
+                            setFileErrors((current) => {
+                              const next = new Map(current);
+                              next.delete(item.assignment.id);
+                              return next;
+                            });
                             fileMutation.mutate({
                               assignmentId: item.assignment.id,
                               fileRequestId: item.fileRequest!.id,
                               submissionId: item.assignment.submissionId,
                               file,
                             });
+                          }
                         }}
                       />
                     </label>
+                    {fileErrors.get(item.assignment.id) === undefined ? null : (
+                      <p className="text-xs text-destructive" role="alert">
+                        {fileErrors.get(item.assignment.id)}
+                      </p>
+                    )}
                     {upload === undefined ? null : (
                       <FileThread upload={upload.upload} versions={versions} comments={comments} />
                     )}

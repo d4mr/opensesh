@@ -88,7 +88,13 @@ export const sendTaskReminders = createServerFn({ method: "POST" })
         const origin = new URL(getRequest().url).origin;
         const admin = yield* MailAdmin;
         const mail = yield* Mail;
-        const queued = yield* admin.queueTaskReminders(data.eventId, data.contactId, origin);
+        const requested = data.contactIds ?? [data.contactId];
+        const batches = yield* Effect.forEach(
+          requested,
+          (contactId) => admin.queueTaskReminders(data.eventId, contactId, origin),
+          { concurrency: 5 },
+        );
+        const queued = batches.flat();
         const results = yield* Effect.forEach(queued, (item) => mail.sendQueued(item.logId), {
           concurrency: 5,
         });

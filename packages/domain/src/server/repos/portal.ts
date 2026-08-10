@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -26,6 +26,7 @@ import {
   taskAssignments,
   taskTemplates,
   tracks,
+  users,
 } from "../../db/schema";
 import { Db } from "../db";
 import { DbError, Forbidden, FormClosed, InvalidInput, type NotFound } from "../errors";
@@ -51,6 +52,30 @@ type ContentSnapshot = Readonly<Record<string, Schema.Json>> & {
   readonly language: string;
   readonly answers: Readonly<Record<string, Schema.Json>>;
 };
+
+type EditableSessionContent = Pick<ContentSnapshot, "title" | "description">;
+
+export const organizerContentChange = (
+  before: EditableSessionContent,
+  after: EditableSessionContent,
+) => {
+  const changedFields = (["title", "description"] as const).filter(
+    (field) => before[field] !== after[field],
+  );
+  return {
+    changedFields,
+    previousValues: Object.fromEntries(changedFields.map((field) => [field, before[field]])),
+    newValues: Object.fromEntries(changedFields.map((field) => [field, after[field]])),
+  };
+};
+
+export const restoreOrganizerContent = (
+  current: EditableSessionContent,
+  values: Readonly<Record<string, Schema.Json>>,
+): EditableSessionContent => ({
+  title: typeof values.title === "string" ? values.title : current.title,
+  description: typeof values.description === "string" ? values.description : current.description,
+});
 
 const snapshot = (submission: Submission): ContentSnapshot => ({
   title: submission.title,
@@ -111,9 +136,10 @@ const applyContentPatch = (base: ContentSnapshot, patch: Readonly<Record<string,
   Effect.gen(function* () {
     const answers =
       patch.answers === undefined ? base.answers : yield* decodeJsonRecord(patch.answers);
+    const organizerContent = restoreOrganizerContent(base, patch);
     return {
-      title: typeof patch.title === "string" ? patch.title : base.title,
-      description: typeof patch.description === "string" ? patch.description : base.description,
+      title: organizerContent.title,
+      description: organizerContent.description,
       formatId:
         typeof patch.formatId === "string" || patch.formatId === null
           ? patch.formatId
@@ -215,6 +241,27 @@ interface PortalService {
     contactId: string,
   ) => Effect.Effect<SpeakerPortalBootstrap, DbError | NotFound>;
   readonly adminBootstrap: (eventId: string) => Effect.Effect<AdminPortalBootstrap, DbError>;
+  readonly editAdminSubmission: (
+    eventId: string,
+    userId: string,
+    submissionId: string,
+    title: string,
+    description: string,
+  ) => Effect.Effect<Submission, DbError | Forbidden | InvalidInput | NotFound>;
+  readonly editAdminProfile: (
+    eventId: string,
+    userId: string,
+    contactId: string,
+    bio: string,
+  ) => Effect.Effect<Contact, DbError | Forbidden | NotFound>;
+  readonly prepareAdminHeadshot: (
+    eventId: string,
+    userId: string,
+    contactId: string,
+  ) => Effect.Effect<
+    { readonly fileUploadId: string; readonly eventMemberId: string; readonly authorName: string },
+    DbError | Forbidden | NotFound
+  >;
   readonly updateProfile: (
     contactId: string,
     input: typeof PortalProfileUpdateRequest.Type,
@@ -369,8 +416,9 @@ export const PortalLive = Layer.effect(
     const memberForAdmin = (eventId: string, userId: string) =>
       query(database, "Could not load organizer", (db) =>
         db
-          .select()
+          .select({ member: eventMembers, authorName: users.name })
           .from(eventMembers)
+          .innerJoin(users, eq(users.id, eventMembers.userId))
           .where(
             and(
               eq(eventMembers.eventId, eventId),
@@ -385,7 +433,7 @@ export const PortalLive = Layer.effect(
           (rows) => rows.length > 0,
           () => new Forbidden({ message: "You cannot manage this event" }),
         ),
-        Effect.map((rows) => rows[0]!),
+        Effect.map((rows) => ({ ...rows[0]!.member, authorName: rows[0]!.authorName })),
       );
 
     const setTaskStatus = (assignmentId: string, status: "todo" | "done" | "waived") =>
@@ -837,6 +885,153 @@ export const PortalLive = Layer.effect(
           },
           { concurrency: "unbounded" },
         ),
+      editAdminSubmission: (eventId, userId, submissionId, title, description) =>
+        Effect.gen(function* () {
+          const member = yield* memberForAdmin(eventId, userId);
+          const cleanTitle = title.trim();
+          if (cleanTitle.length === 0) {
+            return yield* Effect.fail(new InvalidInput({ message: "Add a session title" }));
+          }
+          if (description.replace(/<[^>]*>/g, "").trim().length === 0) {
+            return yield* Effect.fail(new InvalidInput({ message: "Add a session abstract" }));
+          }
+          const loaded = yield* query(database, "Could not load session content", (db) =>
+            db
+              .select()
+              .from(submissions)
+              .where(and(eq(submissions.id, submissionId), eq(submissions.eventId, eventId)))
+              .limit(1)
+              .execute(),
+          );
+          const current = yield* decodeFound(Submission, "Session", loaded[0]);
+          if (current.kind !== "session" || current.status !== "accepted") {
+            return yield* Effect.fail(
+              new Forbidden({ message: "Only accepted sessions can be edited here" }),
+            );
+          }
+          const before = snapshot(current);
+          const next = { ...before, title: cleanTitle, description } satisfies ContentSnapshot;
+          const change = organizerContentChange(before, next);
+          const changedFields = change.changedFields;
+          if (changedFields.length === 0) return current;
+          const updatedRows = yield* query(database, "Could not save session content", (db) =>
+            db.transaction(async (transaction) => {
+              const rows = await transaction
+                .update(submissions)
+                .set({
+                  title: next.title,
+                  description: next.description,
+                  approvedSnapshot: next,
+                  contentReviewStatus: "approved",
+                  updatedAt: new Date(),
+                })
+                .where(and(eq(submissions.id, submissionId), eq(submissions.eventId, eventId)))
+                .returning();
+              await transaction.insert(submissionEditHistory).values({
+                submissionId,
+                authorContactId: null,
+                authorEventMemberId: member.id,
+                authorName: member.authorName,
+                changedFields,
+                previousValues: change.previousValues,
+                newValues: change.newValues,
+                approvalStatus: "approved",
+                reviewedAt: new Date(),
+                reviewedByEventMemberId: member.id,
+              });
+              return rows;
+            }),
+          );
+          return yield* decodeFound(Submission, "Session", updatedRows[0]);
+        }),
+      editAdminProfile: (eventId, userId, contactId, bio) =>
+        Effect.gen(function* () {
+          const member = yield* memberForAdmin(eventId, userId);
+          const rows = yield* query(database, "Could not save speaker bio", (db) =>
+            db.transaction(async (transaction) => {
+              const existingRows = await transaction
+                .select()
+                .from(contacts)
+                .where(and(eq(contacts.id, contactId), eq(contacts.eventId, eventId)))
+                .limit(1);
+              const existing = existingRows[0];
+              if (existing === undefined) return [];
+              if ((existing.bio ?? "") === bio) return existingRows;
+              const now = new Date();
+              await transaction.insert(contactEditHistory).values({
+                contactId,
+                authorContactId: null,
+                authorEventMemberId: member.id,
+                authorName: member.authorName,
+                changedFields: ["bio"],
+                previousValues: { bio: existing.bio },
+                newValues: { bio },
+                approvalStatus: "approved",
+                reviewedAt: now,
+                reviewedByEventMemberId: member.id,
+              });
+              return await transaction
+                .update(contacts)
+                .set({
+                  bio,
+                  approvedProfile: { ...approvedBaseline(existing), bio },
+                  profileReviewStatus: "approved",
+                  updatedAt: now,
+                })
+                .where(eq(contacts.id, contactId))
+                .returning();
+            }),
+          );
+          return yield* decodeFound(Contact, "Contact", rows[0]);
+        }),
+      prepareAdminHeadshot: (eventId, userId, contactId) =>
+        Effect.gen(function* () {
+          const member = yield* memberForAdmin(eventId, userId);
+          const rows = yield* query(database, "Could not prepare organizer headshot upload", (db) =>
+            db.transaction(async (transaction) => {
+              const contactRows = await transaction
+                .select({ id: contacts.id })
+                .from(contacts)
+                .where(and(eq(contacts.id, contactId), eq(contacts.eventId, eventId)))
+                .limit(1);
+              if (contactRows.length === 0) return [];
+              const existing = await transaction
+                .select({ id: fileUploads.id })
+                .from(fileUploads)
+                .where(
+                  and(
+                    eq(fileUploads.contactId, contactId),
+                    eq(fileUploads.kind, "headshot"),
+                    isNull(fileUploads.fileRequestId),
+                    isNull(fileUploads.requirementId),
+                  ),
+                )
+                .limit(1);
+              if (existing[0] !== undefined) return existing;
+              return await transaction
+                .insert(fileUploads)
+                .values({
+                  fileRequestId: null,
+                  requirementId: null,
+                  kind: "headshot",
+                  contactId,
+                  submissionId: null,
+                  speakerLastReadAt: null,
+                  adminLastReadAt: new Date(),
+                })
+                .returning({ id: fileUploads.id });
+            }),
+          );
+          const upload = rows[0];
+          if (upload === undefined) {
+            return yield* Effect.fail(new Forbidden({ message: "You cannot edit this speaker" }));
+          }
+          return {
+            fileUploadId: upload.id,
+            eventMemberId: member.id,
+            authorName: member.authorName,
+          };
+        }),
       updateProfile: (contactId, input) =>
         query(database, "Could not update speaker profile", (db) =>
           db.transaction(async (transaction) => {
@@ -1027,6 +1222,7 @@ export const PortalLive = Layer.effect(
           if (row === undefined)
             return yield* Effect.fail(new Forbidden({ message: "You cannot restore this edit" }));
           let memberId: string | null = null;
+          let authorName = actor.name;
           if (actor.contactId !== undefined) {
             const allowed = yield* query(database, "Could not verify submission speaker", (db) =>
               db
@@ -1047,12 +1243,13 @@ export const PortalLive = Layer.effect(
           } else if (actor.userId !== undefined) {
             const member = yield* memberForAdmin(row.submission.eventId, actor.userId);
             memberId = member.id;
+            authorName = member.authorName;
           } else {
             return yield* Effect.fail(new Forbidden({ message: "You cannot restore this edit" }));
           }
           const current = yield* decode(Submission, "Submission", row.submission);
           const before = snapshot(current);
-          const restoreValues = yield* decodeJsonRecord(row.history.previousValues);
+          const restoreValues = yield* decodeJsonRecord(row.history.newValues);
           const next = yield* applyContentPatch(before, restoreValues);
           const changedFields = changedContent(before, next);
           const requiresReview = current.status === "accepted" && actor.contactId !== undefined;
@@ -1073,7 +1270,7 @@ export const PortalLive = Layer.effect(
             submissionId: current.id,
             authorContactId: actor.contactId ?? null,
             authorEventMemberId: memberId,
-            authorName: actor.name,
+            authorName,
             changedFields,
             previousValues: Object.fromEntries(changedFields.map((key) => [key, before[key]])),
             newValues: Object.fromEntries(changedFields.map((key) => [key, next[key]])),
@@ -1303,37 +1500,48 @@ export const PortalLive = Layer.effect(
                 const existing = existingRows[0];
                 if (existing === undefined) return;
                 const now = new Date();
-                // Headshots follow the profile approval contract too: a
-                // confirmed speaker's new upload waits for organizer review.
-                const requiresReview = existing.confirmedAt !== null;
-                if (requiresReview) {
+                const organizerEdit = input.uploaderEventMemberId !== null;
+                // Confirmed speakers' own uploads wait for review. Organizer
+                // uploads are attributed and approved in the same write.
+                const requiresReview = !organizerEdit && existing.confirmedAt !== null;
+                if (organizerEdit || requiresReview) {
                   await transaction.insert(contactEditHistory).values({
                     contactId: headshotContactId,
-                    authorContactId: headshotContactId,
-                    authorEventMemberId: null,
-                    authorName: `${existing.firstName} ${existing.lastName}`,
+                    authorContactId: input.uploaderContactId,
+                    authorEventMemberId: input.uploaderEventMemberId,
+                    authorName: input.uploaderName,
                     changedFields: ["headshotKey", "headshotUrl"],
                     previousValues: {
                       headshotKey: existing.headshotKey,
                       headshotUrl: existing.headshotUrl,
                     },
                     newValues: { headshotKey: input.storageKey, headshotUrl: null },
-                    approvalStatus: "pending_review",
-                    reviewedAt: null,
-                    reviewedByEventMemberId: null,
+                    approvalStatus: requiresReview ? "pending_review" : "approved",
+                    reviewedAt: requiresReview ? null : now,
+                    reviewedByEventMemberId: requiresReview ? null : input.uploaderEventMemberId,
                   });
                 }
+                const nextApproved = {
+                  ...approvedBaseline(existing),
+                  headshotKey: input.storageKey,
+                  headshotUrl: null,
+                };
                 await transaction
                   .update(contacts)
                   .set({
                     headshotKey: input.storageKey,
                     headshotUrl: null,
-                    ...(requiresReview
+                    ...(organizerEdit
                       ? {
-                          approvedProfile: approvedBaseline(existing),
-                          profileReviewStatus: "pending_review" as const,
+                          approvedProfile: nextApproved,
+                          profileReviewStatus: "approved" as const,
                         }
-                      : {}),
+                      : requiresReview
+                        ? {
+                            approvedProfile: approvedBaseline(existing),
+                            profileReviewStatus: "pending_review" as const,
+                          }
+                        : {}),
                     updatedAt: now,
                   })
                   .where(eq(contacts.id, headshotContactId));

@@ -509,6 +509,20 @@ export const AgendaLive = Layer.effect(
           );
           const event = yield* decodeFound(Event, "Event", rows[0]);
           if (event.agendaPublishedAt === null) return null;
+          const approved = yield* query(database, "Could not gate public agenda content", (db) =>
+            db
+              .select({ id: submissions.id })
+              .from(submissions)
+              .where(
+                and(
+                  eq(submissions.eventId, event.id),
+                  eq(submissions.status, "accepted"),
+                  eq(submissions.contentReviewStatus, "approved"),
+                ),
+              )
+              .execute(),
+          );
+          const approvedIds = new Set(approved.map((submission) => submission.id));
           return yield* decode(PublicAgenda, "public agenda", {
             event: {
               name: event.name,
@@ -516,7 +530,7 @@ export const AgendaLive = Layer.effect(
               timezone: event.timezone,
               publishedAt: event.agendaPublishedAt.toISOString(),
             },
-            sessions: event.publishedAgenda,
+            sessions: event.publishedAgenda.filter((session) => approvedIds.has(session.id)),
           });
         }),
       listDrafts: (eventId) =>

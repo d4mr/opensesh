@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import {
   getPublicProgram,
+  getPublicSession,
   getPublicWidget,
   getSpeakerDirectory,
   listWidgets,
@@ -11,6 +12,12 @@ export const publicProgramQuery = (eventSlug: string) =>
   queryOptions({
     queryKey: ["public-program", eventSlug],
     queryFn: () => getPublicProgram({ data: { eventSlug } }),
+    staleTime: 10_000,
+  });
+export const publicSessionQuery = (eventSlug: string, code: string) =>
+  queryOptions({
+    queryKey: ["public-session", eventSlug, code],
+    queryFn: () => getPublicSession({ data: { eventSlug, code } }),
     staleTime: 10_000,
   });
 export const publicWidgetQuery = (embedId: string) =>

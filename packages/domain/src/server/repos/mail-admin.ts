@@ -253,6 +253,7 @@ export const MailAdminLive = Layer.effect(
                     contactId: taskAssignments.contactId,
                     submissionId: taskAssignments.submissionId,
                     task: taskTemplates.title,
+                    dueDate: taskTemplates.dueDate,
                     submissionCode: submissions.code,
                   })
                   .from(taskAssignments)
@@ -301,12 +302,15 @@ export const MailAdminLive = Layer.effect(
             for (const contactId of contactIds) {
               if (requestedContactId !== null && contactId !== requestedContactId) continue;
               const contactTasks = tasks.get(contactId) ?? new Map<string, string>();
-              contactTasks.set(
-                assignment.assignmentId,
+              const task =
                 assignment.submissionCode === null
                   ? assignment.task
-                  : `${assignment.task} · ${assignment.submissionCode}`,
-              );
+                  : `${assignment.task} · ${assignment.submissionCode}`;
+              const due =
+                assignment.dueDate === null
+                  ? "No due date"
+                  : `Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(assignment.dueDate)}`;
+              contactTasks.set(assignment.assignmentId, `${task} · ${due}`);
               tasks.set(contactId, contactTasks);
             }
           }

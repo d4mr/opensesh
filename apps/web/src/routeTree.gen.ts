@@ -21,6 +21,7 @@ import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
 import { Route as AdminAgendaRouteImport } from './routes/admin.agenda'
 import { Route as AdminEmailsRouteImport } from './routes/admin.emails'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
+import { Route as AdminFilesRouteImport } from './routes/admin.files'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminSpeakersRouteImport } from './routes/admin.speakers'
@@ -43,6 +44,7 @@ import { Route as EEventSlugItineraryRouteImport } from './routes/e.$eventSlug.i
 import { Route as EEventSlugSessionsRouteImport } from './routes/e.$eventSlug.sessions'
 import { Route as EEventSlugSpeakersRouteImport } from './routes/e.$eventSlug.speakers'
 import { Route as EventAssetsEventIdIconRouteImport } from './routes/event-assets.$eventId.icon'
+import { Route as SpeakerAssetsContactIdHeadshotRouteImport } from './routes/speaker-assets.$contactId.headshot'
 import { Route as SubmitEventSlugFormIdRouteImport } from './routes/submit.$eventSlug.$formId'
 import { Route as EEventSlugSessionsCodeRouteImport } from './routes/e.$eventSlug.sessions_.$code'
 import { Route as EEventSlugSpeakersGalleryRouteImport } from './routes/e.$eventSlug.speakers_.gallery'
@@ -105,6 +107,11 @@ const AdminEmailsRoute = AdminEmailsRouteImport.update({
 const AdminEvaluationRoute = AdminEvaluationRouteImport.update({
   id: '/evaluation',
   path: '/evaluation',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFilesRoute = AdminFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminFormsRoute = AdminFormsRouteImport.update({
@@ -217,6 +224,12 @@ const EventAssetsEventIdIconRoute = EventAssetsEventIdIconRouteImport.update({
   path: '/event-assets/$eventId/icon',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SpeakerAssetsContactIdHeadshotRoute =
+  SpeakerAssetsContactIdHeadshotRouteImport.update({
+    id: '/speaker-assets/$contactId/headshot',
+    path: '/speaker-assets/$contactId/headshot',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const SubmitEventSlugFormIdRoute = SubmitEventSlugFormIdRouteImport.update({
   id: '/$eventSlug/$formId',
   path: '/$eventSlug/$formId',
@@ -246,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/admin/agenda': typeof AdminAgendaRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
+  '/admin/files': typeof AdminFilesRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
@@ -268,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
+  '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug/': typeof EEventSlugIndexRoute
   '/e/$eventSlug/sessions/$code': typeof EEventSlugSessionsCodeRoute
@@ -283,6 +298,7 @@ export interface FileRoutesByTo {
   '/admin/agenda': typeof AdminAgendaRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
+  '/admin/files': typeof AdminFilesRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
@@ -304,6 +320,7 @@ export interface FileRoutesByTo {
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
+  '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug': typeof EEventSlugIndexRoute
   '/e/$eventSlug/sessions/$code': typeof EEventSlugSessionsCodeRoute
@@ -322,6 +339,7 @@ export interface FileRoutesById {
   '/admin/agenda': typeof AdminAgendaRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/evaluation': typeof AdminEvaluationRoute
+  '/admin/files': typeof AdminFilesRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
   '/admin/speakers': typeof AdminSpeakersRoute
@@ -344,6 +362,7 @@ export interface FileRoutesById {
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
+  '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug/': typeof EEventSlugIndexRoute
   '/e/$eventSlug/sessions_/$code': typeof EEventSlugSessionsCodeRoute
@@ -363,6 +382,7 @@ export interface FileRouteTypes {
     | '/admin/agenda'
     | '/admin/emails'
     | '/admin/evaluation'
+    | '/admin/files'
     | '/admin/forms'
     | '/admin/sessions'
     | '/admin/speakers'
@@ -385,6 +405,7 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/event-assets/$eventId/icon'
+    | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug/'
     | '/e/$eventSlug/sessions/$code'
@@ -400,6 +421,7 @@ export interface FileRouteTypes {
     | '/admin/agenda'
     | '/admin/emails'
     | '/admin/evaluation'
+    | '/admin/files'
     | '/admin/forms'
     | '/admin/sessions'
     | '/admin/speakers'
@@ -421,6 +443,7 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/event-assets/$eventId/icon'
+    | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug'
     | '/e/$eventSlug/sessions/$code'
@@ -438,6 +461,7 @@ export interface FileRouteTypes {
     | '/admin/agenda'
     | '/admin/emails'
     | '/admin/evaluation'
+    | '/admin/files'
     | '/admin/forms'
     | '/admin/sessions'
     | '/admin/speakers'
@@ -460,6 +484,7 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/event-assets/$eventId/icon'
+    | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug/'
     | '/e/$eventSlug/sessions_/$code'
@@ -476,6 +501,7 @@ export interface RootRouteChildren {
   EmbedEmbedIdRoute: typeof EmbedEmbedIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
+  SpeakerAssetsContactIdHeadshotRoute: typeof SpeakerAssetsContactIdHeadshotRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -562,6 +588,13 @@ declare module '@tanstack/react-router' {
       path: '/evaluation'
       fullPath: '/admin/evaluation'
       preLoaderRoute: typeof AdminEvaluationRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/files': {
+      id: '/admin/files'
+      path: '/files'
+      fullPath: '/admin/files'
+      preLoaderRoute: typeof AdminFilesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/forms': {
@@ -718,6 +751,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventAssetsEventIdIconRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/speaker-assets/$contactId/headshot': {
+      id: '/speaker-assets/$contactId/headshot'
+      path: '/speaker-assets/$contactId/headshot'
+      fullPath: '/speaker-assets/$contactId/headshot'
+      preLoaderRoute: typeof SpeakerAssetsContactIdHeadshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/submit/$eventSlug/$formId': {
       id: '/submit/$eventSlug/$formId'
       path: '/$eventSlug/$formId'
@@ -760,6 +800,7 @@ interface AdminRouteChildren {
   AdminAgendaRoute: typeof AdminAgendaRoute
   AdminEmailsRoute: typeof AdminEmailsRoute
   AdminEvaluationRoute: typeof AdminEvaluationRoute
+  AdminFilesRoute: typeof AdminFilesRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
   AdminSessionsRoute: typeof AdminSessionsRoute
   AdminSpeakersRoute: typeof AdminSpeakersRoute
@@ -777,6 +818,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAgendaRoute: AdminAgendaRoute,
   AdminEmailsRoute: AdminEmailsRoute,
   AdminEvaluationRoute: AdminEvaluationRoute,
+  AdminFilesRoute: AdminFilesRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,
   AdminSessionsRoute: AdminSessionsRoute,
   AdminSpeakersRoute: AdminSpeakersRoute,
@@ -862,6 +904,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmbedEmbedIdRoute: EmbedEmbedIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,
+  SpeakerAssetsContactIdHeadshotRoute: SpeakerAssetsContactIdHeadshotRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

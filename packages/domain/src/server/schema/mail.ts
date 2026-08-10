@@ -24,4 +24,5 @@ export const RetryEmailRequest = Schema.Struct({ eventId: Schema.String, emailId
 export const ReminderRequest = Schema.Struct({
   eventId: Schema.String,
   contactId: Schema.NullOr(Schema.String),
+  contactIds: Schema.optionalKey(Schema.Array(Schema.String)),
 });
