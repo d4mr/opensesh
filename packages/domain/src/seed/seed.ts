@@ -6,7 +6,10 @@ import {
   emailLog,
   eventMembers,
   events,
+  fileComments,
   fileRequests,
+  fileUploads,
+  fileVersions,
   formFields,
   formats,
   forms,
@@ -18,6 +21,7 @@ import {
   reviewerTracks,
   reviews,
   rooms,
+  sessionFileRequirements,
   submissionParticipants,
   submissions,
   submissionTags,
@@ -308,6 +312,7 @@ export const seedDatabase = async (database: Database) => {
       ]),
       transaction.insert(portalForms).values(rows(seedData.portalForms)),
       transaction.insert(fileRequests).values(rows(seedData.fileRequests)),
+      transaction.insert(sessionFileRequirements).values(rows(seedData.sessionFileRequirements)),
     ]);
 
     await Promise.all([
@@ -325,6 +330,7 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(taskAssignments).values(rows(seedData.taskAssignments)),
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
       transaction.insert(emailLog).values(rows(seedData.emailLog)),
+      transaction.insert(fileUploads).values(rows(seedData.fileUploads)),
       transaction.insert(contactEditHistory).values({
         id: "che_maya_bio",
         contactId: "con_01",
@@ -340,6 +346,11 @@ export const seedDatabase = async (database: Database) => {
         createdAt: new Date(1785672000000),
         updatedAt: new Date(1785672000000),
       }),
+    ]);
+
+    await Promise.all([
+      transaction.insert(fileVersions).values(rows(seedData.fileVersions)),
+      transaction.insert(fileComments).values(rows(seedData.fileComments)),
     ]);
   });
 };

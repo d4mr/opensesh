@@ -28,6 +28,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -74,6 +75,7 @@ import {
   rejectProfileChange,
   restoreAdminHistory,
   saveAdminPortalForm,
+  saveAdminSessionFileRequirement,
   saveAdminTaskTemplate,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
@@ -898,6 +900,8 @@ function AdminFileRequests({
   readonly data: AdminData;
 }) {
   const [open, setOpen] = useState(false);
+  const [requirementOpen, setRequirementOpen] = useState(false);
+  const [requirementForm, setRequirementForm] = useState(emptyRequirementForm);
   const [form, setForm] = useState({ title: "", scope: "contact", instructions: "" });
   const queryClient = useQueryClient();
   const create = useMutation({
@@ -917,6 +921,35 @@ function AdminFileRequests({
       }
       setOpen(false);
       toast.success("File request created");
+      await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+    },
+  });
+  const saveRequirement = useMutation({
+    mutationFn: () =>
+      saveAdminSessionFileRequirement({
+        data: {
+          eventId,
+          id: requirementForm.id,
+          title: requirementForm.title,
+          description: requirementForm.description,
+          dueAt:
+            requirementForm.dueAt.length === 0
+              ? null
+              : new Date(requirementForm.dueAt).toISOString(),
+          acceptTypes:
+            requirementForm.acceptTypes.trim().length === 0 ? null : requirementForm.acceptTypes,
+          maxSizeMb:
+            requirementForm.maxSizeMb.length === 0 ? null : Number(requirementForm.maxSizeMb),
+        },
+      }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      setRequirementOpen(false);
+      setRequirementForm(emptyRequirementForm);
+      toast.success(requirementForm.id === null ? "Requirement added" : "Requirement saved");
       await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
     },
   });
@@ -954,6 +987,58 @@ function AdminFileRequests({
           <PlusIcon /> Add request
         </Button>
       </div>
+      <section>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Session file requirements</h2>
+            <p className="text-xs text-muted-foreground">
+              Assets every accepted session should provide.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setRequirementForm(emptyRequirementForm);
+              setRequirementOpen(true);
+            }}
+          >
+            <PlusIcon /> Add requirement
+          </Button>
+        </div>
+        <div className="divide-y overflow-hidden rounded-lg border">
+          {data.requirements.map((requirement) => (
+            <button
+              key={requirement.id}
+              type="button"
+              className="pressable flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+              onClick={() => {
+                setRequirementForm(requirementFormFor(requirement));
+                setRequirementOpen(true);
+              }}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{requirement.title}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {requirement.description}
+                </span>
+              </span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {requirement.dueAt === null
+                  ? "No due date"
+                  : `Due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(requirement.dueAt))}`}
+              </span>
+              <span className="w-28 truncate text-xs text-muted-foreground">
+                {requirement.acceptTypes ?? "Any type"}
+              </span>
+              <span className="w-16 text-right text-xs text-muted-foreground tabular-nums">
+                {requirement.maxSizeMb === null ? "Any size" : `${requirement.maxSizeMb} MB`}
+              </span>
+              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      </section>
       <div className="grid gap-3">
         {data.fileRequests.map((request) => {
           const uploads = data.files.filter((row) => row.upload.fileRequestId === request.id);
@@ -1022,6 +1107,88 @@ function AdminFileRequests({
           );
         })}
       </div>
+      <Dialog open={requirementOpen} onOpenChange={setRequirementOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {requirementForm.id === null ? "Add session file requirement" : "Edit requirement"}
+            </DialogTitle>
+            <DialogDescription>
+              Speakers see this on every accepted session in their portal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="requirement-title">Title</Label>
+              <Input
+                id="requirement-title"
+                value={requirementForm.title}
+                onChange={(event) =>
+                  setRequirementForm({ ...requirementForm, title: event.target.value })
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="requirement-description">Description</Label>
+              <Input
+                id="requirement-description"
+                value={requirementForm.description}
+                onChange={(event) =>
+                  setRequirementForm({ ...requirementForm, description: event.target.value })
+                }
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="requirement-due">Due</Label>
+                <Input
+                  id="requirement-due"
+                  type="datetime-local"
+                  value={requirementForm.dueAt}
+                  onChange={(event) =>
+                    setRequirementForm({ ...requirementForm, dueAt: event.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="requirement-size">Size cap (MB)</Label>
+                <Input
+                  id="requirement-size"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={requirementForm.maxSizeMb}
+                  onChange={(event) =>
+                    setRequirementForm({ ...requirementForm, maxSizeMb: event.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="requirement-types">Accepted file types</Label>
+              <Input
+                id="requirement-types"
+                placeholder=".pdf,.key,.pptx"
+                value={requirementForm.acceptTypes}
+                onChange={(event) =>
+                  setRequirementForm({ ...requirementForm, acceptTypes: event.target.value })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequirementOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={requirementForm.title.trim().length === 0 || saveRequirement.isPending}
+              onClick={() => saveRequirement.mutate()}
+            >
+              {saveRequirement.isPending ? "Saving…" : "Save requirement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent>
           <SheetHeader>
@@ -1074,6 +1241,38 @@ function AdminFileRequests({
     </main>
   );
 }
+
+type RequirementForm = {
+  readonly id: string | null;
+  readonly title: string;
+  readonly description: string;
+  readonly dueAt: string;
+  readonly acceptTypes: string;
+  readonly maxSizeMb: string;
+};
+
+const emptyRequirementForm: RequirementForm = {
+  id: null,
+  title: "",
+  description: "",
+  dueAt: "",
+  acceptTypes: "",
+  maxSizeMb: "",
+};
+
+const requirementFormFor = (requirement: AdminData["requirements"][number]): RequirementForm => ({
+  id: requirement.id,
+  title: requirement.title,
+  description: requirement.description,
+  dueAt:
+    requirement.dueAt === null
+      ? ""
+      : new Date(new Date(requirement.dueAt).getTime() - new Date().getTimezoneOffset() * 60_000)
+          .toISOString()
+          .slice(0, 16),
+  acceptTypes: requirement.acceptTypes ?? "",
+  maxSizeMb: requirement.maxSizeMb?.toString() ?? "",
+});
 
 const profileFieldLabels: Record<string, string> = {
   firstName: "First name",
@@ -1400,6 +1599,35 @@ function SessionPeek({
   const history = data.history
     .map((item) => item.history)
     .filter((item) => item.submissionId === submissionId);
+  const assets = data.requirements.map((requirement) => ({
+    requirement,
+    file: data.files.find(
+      (item) =>
+        item.upload.submissionId === submissionId && item.upload.requirementId === requirement.id,
+    ),
+  }));
+  const uploadedAssets = assets.filter((asset) => asset.file !== undefined);
+  const downloadAll = async () => {
+    if (submission === undefined) return;
+    const current = uploadedAssets.flatMap(({ file }) =>
+      data.versions
+        .map((item) => item.version)
+        .filter((version) => version.fileUploadId === file?.upload.id)
+        .sort(
+          (left, right) =>
+            new Date(right.uploadedAt).getTime() - new Date(left.uploadedAt).getTime(),
+        )
+        .slice(0, 1),
+    );
+    const files = (
+      await Promise.all(current.map((version) => fetchVersionData(version.id)))
+    ).filter((file) => file !== null);
+    if (files.length === 0) {
+      toast.error("No stored files are available to download");
+      return;
+    }
+    downloadZip(`${submission.code.toLowerCase()}-files.zip`, files);
+  };
   return (
     <Sheet
       open={submissionId !== null}
@@ -1437,6 +1665,55 @@ function SessionPeek({
                     />
                   ))
                 )}
+              </section>
+              <section className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-xs font-medium text-muted-foreground">Files</h3>
+                  {uploadedAssets.length === 0 ? null : (
+                    <Button size="sm" variant="outline" onClick={() => void downloadAll()}>
+                      <FileArchiveIcon /> Download all
+                    </Button>
+                  )}
+                </div>
+                <div className="divide-y overflow-hidden rounded-lg border">
+                  {assets.map(({ requirement, file }) => {
+                    const versions = data.versions
+                      .map((item) => item.version)
+                      .filter((version) => version.fileUploadId === file?.upload.id);
+                    const comments = data.comments
+                      .map((item) => item.comment)
+                      .filter((comment) => comment.fileUploadId === file?.upload.id);
+                    return (
+                      <div key={requirement.id}>
+                        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{requirement.title}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {requirement.acceptTypes ?? "Any file type"}
+                              {requirement.maxSizeMb === null
+                                ? ""
+                                : ` · ${requirement.maxSizeMb} MB max`}
+                            </p>
+                          </div>
+                          {file === undefined ? (
+                            <span className="text-xs text-muted-foreground">Not uploaded</span>
+                          ) : null}
+                        </div>
+                        {file === undefined ? null : (
+                          <div className="border-t px-3 py-3">
+                            <FileThread
+                              embedded
+                              eventId={eventId}
+                              upload={file.upload}
+                              versions={versions}
+                              comments={comments}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
               <section className="grid gap-2">
                 <h3 className="text-xs font-medium text-muted-foreground">Content history</h3>

@@ -79,8 +79,25 @@ export type FileRequestUpdate = typeof FileRequestUpdate.Type;
 
 export const FileKind = Schema.Literals(["request", "headshot", "slides"]);
 
+const sessionFileRequirementFields = {
+  eventId: Schema.String,
+  title: Schema.String,
+  description: Schema.String,
+  dueAt: NullableDate,
+  acceptTypes: NullableString,
+  maxSizeMb: NullableNumber,
+  position: Schema.Number,
+};
+
+export const SessionFileRequirement = Schema.Struct({
+  ...EntityFields,
+  ...sessionFileRequirementFields,
+});
+export type SessionFileRequirement = typeof SessionFileRequirement.Type;
+
 const fileUploadFields = {
   fileRequestId: NullableString,
+  requirementId: NullableString,
   kind: FileKind,
   contactId: Schema.String,
   submissionId: NullableString,
@@ -208,6 +225,7 @@ export const PortalFormResponseRequest = Schema.Struct({
 export const FileUploadRequest = Schema.Struct({
   assignmentId: Schema.NullOr(Schema.String),
   fileRequestId: Schema.NullOr(Schema.String),
+  requirementId: Schema.NullOr(Schema.String),
   submissionId: Schema.NullOr(Schema.String),
   kind: FileKind,
   filename: Schema.String,
@@ -254,6 +272,15 @@ export const FileRequestMutationRequest = Schema.Struct({
   title: Schema.String,
   targetType: TargetType,
   instructions: Schema.String,
+});
+export const SessionFileRequirementMutationRequest = Schema.Struct({
+  eventId: Schema.String,
+  id: Schema.NullOr(Schema.String),
+  title: Schema.String,
+  description: Schema.String,
+  dueAt: NullableString,
+  acceptTypes: NullableString,
+  maxSizeMb: NullableNumber,
 });
 export const ContentReviewRequest = Schema.Struct({ historyId: Schema.String });
 export const RestoreHistoryRequest = Schema.Struct({ historyId: Schema.String });

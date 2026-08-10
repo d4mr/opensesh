@@ -76,12 +76,33 @@ export const fileRequests = pgTable(
   (table) => [index("file_requests_event_idx").on(table.eventId)],
 );
 
+export const sessionFileRequirements = pgTable(
+  "session_file_requirements",
+  {
+    id: id(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    acceptTypes: text("accept_types"),
+    maxSizeMb: integer("max_size_mb"),
+    position: integer("position").notNull(),
+    ...timestamps,
+  },
+  (table) => [index("session_file_requirements_event_idx").on(table.eventId, table.position)],
+);
+
 export const fileUploads = pgTable(
   "file_uploads",
   {
     id: id(),
     fileRequestId: text("file_request_id").references(() => fileRequests.id, {
       onDelete: "cascade",
+    }),
+    requirementId: text("requirement_id").references(() => sessionFileRequirements.id, {
+      onDelete: "set null",
     }),
     kind: fileKind("kind").notNull(),
     contactId: text("contact_id")
@@ -96,7 +117,12 @@ export const fileUploads = pgTable(
   },
   (table) => [
     index("file_uploads_request_idx").on(table.fileRequestId),
+    index("file_uploads_requirement_idx").on(table.requirementId),
     index("file_uploads_contact_idx").on(table.contactId),
+    unique("file_uploads_submission_requirement_unique").on(
+      table.submissionId,
+      table.requirementId,
+    ),
   ],
 );
 
