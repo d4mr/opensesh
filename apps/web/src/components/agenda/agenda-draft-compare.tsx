@@ -247,7 +247,7 @@ export function AgendaDraftCompare({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-x-auto rounded-lg border bg-card">
         <div className="flex h-9 items-center justify-between border-b bg-muted/30 px-3">
           <span className="text-xs font-medium">Proposed changes</span>
           <span className="text-[11px] text-muted-foreground tabular-nums">

@@ -411,7 +411,7 @@ export function RoomsView({
       onDragEnd={handleDragEnd}
     >
       <div className="flex min-h-0 flex-1 gap-3">
-        <section className="min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card">
           <div className="flex h-11 items-center justify-between border-b px-3">
             <div>
               <p className="text-sm font-medium">{formatLongDay(day)}</p>
@@ -431,7 +431,9 @@ export function RoomsView({
               ))}
             </ToggleGroup>
           </div>
-          <div className="max-h-[calc(100svh-13rem)] overflow-auto">
+          {/* The grid is the page's only scroll surface (both axes); isolate
+              keeps its sticky/z layers from stacking above the app sidebar. */}
+          <div className="isolate min-h-0 flex-1 overflow-auto">
             <div
               className="grid min-w-max"
               style={{

@@ -160,7 +160,7 @@ export function AdminShell({
           user={user}
           pendingContentChanges={pendingContentChanges}
         />
-        <SidebarInset>
+        <SidebarInset className="min-w-0">
           <SiteHeader title={activeTitle} user={user} />
           <Outlet />
         </SidebarInset>

@@ -395,8 +395,10 @@ export function AgendaPage({
   }
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col gap-3 p-4 text-sm lg:p-5">
-      <div className="flex items-start justify-between gap-4">
+    // Height = viewport minus the site header and the inset-variant m-2
+    // margins, so this page owns exactly one scroll surface (the grid).
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-3 overflow-hidden p-4 text-sm lg:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold tracking-tight">Agenda builder</h1>
@@ -408,7 +410,7 @@ export function AgendaPage({
             Place accepted sessions, resolve conflicts, then publish a public snapshot.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {data.event.agendaDirty ? (
             <Badge variant="outline" className="gap-1 rounded-md text-[11px] text-muted-foreground">
               <CircleDotIcon className="size-3" /> Unpublished changes
@@ -488,7 +490,7 @@ export function AgendaPage({
             </span>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="rooms" className="mt-1 min-h-0">
+        <TabsContent value="rooms" className="mt-1 flex min-h-0 flex-col">
           <RoomsView
             agenda={data}
             day={selectedDay}
@@ -499,10 +501,10 @@ export function AgendaPage({
             addRoom={addRoom}
           />
         </TabsContent>
-        <TabsContent value="list" className="mt-1">
+        <TabsContent value="list" className="mt-1 min-h-0 overflow-y-auto">
           <AgendaListView agenda={data} save={save} />
         </TabsContent>
-        <TabsContent value="conflicts" className="mt-1">
+        <TabsContent value="conflicts" className="mt-1 min-h-0 overflow-y-auto">
           <ConflictsView agenda={data} conflicts={conflicts} jump={jump} />
         </TabsContent>
       </Tabs>
