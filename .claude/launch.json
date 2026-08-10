@@ -20,6 +20,42 @@
       ],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "wp5-integration-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/private/tmp/claude-501/-Users-prithvishbaidya-work-personal-sessionboard-clone/ab979eec-6019-4f0e-974c-dce0c27d8a55/scratchpad/wp5-merge/apps/web",
+        "dev",
+        "--port",
+        "3005"
+      ],
+      "port": 3005
+    },
+    {
+      "name": "wp6-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp6/apps/web",
+        "dev",
+        "--port",
+        "3006"
+      ],
+      "port": 3006
+    },
+    {
+      "name": "wp7-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp7/apps/web",
+        "dev",
+        "--port",
+        "3007"
+      ],
+      "port": 3007
     }
   ]
 }

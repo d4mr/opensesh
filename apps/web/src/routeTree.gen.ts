@@ -21,6 +21,7 @@ import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
 import { Route as AdminEvaluationRouteImport } from './routes/admin.evaluation'
 import { Route as AdminFormsRouteImport } from './routes/admin.forms'
 import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
+import { Route as AdminSpeakersRouteImport } from './routes/admin.speakers'
 import { Route as ESplatRouteImport } from './routes/e.$'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
@@ -92,6 +93,11 @@ const AdminSessionsRoute = AdminSessionsRouteImport.update({
   path: '/sessions',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSpeakersRoute = AdminSpeakersRouteImport.update({
+  id: '/speakers',
+  path: '/speakers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ESplatRoute = ESplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/speakers': typeof AdminSpeakersRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/speakers': typeof AdminSpeakersRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/admin/evaluation': typeof AdminEvaluationRoute
   '/admin/forms': typeof AdminFormsRouteWithChildren
   '/admin/sessions': typeof AdminSessionsRoute
+  '/admin/speakers': typeof AdminSpeakersRoute
   '/e/$': typeof ESplatRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
+    | '/admin/speakers'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
+    | '/admin/speakers'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/admin/evaluation'
     | '/admin/forms'
     | '/admin/sessions'
+    | '/admin/speakers'
     | '/e/$'
     | '/portal/$section'
     | '/submit/$'
@@ -383,6 +395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSessionsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/speakers': {
+      id: '/admin/speakers'
+      path: '/speakers'
+      fullPath: '/admin/speakers'
+      preLoaderRoute: typeof AdminSpeakersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/e/$': {
       id: '/e/$'
       path: '/$'
@@ -474,6 +493,7 @@ interface AdminRouteChildren {
   AdminEvaluationRoute: typeof AdminEvaluationRoute
   AdminFormsRoute: typeof AdminFormsRouteWithChildren
   AdminSessionsRoute: typeof AdminSessionsRoute
+  AdminSpeakersRoute: typeof AdminSpeakersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAbstractsIdRoute: typeof AdminAbstractsIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
@@ -486,6 +506,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminEvaluationRoute: AdminEvaluationRoute,
   AdminFormsRoute: AdminFormsRouteWithChildren,
   AdminSessionsRoute: AdminSessionsRoute,
+  AdminSpeakersRoute: AdminSpeakersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminAbstractsIdRoute: AdminAbstractsIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
