@@ -139,7 +139,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
   const publicPath = `/e/${event.slug}`;
 
   return (
-    <main className="flex-1 p-4 text-sm lg:p-6">
+    <main className="flex-1 p-4 pb-14 text-sm lg:p-6 lg:pb-14">
       <div className="mb-4">
         <h1 className="text-lg font-semibold">Event settings</h1>
         <p className="text-xs text-muted-foreground">

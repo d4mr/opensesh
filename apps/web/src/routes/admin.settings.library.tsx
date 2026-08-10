@@ -64,7 +64,7 @@ function EventLibrary() {
   if (!library.data.ok) return <p className="p-6 text-sm">{library.data.error.message}</p>;
   const data = library.data.data;
   return (
-    <main className="flex-1 p-4 text-sm lg:p-6">
+    <main className="flex-1 p-4 pb-14 text-sm lg:p-6 lg:pb-14">
       <div className="mb-4">
         <h1 className="text-lg font-semibold">Program library</h1>
         <p className="text-sm text-muted-foreground">

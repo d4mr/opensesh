@@ -1,6 +1,13 @@
+import { publicSpeakerName } from "@opensesh/domain";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDaysIcon, MapPinIcon, SquareStackIcon, UsersIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  CalendarDaysIcon,
+  MapPinIcon,
+  SquareStackIcon,
+  UsersIcon,
+} from "lucide-react";
 
 import { publicProgramQuery } from "@/lib/widget-queries";
 
@@ -14,7 +21,7 @@ function PublicEventIndex() {
   const { eventSlug } = Route.useParams();
   const program = useSuspenseQuery(publicProgramQuery(eventSlug));
   if (!program.data.ok) return <p className="p-6 text-sm">{program.data.error.message}</p>;
-  const { event, sessions } = program.data.data;
+  const { event, sessions, tracks } = program.data.data;
   const speakerCount = new Set(
     sessions.flatMap((session) => session.speakers.map((speaker) => speaker.id)),
   ).size;
@@ -78,9 +85,94 @@ function PublicEventIndex() {
           </Link>
         </div>
       )}
+      {tracks.length === 0 ? null : (
+        <section className="mt-8">
+          <h2 className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            Tracks
+          </h2>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {tracks.map((track) => (
+              <Link
+                key={track.id}
+                to="/e/$eventSlug/sessions"
+                params={{ eventSlug }}
+                search={{ q: undefined, track: [track.id], format: undefined, room: undefined }}
+                className="pressable inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted/50"
+              >
+                <span className="size-1.5 rounded-full" style={{ backgroundColor: track.color }} />
+                {track.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+      {sessions.length === 0 ? null : (
+        <section className="mt-8">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+              Program highlights
+            </h2>
+            <Link
+              to="/e/$eventSlug/sessions"
+              params={{ eventSlug }}
+              search={{ q: undefined, track: undefined, format: undefined, room: undefined }}
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              All {sessions.length} sessions <ArrowRightIcon className="size-3" />
+            </Link>
+          </div>
+          <div className="mt-2 divide-y rounded-lg border">
+            {[...sessions]
+              .sort((left, right) => left.startsAt.localeCompare(right.startsAt))
+              .slice(0, 4)
+              .map((session) => (
+                <Link
+                  key={session.id}
+                  to="/e/$eventSlug/sessions/$code"
+                  params={{ eventSlug, code: session.code }}
+                  className="flex items-center gap-3 px-3 py-2.5 transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-muted/50"
+                >
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {sessionSlot(session.startsAt, event.timezone)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">{session.title}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {session.speakers.map(publicSpeakerName).join(", ") || session.roomName}
+                    </span>
+                  </span>
+                  {session.tracks[0] === undefined ? null : (
+                    <span className="hidden shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium sm:inline-flex">
+                      <span
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: session.tracks[0].color }}
+                      />
+                      {session.tracks[0].name}
+                    </span>
+                  )}
+                </Link>
+              ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }
+
+// Pinned to the event timezone so SSR and the browser agree.
+const sessionSlot = (startsAt: string, timezone: string) => {
+  const start = new Date(startsAt);
+  const day = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    timeZone: timezone,
+  }).format(start);
+  const time = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: timezone,
+  }).format(start);
+  return `${day} · ${time}`;
+};
 
 // Format in the event's timezone so SSR and the browser agree.
 const formatRange = (startsAt: string, endsAt: string, timezone: string) => {
