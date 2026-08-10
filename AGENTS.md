@@ -39,6 +39,9 @@ Path mapping: older specs may say `src/server/*` / `src/db/*` — post-monorepo 
 
 ## UI rules
 
+- **Density: Vercel-grade, compact.** The reference feel is Vercel's dashboard — dense, quiet, information-first. Airy/Google-ish spacing is explicitly rejected by the user. Admin surfaces: `text-sm` (13–14px) body, compact row heights (~32–36px), tight paddings; whitespace is spent on grouping, never on inflation.
+- **Follow shadcn's official blocks EXACTLY for structural UI** (sidebar/shell, dashboard, login, tables): install the closest block via `pnpm dlx shadcn@latest add <block>` (e.g. `sidebar-07`, `dashboard-01`, `login-03`) and adapt content/routes — never invent a layout shadcn already ships. SidebarProvider/SidebarTrigger/SidebarInset composition, trigger placement in the header, collapse-to-icon behavior, full-width hover targets on menu rows: all exactly as the blocks do it.
+
 - Status colors come from the `--status-*` tokens (pending/maybe/accepted/declined/withdrawn). Semantic, never repurposed.
 - Session codes (`SESS-4`) render in mono with `tabular-nums`.
 - Motion doctrine (from Emil Kowalski's design-engineering skill — full text at `~/.agents/skills/emil-design-eng/SKILL.md`):
