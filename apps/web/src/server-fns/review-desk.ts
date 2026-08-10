@@ -8,12 +8,26 @@ import {
   type CsvColumn,
   type ReviewDeskListItem,
 } from "@opensesh/domain";
+import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { Forbidden } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
-import { ReviewDesk } from "@opensesh/domain/server/repos";
+import { Events, ReviewDesk } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
 import { runServer, runSessionServer } from "@/server/runtime";
+
+// Resolves the slug of the event being managed and verifies the signed-in
+// admin belongs to its organization — the session's default event slug is
+// wrong once the organizer switches events.
+const requireManagedEvent = Effect.fn("requireManagedEvent")(function* (eventId: string) {
+  const user = yield* getCurrentUser;
+  const events = yield* Events;
+  const event = yield* events.get(eventId);
+  if (!user.roles.admin || event.organizationId !== user.orgId)
+    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
+  return event;
+});
 
 export const getReviewDeskList = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(ReviewDeskListRequest))
@@ -64,9 +78,10 @@ export const changeSubmissionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
+        const event = yield* requireManagedEvent(data.eventId);
         const reviewDesk = yield* ReviewDesk;
         return yield* reviewDesk.changeStatus(
-          "ai-engineer-nyc-2026",
+          event.slug,
           data.eventId,
           data.submissionId,
           data.status,
@@ -81,9 +96,10 @@ export const decideSubmissions = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
+        const event = yield* requireManagedEvent(data.eventId);
         const reviewDesk = yield* ReviewDesk;
         const mail = yield* Mail;
-        const decision = yield* reviewDesk.decide("ai-engineer-nyc-2026", data);
+        const decision = yield* reviewDesk.decide(event.slug, data);
         yield* Effect.forEach(
           decision.deliveries,
           (delivery) => mail.sendLogged(delivery.logId, delivery.mail),

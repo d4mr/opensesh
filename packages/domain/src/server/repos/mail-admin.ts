@@ -66,10 +66,10 @@ const calendarRows = (database: Database, eventId: string) =>
       .innerJoin(rooms, eq(rooms.id, submissions.roomId))
       .innerJoin(
         submissionParticipants,
-        and(
-          eq(submissionParticipants.submissionId, submissions.id),
-          eq(submissionParticipants.role, "speaker"),
-        ),
+        // Participant roles are form-configured labels ("speaker",
+        // "Primary speaker", "Co-presenter"); every participant is a
+        // presenting speaker, so no role filter.
+        eq(submissionParticipants.submissionId, submissions.id),
       )
       .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
       .where(
@@ -279,12 +279,7 @@ export const MailAdminLive = Layer.effect(
                   .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
                   .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
                   .innerJoin(events, eq(events.id, submissions.eventId))
-                  .where(
-                    and(
-                      eq(submissions.eventId, eventId),
-                      eq(submissionParticipants.role, "speaker"),
-                    ),
-                  )
+                  .where(eq(submissions.eventId, eventId))
                   .execute(),
               ),
             ],
