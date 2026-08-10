@@ -48,6 +48,7 @@ function PublicEventIndex() {
           <Link
             to="/e/$eventSlug/sessions"
             params={{ eventSlug }}
+            search={{ q: undefined, track: undefined, format: undefined, room: undefined }}
             className="pressable rounded-lg border p-4 transition-colors hover:bg-muted/50"
           >
             <SquareStackIcon className="size-4 text-muted-foreground" />
@@ -57,6 +58,7 @@ function PublicEventIndex() {
           <Link
             to="/e/$eventSlug/speakers"
             params={{ eventSlug }}
+            search={{ q: undefined }}
             className="pressable rounded-lg border p-4 transition-colors hover:bg-muted/50"
           >
             <UsersIcon className="size-4 text-muted-foreground" />

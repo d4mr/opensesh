@@ -8,7 +8,10 @@ import {
 } from "@opensesh/domain";
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
-import { buildCalendarInvite } from "@opensesh/domain/server/mail/ics";
+import {
+  buildCalendarInvite,
+  buildPersonalScheduleCalendar,
+} from "@opensesh/domain/server/mail/ics";
 import { Events, Widgets } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
@@ -159,6 +162,45 @@ export const downloadPublicSessionIcs = createServerFn({ method: "GET" })
             description: session.description.replace(/<[^>]*>/g, ""),
             portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/sessions/${session.code}`,
             sequence: 0,
+          }),
+        };
+      }),
+    );
+  });
+
+export const downloadPersonalScheduleIcs = createServerFn({ method: "POST" })
+  .validator(
+    Schema.toStandardSchemaV1(
+      Schema.Struct({ eventSlug: Schema.String, sessionIds: Schema.Array(Schema.String) }),
+    ),
+  )
+  .handler(async ({ data }) => {
+    const request = getRequest();
+    return runServer(
+      Effect.gen(function* () {
+        const widgets = yield* Widgets;
+        const program = yield* widgets.publicProgram(data.eventSlug);
+        const selected = program.sessions.filter((session) => data.sessionIds.includes(session.id));
+        if (selected.length === 0)
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Select at least one session to export" }),
+          );
+        return {
+          filename: `${program.event.slug}-my-schedule.ics`,
+          content: buildPersonalScheduleCalendar({
+            name: `${program.event.name} — My Schedule`,
+            timezone: program.event.timezone,
+            events: selected.map((session) => ({
+              id: session.id,
+              title: session.title,
+              startsAt: new Date(session.startsAt),
+              endsAt: new Date(session.endsAt),
+              timezone: program.event.timezone,
+              room: session.roomName,
+              description: session.description.replace(/<[^>]*>/g, ""),
+              portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/sessions/${session.code}`,
+              sequence: 0,
+            })),
           }),
         };
       }),

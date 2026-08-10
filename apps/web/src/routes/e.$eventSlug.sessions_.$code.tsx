@@ -24,6 +24,7 @@ function Detail() {
       <Link
         to="/e/$eventSlug/sessions"
         params={{ eventSlug }}
+        search={{ q: undefined, track: undefined, format: undefined, room: undefined }}
         className="pressable mb-5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ChevronLeftIcon className="size-3.5" /> All sessions

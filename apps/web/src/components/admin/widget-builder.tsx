@@ -1,4 +1,10 @@
-import type { PublicProgram, Widget, WidgetOptions, WidgetView } from "@opensesh/domain";
+import {
+  publicDateKey,
+  type PublicProgram,
+  type Widget,
+  type WidgetOptions,
+  type WidgetView,
+} from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { CheckIcon, ChevronRightIcon, ClipboardIcon, Code2Icon, PlusIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -210,10 +216,10 @@ function WidgetEditor({
 }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(widget);
+  const [dayKeys, setDayKeys] = useState<ReadonlyArray<string>>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
-  const [preview, setPreview] = useState(0);
   const [codeOpen, setCodeOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"url" | "iframe" | null>(null);
   const initial = useRef(true);
   const save = useMutation({
     mutationFn: (value: Widget) =>
@@ -233,7 +239,6 @@ function WidgetEditor({
         return;
       }
       setSaveState("saved");
-      setPreview((value) => value + 1);
       await queryClient.invalidateQueries({ queryKey: widgetsQuery(widget.eventId).queryKey });
     },
     onError: () => setSaveState("error"),
@@ -249,10 +254,16 @@ function WidgetEditor({
   }, [draft]);
   const updateOptions = <K extends keyof WidgetOptions>(key: K, value: WidgetOptions[K]) =>
     setDraft((current) => ({ ...current, options: { ...current.options, [key]: value } }));
-  const code = useMemo(() => {
+  const outputs = useMemo(() => {
     const origin = typeof window === "undefined" ? "https://opensesh.io" : window.location.origin;
-    return `<iframe src="${origin}/embed/${widget.id}" title="${draft.name.replaceAll('"', "&quot;")}" width="100%" height="640" style="border:0" loading="lazy"></iframe>`;
-  }, [draft.name, widget.id]);
+    const params = widgetSearch(draft, dayKeys);
+    const url = `${origin}/embed/${widget.id}?${params.toString()}`;
+    return {
+      url,
+      previewUrl: `/embed/${widget.id}?${params.toString()}`,
+      iframe: `<iframe src="${url}" title="${draft.name.replaceAll('"', "&quot;")}" width="100%" height="640" style="border:0" loading="lazy"></iframe>`,
+    };
+  }, [dayKeys, draft, widget.id]);
   return (
     <main className="flex min-h-[calc(100svh-var(--header-height))] flex-col">
       <div className="flex h-11 items-center gap-2 border-b px-4">
@@ -303,6 +314,12 @@ function WidgetEditor({
               items={program.formats}
               selected={draft.options.formatIds}
               update={(value) => updateOptions("formatIds", value)}
+            />
+            <FilterOptions
+              label="Days"
+              items={programDays(program)}
+              selected={dayKeys}
+              update={setDayKeys}
             />
             <FilterOptions
               label="Tags"
@@ -421,11 +438,10 @@ function WidgetEditor({
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Live preview
             </p>
-            <p className="text-[11px] text-muted-foreground">Updates after save</p>
+            <p className="text-[11px] text-muted-foreground">Updates live</p>
           </div>
           <iframe
-            key={preview}
-            src={`/embed/${widget.id}?preview=${preview}`}
+            src={outputs.previewUrl}
             title={`${draft.name} preview`}
             className="h-[calc(100%-24px)] min-h-[520px] w-full rounded-lg border bg-background"
           />
@@ -441,32 +457,97 @@ function WidgetEditor({
           </Button>
         </div>
         {codeOpen ? (
-          <div className="mx-auto mt-3 flex max-w-5xl items-center gap-2">
-            <code className="min-w-0 flex-1 overflow-x-auto rounded-md border bg-muted/40 px-3 py-2 text-xs">
-              {code}
-            </code>
-            <Button
-              size="sm"
-              variant="outline"
-              className="pressable shrink-0"
-              onClick={async () => {
-                await navigator.clipboard.writeText(code);
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1500);
-              }}
-            >
-              {copied ? <CheckIcon /> : <ClipboardIcon />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-            <span className="w-12 text-xs text-muted-foreground" aria-live="polite">
-              {copied ? "Copied" : ""}
-            </span>
+          <div className="mx-auto mt-3 grid max-w-5xl gap-2 pb-14">
+            <OutputRow
+              label="Share URL"
+              value={outputs.url}
+              copied={copied === "url"}
+              onCopy={() => void copyOutput(outputs.url, "url", setCopied)}
+            />
+            <OutputRow
+              label="Iframe snippet"
+              value={outputs.iframe}
+              copied={copied === "iframe"}
+              onCopy={() => void copyOutput(outputs.iframe, "iframe", setCopied)}
+            />
           </div>
         ) : null}
       </footer>
     </main>
   );
 }
+
+function OutputRow({
+  label,
+  value,
+  copied,
+  onCopy,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly copied: boolean;
+  readonly onCopy: () => void;
+}) {
+  return (
+    <div className="grid gap-1 sm:grid-cols-[110px_1fr_auto] sm:items-center">
+      <span className="text-xs font-medium">{label}</span>
+      <code className="min-w-0 overflow-x-auto rounded-md border bg-muted/40 px-3 py-2 text-xs">
+        {value}
+      </code>
+      <Button size="sm" variant="outline" className="pressable shrink-0" onClick={onCopy}>
+        {copied ? <CheckIcon /> : <ClipboardIcon />}
+        {copied ? "Copied" : "Copy"}
+      </Button>
+    </div>
+  );
+}
+
+const copyOutput = async (
+  value: string,
+  key: "url" | "iframe",
+  setCopied: (value: "url" | "iframe" | null) => void,
+) => {
+  await navigator.clipboard.writeText(value);
+  setCopied(key);
+  window.setTimeout(() => setCopied(null), 1500);
+};
+
+const widgetSearch = (widget: Widget, dayKeys: ReadonlyArray<string>) => {
+  const params = new URLSearchParams();
+  const option = widget.options;
+  params.set("view", widget.view);
+  params.set("theme", option.theme);
+  params.set("color", option.primaryColor ?? "default");
+  params.set("time", option.dateFormat);
+  params.set("tracks", option.trackIds.join(","));
+  params.set("formats", option.formatIds.join(","));
+  params.set("days", dayKeys.join(","));
+  params.set("tags", option.tagIds.join(","));
+  params.set("company", option.showSpeakerCompany ? "1" : "0");
+  params.set("title", option.showSpeakerTitle ? "1" : "0");
+  params.set("bio", option.showSpeakerBio ? "1" : "0");
+  params.set("description", option.showSessionDescription ? "1" : "0");
+  params.set("level", option.showSessionLevel ? "1" : "0");
+  params.set("format", option.showSessionFormat ? "1" : "0");
+  params.set("calendar", option.showAddToCalendar ? "1" : "0");
+  return params;
+};
+
+const programDays = (program: PublicProgram) =>
+  Array.from(
+    new Map(
+      program.sessions.map((session) => {
+        const id = publicDateKey(session.startsAt, program.event.timezone);
+        const name = new Intl.DateTimeFormat("en-US", {
+          timeZone: program.event.timezone,
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        }).format(new Date(session.startsAt));
+        return [id, { id, name }] as const;
+      }),
+    ).values(),
+  );
 
 function Field({
   label,

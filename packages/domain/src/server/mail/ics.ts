@@ -64,3 +64,36 @@ export const buildCalendarInvite = (input: IcsEventInput) => {
   ];
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
 };
+
+export const buildPersonalScheduleCalendar = (input: {
+  readonly name: string;
+  readonly timezone: string;
+  readonly events: ReadonlyArray<IcsEventInput>;
+  readonly stamp?: Date;
+}) => {
+  const stamp = input.stamp ?? new Date();
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//opensesh.io//Personal Schedule//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    `X-WR-CALNAME:${escapeText(input.name)}`,
+    `X-WR-TIMEZONE:${escapeText(input.timezone)}`,
+    ...input.events.flatMap((event) => [
+      "BEGIN:VEVENT",
+      `UID:sess-${event.id}@opensesh.io`,
+      `DTSTAMP:${utc(event.stamp ?? stamp)}`,
+      `DTSTART:${utc(event.startsAt)}`,
+      `DTEND:${utc(event.endsAt)}`,
+      `SEQUENCE:${event.sequence}`,
+      `SUMMARY:${escapeText(event.title)}`,
+      `LOCATION:${escapeText(event.room)}`,
+      `DESCRIPTION:${escapeText(`${event.description}\n${event.portalUrl}`)}`,
+      "STATUS:CONFIRMED",
+      "END:VEVENT",
+    ]),
+    "END:VCALENDAR",
+  ];
+  return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
+};

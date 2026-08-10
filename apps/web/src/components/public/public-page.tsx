@@ -2,7 +2,7 @@ import type { WidgetView } from "@opensesh/domain";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { PrinterIcon } from "lucide-react";
 
-import { ProgramView } from "@/components/public/program-views";
+import { ProgramView, type SessionListState } from "@/components/public/program-views";
 import { Button } from "@/components/ui/button";
 import { publicProgramQuery } from "@/lib/widget-queries";
 
@@ -23,9 +23,17 @@ const copy: Readonly<Record<WidgetView, { title: string; subtitle: string }>> = 
 export function PublicPage({
   eventSlug,
   view,
+  sessionState,
+  onSessionStateChange,
+  speakerSearch,
+  onSpeakerSearchChange,
 }: {
   readonly eventSlug: string;
   readonly view: WidgetView;
+  readonly sessionState?: SessionListState;
+  readonly onSessionStateChange?: (state: SessionListState) => void;
+  readonly speakerSearch?: string;
+  readonly onSpeakerSearchChange?: (value: string) => void;
 }) {
   const program = useSuspenseQuery(publicProgramQuery(eventSlug));
   if (!program.data.ok) return <p className="p-6 text-sm">{program.data.error.message}</p>;
@@ -63,7 +71,15 @@ export function PublicPage({
           </Button>
         ) : null}
       </div>
-      <ProgramView view={view} program={program.data.data} sessionControls={view === "sessions"} />
+      <ProgramView
+        view={view}
+        program={program.data.data}
+        sessionControls={view === "sessions"}
+        sessionState={sessionState}
+        onSessionStateChange={onSessionStateChange}
+        speakerSearch={speakerSearch}
+        onSpeakerSearchChange={onSpeakerSearchChange}
+      />
     </main>
   );
 }
