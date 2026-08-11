@@ -1,6 +1,6 @@
 import { ArrowRightIcon } from "lucide-react";
 
-import { demoHref, GITHUB_URL } from "../config";
+import { APP_URL, demoHref, GITHUB_URL } from "../config";
 import { Breakout, ButtonLink, GithubIcon, Overline } from "./ui";
 
 export function Hero() {
@@ -34,13 +34,16 @@ export function Hero() {
                 Explore the live demo
                 <ArrowRightIcon className="size-4" aria-hidden="true" />
               </ButtonLink>
+              <ButtonLink href={`${APP_URL}/signup`} variant="outline" size="lg">
+                Start your own event
+              </ButtonLink>
               <ButtonLink href={GITHUB_URL} variant="outline" size="lg" external>
                 <GithubIcon className="size-4" />
                 View source
               </ButtonLink>
             </div>
             <p className="mt-5 text-xs text-muted-foreground">
-              No signup. Jump in as{" "}
+              No signup needed for the demo. Jump in as{" "}
               <a
                 href={demoHref("organizer")}
                 className="underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
