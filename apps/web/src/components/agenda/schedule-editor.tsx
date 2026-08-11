@@ -27,7 +27,14 @@ import {
   zonedDateTimeIso,
 } from "./date-utils";
 
-const durations = [15, 30, 45, 60, 75, 90, 105, 120, 150, 180];
+const gridDurations = [15, 30, 45, 60, 75, 90, 105, 120, 150, 180];
+
+// The session's format can define any length (10-minute lightning talks), so
+// the picker always offers the session's own duration alongside grid steps.
+const durationChoices = (session: AgendaSession, current: number) =>
+  Array.from(new Set([...gridDurations, session.durationMinutes, current]))
+    .filter((minutes) => Number.isFinite(minutes) && minutes > 0)
+    .sort((first, second) => first - second);
 
 export function ScheduleEditor({
   agenda,
@@ -189,7 +196,7 @@ export function ScheduleEditor({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {durations.map((minutes) => (
+                  {durationChoices(session, duration).map((minutes) => (
                     <SelectItem key={minutes} value={String(minutes)}>
                       {minutes} minutes
                     </SelectItem>

@@ -248,3 +248,14 @@ morning deploy — everything here ships in the next deploy.
   title/company/bio onto the existing sparse event contact. V2-026 needs no further product
   change: sparse CSV now provably cannot erase, and low readiness from truly-absent data is the
   rubric's own expectation.
+- Aug 12 — V2-018 10-minute lightning scheduling (screenshot-verified): the 15-minute rule was
+  enforced twice — the popover's static duration list had no 10 (blank SelectValue), and domain
+  validateScheduleChange rejected non-15 durations AND non-15 end minutes. Resolution follows
+  calendar convention: starts stay snapped to the 15-minute planning grid; durations belong to
+  the session's format in 5-minute steps, so end times may sit off-grid (validation now checks
+  duration % 5 and end minute % 5, start still % 15). The popover duration list is the union of
+  grid steps + the session's own durationMinutes + its current value. The rooms grid already
+  renders proportionally and the AI solver already emits start+trueDuration, so both are
+  consistent with the relaxed rule. Verified: accepted DevFlow SESS-4 (Lightning, 10 min) →
+  popover preselects "10 minutes" → saved May 12 9:00–9:10 Main Stage (DB 10.0 minutes) →
+  rooms grid renders the partial-height block.

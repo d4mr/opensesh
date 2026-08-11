@@ -51,7 +51,10 @@ export const validateScheduleChange = (
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
     return "End time must be after start time";
   }
-  if ((end - start) % (15 * 60_000) !== 0) return "Duration must use 15-minute increments";
+  // Starts snap to the 15-minute planning grid, but durations belong to the
+  // session's format — a 10-minute lightning talk must schedule as 10 minutes,
+  // so durations (and therefore end times) align to 5 minutes instead.
+  if ((end - start) % (5 * 60_000) !== 0) return "Duration must use 5-minute increments";
 
   const startParts = zonedParts(change.startsAt, context.timezone);
   const endParts = zonedParts(change.endsAt, context.timezone);
@@ -68,11 +71,11 @@ export const validateScheduleChange = (
     startParts.second !== 0 ||
     endParts.second !== 0 ||
     startParts.minute % 15 !== 0 ||
-    endParts.minute % 15 !== 0 ||
+    endParts.minute % 5 !== 0 ||
     startMinutes < 8 * 60 ||
     endMinutes > 19 * 60
   ) {
-    return "Use 15-minute times between 8:00 AM and 7:00 PM";
+    return "Start on a 15-minute mark between 8:00 AM and 7:00 PM";
   }
   return null;
 };
