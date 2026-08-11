@@ -188,6 +188,8 @@ function Facet({
   );
 }
 
+const sessionCount = (count: number) => `${count} ${count === 1 ? "session" : "sessions"}`;
+
 function usePersonalSchedule(program: PublicProgram) {
   const storageKey = `opensesh-my-schedule:${program.event.id}`;
   const [selectedIds, setSelectedIds] = useState<ReadonlyArray<string>>([]);
@@ -291,7 +293,7 @@ export function SessionList({
               />
             </div>
             <p className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
-              {sessions.length} of {base.length} sessions
+              {sessions.length} of {sessionCount(base.length)}
             </p>
           </div>
           <Facet
@@ -329,7 +331,9 @@ export function SessionList({
         </div>
       ) : null}
       {!controls ? (
-        <p className="text-xs text-muted-foreground tabular-nums">{sessions.length} sessions</p>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {sessionCount(sessions.length)}
+        </p>
       ) : null}
       <div className="divide-y overflow-hidden rounded-lg border bg-card">
         {sessions.length === 0 ? (
@@ -912,7 +916,17 @@ export function Itinerary({
   readonly options?: WidgetOptions;
 }) {
   const schedule = usePersonalSchedule(program);
-  const [mineOnly, setMineOnly] = useState(false);
+  // Persisted per event so a remount (embed reload, navigation) never silently
+  // bounces the visitor from My Schedule back to All sessions.
+  const viewKey = `opensesh-itinerary-view:${program.event.id}`;
+  const [mineOnly, setMineOnlyState] = useState(false);
+  useEffect(() => {
+    setMineOnlyState(window.sessionStorage.getItem(viewKey) === "mine");
+  }, [viewKey]);
+  const setMineOnly = (value: boolean) => {
+    setMineOnlyState(value);
+    window.sessionStorage.setItem(viewKey, value ? "mine" : "all");
+  };
   const [expanded, setExpanded] = useState<ReadonlyArray<string>>([]);
   const base = filterPublicProgram(program, options).sessions;
   const sessions = mineOnly
@@ -958,7 +972,9 @@ export function Itinerary({
           </Button>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground tabular-nums">{sessions.length} sessions</p>
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {sessionCount(sessions.length)}
+        </p>
       )}
       {sessions.length === 0 ? (
         <div className="rounded-lg border px-4 py-10 text-center">

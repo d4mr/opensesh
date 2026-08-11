@@ -212,7 +212,10 @@ export function PipelineBoard({
           onOpenChange={setManageOpen}
           stages={workspace.pipeline.columns.map((column) => column.stage)}
         />
-        <AddCardDialog open={addOpen} onOpenChange={setAddOpen} workspace={workspace} />
+        {/* Mounted on demand so contact/stage state re-seeds from the fresh
+            directory each open — a stale contactId from a prior add would
+            silently re-enroll (and move) the previous contact. */}
+        {addOpen ? <AddCardDialog open onOpenChange={setAddOpen} workspace={workspace} /> : null}
       </section>
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.23, 1, 0.32, 1)" }}>
         {activeCard === null ? null : <PipelineCardPreview row={activeCard} />}

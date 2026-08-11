@@ -32,4 +32,5 @@
   // Worker there deterministically, so query round trips stay ~1-5ms for
   // every visitor instead of tracking visitor geography.
   "placement": { "region": "aws:us-east-1" },
+  "observability": { "enabled": true },
 }

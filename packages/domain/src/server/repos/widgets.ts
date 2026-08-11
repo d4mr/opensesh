@@ -90,6 +90,7 @@ const normalizeOptions = (value: Readonly<Record<string, unknown>>): WidgetOptio
   trackIds: strings(value.trackIds),
   formatIds: strings(value.formatIds),
   tagIds: strings(value.tagIds),
+  dayKeys: strings(value.dayKeys),
   theme:
     value.theme === "light" || value.theme === "dark" || value.theme === "auto"
       ? value.theme

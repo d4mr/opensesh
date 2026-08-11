@@ -9,9 +9,9 @@ import {
 } from "@opensesh/domain/server/current-user";
 import { Db, makeDatabase } from "@opensesh/domain/server/db";
 import { makeRepositoriesLiveWith, type RepositoryServices } from "@opensesh/domain/server/repos";
-import { type AppError, toServerResult } from "@opensesh/domain/server/runtime";
+import { type AppError, type ServerResult, toServerResult } from "@opensesh/domain/server/runtime";
 import { Mail } from "@opensesh/domain/server/mail";
-import { getRequest } from "@tanstack/react-start/server";
+import { getRequest, setResponseStatus } from "@tanstack/react-start/server";
 import { ConfigProvider, Effect, Layer, ManagedRuntime } from "effect";
 
 import { makeAuth } from "@/lib/auth";
@@ -90,6 +90,17 @@ const requestRuntime = async (): Promise<AppRuntime> => {
   return runtime;
 };
 
+// Reflect typed failures in the HTTP status — but only on the /_serverFn RPC
+// path. During SSR these same handlers run in-process and share the document's
+// h3 event, and loaders deliberately read 401/428 from the ENVELOPE as
+// redirect signals; stamping the document response would break those pages.
+const withStatus = <A>(result: ServerResult<A>): ServerResult<A> => {
+  if (!result.ok && new URL(getRequest().url).pathname.startsWith("/_serverFn")) {
+    setResponseStatus(result.error.status);
+  }
+  return result;
+};
+
 export const runSessionServer = async <A, E extends AppError>(
   program: (session: SessionIdentity, eventSlug: string) => Effect.Effect<A, E, RepositoryServices>,
 ) => {
@@ -110,7 +121,7 @@ export const runSessionServer = async <A, E extends AppError>(
       user.eventSlug,
     );
   });
-  return await runtime.runPromise(toServerResult(secured));
+  return withStatus(await runtime.runPromise(toServerResult(secured)));
 };
 
 export const runServer = async <A, E extends AppError>(
@@ -123,5 +134,5 @@ export const runServer = async <A, E extends AppError>(
       ? program
       : requireCurrentUser(options.require).pipe(Effect.andThen(program));
 
-  return await runtime.runPromise(toServerResult(secured));
+  return withStatus(await runtime.runPromise(toServerResult(secured)));
 };

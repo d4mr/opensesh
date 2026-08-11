@@ -1,5 +1,6 @@
 import type { DemoPersonaEmail } from "@opensesh/domain/server/schema/auth";
 import { useQuery } from "@tanstack/react-query";
+import { useRouterState } from "@tanstack/react-router";
 import { KeyRoundIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,14 +29,21 @@ const personas = [
 }>;
 
 export function DemoRoleSwitcher() {
-  const demoMode = useQuery({ queryKey: ["demo-mode"], queryFn: () => getDemoMode() });
+  // Embeds render inside customers' sites — demo chrome must never ship there.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const embedded = pathname.startsWith("/embed");
+  const demoMode = useQuery({
+    queryKey: ["demo-mode"],
+    queryFn: () => getDemoMode(),
+    enabled: !embedded,
+  });
   const [switching, setSwitching] = useState(false);
   // The demo-mode query streams into the cache during SSR, so gating on it
   // directly would make the first client render diverge from the server HTML.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (!mounted || demoMode.data !== true) {
+  if (embedded || !mounted || demoMode.data !== true) {
     return null;
   }
 

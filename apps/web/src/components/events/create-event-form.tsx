@@ -1,6 +1,6 @@
 import type { EventType } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { TimezoneCombobox } from "@/components/forms/timezone-combobox";
@@ -18,7 +18,21 @@ import { createEvent } from "@/server-fns/admin";
 
 const tomorrow = () => new Date(Date.now() + 86_400_000);
 
-export function CreateEventForm({
+// The defaults below read the clock and the browser timezone, which SSR (UTC
+// workerd) and the client disagree on — a live hydration-mismatch source when
+// this form renders in the zero-events empty state. Mount-gate it: SSR and the
+// first client render both paint nothing, then the real form lands pre-paint.
+export function CreateEventForm(props: {
+  readonly onCreated: (eventId: string) => Promise<void>;
+  readonly onCancel?: () => void;
+  readonly submitLabel?: string;
+}) {
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => setReady(true), []);
+  return ready ? <CreateEventFormInner {...props} /> : null;
+}
+
+function CreateEventFormInner({
   onCreated,
   onCancel,
   submitLabel = "Create event",

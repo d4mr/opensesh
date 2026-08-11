@@ -10,10 +10,19 @@ import { CheckIcon, ChevronRightIcon, ClipboardIcon, Code2Icon, PlusIcon } from 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { EditorHeader } from "@/components/app/editor-header";
 import { Timestamp } from "@/components/app/timestamp";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -92,14 +101,7 @@ function WidgetData({
   if (!program.data.ok) return <p className="p-6 text-sm">{program.data.error.message}</p>;
   const selected = widgets.data.data.find((widget) => widget.id === selectedId);
   if (selected !== undefined)
-    return (
-      <WidgetEditor
-        key={selected.id}
-        widget={selected}
-        program={program.data.data}
-        close={() => select()}
-      />
-    );
+    return <WidgetEditor key={selected.id} widget={selected} program={program.data.data} />;
   return (
     <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
       <div className="flex shrink-0 items-start justify-between gap-3">
@@ -231,15 +233,12 @@ function WidgetRow({
 function WidgetEditor({
   widget,
   program,
-  close,
 }: {
   readonly widget: Widget;
   readonly program: PublicProgram;
-  readonly close: () => void;
 }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(widget);
-  const [dayKeys, setDayKeys] = useState<ReadonlyArray<string>>([]);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [codeOpen, setCodeOpen] = useState(false);
   const [copied, setCopied] = useState<"url" | "iframe" | null>(null);
@@ -266,41 +265,86 @@ function WidgetEditor({
     },
     onError: () => setSaveState("error"),
   });
+  // Debounced autosave with an unmount flush: closing the editor within the
+  // debounce window must not silently drop the last change.
+  const pending = useRef<{ timer: number; draft: Widget } | null>(null);
+  const flush = useRef(save.mutate);
+  flush.current = save.mutate;
   useEffect(() => {
     if (initial.current) {
       initial.current = false;
       return;
     }
     setSaveState("saving");
-    const timer = window.setTimeout(() => save.mutate(draft), 400);
+    const timer = window.setTimeout(() => {
+      pending.current = null;
+      save.mutate(draft);
+    }, 400);
+    pending.current = { timer, draft };
     return () => window.clearTimeout(timer);
   }, [draft]);
+  useEffect(
+    () => () => {
+      if (pending.current !== null) flush.current(pending.current.draft);
+    },
+    [],
+  );
   const updateOptions = <K extends keyof WidgetOptions>(key: K, value: WidgetOptions[K]) =>
     setDraft((current) => ({ ...current, options: { ...current.options, [key]: value } }));
   const outputs = useMemo(() => {
     const origin = typeof window === "undefined" ? "https://opensesh.io" : window.location.origin;
-    const params = widgetSearch(draft, dayKeys);
+    const params = widgetSearch(draft);
     const url = `${origin}/embed/${widget.id}?${params.toString()}`;
     return {
       url,
       previewUrl: `/embed/${widget.id}?${params.toString()}`,
       iframe: `<iframe src="${url}" title="${draft.name.replaceAll('"', "&quot;")}" width="100%" height="640" style="border:0" loading="lazy"></iframe>`,
     };
-  }, [dayKeys, draft, widget.id]);
+  }, [draft, widget.id]);
   return (
-    <main className="flex min-h-[calc(100svh-var(--header-height))] flex-col">
-      <div className="flex h-11 items-center gap-2 border-b px-4">
-        <Button size="sm" variant="ghost" className="pressable -ml-2" onClick={close}>
-          Widgets
-        </Button>
-        <ChevronRightIcon className="size-3.5 text-muted-foreground" />
-        <p className="truncate text-sm font-medium">{draft.name}</p>
-        <p className="ml-auto text-xs text-muted-foreground" aria-live="polite">
-          {saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save" : "Saved"}
-        </p>
-      </div>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col">
+      <EditorHeader
+        backTo="/admin/widgets"
+        backLabel="Widgets"
+        title={draft.name}
+        subtitle={
+          <span aria-live="polite">
+            {saveState === "saving" ? "Saving…" : saveState === "error" ? "Couldn't save" : "Saved"}
+          </span>
+        }
+      >
+        <Dialog open={codeOpen} onOpenChange={setCodeOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="pressable">
+              <Code2Icon /> Get code
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Embed this widget</DialogTitle>
+              <DialogDescription>
+                Both outputs use live published data — no rebuilds needed after program changes.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <OutputRow
+                label="Share URL"
+                value={outputs.url}
+                copied={copied === "url"}
+                onCopy={() => void copyOutput(outputs.url, "url", setCopied)}
+              />
+              <OutputRow
+                label="Iframe snippet"
+                value={outputs.iframe}
+                copied={copied === "iframe"}
+                onCopy={() => void copyOutput(outputs.iframe, "iframe", setCopied)}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </EditorHeader>
       <div className="grid min-h-0 flex-1 lg:grid-cols-[360px_1fr]">
-        <div className="grid content-start gap-5 overflow-y-auto border-r p-4">
+        <div className="grid min-w-0 content-start gap-5 overflow-y-auto border-r p-4">
           <Field label="Name">
             <Input
               value={draft.name}
@@ -341,8 +385,8 @@ function WidgetEditor({
             <FilterOptions
               label="Days"
               items={programDays(program)}
-              selected={dayKeys}
-              update={setDayKeys}
+              selected={draft.options.dayKeys}
+              update={(value) => updateOptions("dayKeys", value)}
             />
             <FilterOptions
               label="Tags"
@@ -456,8 +500,8 @@ function WidgetEditor({
             />
           </div>
         </div>
-        <div className="min-h-[560px] bg-muted/30 p-4">
-          <div className="mb-2 flex items-center justify-between">
+        <div className="flex min-h-0 min-w-0 flex-col bg-muted/30 p-4">
+          <div className="mb-2 flex shrink-0 items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Live preview
             </p>
@@ -466,36 +510,10 @@ function WidgetEditor({
           <iframe
             src={outputs.previewUrl}
             title={`${draft.name} preview`}
-            className="h-[calc(100%-24px)] min-h-[520px] w-full rounded-lg border bg-background"
+            className="min-h-0 w-full flex-1 rounded-lg border bg-background"
           />
         </div>
       </div>
-      <footer className="border-t bg-background p-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            Embed changes use live published data immediately.
-          </p>
-          <Button size="sm" className="pressable" onClick={() => setCodeOpen((value) => !value)}>
-            <Code2Icon /> Get code
-          </Button>
-        </div>
-        {codeOpen ? (
-          <div className="mx-auto mt-3 grid max-w-5xl gap-2 pb-14">
-            <OutputRow
-              label="Share URL"
-              value={outputs.url}
-              copied={copied === "url"}
-              onCopy={() => void copyOutput(outputs.url, "url", setCopied)}
-            />
-            <OutputRow
-              label="Iframe snippet"
-              value={outputs.iframe}
-              copied={copied === "iframe"}
-              onCopy={() => void copyOutput(outputs.iframe, "iframe", setCopied)}
-            />
-          </div>
-        ) : null}
-      </footer>
     </main>
   );
 }
@@ -535,7 +553,7 @@ const copyOutput = async (
   window.setTimeout(() => setCopied(null), 1500);
 };
 
-const widgetSearch = (widget: Widget, dayKeys: ReadonlyArray<string>) => {
+const widgetSearch = (widget: Widget) => {
   const params = new URLSearchParams();
   const option = widget.options;
   params.set("view", widget.view);
@@ -544,7 +562,7 @@ const widgetSearch = (widget: Widget, dayKeys: ReadonlyArray<string>) => {
   params.set("time", option.dateFormat);
   params.set("tracks", option.trackIds.join(","));
   params.set("formats", option.formatIds.join(","));
-  params.set("days", dayKeys.join(","));
+  params.set("days", option.dayKeys.join(","));
   params.set("tags", option.tagIds.join(","));
   params.set("company", option.showSpeakerCompany ? "1" : "0");
   params.set("title", option.showSpeakerTitle ? "1" : "0");

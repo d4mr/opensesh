@@ -29,6 +29,7 @@ function EmbedRoute() {
   const options: WidgetOptions = {
     ...widget.options,
     ...(search.tracks === undefined ? {} : { trackIds: search.tracks }),
+    ...(search.days === undefined ? {} : { dayKeys: search.days }),
     ...(search.formats === undefined ? {} : { formatIds: search.formats }),
     ...(search.tags === undefined ? {} : { tagIds: search.tags }),
     ...(search.theme === undefined ? {} : { theme: search.theme }),
@@ -43,13 +44,13 @@ function EmbedRoute() {
     ...(search.calendar === undefined ? {} : { showAddToCalendar: search.calendar }),
   };
   const displayProgram =
-    search.days === undefined
+    options.dayKeys.length === 0
       ? program
       : {
           ...program,
           sessions: filterPublicSessions(program.sessions, {
             timezone: program.event.timezone,
-            dayKeys: search.days,
+            dayKeys: options.dayKeys,
           }),
         };
   const resolvedTheme = options.theme;

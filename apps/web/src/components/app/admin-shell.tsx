@@ -22,7 +22,7 @@ import {
   ContactRoundIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AdminEventContext } from "@/components/app/admin-event-context";
@@ -99,6 +99,13 @@ export function AdminShell({
   readonly user: CurrentUserValue;
 }) {
   const [commandOpen, setCommandOpen] = useState(false);
+  // SSR can't see document.cookie, so both server HTML and the first client
+  // render assume open; the stored preference applies pre-paint (no flash,
+  // no hydration mismatch — this was a live React #418 source in prod).
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  useLayoutEffect(() => {
+    if (!readSidebarOpen()) setSidebarOpen(false);
+  }, []);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const portal = useQuery({ ...adminPortalQuery(event.id), enabled: user.roles.admin });
@@ -182,7 +189,8 @@ export function AdminShell({
   return (
     <AdminEventContext.Provider value={{ event, events, selectEvent, eventCreated }}>
       <SidebarProvider
-        defaultOpen={readSidebarOpen()}
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
         style={
           {
             "--sidebar-width": "calc(var(--spacing) * 72)",
