@@ -160,7 +160,7 @@ function SectionHeader({
   readonly description: string;
 }) {
   return (
-    <header className="mb-2 border-b pb-4">
+    <header className="mb-5">
       <h2 className="text-base font-semibold tracking-tight">{title}</h2>
       <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>
     </header>
@@ -177,7 +177,7 @@ function SettingRow({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-14 items-center justify-between gap-6 py-3">
+    <div className="flex min-h-12 items-center justify-between gap-6 py-2.5">
       <div className="min-w-0">
         <p className="text-sm font-medium">{label}</p>
         {hint === undefined ? null : <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
@@ -280,7 +280,7 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
             : "Your organization's identity across every event. Only an owner can edit it."
         }
       />
-      <div className="divide-y">
+      <div className="rounded-xl bg-muted/40 px-4 py-1">
         <SettingRow label="Logo" hint="PNG, JPG, or SVG · 2 MB max · drop a file on the tile">
           <label
             aria-label="Upload organization logo"
@@ -339,7 +339,7 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
         <form.Subscribe selector={(state) => [state.isSubmitting, state.isDirty] as const}>
           {([submitting, dirty]) =>
             dirty || logoFile !== null ? (
-              <div className="flex items-center justify-end gap-2 border-t pt-4">
+              <div className="mt-4 flex items-center justify-end gap-2">
                 {logoFile === null ? null : (
                   <span className="truncate text-xs text-muted-foreground">{logoFile.name}</span>
                 )}
@@ -375,7 +375,7 @@ function MembersSection({ settings }: { readonly settings: OrganizationSettings 
         title="Members"
         description={`${settings.members.length} ${settings.members.length === 1 ? "person" : "people"} in ${settings.organization.name}. Owners control the organization; admins manage non-owner members.`}
       />
-      <div className="divide-y">
+      <div>
         {settings.members.map((member) => (
           <MemberRow key={member.id} member={member} settings={settings} />
         ))}
@@ -402,7 +402,7 @@ function InvitationsSection({ settings }: { readonly settings: OrganizationSetti
           </p>
         </div>
       ) : (
-        <div className="divide-y">
+        <div>
           {settings.invitations.map((invitation) => (
             <InvitationRow key={invitation.id} invitation={invitation} settings={settings} />
           ))}
@@ -509,7 +509,7 @@ function MemberRow({
   });
 
   return (
-    <div className="group/member flex min-h-12 items-center gap-3 py-2">
+    <div className="group/member -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
       <Avatar className="size-7">
         {member.image === null ? null : <AvatarImage src={member.image} alt="" />}
         <AvatarFallback className="text-[11px]">{initials(member.name)}</AvatarFallback>
@@ -619,7 +619,7 @@ function InvitationRow({
   });
 
   return (
-    <div className="group/invitation flex min-h-12 items-center gap-3 py-2">
+    <div className="group/invitation -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{invitation.email}</p>
         <p className="text-xs text-muted-foreground">
