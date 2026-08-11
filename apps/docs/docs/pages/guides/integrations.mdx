@@ -1,0 +1,33 @@
+# Integrations
+
+opensesh integrates with **Accelevents**, importing speakers and attendees from an Accelevents event into your organization's [Speaker CRM](/guides/speakers). The import is strictly one-way: opensesh reads from Accelevents and **nothing is ever written back**.
+
+## Connect
+
+Go to **Event Settings → Integrations → Accelevents** and fill in:
+
+- **Accelevents event URL slug** — the event identifier from your Accelevents URL.
+- **API key** — your Accelevents API key.
+- **Also import attendees as CRM contacts** — optional toggle; without it only speakers are imported.
+
+Click **Connect** (or **Update connection** if one exists). No Accelevents account handy? **Use demo connection** wires up bundled sample data so you can watch the full sync flow end to end before touching a real event.
+
+## Sync
+
+Click **Sync now** to run an import. What happens:
+
+- **Speakers** land in the Speaker CRM with full profiles — name, title, company, bio — and are linked to the current event, so they show up both in the CRM **Directory** and in the event's context.
+- **Attendees** (if the toggle is on) become CRM contacts tagged **"Accelevents attendee"**. That tag is the handle for targeting them later — build a Segment on it and run a "speak at our next event?" campaign from [Communications](/guides/email).
+
+Imports are idempotent. Re-syncing dedupes against existing contacts (by email, the same rule as CSV import), so running **Sync now** repeatedly updates rather than duplicates. After each run a **sync report** shows exactly what happened: how many records were **created**, **updated**, and **skipped**.
+
+## Why one-way?
+
+The CRM is designed to be a superset of any single event tool: contacts accumulate tags, pipeline stages, and event history across years. Writing back to Accelevents would make it a sync problem; reading only keeps the integration safe to run any time — worst case, a sync is a no-op.
+
+## Practical recipe
+
+1. Connect with your slug + API key (or the demo connection).
+2. Enable attendee import, **Sync now**, and read the report.
+3. In the CRM, create a Segment for the `Accelevents attendee` tag.
+4. Campaign to that segment when your next CFP opens — attendees at the last event are the warmest speaker pipeline you have.

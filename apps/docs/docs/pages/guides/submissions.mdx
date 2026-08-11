@@ -1,0 +1,36 @@
+# Submissions & review desk
+
+**Submissions** (`/admin/abstracts`) is the triage desk for everything the CFP brings in: filter, review, decide, and notify — all from one table.
+
+## The table
+
+Each row shows **Status, Code, Title, Tracks, Format, Speakers, Rating, Reviews, Source, Submitted, Notified**. The Rating and Reviews columns roll up scores from [Evaluation](/guides/evaluation), so you can sort by how reviewers actually scored things.
+
+Submission statuses are: `draft`, `pending`, `maybe`, `accepted`, `declined`, `withdrawn`. Status chips across the top — **Pending, Maybe, Accepted, Declined, Withdrawn, Drafts** — act as one-click filters, alongside a "Search abstracts…" box and Track / Format / Tag filters bound to the event library.
+
+## Making decisions
+
+Open a submission and choose accept or decline. The decision dialog does more than flip a status:
+
+- It composes a **decision email preview** addressed to the submitter, with an editable feedback section prefilled from up to three reviewer comments. Edit freely before sending.
+- The confirm buttons are explicit: **Accept and send** / **Decline and send**.
+- Re-deciding an already-decided submission asks for confirmation first, so you don't accidentally re-notify someone.
+
+Accepting a submission *graduates* it: a session is created and appears on the [Sessions desk](/guides/sessions), and speaker onboarding tasks are assigned. The **Notified** column tracks whether the decision email actually went out.
+
+## Bulk actions and export
+
+Select multiple rows to **Accept**, **Decline**, or **Export selection** in one go. Bulk decisions show a toast with **Undo** so a mis-click is recoverable.
+
+**Export CSV** exports the current filtered view — statuses, library fields, speakers, ratings — for spreadsheets or hand-off to other tools. Decided rows stay in results and exports; deciding never hides data.
+
+## Where submissions come from
+
+The **Source** column distinguishes CFP submissions from ones added by admins directly. Withdrawn submissions keep their history but drop out of the default working set.
+
+## A typical week of triage
+
+1. Filter to **Pending**, sort by Rating once reviews are in.
+2. Move borderline talks to `maybe` to keep the pending queue honest.
+3. Batch-accept the clear yeses; personalize feedback in the decision dialog for the rest.
+4. Watch **Notified** to confirm every decision email landed — failures are retryable from the [Email delivery page](/guides/email).

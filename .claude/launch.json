@@ -22,6 +22,18 @@
       "autoPort": true
     },
     {
+      "name": "docs-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5280",
+        "--directory",
+        "apps/docs/dist/public"
+      ],
+      "port": 5280
+    },
+    {
       "name": "wp5-integration-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

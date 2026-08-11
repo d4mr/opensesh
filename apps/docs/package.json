@@ -1,0 +1,23 @@
+{
+  "name": "@opensesh/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vocs dev",
+    "build": "vocs build",
+    "preview": "vocs preview",
+    "deploy": "vocs build && wrangler deploy"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vocs": "^2.8.5",
+    "waku": "1.0.0-beta.9"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^6.0.2",
+    "wrangler": "^4.70.0"
+  }
+}

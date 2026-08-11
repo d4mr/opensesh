@@ -3,10 +3,12 @@ packages:
   - packages/*
 
 allowBuilds:
+  es5-ext: false
   esbuild: true
   lightningcss: true
   msgpackr-extract: true
   sharp: true
+  vue-demi: false
   workerd: true
 onlyBuiltDependencies:
   - esbuild
