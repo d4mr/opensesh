@@ -293,20 +293,28 @@ function FormEditor({
   return (
     <main className="flex-1 p-4 text-sm lg:p-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <Button variant="link" className="h-auto p-0 text-muted-foreground" asChild>
+        <div className="flex min-w-0 items-start gap-1.5">
+          {/* -ml-2 cancels the ghost button's inner inset so the arrow
+              glyph sits exactly on the content column's left edge. */}
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="-ml-2 text-muted-foreground"
+            aria-label="Back to forms"
+            asChild
+          >
             <Link to="/admin/forms">
-              <ArrowLeftIcon /> Back to forms
+              <ArrowLeftIcon />
             </Link>
           </Button>
-          <form.Subscribe selector={(state) => state.values.internalName}>
-            {(internalName) => (
-              <h1 className="mt-1.5 truncate text-lg font-semibold tracking-tight">
-                {internalName}
-              </h1>
-            )}
-          </form.Subscribe>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">Submission form</p>
+          <div className="min-w-0">
+            <form.Subscribe selector={(state) => state.values.internalName}>
+              {(internalName) => (
+                <h1 className="truncate text-lg font-semibold tracking-tight">{internalName}</h1>
+              )}
+            </form.Subscribe>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">Submission form</p>
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
           <SaveStatus state={saveState} retry={() => void persist()} />
