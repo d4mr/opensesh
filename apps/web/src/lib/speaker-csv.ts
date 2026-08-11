@@ -78,14 +78,17 @@ export const parseSpeakerCsv = (text: string, existingEmails: ReadonlySet<string
   const rows = cells.slice(1).map((values, index) => {
     const valueFor = (field: (typeof indexedMapping)[number]["field"]) => {
       const match = indexedMapping.find((item) => item.field === field);
-      return match === undefined ? "" : (values[match.index]?.trim() ?? "");
+      return match === undefined ? undefined : (values[match.index]?.trim() ?? "");
     };
-    const fullName = valueFor("name").split(/\s+/).filter(Boolean);
+    const fullName = (valueFor("name") ?? "").split(/\s+/).filter(Boolean);
     const firstName = valueFor("firstName") || fullName[0] || "";
     const lastName = valueFor("lastName") || fullName.slice(1).join(" ");
-    const email = valueFor("email").toLowerCase();
+    const email = (valueFor("email") ?? "").toLowerCase();
     const matched = existingEmails.has(email);
-    const nullable = (field: (typeof indexedMapping)[number]["field"]) => valueFor(field) || null;
+    const nullable = (field: (typeof indexedMapping)[number]["field"]) => {
+      const value = valueFor(field);
+      return value === undefined ? undefined : value || null;
+    };
     const row: SpeakerCsvRow = {
       firstName,
       lastName,
@@ -93,7 +96,7 @@ export const parseSpeakerCsv = (text: string, existingEmails: ReadonlySet<string
       title: nullable("title"),
       company: nullable("company"),
       bio: nullable("bio"),
-      dietary: valueFor("dietary") || "none",
+      dietary: valueFor("dietary"),
       tshirt: nullable("tshirt"),
       linkedin: nullable("linkedin"),
       twitter: nullable("twitter"),

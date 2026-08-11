@@ -138,6 +138,7 @@ export const SpeakerCommsLive = Layer.effect(
                 .insert(contacts)
                 .values({
                   eventId: input.eventId,
+                  participation: "speaker",
                   ...values,
                   salutation: null,
                   honorific: null,
@@ -180,6 +181,7 @@ export const SpeakerCommsLive = Layer.effect(
             const [saved] = await transaction
               .update(contacts)
               .set({
+                participation: "speaker",
                 ...values,
                 custom,
                 profileReviewStatus: "approved",
@@ -277,7 +279,7 @@ export const SpeakerCommsLive = Layer.effect(
                     eq(submissionParticipants.contactId, contacts.id),
                   )
                   .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                  .where(eq(contacts.eventId, eventId))
+                  .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
                   .orderBy(
                     asc(contacts.lastName),
                     asc(contacts.firstName),
@@ -427,7 +429,13 @@ export const SpeakerCommsLive = Layer.effect(
                 : await transaction
                     .select()
                     .from(contacts)
-                    .where(and(eq(contacts.eventId, eventId), inArray(contacts.id, requestedIds)))
+                    .where(
+                      and(
+                        eq(contacts.eventId, eventId),
+                        eq(contacts.participation, "speaker"),
+                        inArray(contacts.id, requestedIds),
+                      ),
+                    )
                     .orderBy(asc(contacts.lastName), asc(contacts.firstName))
                     .execute();
             const existing = await transaction
@@ -559,6 +567,7 @@ export const SpeakerCommsLive = Layer.effect(
                     .where(
                       and(
                         eq(contacts.eventId, input.eventId),
+                        eq(contacts.participation, "speaker"),
                         inArray(contacts.id, input.contactIds),
                       ),
                     )
@@ -599,7 +608,7 @@ export const SpeakerCommsLive = Layer.effect(
             const recipientRows = await transaction
               .insert(emailCampaignRecipients)
               .values(
-                resolved.map(({ email: _email, ...row }) => ({
+                resolved.map((row) => ({
                   ...row,
                   deliveryStatus: "pending" as const,
                 })),
@@ -615,7 +624,7 @@ export const SpeakerCommsLive = Layer.effect(
                   contactId: recipient.contactId,
                   submissionId: null,
                   type: "custom",
-                  recipient: recipient.email,
+                  recipient: recipient.recipientEmail,
                   subject: recipient.resolvedSubject,
                   body: recipient.resolvedBody,
                   htmlBody: recipient.resolvedBody.replaceAll("\n", "<br>"),
@@ -699,7 +708,11 @@ export const SpeakerCommsLive = Layer.effect(
               return { kind: "duplicate" as const };
             const [event, contactRows, assignmentRows, participantRows] = await Promise.all([
               transaction.select().from(events).where(eq(events.id, eventId)).limit(1).execute(),
-              transaction.select().from(contacts).where(eq(contacts.eventId, eventId)).execute(),
+              transaction
+                .select()
+                .from(contacts)
+                .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
+                .execute(),
               transaction
                 .select({ assignment: taskAssignments, template: taskTemplates })
                 .from(taskAssignments)

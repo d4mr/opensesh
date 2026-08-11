@@ -3,6 +3,7 @@ import {
   CrmCampaignRequest,
   CrmCardMoveRequest,
   CrmCardMutationRequest,
+  type CrmCsvContact,
   CrmContactMutationRequest,
   CrmContactRequest,
   CrmImportRequest,
@@ -168,12 +169,23 @@ export const importCrmContacts = createServerFn({ method: "POST" })
           return yield* Effect.fail(
             new InvalidInput({ message: "Map and preview at least one row" }),
           );
+        const skipped = data.rows.filter(
+          (row) => row.firstName.trim().length === 0 || row.lastName.trim().length === 0,
+        ).length;
+        const rows: Array<CrmCsvContact> = [];
         for (const row of data.rows) {
-          yield* requiredText(row.firstName, "Every row needs a first name");
-          yield* requiredText(row.lastName, "Every row needs a last name");
-          yield* validEmail(row.email);
+          if (row.firstName.trim().length === 0 || row.lastName.trim().length === 0) continue;
+          const email = yield* validEmail(row.email);
+          rows.push({
+            ...row,
+            firstName: row.firstName.trim(),
+            lastName: row.lastName.trim(),
+            email,
+          });
         }
-        return yield* crm.importContacts(user.orgId, data.rows, data.behavior);
+        if (rows.length === 0) return { created: 0, updated: 0, skipped, outcomes: [] };
+        const result = yield* crm.importContacts(user.orgId, rows, data.behavior);
+        return { ...result, skipped: result.skipped + skipped };
       }),
       { require: "admin" },
     ),
@@ -290,7 +302,7 @@ export const addCrmContactToEvent = createServerFn({ method: "POST" })
         return yield* crm.addToEvent(
           data.organizationContactId,
           data.eventId,
-          "speaker",
+          data.participation,
           "invited",
         );
       }),
@@ -312,12 +324,13 @@ export const sendCrmCampaign = createServerFn({ method: "POST" })
         const body = yield* requiredText(data.body, "Message is required");
         if (data.organizationContactIds.length === 0)
           return yield* Effect.fail(new InvalidInput({ message: "Select at least one contact" }));
-        const links = yield* Effect.forEach(
-          data.organizationContactIds,
-          (organizationContactId) =>
-            crm.addToEvent(organizationContactId, data.eventId, "speaker", "invited"),
-          { concurrency: 5 },
-        );
+        if (data.addToEvent)
+          yield* Effect.forEach(
+            data.organizationContactIds,
+            (organizationContactId) =>
+              crm.addToEvent(organizationContactId, data.eventId, "speaker", "invited"),
+            { concurrency: 5 },
+          );
         const created = yield* crm.createCampaign({
           eventId: data.eventId,
           templateId: null,
@@ -328,7 +341,7 @@ export const sendCrmCampaign = createServerFn({ method: "POST" })
             organizationContactIds: data.organizationContactIds,
           },
           createdByEventMemberId: organization.actorEventMemberId,
-          contactIds: links.map((link) => link.contactId),
+          organizationContactIds: data.organizationContactIds,
         });
         const campaign = yield* crm.sendCampaign(created.campaign.id);
         return { campaign, recipients: created.recipients, sent: created.recipients.length };

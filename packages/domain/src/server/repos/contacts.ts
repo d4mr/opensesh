@@ -32,7 +32,7 @@ export const ContactsLive = Layer.effect(
           db
             .select()
             .from(contacts)
-            .where(eq(contacts.eventId, eventId))
+            .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
             .orderBy(asc(contacts.lastName), asc(contacts.firstName))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Contact, "contact", rows))),

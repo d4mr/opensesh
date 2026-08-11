@@ -626,6 +626,7 @@ export function CampaignDialog({
   const [body, setBody] = useState(
     "Hello {speaker_name},\n\nWe would love to discuss a session for {talk_title}.",
   );
+  const [addToEvent, setAddToEvent] = useState(true);
   const [sent, setSent] = useState<number>();
   const contacts = useMemo(
     () => workspace.directory.filter((row) => contactIds.includes(row.contact.id)),
@@ -633,7 +634,9 @@ export function CampaignDialog({
   );
   const send = useMutation({
     mutationFn: () =>
-      sendCrmCampaign({ data: { eventId, organizationContactIds: contactIds, subject, body } }),
+      sendCrmCampaign({
+        data: { eventId, organizationContactIds: contactIds, subject, body, addToEvent },
+      }),
     onSuccess: async (result) => {
       if (!result.ok) return toast.error(result.error.message);
       setSent(result.data.sent);
@@ -647,8 +650,10 @@ export function CampaignDialog({
         <DialogHeader>
           <DialogTitle>Email {contactIds.length} CRM contacts</DialogTitle>
           <DialogDescription>
-            Recipients are linked to the selected event without duplicate entry. Supported tokens:{" "}
-            {"{speaker_name}"} and {"{talk_title}"}.
+            {addToEvent
+              ? "Recipients will be added to the selected event as invited speakers. "
+              : "Existing event links stay unchanged. "}
+            Supported tokens: {"{speaker_name}"} and {"{talk_title}"}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
@@ -667,6 +672,15 @@ export function CampaignDialog({
               </SelectContent>
             </Select>
           </Field>
+          <label className="flex min-h-8 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+            <Checkbox
+              checked={addToEvent}
+              onCheckedChange={(checked) => setAddToEvent(checked === true)}
+            />
+            Also add recipients to{" "}
+            {workspace.events.find((event) => event.id === eventId)?.name ?? "event"} as invited
+            speakers
+          </label>
           <Field>
             <FieldLabel htmlFor="crm-subject">Subject</FieldLabel>
             <Input

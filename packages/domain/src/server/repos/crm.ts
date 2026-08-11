@@ -189,7 +189,7 @@ interface CrmService {
     readonly body: string;
     readonly recipientFilter: JsonObject;
     readonly createdByEventMemberId: string;
-    readonly contactIds: ReadonlyArray<string>;
+    readonly organizationContactIds: ReadonlyArray<string>;
   }) => Effect.Effect<
     {
       readonly campaign: EmailCampaign;
@@ -556,7 +556,6 @@ export const CrmLive = Layer.effect(
               campaign: emailCampaigns,
               eventName: events.name,
               recipient: emailCampaignRecipients,
-              contact: contacts,
             })
             .from(emailCampaigns)
             .innerJoin(events, eq(events.id, emailCampaigns.eventId))
@@ -564,7 +563,6 @@ export const CrmLive = Layer.effect(
               emailCampaignRecipients,
               eq(emailCampaignRecipients.campaignId, emailCampaigns.id),
             )
-            .leftJoin(contacts, eq(contacts.id, emailCampaignRecipients.contactId))
             .where(eq(events.organizationId, organizationId))
             .orderBy(desc(emailCampaigns.createdAt))
             .execute(),
@@ -586,13 +584,13 @@ export const CrmLive = Layer.effect(
                   sentAt: first?.campaign.sentAt,
                   createdAt: first?.campaign.createdAt,
                   recipients: group.flatMap((row) =>
-                    row.recipient === null || row.contact === null
+                    row.recipient === null
                       ? []
                       : [
                           {
                             id: row.recipient.id,
-                            name: `${row.contact.firstName} ${row.contact.lastName}`,
-                            email: row.contact.email,
+                            name: row.recipient.recipientName,
+                            email: row.recipient.recipientEmail,
                             resolvedSubject: row.recipient.resolvedSubject,
                             resolvedBody: row.recipient.resolvedBody,
                             deliveryStatus: row.recipient.deliveryStatus,
@@ -1149,6 +1147,7 @@ export const CrmLive = Layer.effect(
                 email: canonical.email,
                 firstName: canonical.firstName,
                 lastName: canonical.lastName,
+                participation: role === "organizer" ? "organizer" : "speaker",
                 title: canonical.title,
                 company: canonical.company,
                 bio: canonical.bio,
@@ -1164,6 +1163,7 @@ export const CrmLive = Layer.effect(
                 set: {
                   firstName: canonical.firstName,
                   lastName: canonical.lastName,
+                  participation: role === "organizer" ? "organizer" : "speaker",
                   title: canonical.title,
                   company: canonical.company,
                   bio: canonical.bio,
@@ -1183,8 +1183,11 @@ export const CrmLive = Layer.effect(
               .insert(organizationContactEvents)
               .values({ organizationContactId, contactId: contact.id, eventId, role, status })
               .onConflictDoUpdate({
-                target: [organizationContactEvents.contactId],
-                set: { organizationContactId, eventId, role, status, updatedAt: new Date() },
+                target: [
+                  organizationContactEvents.organizationContactId,
+                  organizationContactEvents.eventId,
+                ],
+                set: { contactId: contact.id, role, status, updatedAt: new Date() },
               })
               .returning()
               .execute();
@@ -1209,22 +1212,39 @@ export const CrmLive = Layer.effect(
         query(database, "Could not create email campaign", (db) =>
           db.transaction(async (transaction) => {
             const recipientRows =
-              input.contactIds.length === 0
+              input.organizationContactIds.length === 0
                 ? []
                 : await transaction
-                    .select({ contact: contacts, submission: submissions })
-                    .from(contacts)
+                    .select({
+                      organizationContact: organizationContacts,
+                      contact: contacts,
+                      submission: submissions,
+                    })
+                    .from(organizationContacts)
+                    .innerJoin(
+                      events,
+                      and(
+                        eq(events.id, input.eventId),
+                        eq(events.organizationId, organizationContacts.organizationId),
+                      ),
+                    )
+                    .leftJoin(
+                      organizationContactEvents,
+                      and(
+                        eq(
+                          organizationContactEvents.organizationContactId,
+                          organizationContacts.id,
+                        ),
+                        eq(organizationContactEvents.eventId, input.eventId),
+                      ),
+                    )
+                    .leftJoin(contacts, eq(contacts.id, organizationContactEvents.contactId))
                     .leftJoin(
                       submissionParticipants,
                       eq(submissionParticipants.contactId, contacts.id),
                     )
                     .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                    .where(
-                      and(
-                        eq(contacts.eventId, input.eventId),
-                        inArray(contacts.id, input.contactIds),
-                      ),
-                    )
+                    .where(inArray(organizationContacts.id, input.organizationContactIds))
                     .execute();
             const [campaign] = await transaction
               .insert(emailCampaigns)
@@ -1239,28 +1259,35 @@ export const CrmLive = Layer.effect(
               .returning()
               .execute();
             if (campaign === undefined) return { campaign, recipients: [] };
-            const grouped = Array.from(new Set(recipientRows.map((row) => row.contact.id))).map(
-              (contactId) => {
-                const group = recipientRows.filter((row) => row.contact.id === contactId);
-                const first = group[0];
-                const speakerName =
-                  first === undefined ? "" : `${first.contact.firstName} ${first.contact.lastName}`;
-                const talkTitle =
-                  group.find((row) => row.submission !== null)?.submission?.title ?? "";
-                return {
-                  campaignId: campaign.id,
-                  contactId,
-                  resolvedSubject: resolveMergeFields(input.subject, {
-                    speaker_name: speakerName,
-                    talk_title: talkTitle,
-                  }),
-                  resolvedBody: resolveMergeFields(input.body, {
-                    speaker_name: speakerName,
-                    talk_title: talkTitle,
-                  }),
-                };
-              },
-            );
+            const grouped = Array.from(
+              new Set(recipientRows.map((row) => row.organizationContact.id)),
+            ).map((organizationContactId) => {
+              const group = recipientRows.filter(
+                (row) => row.organizationContact.id === organizationContactId,
+              );
+              const first = group[0];
+              const recipientName =
+                first === undefined
+                  ? ""
+                  : `${first.organizationContact.firstName} ${first.organizationContact.lastName}`;
+              const recipientEmail = first?.organizationContact.email ?? "";
+              const talkTitle =
+                group.find((row) => row.submission !== null)?.submission?.title ?? "";
+              return {
+                campaignId: campaign.id,
+                contactId: first?.contact?.id ?? null,
+                recipientName,
+                recipientEmail,
+                resolvedSubject: resolveMergeFields(input.subject, {
+                  speaker_name: recipientName,
+                  talk_title: talkTitle,
+                }),
+                resolvedBody: resolveMergeFields(input.body, {
+                  speaker_name: recipientName,
+                  talk_title: talkTitle,
+                }),
+              };
+            });
             const recipients =
               grouped.length === 0
                 ? []
@@ -1295,9 +1322,8 @@ export const CrmLive = Layer.effect(
               .execute();
             if (campaign === undefined) return undefined;
             const recipients = await transaction
-              .select({ recipient: emailCampaignRecipients, contact: contacts })
+              .select({ recipient: emailCampaignRecipients })
               .from(emailCampaignRecipients)
-              .innerJoin(contacts, eq(contacts.id, emailCampaignRecipients.contactId))
               .where(eq(emailCampaignRecipients.campaignId, campaignId))
               .execute();
             const now = new Date();
@@ -1306,10 +1332,10 @@ export const CrmLive = Layer.effect(
                 .insert(emailLog)
                 .values({
                   eventId: campaign.eventId,
-                  contactId: row.contact.id,
+                  contactId: row.recipient.contactId,
                   submissionId: null,
                   type: "custom",
-                  recipient: row.contact.email,
+                  recipient: row.recipient.recipientEmail,
                   subject: row.recipient.resolvedSubject,
                   body: row.recipient.resolvedBody,
                   htmlBody: row.recipient.resolvedBody,

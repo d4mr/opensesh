@@ -43,12 +43,15 @@ export const SpeakerWorkflowStatus = Schema.Literals([
   "declined",
 ]);
 export type SpeakerWorkflowStatus = typeof SpeakerWorkflowStatus.Type;
+export const ContactParticipation = Schema.Literals(["speaker", "organizer"]);
+export type ContactParticipation = typeof ContactParticipation.Type;
 
 const contactFields = {
   eventId: Schema.String,
   email: Schema.String,
   firstName: Schema.String,
   lastName: Schema.String,
+  participation: ContactParticipation,
   title: NullableString,
   company: NullableString,
   salutation: NullableString,

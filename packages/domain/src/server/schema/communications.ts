@@ -33,7 +33,9 @@ export type EmailCampaign = typeof EmailCampaign.Type;
 export const EmailCampaignRecipient = Schema.Struct({
   ...EntityFields,
   campaignId: Schema.String,
-  contactId: Schema.String,
+  contactId: NullableString,
+  recipientName: Schema.String,
+  recipientEmail: Schema.String,
   resolvedSubject: Schema.String,
   resolvedBody: Schema.String,
   deliveryStatus: CampaignDeliveryStatus,
@@ -145,7 +147,8 @@ export const buildCampaignRecipientRows = (input: {
     return {
       campaignId: input.campaignId,
       contactId: recipient.contactId,
-      email: recipient.email,
+      recipientName: recipient.speakerName,
+      recipientEmail: recipient.email,
       resolvedSubject: resolveMergeFields(input.subject, fields),
       resolvedBody: resolveMergeFields(input.body, fields),
     };

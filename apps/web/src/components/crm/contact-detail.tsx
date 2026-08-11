@@ -73,6 +73,7 @@ function ContactDetailContent({
   const [note, setNote] = useState("");
   const [tag, setTag] = useState("");
   const [eventId, setEventId] = useState(workspace.events[0]?.id ?? "");
+  const [participation, setParticipation] = useState<"speaker" | "organizer">("speaker");
   const [editOpen, setEditOpen] = useState(false);
   const refresh = async () => {
     await Promise.all([
@@ -110,7 +111,9 @@ function ContactDetailContent({
   });
   const addEvent = useMutation({
     mutationFn: () =>
-      addCrmContactToEvent({ data: { organizationContactId: detail.contact.id, eventId } }),
+      addCrmContactToEvent({
+        data: { organizationContactId: detail.contact.id, eventId, participation },
+      }),
     onSuccess: async (result) => {
       if (!result.ok) return toast.error(result.error.message);
       const event = workspace.events.find((item) => item.id === result.data.eventId);
@@ -310,13 +313,27 @@ function ContactDetailContent({
                   ))}
                 </SelectContent>
               </Select>
+              <Select
+                value={participation}
+                onValueChange={(value) =>
+                  setParticipation(value === "organizer" ? "organizer" : "speaker")
+                }
+              >
+                <SelectTrigger size="sm" className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="speaker">Speaker</SelectItem>
+                  <SelectItem value="organizer">Organizer</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 size="sm"
                 className="pressable"
                 disabled={addEvent.isPending}
                 onClick={() => addEvent.mutate()}
               >
-                <CalendarPlusIcon /> Add to Event
+                <CalendarPlusIcon /> Add to event
               </Button>
             </div>
             <div className="divide-y">

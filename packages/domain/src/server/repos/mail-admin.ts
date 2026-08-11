@@ -283,6 +283,7 @@ export const MailAdminLive = Layer.effect(
                     email: contacts.email,
                     firstName: contacts.firstName,
                     eventName: events.name,
+                    timezone: events.timezone,
                     logoUrl: events.logoUrl,
                   })
                   .from(submissionParticipants)

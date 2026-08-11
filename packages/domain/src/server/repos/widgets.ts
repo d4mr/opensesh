@@ -209,13 +209,13 @@ const csvCell = (value: string | null) => {
   const text = value ?? "";
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 };
-const dietary = (value: string) => {
+const dietary = (value: string): "none" | "vegetarian" | "vegan" | "gluten_free" | "other" => {
   const normalized = value.trim().toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
   if (normalized === "vegetarian" || normalized === "vegan" || normalized === "gluten_free")
     return normalized;
   return normalized.length === 0 || normalized === "none" ? "none" : "other";
 };
-const tshirt = (value: string | null) => {
+const tshirt = (value: string | null): "XS" | "S" | "M" | "L" | "XL" | "XXL" | null => {
   const normalized = value?.trim().toUpperCase();
   return normalized === "XS" ||
     normalized === "S" ||
@@ -226,6 +226,22 @@ const tshirt = (value: string | null) => {
     ? normalized
     : null;
 };
+
+export const speakerCsvUpdateValues = (row: SpeakerCsvRow) => ({
+  firstName: row.firstName.trim(),
+  lastName: row.lastName.trim(),
+  participation: "speaker" as const,
+  ...(row.title === undefined ? {} : { title: row.title }),
+  ...(row.company === undefined ? {} : { company: row.company }),
+  ...(row.bio === undefined ? {} : { bio: row.bio }),
+  ...(row.dietary === undefined ? {} : { dietaryRequirements: dietary(row.dietary) }),
+  ...(row.tshirt === undefined ? {} : { tshirtSize: tshirt(row.tshirt) }),
+  ...(row.linkedin === undefined ? {} : { linkedinUrl: row.linkedin }),
+  ...(row.twitter === undefined ? {} : { twitterUrl: row.twitter }),
+  ...(row.facebook === undefined ? {} : { facebookUrl: row.facebook }),
+  ...(row.website === undefined ? {} : { websiteUrl: row.website }),
+  ...(row.phone === undefined ? {} : { phone: row.phone }),
+});
 
 interface WidgetsService {
   readonly publicProgram: (slug: string) => Effect.Effect<PublicProgram, DbError | NotFound>;
@@ -412,7 +428,7 @@ export const WidgetsLive = Layer.effect(
                     eq(submissionParticipants.contactId, contacts.id),
                   )
                   .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                  .where(eq(contacts.eventId, eventId))
+                  .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
                   .orderBy(asc(contacts.lastName), asc(contacts.firstName))
                   .execute(),
               ),
@@ -642,33 +658,23 @@ export const WidgetsLive = Layer.effect(
                   email: row.email.trim().toLowerCase(),
                   firstName: row.firstName.trim(),
                   lastName: row.lastName.trim(),
-                  title: row.title,
-                  company: row.company,
-                  bio: row.bio,
-                  dietaryRequirements: dietary(row.dietary),
-                  tshirtSize: tshirt(row.tshirt),
-                  linkedinUrl: row.linkedin,
-                  twitterUrl: row.twitter,
-                  facebookUrl: row.facebook,
-                  websiteUrl: row.website,
-                  phone: row.phone,
+                  participation: "speaker",
+                  title: row.title ?? null,
+                  company: row.company ?? null,
+                  bio: row.bio ?? null,
+                  dietaryRequirements: dietary(row.dietary ?? "none"),
+                  tshirtSize: tshirt(row.tshirt ?? null),
+                  linkedinUrl: row.linkedin ?? null,
+                  twitterUrl: row.twitter ?? null,
+                  facebookUrl: row.facebook ?? null,
+                  websiteUrl: row.website ?? null,
+                  phone: row.phone ?? null,
                   custom: {},
                 })
                 .onConflictDoUpdate({
                   target: [contacts.eventId, contacts.email],
                   set: {
-                    firstName: row.firstName.trim(),
-                    lastName: row.lastName.trim(),
-                    title: row.title,
-                    company: row.company,
-                    bio: row.bio,
-                    dietaryRequirements: dietary(row.dietary),
-                    tshirtSize: tshirt(row.tshirt),
-                    linkedinUrl: row.linkedin,
-                    twitterUrl: row.twitter,
-                    facebookUrl: row.facebook,
-                    websiteUrl: row.website,
-                    phone: row.phone,
+                    ...speakerCsvUpdateValues(row),
                     updatedAt: new Date(),
                   },
                 })

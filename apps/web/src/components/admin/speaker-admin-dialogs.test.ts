@@ -24,10 +24,25 @@ describe("speaker CSV preview", () => {
       lastName: "Raman",
       action: "update",
     });
+    expect(preview.rows[0]?.row).toMatchObject({ dietary: undefined, tshirt: undefined });
     expect(preview.rows[1]?.row).toMatchObject({
       firstName: "Dana",
       lastName: "Kowalski",
       action: "create",
     });
+  });
+
+  it("distinguishes missing profile columns from explicit blank cells", () => {
+    const sparse = parseSpeakerCsv(
+      ["name,email", "Priya Raman,priya@example.com"].join("\n"),
+      new Set(["priya@example.com"]),
+    );
+    const clearing = parseSpeakerCsv(
+      ["name,email,dietary,tshirt", "Priya Raman,priya@example.com,,"].join("\n"),
+      new Set(["priya@example.com"]),
+    );
+
+    expect(sparse.rows[0]?.row).toMatchObject({ dietary: undefined, tshirt: undefined });
+    expect(clearing.rows[0]?.row).toMatchObject({ dietary: "", tshirt: null });
   });
 });
