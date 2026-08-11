@@ -273,3 +273,12 @@ morning deploy — everything here ships in the next deploy.
   version) with no reload — their invalidations landed in the wp27–29 arcs and the eval saw
   stale prod. V2-027 (CRM add-to-event feedback) verified during the V2-022 pass: the linked-
   events list updates immediately after Add to event.
+- Aug 12 — V2-010/011/021 observable feedback (screenshot-verified): silent fire-and-forget
+  actions now always answer. V2-011 CSV exports (review-desk table shared by Submissions and
+  Sessions) toast "Exported N rows to <kind>s.csv" after the download anchor fires. V2-021 the
+  public program's ICS/agenda downloads surfaced neither failure nor success — both now toast
+  the error message on a failed server fn and "Downloaded <filename>" on success. V2-010
+  needed no change: evaluation reminders already report Sent/Failed/none counts and assignment
+  saves invalidate the round query (wp29). Verified: DevFlow Sessions → Export CSV →
+  "Exported 1 row to sessions.csv"; AIE public itinerary → star SESS-16 → Export ICS →
+  "Downloaded ai-engineer-nyc-2026-my-schedule.ics".

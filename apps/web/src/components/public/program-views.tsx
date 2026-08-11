@@ -12,6 +12,7 @@ import {
   type WidgetView,
 } from "@opensesh/domain";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   CalendarDaysIcon,
   CalendarPlusIcon,
@@ -1218,16 +1219,18 @@ const downloadIcs = async (program: PublicProgram, session: PublicSession) => {
   const result = await downloadPublicSessionIcs({
     data: { eventSlug: program.event.slug, code: session.code },
   });
-  if (!result.ok) return;
+  if (!result.ok) return toast.error(result.error.message);
   downloadFile(result.data.filename, result.data.content);
+  toast.success(`Downloaded ${result.data.filename}`);
 };
 
 const downloadSchedule = async (program: PublicProgram, sessionIds: ReadonlyArray<string>) => {
   const result = await downloadPersonalScheduleIcs({
     data: { eventSlug: program.event.slug, sessionIds: [...sessionIds] },
   });
-  if (!result.ok) return;
+  if (!result.ok) return toast.error(result.error.message);
   downloadFile(result.data.filename, result.data.content);
+  toast.success(`Downloaded ${result.data.filename}`);
 };
 
 const downloadFile = (filename: string, content: string) => {

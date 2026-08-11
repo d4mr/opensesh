@@ -546,6 +546,7 @@ export function SubmissionTablePage({
     anchor.download = `${kind}s.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"} to ${kind}s.csv`);
   };
 
   const applyDecisionOptimistic = (nextDecision: SubmissionDecision) => {
