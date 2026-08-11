@@ -87,3 +87,15 @@ export class DuplicateMerge extends Data.TaggedError("DuplicateMerge")<{
 export class InvalidPipelineMove extends Data.TaggedError("InvalidPipelineMove")<{
   readonly message: string;
 }> {}
+
+export class OrganizationLastOwner extends Data.TaggedError("OrganizationLastOwner")<{
+  readonly message: string;
+}> {}
+
+export class OrganizationMemberNotFound extends Data.TaggedError("OrganizationMemberNotFound")<{
+  readonly message: string;
+}> {}
+
+export class OrganizationSelfDemotion extends Data.TaggedError("OrganizationSelfDemotion")<{
+  readonly message: string;
+}> {}

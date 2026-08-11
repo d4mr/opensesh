@@ -1,5 +1,5 @@
 import type { DashboardSubmission } from "@opensesh/domain";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { ArrowRightIcon } from "lucide-react";
 import { useState } from "react";
@@ -50,6 +50,7 @@ const columns = columnHelper.columns([
 ]);
 
 export function DataTable({ data }: { readonly data: ReadonlyArray<DashboardSubmission> }) {
+  const navigate = useNavigate();
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const filtered = statusTab === "all" ? data : data.filter((row) => row.status === statusTab);
   const table = useTable({ features, columns, data: filtered });
@@ -131,7 +132,16 @@ export function DataTable({ data }: { readonly data: ReadonlyArray<DashboardSubm
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="pressable cursor-pointer hover:bg-muted/50"
+                  onClick={() =>
+                    void navigate({
+                      to: "/admin/abstracts",
+                      search: { status: "all", spotlight: row.original.id },
+                    })
+                  }
+                >
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <table.FlexRender cell={cell} />

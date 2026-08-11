@@ -1,5 +1,5 @@
 import type { DashboardStats } from "@opensesh/domain/server/repos";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { CalendarDaysIcon, ChevronRightIcon, CircleCheckIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ const dayLabel = (date: string) =>
   }).format(new Date(`${date}T00:00:00Z`));
 
 export function DashboardAttention({ stats }: { readonly stats: DashboardStats }) {
+  const navigate = useNavigate();
   const items = [
     {
       count: stats.pending,
@@ -143,7 +144,16 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
               </TableHeader>
               <TableBody>
                 {stats.agendaDays.map((day) => (
-                  <TableRow key={day.date}>
+                  <TableRow
+                    key={day.date}
+                    className="pressable cursor-pointer hover:bg-muted/50"
+                    onClick={() =>
+                      void navigate({
+                        to: "/admin/agenda",
+                        search: { view: "rooms", day: day.date, draft: undefined },
+                      })
+                    }
+                  >
                     <TableCell className="pl-4 font-medium">{dayLabel(day.date)}</TableCell>
                     <TableCell className="text-right tabular-nums">{day.sessions}</TableCell>
                     <TableCell className="pr-4 text-right tabular-nums">{day.rooms}</TableCell>

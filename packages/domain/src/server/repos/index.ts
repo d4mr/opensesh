@@ -9,6 +9,7 @@ import { EventsLive } from "./events";
 import { FilesLive } from "./files";
 import { FormsLive } from "./forms";
 import { MailAdminLive } from "./mail-admin";
+import { OrganizationLive } from "./organization";
 import { PortalFormsLive } from "./portal-forms";
 import { PortalLive } from "./portal";
 import { ReadModelsLive } from "./read-models";
@@ -27,6 +28,7 @@ import type { Events } from "./events";
 import type { Files } from "./files";
 import type { Forms } from "./forms";
 import type { MailAdmin } from "./mail-admin";
+import type { Organization } from "./organization";
 import type { PortalForms } from "./portal-forms";
 import type { Portal } from "./portal";
 import type { ReadModels } from "./read-models";
@@ -45,6 +47,7 @@ export * from "./events";
 export * from "./files";
 export * from "./forms";
 export * from "./mail-admin";
+export * from "./organization";
 export * from "./portal-forms";
 export * from "./portal";
 export * from "./read-models";
@@ -64,6 +67,7 @@ export type RepositoryServices =
   | Files
   | Forms
   | MailAdmin
+  | Organization
   | PortalForms
   | Portal
   | ReadModels
@@ -83,6 +87,7 @@ const RepositoriesLive = Layer.mergeAll(
   FilesLive,
   FormsLive,
   MailAdminLive,
+  OrganizationLive,
   PortalFormsLive,
   PortalLive,
   ReadModelsLive,

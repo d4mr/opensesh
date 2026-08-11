@@ -1,14 +1,26 @@
 import type { CrmPipelineStage, CrmSemanticStatus, CrmWorkspace } from "@opensesh/domain";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  ChevronRightIcon,
+  GripVerticalIcon,
   PlusIcon,
   Settings2Icon,
   Trash2Icon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -32,13 +44,57 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { crmWorkspaceQuery } from "@/lib/crm-queries";
+import { cn } from "@/lib/utils";
 import {
   deleteCrmStage,
+  getCrmWorkspace,
   moveCrmCard,
   reorderCrmStages,
   saveCrmCard,
   saveCrmStage,
 } from "@/server-fns/crm";
+
+type PipelineRow = CrmWorkspace["pipeline"]["columns"][number]["cards"][number];
+type CrmWorkspaceResult = Awaited<ReturnType<typeof getCrmWorkspace>>;
+type MoveInput = {
+  readonly cardId: string;
+  readonly toStageId: string;
+  readonly contactName: string;
+};
+
+const cardDndId = (cardId: string) => `crm-card:${cardId}`;
+const stageDndId = (stageId: string) => `crm-stage:${stageId}`;
+
+const moveOptimistically = (
+  current: CrmWorkspaceResult | undefined,
+  cardId: string,
+  toStageId: string,
+): CrmWorkspaceResult | undefined => {
+  if (current === undefined || !current.ok) return current;
+  const row = current.data.pipeline.columns
+    .flatMap((column) => column.cards)
+    .find(({ card }) => card.id === cardId);
+  if (row === undefined) return current;
+  return {
+    ok: true,
+    data: {
+      ...current.data,
+      pipeline: {
+        ...current.data.pipeline,
+        columns: current.data.pipeline.columns.map((column) => ({
+          ...column,
+          cards:
+            column.stage.id === toStageId
+              ? [
+                  ...column.cards.filter(({ card }) => card.id !== cardId),
+                  { ...row, card: { ...row.card, stageId: toStageId, updatedAt: new Date() } },
+                ]
+              : column.cards.filter(({ card }) => card.id !== cardId),
+        })),
+      },
+    },
+  };
+};
 
 export function PipelineBoard({
   workspace,
@@ -49,69 +105,187 @@ export function PipelineBoard({
 }) {
   const [manageOpen, setManageOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [activeCard, setActiveCard] = useState<PipelineRow | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const queryClient = useQueryClient();
+  const move = useMutation({
+    mutationFn: ({ cardId, toStageId }: MoveInput) => moveCrmCard({ data: { cardId, toStageId } }),
+    onMutate: async ({ cardId, toStageId }) => {
+      await queryClient.cancelQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      const previous = queryClient.getQueryData<CrmWorkspaceResult>(crmWorkspaceQuery.queryKey);
+      queryClient.setQueryData<CrmWorkspaceResult>(crmWorkspaceQuery.queryKey, (current) =>
+        moveOptimistically(current, cardId, toStageId),
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      queryClient.setQueryData(crmWorkspaceQuery.queryKey, context?.previous);
+      toast.error("Could not move the contact");
+    },
+    onSuccess: (result, variables, context) => {
+      if (!result.ok) {
+        queryClient.setQueryData(crmWorkspaceQuery.queryKey, context?.previous);
+        toast.error(result.error.message);
+        return;
+      }
+      const stage = workspace.pipeline.columns.find(
+        (column) => column.stage.id === variables.toStageId,
+      )?.stage;
+      toast.success(`Moved ${variables.contactName} to ${stage?.name ?? "stage"}`);
+    },
+    onSettled: async () => queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey }),
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const cardId = String(event.active.id).replace(/^crm-card:/, "");
+    setActiveCard(
+      workspace.pipeline.columns
+        .flatMap((column) => column.cards)
+        .find(({ card }) => card.id === cardId) ?? null,
+    );
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveCard(null);
+    if (event.over === null) return;
+    const cardId = String(event.active.id).replace(/^crm-card:/, "");
+    const toStageId = String(event.over.id).replace(/^crm-stage:/, "");
+    const row = workspace.pipeline.columns
+      .flatMap((column) => column.cards)
+      .find(({ card }) => card.id === cardId);
+    if (row === undefined || row.card.stageId === toStageId) return;
+    move.mutate({
+      cardId,
+      toStageId,
+      contactName: `${row.contact.firstName} ${row.contact.lastName}`,
+    });
+  };
+
   return (
-    <section className="grid gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-medium">Sourcing pipeline</h2>
-          <p className="text-xs text-muted-foreground">
-            {workspace.pipeline.columns.reduce((total, column) => total + column.cards.length, 0)}{" "}
-            cards · every move records actor and timestamp
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="pressable"
-            onClick={() => setManageOpen(true)}
-          >
-            <Settings2Icon /> Configure stages
-          </Button>
-          <Button size="sm" className="pressable" onClick={() => setAddOpen(true)}>
-            <PlusIcon /> Add contact
-          </Button>
-        </div>
-      </div>
-      <div className="grid min-h-96 auto-cols-[minmax(240px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
-        {workspace.pipeline.columns.map((column) => (
-          <div key={column.stage.id} className="min-w-60 rounded-lg border bg-muted/15">
-            <div className="flex h-10 items-center gap-2 border-b bg-muted/40 px-3">
-              <span className="font-medium">{column.stage.name}</span>
-              <Badge variant="outline" className="capitalize">
-                {column.stage.semanticStatus}
-              </Badge>
-              <span className="ml-auto text-xs tabular-nums text-muted-foreground">
-                {column.cards.length}
-              </span>
-            </div>
-            <div className="grid gap-2 p-2">
-              {column.cards.length === 0 ? (
-                <p className="px-2 py-8 text-center text-xs text-muted-foreground">
-                  No contacts in this stage.
-                </p>
-              ) : (
-                column.cards.map(({ card, contact }) => (
-                  <PipelineCard
-                    key={card.id}
-                    workspace={workspace}
-                    card={card}
-                    contact={contact}
-                    open={() => openContact(contact.id)}
-                  />
-                ))
-              )}
-            </div>
+    <DndContext
+      id="crm-pipeline-dnd"
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={handleDragStart}
+      onDragCancel={() => setActiveCard(null)}
+      onDragEnd={handleDragEnd}
+    >
+      <section className="grid gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-medium">Sourcing pipeline</h2>
+            <p className="text-xs text-muted-foreground">
+              {workspace.pipeline.columns.reduce((total, column) => total + column.cards.length, 0)}{" "}
+              cards · every move records actor and timestamp
+            </p>
           </div>
-        ))}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="pressable"
+              onClick={() => setManageOpen(true)}
+            >
+              <Settings2Icon /> Configure stages
+            </Button>
+            <Button size="sm" className="pressable" onClick={() => setAddOpen(true)}>
+              <PlusIcon /> Add contact
+            </Button>
+          </div>
+        </div>
+        <div className="grid min-h-96 auto-cols-[minmax(240px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
+          {workspace.pipeline.columns.map((column) => (
+            <PipelineColumn
+              key={column.stage.id}
+              column={column}
+              workspace={workspace}
+              movingCardId={move.isPending ? move.variables.cardId : null}
+              openContact={openContact}
+              moveCard={(cardId, toStageId, contactName) =>
+                move.mutate({ cardId, toStageId, contactName })
+              }
+            />
+          ))}
+        </div>
+        <ManageStagesDialog
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          stages={workspace.pipeline.columns.map((column) => column.stage)}
+        />
+        <AddCardDialog open={addOpen} onOpenChange={setAddOpen} workspace={workspace} />
+      </section>
+      <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.23, 1, 0.32, 1)" }}>
+        {activeCard === null ? null : <PipelineCardPreview row={activeCard} />}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+function PipelineColumn({
+  column,
+  workspace,
+  movingCardId,
+  openContact,
+  moveCard,
+}: {
+  readonly column: CrmWorkspace["pipeline"]["columns"][number];
+  readonly workspace: CrmWorkspace;
+  readonly movingCardId: string | null;
+  readonly openContact: (id: string) => void;
+  readonly moveCard: (cardId: string, toStageId: string, contactName: string) => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: stageDndId(column.stage.id) });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "min-w-60 rounded-lg border bg-muted/15 transition-colors",
+        isOver ? "bg-muted/50" : "",
+      )}
+    >
+      <div className="flex h-10 items-center gap-2 border-b bg-muted/40 px-3">
+        <span className="font-medium">{column.stage.name}</span>
+        <Badge variant="outline" className="capitalize">
+          {column.stage.semanticStatus}
+        </Badge>
+        <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+          {column.cards.length}
+        </span>
       </div>
-      <ManageStagesDialog
-        open={manageOpen}
-        onOpenChange={setManageOpen}
-        stages={workspace.pipeline.columns.map((column) => column.stage)}
-      />
-      <AddCardDialog open={addOpen} onOpenChange={setAddOpen} workspace={workspace} />
-    </section>
+      <div className="grid gap-2 p-2">
+        {column.cards.length === 0 ? (
+          <p className="px-2 py-8 text-center text-xs text-muted-foreground">
+            No contacts in this stage.
+          </p>
+        ) : (
+          column.cards.map(({ card, contact }) => (
+            <PipelineCard
+              key={card.id}
+              workspace={workspace}
+              card={card}
+              contact={contact}
+              moving={movingCardId === card.id}
+              moveCard={moveCard}
+              open={() => openContact(contact.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PipelineCardPreview({ row }: { readonly row: PipelineRow }) {
+  return (
+    <div className="w-60 scale-[1.02] rounded-md border bg-background p-2.5">
+      <p className="truncate font-medium">
+        {row.contact.firstName} {row.contact.lastName}
+      </p>
+      <p className="truncate text-xs text-muted-foreground">
+        {row.contact.title ?? "No title"}
+        {row.contact.company === null ? "" : ` · ${row.contact.company}`}
+      </p>
+    </div>
   );
 }
 
@@ -119,33 +293,47 @@ function PipelineCard({
   workspace,
   card,
   contact,
+  moving,
+  moveCard,
   open,
 }: {
   readonly workspace: CrmWorkspace;
   readonly card: CrmWorkspace["pipeline"]["columns"][number]["cards"][number]["card"];
   readonly contact: CrmWorkspace["directory"][number]["contact"];
+  readonly moving: boolean;
+  readonly moveCard: (cardId: string, toStageId: string, contactName: string) => void;
   readonly open: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [target, setTarget] = useState(card.stageId);
-  const move = useMutation({
-    mutationFn: () => moveCrmCard({ data: { cardId: card.id, toStageId: target } }),
-    onSuccess: async (result) => {
-      if (!result.ok) return toast.error(result.error.message);
-      const stage = workspace.pipeline.columns.find(
-        (column) => column.stage.id === result.data.stageId,
-      )?.stage;
-      toast.success(`Moved ${contact.firstName} to ${stage?.name ?? "stage"}`);
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
-    },
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: cardDndId(card.id),
   });
+  const style: CSSProperties = {
+    transform:
+      transform === null
+        ? undefined
+        : `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)`,
+  };
+
+  useEffect(() => setTarget(card.stageId), [card.stageId]);
+
   return (
-    <article className="rounded-md border bg-background p-2.5">
+    <article
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "rounded-md border bg-background p-2.5 transition-opacity",
+        isDragging ? "opacity-30" : "",
+      )}
+    >
       <button
+        {...listeners}
+        {...attributes}
         type="button"
-        className="pressable flex w-full items-start gap-2 text-left"
+        className="pressable flex w-full touch-none items-start gap-2 text-left"
         onClick={open}
       >
+        <GripVerticalIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">
             {contact.firstName} {contact.lastName}
@@ -158,7 +346,6 @@ function PipelineCard({
             <span className="mt-2 block line-clamp-2 text-xs">{card.note}</span>
           )}
         </span>
-        <ChevronRightIcon className="mt-0.5 size-4 text-muted-foreground" />
       </button>
       <div className="mt-2 flex gap-1 border-t pt-2">
         <Select value={target} onValueChange={setTarget}>
@@ -181,8 +368,8 @@ function PipelineCard({
           size="xs"
           variant="outline"
           className="pressable"
-          disabled={target === card.stageId || move.isPending}
-          onClick={() => move.mutate()}
+          disabled={target === card.stageId || moving}
+          onClick={() => moveCard(card.id, target, `${contact.firstName} ${contact.lastName}`)}
         >
           Move
         </Button>

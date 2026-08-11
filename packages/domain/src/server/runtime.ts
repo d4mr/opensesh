@@ -16,6 +16,9 @@ import type {
   MailError,
   NotFound,
   NumericOutOfBounds,
+  OrganizationLastOwner,
+  OrganizationMemberNotFound,
+  OrganizationSelfDemotion,
   ReviewGenerationError,
   RoundClosed,
   ScheduleConflict,
@@ -40,6 +43,9 @@ export type AppError =
   | MailError
   | NotFound
   | NumericOutOfBounds
+  | OrganizationLastOwner
+  | OrganizationMemberNotFound
+  | OrganizationSelfDemotion
   | ReviewGenerationError
   | RoundClosed
   | ScheduleConflict
@@ -66,6 +72,9 @@ const toServerError = Match.type<AppError>().pipe(
     InvalidInput: (error) => ({ status: 400, message: error.message }),
     InvalidPipelineMove: (error) => ({ status: 409, message: error.message }),
     NumericOutOfBounds: (error) => ({ status: 400, message: error.message }),
+    OrganizationLastOwner: (error) => ({ status: 409, message: error.message }),
+    OrganizationMemberNotFound: (error) => ({ status: 404, message: error.message }),
+    OrganizationSelfDemotion: (error) => ({ status: 409, message: error.message }),
     ReviewGenerationError: (error) => ({ status: 502, message: error.message }),
     RoundClosed: (error) => ({ status: 409, message: error.message }),
     SubmissionLimitReached: (error) => ({ status: 409, message: error.message }),
