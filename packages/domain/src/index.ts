@@ -23,6 +23,7 @@ export * from "./server/schema/crm";
 export * from "./server/schema/communications";
 export * from "./server/schema/forms";
 export * from "./server/schema/mail";
+export * from "./server/schema/organization";
 export * from "./server/schema/portal";
 export * from "./server/schema/reviews";
 export * from "./server/schema/review-desk";

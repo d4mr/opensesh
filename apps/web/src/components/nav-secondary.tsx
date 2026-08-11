@@ -50,6 +50,14 @@ export function NavSecondary({
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={pathname === "/admin/settings/organization"}
+                    >
+                      <Link to="/admin/settings/organization">Organization</Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild isActive={pathname === "/admin/settings/library"}>
                       <Link to="/admin/settings/library">Library</Link>
                     </SidebarMenuSubButton>
