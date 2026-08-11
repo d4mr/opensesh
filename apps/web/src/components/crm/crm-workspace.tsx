@@ -329,7 +329,7 @@ function Directory({
       </div>
 
       {activeSegment === undefined ? null : (
-        <div className="flex h-8 items-center gap-2 border-y bg-muted/30 px-2 text-xs">
+        <div className="flex h-8 items-center gap-2 rounded-md border bg-muted/30 px-2 text-xs">
           <ListFilterIcon className="size-3.5" />
           Segment <span className="font-medium">{activeSegment.name}</span>
           <span className="text-muted-foreground">updates dynamically</span>

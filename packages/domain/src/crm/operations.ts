@@ -42,7 +42,10 @@ export const filterCrmDirectory = (rows: ReadonlyArray<CrmDirectoryRow>, filters
       (search.length === 0 || haystack.includes(search)) &&
       (company.length === 0 || normalizeCrmValue(row.contact.company ?? "") === company) &&
       (title.length === 0 || normalizeCrmValue(row.contact.title ?? "") === title) &&
-      filters.tagIds.every((tagId) => row.tags.some((tag) => tag.id === tagId))
+      // Dimensions intersect (AND), but multiple tags widen (any-of): requiring
+      // every selected tag almost always filters to zero and reads as broken.
+      (filters.tagIds.length === 0 ||
+        filters.tagIds.some((tagId) => row.tags.some((tag) => tag.id === tagId)))
     );
   });
 };

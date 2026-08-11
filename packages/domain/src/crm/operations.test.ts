@@ -91,6 +91,14 @@ describe("CRM domain operations", () => {
     expect(filterCrmDirectory(rows, emptyCrmFilters)).toHaveLength(2);
   });
 
+  it("widens with any-of semantics across multiple selected tags", () => {
+    expect(
+      filterCrmDirectory(rows, { ...emptyCrmFilters, tagIds: ["keynote", "workshop"] }).map(
+        (row) => row.contact.id,
+      ),
+    ).toEqual(["priya"]);
+  });
+
   it("orders notes and history newest first", () => {
     expect(
       newestFirst([
