@@ -24,8 +24,12 @@
       "id": "444bb6f8798144dcaae2dd671459ac2d",
     },
   ],
-  "durable_objects": {
-    "bindings": [{ "name": "APP_RUNNER", "class_name": "AppRunner" }],
-  },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AppRunner"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["AppRunner"] },
+    { "tag": "v2", "deleted_classes": ["AppRunner"] },
+  ],
+  // The database lives in aws-us-east-1; this placement hint runs the
+  // Worker there deterministically, so query round trips stay ~1-5ms for
+  // every visitor instead of tracking visitor geography.
+  "placement": { "region": "aws:us-east-1" },
 }
