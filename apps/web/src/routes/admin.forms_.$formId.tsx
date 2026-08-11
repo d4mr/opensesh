@@ -7,9 +7,8 @@ import type {
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
-  ArrowLeftIcon,
   BellIcon,
   CheckIcon,
   CircleCheckIcon,
@@ -28,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { EditorHeader } from "@/components/app/editor-header";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { FormPreviewSheet } from "@/components/forms/form-preview";
 import type { FormRendererLibrary } from "@/components/forms/form-renderer";
@@ -291,52 +291,36 @@ function FormEditor({
   const active = steps[step];
 
   return (
-    <main className="flex-1 p-4 text-sm lg:p-6">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-1.5">
-          {/* -ml-2 cancels the ghost button's inner inset so the arrow
-              glyph sits exactly on the content column's left edge. */}
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="-ml-2 text-muted-foreground"
-            aria-label="Back to forms"
-            asChild
-          >
-            <Link to="/admin/forms">
-              <ArrowLeftIcon />
-            </Link>
-          </Button>
-          <div className="min-w-0">
-            <form.Subscribe selector={(state) => state.values.internalName}>
-              {(internalName) => (
-                <h1 className="truncate text-lg font-semibold tracking-tight">{internalName}</h1>
-              )}
-            </form.Subscribe>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">Submission form</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <SaveStatus state={saveState} retry={() => void persist()} />
-          <Button
-            size="sm"
-            variant="ghost"
-            className="pressable text-muted-foreground"
-            onClick={copyLink}
-          >
-            {copied ? <CheckIcon /> : <ClipboardIcon />} {copied ? "Copied" : "Copy link"}
-          </Button>
-          <Button size="sm" variant="ghost" className="pressable text-muted-foreground" asChild>
-            <a href={publicPath} target="_blank" rel="noreferrer">
-              <ExternalLinkIcon /> Open
-            </a>
-          </Button>
-          <Button size="sm" className="pressable" onClick={() => setPreviewOpen(true)}>
-            <EyeIcon /> Preview
-          </Button>
-        </div>
-      </div>
-      <div className="grid items-start gap-6 lg:grid-cols-[200px_minmax(0,720px)]">
+    <main className="flex min-h-0 flex-1 flex-col text-sm">
+      <EditorHeader
+        backTo="/admin/forms"
+        backLabel="Forms"
+        title={
+          <form.Subscribe selector={(state) => state.values.internalName}>
+            {(internalName) => internalName}
+          </form.Subscribe>
+        }
+        subtitle="Submission form"
+      >
+        <SaveStatus state={saveState} retry={() => void persist()} />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="pressable text-muted-foreground"
+          onClick={copyLink}
+        >
+          {copied ? <CheckIcon /> : <ClipboardIcon />} {copied ? "Copied" : "Copy link"}
+        </Button>
+        <Button size="sm" variant="ghost" className="pressable text-muted-foreground" asChild>
+          <a href={publicPath} target="_blank" rel="noreferrer">
+            <ExternalLinkIcon /> Open
+          </a>
+        </Button>
+        <Button size="sm" className="pressable" onClick={() => setPreviewOpen(true)}>
+          <EyeIcon /> Preview
+        </Button>
+      </EditorHeader>
+      <div className="grid items-start gap-6 p-4 lg:grid-cols-[200px_minmax(0,720px)] lg:p-6">
         <nav className="grid gap-0.5 lg:sticky lg:top-16">
           <p className="mb-1.5 px-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
             Form setup

@@ -5,10 +5,9 @@ import type {
   ReviewRoundAdminView,
 } from "@opensesh/domain";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownIcon,
-  ArrowLeftIcon,
   ArrowUpDownIcon,
   ArrowUpIcon,
   BotIcon,
@@ -29,6 +28,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { EditorHeader } from "@/components/app/editor-header";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { EntityCombobox } from "@/components/forms/entity-combobox";
 import { PersonHoverCard } from "@/components/app/person-popover";
@@ -216,32 +216,26 @@ export function EvaluationRoundEditor({
 
   return (
     <main className="flex min-h-0 flex-1 flex-col text-sm">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-        <Button asChild size="sm" variant="ghost" className="pressable -ml-1">
-          <Link to="/admin/evaluation">
-            <ArrowLeftIcon /> Evaluation
-          </Link>
-        </Button>
-        <div className="min-w-0 border-l pl-3">
-          <span className="block truncate text-xs font-medium">
-            {draft.name.trim() || "Untitled round"}
-          </span>
-          <span className="block text-[11px] leading-3 text-muted-foreground">
-            {roundId === null
-              ? "New review round"
-              : `${view?.configuration.round.status ?? "draft"} round`}
-          </span>
-        </div>
+      <EditorHeader
+        backTo="/admin/evaluation"
+        backLabel="Evaluation"
+        title={draft.name.trim() || "Untitled round"}
+        subtitle={
+          roundId === null
+            ? "New review round"
+            : `${view?.configuration.round.status ?? "draft"} round`
+        }
+      >
         <Button
           type="button"
           size="sm"
-          className="pressable ml-auto"
+          className="pressable"
           disabled={saving}
           onClick={() => void save()}
         >
           <SaveIcon /> {saving ? "Saving…" : "Save round"}
         </Button>
-      </header>
+      </EditorHeader>
 
       {roundId === null || view === undefined ? (
         <SetupPane
