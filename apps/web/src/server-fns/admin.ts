@@ -51,6 +51,26 @@ export const getAdminBootstrap = createServerFn({ method: "GET" }).handler(async
   ),
 );
 
+export const searchAdminEvents = createServerFn({ method: "GET" })
+  .validator(
+    Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String, query: Schema.String })),
+  )
+  .handler(async ({ data }) =>
+    runSessionServer((session, eventSlug) =>
+      Effect.gen(function* () {
+        const events = yield* Events;
+        const available = yield* events.listForAdmin(session, eventSlug);
+        if (!available.some((event) => event.id === data.eventId)) {
+          return yield* Effect.fail(new Forbidden({ message: "You cannot access this event" }));
+        }
+        const query = data.query.trim().toLocaleLowerCase();
+        return available
+          .filter((event) => event.name.toLocaleLowerCase().includes(query))
+          .slice(0, 30);
+      }),
+    ),
+  );
+
 export const createEvent = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(NewEventRequest))
   .handler(async ({ data }) =>

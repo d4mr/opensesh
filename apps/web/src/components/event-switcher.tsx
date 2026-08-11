@@ -1,11 +1,12 @@
 import type { Event } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
-import { CalendarPlusIcon, CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { CalendarPlusIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import { EventIcon } from "@/components/app/event-icon";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
+import { EntityCombobox } from "@/components/forms/entity-combobox";
 import { TimezoneCombobox } from "@/components/forms/timezone-combobox";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,14 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { CommandItem } from "@/components/ui/command";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,7 +26,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { createEvent } from "@/server-fns/admin";
+import { createEvent, searchAdminEvents } from "@/server-fns/admin";
 
 const dateInput = (date: Date) => {
   return date.toISOString();
@@ -67,6 +61,13 @@ export function EventSwitcher({
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState<string>();
+  const loadEvents = useCallback(
+    async (query: string) => {
+      const result = await searchAdminEvents({ data: { eventId: event.id, query } });
+      return result.ok ? result.data : [];
+    },
+    [event.id],
+  );
   const tomorrow = new Date(Date.now() + 86_400_000);
   const form = useForm({
     defaultValues: {
@@ -92,10 +93,21 @@ export function EventSwitcher({
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <EntityCombobox
+            items={events}
+            loadItems={loadEvents}
+            value={event.id}
+            onChange={onSelect}
+            getItemText={(item) => `${item.name} ${formatDates(item)}`}
+            searchPlaceholder="Search events…"
+            emptyText="No events found."
+            contentSide={isMobile ? "bottom" : "right"}
+            contentClassName="min-w-64 rounded-lg"
+            renderTrigger={({ open }) => (
               <SidebarMenuButton
                 size="lg"
+                role="combobox"
+                aria-expanded={open}
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
                 <EventIcon src={event.logoUrl} size={32} />
@@ -105,45 +117,30 @@ export function EventSwitcher({
                 </div>
                 <ChevronsUpDownIcon className="ml-auto" />
               </SidebarMenuButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-lg"
-              align="start"
-              side={isMobile ? "bottom" : "right"}
-              sideOffset={4}
-            >
-              <DropdownMenuLabel className="text-muted-foreground text-xs">
-                Events
-              </DropdownMenuLabel>
-              {events.map((item) => (
-                <DropdownMenuItem
-                  key={item.id}
-                  className="gap-2 p-2"
-                  onSelect={() => onSelect(item.id)}
-                >
-                  <EventIcon src={item.logoUrl} size={32} />
-                  <div className="grid flex-1 text-left leading-tight">
-                    <span className="truncate text-sm font-medium">{item.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {formatDates(item)}
-                    </span>
-                  </div>
-                  {item.id === event.id ? <CheckIcon className="size-4 text-primary" /> : null}
-                </DropdownMenuItem>
-              ))}
-              {canCreate ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="gap-2 p-2" onSelect={() => setDialogOpen(true)}>
-                    <span className="flex size-6 items-center justify-center rounded-md border bg-background">
-                      <PlusIcon className="size-3.5" />
-                    </span>
-                    <span className="font-medium">Create event</span>
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+            renderItem={(item) => (
+              <div className="flex min-w-0 items-center gap-2">
+                <EventIcon src={item.logoUrl} size={28} />
+                <div className="grid min-w-0 flex-1 text-left leading-tight">
+                  <span className="truncate text-sm font-medium">{item.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {formatDates(item)}
+                  </span>
+                </div>
+              </div>
+            )}
+            renderValue={(item) => item.name}
+            footer={
+              canCreate ? (
+                <CommandItem className="gap-2 p-2" onSelect={() => setDialogOpen(true)}>
+                  <span className="flex size-6 items-center justify-center rounded-md border bg-background">
+                    <PlusIcon className="size-3.5" />
+                  </span>
+                  <span className="font-medium">Create event</span>
+                </CommandItem>
+              ) : undefined
+            }
+          />
         </SidebarMenuItem>
       </SidebarMenu>
 

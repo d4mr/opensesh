@@ -21,6 +21,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { PersonHoverCard } from "@/components/app/person-popover";
+import { PersonTag } from "@/components/app/person-tag";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -61,6 +63,35 @@ const slots = Array.from(
 );
 
 const slotId = (roomId: string, day: string, minutes: number) => `slot:${roomId}:${day}:${minutes}`;
+
+function AgendaSpeakerNames({
+  speakers,
+  tags = false,
+}: {
+  readonly speakers: AgendaSession["speakers"];
+  readonly tags?: boolean;
+}) {
+  if (speakers.length === 0) return <>No speaker</>;
+  return (
+    <>
+      {speakers.map((speaker, index) => (
+        <span key={speaker.id}>
+          {index === 0 || tags ? null : ", "}
+          <PersonHoverCard
+            side="right"
+            person={{ id: speaker.id, name: speaker.name, image: null }}
+          >
+            {tags ? (
+              <PersonTag person={{ name: speaker.name, image: null }} />
+            ) : (
+              <span>{speaker.name}</span>
+            )}
+          </PersonHoverCard>
+        </span>
+      ))}
+    </>
+  );
+}
 
 function DropSlot({ roomId, day, minutes }: { roomId: string; day: string; minutes: number }) {
   const { isOver, setNodeRef } = useDroppable({ id: slotId(roomId, day, minutes) });
@@ -146,8 +177,7 @@ function SessionBlock({
           ) : null}
         </span>
         <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground tabular-nums">
-          {session.code} ·{" "}
-          {session.speakers.map((speaker) => speaker.name).join(", ") || "No speaker"}
+          {session.code} · <AgendaSpeakerNames speakers={session.speakers} />
         </span>
       </button>
       <button
@@ -311,7 +341,9 @@ function SessionPeek({
                 <p className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                   Speakers
                 </p>
-                <p>{session.speakers.map((speaker) => speaker.name).join(", ") || "No speaker"}</p>
+                <div className="flex flex-wrap gap-1">
+                  <AgendaSpeakerNames speakers={session.speakers} tags />
+                </div>
               </div>
               <div>
                 <p className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">

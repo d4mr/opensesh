@@ -25,7 +25,7 @@ import {
   TaskTemplateMutationRequest,
 } from "@opensesh/domain";
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
-import { Events, Portal } from "@opensesh/domain/server/repos";
+import { Contacts, Events, Portal } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
@@ -72,6 +72,59 @@ export const getPortalAdmin = createServerFn({ method: "GET" })
         yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
         return yield* portal.adminBootstrap(data.eventId);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const searchEventContacts = createServerFn({ method: "GET" })
+  .validator(
+    Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String, query: Schema.String })),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        const contacts = yield* Contacts;
+        const query = data.query.trim().toLocaleLowerCase();
+        const rows = yield* contacts.listByEvent(data.eventId);
+        return rows
+          .filter((contact) =>
+            [contact.firstName, contact.lastName, contact.email, contact.title, contact.company]
+              .filter((value): value is string => value !== null)
+              .join(" ")
+              .toLocaleLowerCase()
+              .includes(query),
+          )
+          .slice(0, 50);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const getEventContactProfile = createServerFn({ method: "GET" })
+  .validator(
+    Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String, contactId: Schema.String })),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        const contacts = yield* Contacts;
+        const contact = yield* contacts.get(data.contactId);
+        if (contact.eventId !== data.eventId) {
+          return yield* Effect.fail(
+            new Forbidden({ message: "This person does not belong to the event" }),
+          );
+        }
+        const portal = yield* Portal;
+        const admin = yield* portal.adminBootstrap(data.eventId);
+        const sessionCount = new Set(
+          admin.participants
+            .filter((row) => row.contact.id === contact.id)
+            .map((row) => row.submission.id),
+        ).size;
+        return { contact, sessionCount };
       }),
       { require: "admin" },
     ),
