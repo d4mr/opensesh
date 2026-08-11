@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import {
   Table,
   TableBody,
@@ -149,6 +150,11 @@ function EmailViewerData({
   const data = query.data.ok ? query.data.data : [];
   const selected = data.find((email) => email.id === selectedId) ?? null;
   const table = useTable({ features, columns, data });
+  const rows = table.getRowModel().rows;
+  const pages = usePagination(rows, {
+    spotlightId: selectedId,
+    getId: (row) => row.original.id,
+  });
   const retry = useMutation({
     mutationFn: (emailId: string) => retryEmail({ data: { eventId, emailId } }),
     onMutate: async (emailId) => {
@@ -215,7 +221,7 @@ function EmailViewerData({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
@@ -225,7 +231,7 @@ function EmailViewerData({
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
+              pages.pageItems.map((row) => (
                 <TableRow
                   key={row.id}
                   tabIndex={0}
@@ -245,6 +251,12 @@ function EmailViewerData({
             )}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={pages.page}
+          pageSize={pages.pageSize}
+          total={rows.length}
+          onPageChange={pages.setPage}
+        />
       </div>
 
       <Dialog open={selected !== null} onOpenChange={(open) => !open && select(undefined)}>

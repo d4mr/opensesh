@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9bbae64f-f93a-4d47-945f-d8f622b0b7f2",
+  "id": "6807c3ff-bc0a-456d-8f1b-f6bf2aa67744",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -4625,6 +4625,19 @@
       "generated": null,
       "identity": null,
       "name": "instructions",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_requests"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "due_at",
       "entityType": "columns",
       "schema": "public",
       "table": "file_requests"

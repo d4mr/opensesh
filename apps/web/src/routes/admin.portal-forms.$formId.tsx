@@ -174,7 +174,7 @@ function PortalFormEditorPage({
     void navigate({
       to: "/admin/$section",
       params: { section: "portal-forms" },
-      search: { spotlight: undefined },
+      search: { spotlight: undefined, fileRequest: undefined },
     });
   };
   const updateSection = (id: string, update: Partial<PortalFormSection>) =>

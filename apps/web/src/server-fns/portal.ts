@@ -69,9 +69,9 @@ export const getPortalAdmin = createServerFn({ method: "GET" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        yield* requireAdminEvent(data.eventId);
+        const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.adminBootstrap(data.eventId);
+        return yield* portal.adminBootstrap(data.eventId, user.userId);
       }),
       { require: "admin" },
     ),
@@ -155,7 +155,6 @@ export const uploadAdminHeadshot = createServerFn({ method: "POST" })
           size: data.size,
           uploaderContactId: null,
           uploaderEventMemberId: prepared.eventMemberId,
-          uploaderName: prepared.authorName,
           headshotContactId: data.contactId,
           adminApproved: true,
           completeAssignmentId: null,
@@ -199,13 +198,13 @@ export const exportAdminFilesZip = createServerFn({ method: "POST" })
     const { env } = await import("cloudflare:workers");
     return runServer(
       Effect.gen(function* () {
-        yield* requireAdminEvent(data.eventId);
+        const { user } = yield* requireAdminEvent(data.eventId);
         const selectedIds = new Set(data.uploadIds);
         if (selectedIds.size === 0) {
           return yield* Effect.fail(new InvalidInput({ message: "Select at least one file" }));
         }
         const portal = yield* Portal;
-        const admin = yield* portal.adminBootstrap(data.eventId);
+        const admin = yield* portal.adminBootstrap(data.eventId, user.userId);
         const selected = admin.files.filter((row) => selectedIds.has(row.upload.id));
         if (selected.length !== selectedIds.size) {
           return yield* Effect.fail(
@@ -302,9 +301,9 @@ export const editPortalSubmission = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, contactId } = yield* requireSpeaker();
+        const { contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
-        return yield* portal.editSubmission(contactId, data.submissionId, data.answers, user.email);
+        return yield* portal.editSubmission(contactId, data.submissionId, data.answers);
       }),
       { require: "speaker" },
     ),
@@ -315,11 +314,10 @@ export const restorePortalHistory = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, contactId } = yield* requireSpeaker();
+        const { contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
         return yield* portal.restoreHistory(data.historyId, {
           contactId,
-          name: user.email,
         });
       }),
       { require: "speaker" },
@@ -337,7 +335,6 @@ export const restoreAdminHistory = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.restoreHistory(data.historyId, {
           userId: user.userId,
-          name: user.email,
         });
       }),
       { require: "admin" },
@@ -381,7 +378,7 @@ export const uploadPortalFile = createServerFn({ method: "POST" })
     const { env } = await import("cloudflare:workers");
     return await runServer(
       Effect.gen(function* () {
-        const { user, contactId } = yield* requireSpeaker();
+        const { contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
         if (data.requirementId === null && data.size > 8 * 1024 * 1024) {
           return yield* Effect.fail(new InvalidInput({ message: "Files must be 8 MB or smaller" }));
@@ -421,7 +418,6 @@ export const uploadPortalFile = createServerFn({ method: "POST" })
           size: data.size,
           uploaderContactId: contactId,
           uploaderEventMemberId: null,
-          uploaderName: user.email,
           headshotContactId: data.kind === "headshot" ? contactId : null,
           adminApproved: false,
           completeAssignmentId: prepared.completeAssignmentId,
@@ -475,17 +471,12 @@ export const addPortalFileComment = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, contactId } = yield* requireSpeaker();
+        const { contactId } = yield* requireSpeaker();
         if (data.body.trim().length === 0) {
           return yield* Effect.fail(new InvalidInput({ message: "Write a comment first" }));
         }
         const portal = yield* Portal;
-        return yield* portal.addSpeakerComment(
-          contactId,
-          data.fileUploadId,
-          user.email,
-          data.body.trim(),
-        );
+        return yield* portal.addSpeakerComment(contactId, data.fileUploadId, data.body.trim());
       }),
       { require: "speaker" },
     ),
@@ -509,7 +500,6 @@ export const addAdminFileComment = createServerFn({ method: "POST" })
           data.eventId,
           user.userId,
           data.fileUploadId,
-          user.email,
           data.body.trim(),
         );
       }),

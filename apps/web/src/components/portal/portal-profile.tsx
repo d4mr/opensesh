@@ -287,6 +287,7 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
               </label>
               {headshot === undefined ? null : (
                 <FileThread
+                  authorName={`${data.contact.firstName} ${data.contact.lastName}`}
                   upload={headshot.upload}
                   versions={versions}
                   comments={data.comments

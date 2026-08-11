@@ -168,7 +168,7 @@ export function AdminShell({
     return navigate({
       to: "/admin/$section",
       params: { section },
-      search: { spotlight: undefined },
+      search: { spotlight: undefined, fileRequest: undefined },
     });
   };
 

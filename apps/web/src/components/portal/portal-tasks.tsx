@@ -321,7 +321,12 @@ function TaskContent({
                       </p>
                     )}
                     {upload === undefined ? null : (
-                      <FileThread upload={upload.upload} versions={versions} comments={comments} />
+                      <FileThread
+                        authorName={`${data.contact.firstName} ${data.contact.lastName}`}
+                        upload={upload.upload}
+                        versions={versions}
+                        comments={comments}
+                      />
                     )}
                   </div>
                 ) : null}

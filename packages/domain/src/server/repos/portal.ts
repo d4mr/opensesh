@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -42,6 +43,16 @@ import type {
 } from "../schema/portal";
 import { Contact, Submission } from "../schema/submissions";
 import { decode, decodeFound, query } from "./shared";
+
+const commentAuthorContacts = alias(contacts, "comment_author_contacts");
+const commentAuthorMembers = alias(eventMembers, "comment_author_members");
+const commentAuthorUsers = alias(users, "comment_author_users");
+const versionUploaderContacts = alias(contacts, "version_uploader_contacts");
+const versionUploaderMembers = alias(eventMembers, "version_uploader_members");
+const versionUploaderUsers = alias(users, "version_uploader_users");
+
+const contactName = (contact: { readonly firstName: string; readonly lastName: string }) =>
+  `${contact.firstName} ${contact.lastName}`;
 
 const contentKeys = ["title", "description", "formatId", "levelId", "language", "answers"] as const;
 type ContentSnapshot = Readonly<Record<string, Schema.Json>> & {
@@ -192,6 +203,7 @@ export interface SpeakerPortalBootstrap {
 }
 
 export interface AdminPortalBootstrap {
+  readonly currentUserName: string;
   readonly contacts: ReadonlyArray<typeof contacts.$inferSelect>;
   readonly templates: ReadonlyArray<{
     readonly template: typeof taskTemplates.$inferSelect;
@@ -241,7 +253,10 @@ interface PortalService {
   readonly speakerBootstrap: (
     contactId: string,
   ) => Effect.Effect<SpeakerPortalBootstrap, DbError | NotFound>;
-  readonly adminBootstrap: (eventId: string) => Effect.Effect<AdminPortalBootstrap, DbError>;
+  readonly adminBootstrap: (
+    eventId: string,
+    userId: string,
+  ) => Effect.Effect<AdminPortalBootstrap, DbError | Forbidden>;
   readonly editAdminSubmission: (
     eventId: string,
     userId: string,
@@ -275,11 +290,10 @@ interface PortalService {
     contactId: string,
     submissionId: string,
     answers: Readonly<Record<string, Schema.Json>>,
-    authorName: string,
   ) => Effect.Effect<Submission, DbError | Forbidden | FormClosed | NotFound>;
   readonly restoreHistory: (
     historyId: string,
-    actor: { readonly contactId?: string; readonly userId?: string; readonly name: string },
+    actor: { readonly contactId?: string; readonly userId?: string },
   ) => Effect.Effect<Submission, DbError | Forbidden | NotFound>;
   readonly completeTask: (
     contactId: string,
@@ -314,7 +328,6 @@ interface PortalService {
     readonly size: number;
     readonly uploaderContactId: string | null;
     readonly uploaderEventMemberId: string | null;
-    readonly uploaderName: string;
     readonly headshotContactId: string | null;
     readonly adminApproved: boolean;
     readonly completeAssignmentId: string | null;
@@ -322,14 +335,12 @@ interface PortalService {
   readonly addSpeakerComment: (
     contactId: string,
     fileUploadId: string,
-    name: string,
     body: string,
   ) => Effect.Effect<typeof fileComments.$inferSelect, DbError | Forbidden>;
   readonly addAdminComment: (
     eventId: string,
     userId: string,
     fileUploadId: string,
-    name: string,
     body: string,
   ) => Effect.Effect<typeof fileComments.$inferSelect, DbError | Forbidden | NotFound>;
   readonly getVersionForActor: (
@@ -354,9 +365,11 @@ interface PortalService {
   ) => Effect.Effect<typeof portalForms.$inferSelect | undefined, DbError | NotFound>;
   readonly createFileRequest: (input: {
     readonly eventId: string;
+    readonly id: string | null;
     readonly title: string;
     readonly targetType: "contact" | "submission";
     readonly instructions: string;
+    readonly dueAt: string | null;
   }) => Effect.Effect<typeof fileRequests.$inferSelect | undefined, DbError>;
   readonly saveSessionFileRequirement: (
     input: typeof SessionFileRequirementMutationRequest.Type,
@@ -559,9 +572,25 @@ export const PortalLive = Layer.effect(
             ),
             versions: query(database, "Could not load file versions", (db) =>
               db
-                .selectDistinct({ version: fileVersions })
+                .selectDistinct({
+                  version: fileVersions,
+                  uploaderContact: versionUploaderContacts,
+                  uploaderUser: versionUploaderUsers,
+                })
                 .from(fileVersions)
                 .innerJoin(fileUploads, eq(fileUploads.id, fileVersions.fileUploadId))
+                .leftJoin(
+                  versionUploaderContacts,
+                  eq(versionUploaderContacts.id, fileVersions.uploaderContactId),
+                )
+                .leftJoin(
+                  versionUploaderMembers,
+                  eq(versionUploaderMembers.id, fileVersions.uploaderEventMemberId),
+                )
+                .leftJoin(
+                  versionUploaderUsers,
+                  eq(versionUploaderUsers.id, versionUploaderMembers.userId),
+                )
                 .leftJoin(
                   submissionParticipants,
                   eq(submissionParticipants.submissionId, fileUploads.submissionId),
@@ -577,12 +606,40 @@ export const PortalLive = Layer.effect(
                 )
                 .orderBy(desc(fileVersions.uploadedAt))
                 .execute(),
+            ).pipe(
+              Effect.map((rows) =>
+                rows.map((row) => ({
+                  version: {
+                    ...row.version,
+                    uploaderName:
+                      row.uploaderContact === null
+                        ? (row.uploaderUser?.name ?? row.version.uploaderName)
+                        : contactName(row.uploaderContact),
+                  },
+                })),
+              ),
             ),
             comments: query(database, "Could not load file comments", (db) =>
               db
-                .selectDistinct({ comment: fileComments })
+                .selectDistinct({
+                  comment: fileComments,
+                  authorContact: commentAuthorContacts,
+                  authorUser: commentAuthorUsers,
+                })
                 .from(fileComments)
                 .innerJoin(fileUploads, eq(fileUploads.id, fileComments.fileUploadId))
+                .leftJoin(
+                  commentAuthorContacts,
+                  eq(commentAuthorContacts.id, fileComments.authorContactId),
+                )
+                .leftJoin(
+                  commentAuthorMembers,
+                  eq(commentAuthorMembers.id, fileComments.authorEventMemberId),
+                )
+                .leftJoin(
+                  commentAuthorUsers,
+                  eq(commentAuthorUsers.id, commentAuthorMembers.userId),
+                )
                 .leftJoin(
                   submissionParticipants,
                   eq(submissionParticipants.submissionId, fileUploads.submissionId),
@@ -598,6 +655,18 @@ export const PortalLive = Layer.effect(
                 )
                 .orderBy(asc(fileComments.createdAt))
                 .execute(),
+            ).pipe(
+              Effect.map((rows) =>
+                rows.map((row) => ({
+                  comment: {
+                    ...row.comment,
+                    authorName:
+                      row.authorContact === null
+                        ? (row.authorUser?.name ?? row.comment.authorName)
+                        : contactName(row.authorContact),
+                  },
+                })),
+              ),
             ),
             history: query(database, "Could not load submission history", (db) =>
               db
@@ -697,9 +766,12 @@ export const PortalLive = Layer.effect(
           },
           { concurrency: "unbounded" },
         ),
-      adminBootstrap: (eventId) =>
+      adminBootstrap: (eventId, userId) =>
         Effect.all(
           {
+            currentUserName: memberForAdmin(eventId, userId).pipe(
+              Effect.map((member) => member.authorName),
+            ),
             contacts: query(database, "Could not load event speakers", (db) =>
               db
                 .select()
@@ -805,23 +877,79 @@ export const PortalLive = Layer.effect(
             ),
             versions: query(database, "Could not load file versions", (db) =>
               db
-                .select({ version: fileVersions })
+                .select({
+                  version: fileVersions,
+                  uploaderContact: versionUploaderContacts,
+                  uploaderUser: versionUploaderUsers,
+                })
                 .from(fileVersions)
                 .innerJoin(fileUploads, eq(fileUploads.id, fileVersions.fileUploadId))
                 .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
+                .leftJoin(
+                  versionUploaderContacts,
+                  eq(versionUploaderContacts.id, fileVersions.uploaderContactId),
+                )
+                .leftJoin(
+                  versionUploaderMembers,
+                  eq(versionUploaderMembers.id, fileVersions.uploaderEventMemberId),
+                )
+                .leftJoin(
+                  versionUploaderUsers,
+                  eq(versionUploaderUsers.id, versionUploaderMembers.userId),
+                )
                 .where(eq(contacts.eventId, eventId))
                 .orderBy(desc(fileVersions.uploadedAt))
                 .execute(),
+            ).pipe(
+              Effect.map((rows) =>
+                rows.map((row) => ({
+                  version: {
+                    ...row.version,
+                    uploaderName:
+                      row.uploaderContact === null
+                        ? (row.uploaderUser?.name ?? row.version.uploaderName)
+                        : contactName(row.uploaderContact),
+                  },
+                })),
+              ),
             ),
             comments: query(database, "Could not load file comments", (db) =>
               db
-                .select({ comment: fileComments })
+                .select({
+                  comment: fileComments,
+                  authorContact: commentAuthorContacts,
+                  authorUser: commentAuthorUsers,
+                })
                 .from(fileComments)
                 .innerJoin(fileUploads, eq(fileUploads.id, fileComments.fileUploadId))
                 .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
+                .leftJoin(
+                  commentAuthorContacts,
+                  eq(commentAuthorContacts.id, fileComments.authorContactId),
+                )
+                .leftJoin(
+                  commentAuthorMembers,
+                  eq(commentAuthorMembers.id, fileComments.authorEventMemberId),
+                )
+                .leftJoin(
+                  commentAuthorUsers,
+                  eq(commentAuthorUsers.id, commentAuthorMembers.userId),
+                )
                 .where(eq(contacts.eventId, eventId))
                 .orderBy(asc(fileComments.createdAt))
                 .execute(),
+            ).pipe(
+              Effect.map((rows) =>
+                rows.map((row) => ({
+                  comment: {
+                    ...row.comment,
+                    authorName:
+                      row.authorContact === null
+                        ? (row.authorUser?.name ?? row.comment.authorName)
+                        : contactName(row.authorContact),
+                  },
+                })),
+              ),
             ),
             submissions: query(database, "Could not load submissions", (db) =>
               db
@@ -1123,7 +1251,7 @@ export const PortalLive = Layer.effect(
           ),
           Effect.flatMap((rows) => decode(Submission, "Submission", rows[0])),
         ),
-      editSubmission: (contactId, submissionId, answers, authorName) =>
+      editSubmission: (contactId, submissionId, answers) =>
         Effect.gen(function* () {
           const owned = yield* query(database, "Could not load submission for editing", (db) =>
             db
@@ -1206,8 +1334,7 @@ export const PortalLive = Layer.effect(
             submissionId,
             authorContactId: contactId,
             authorEventMemberId: null,
-            authorName:
-              row.author === null ? authorName : `${row.author.firstName} ${row.author.lastName}`,
+            authorName: row.author === null ? "Speaker" : contactName(row.author),
             changedFields,
             previousValues: Object.fromEntries(changedFields.map((key) => [key, before[key]])),
             newValues: Object.fromEntries(changedFields.map((key) => [key, next[key]])),
@@ -1232,24 +1359,33 @@ export const PortalLive = Layer.effect(
           if (row === undefined)
             return yield* Effect.fail(new Forbidden({ message: "You cannot restore this edit" }));
           let memberId: string | null = null;
-          let authorName = actor.name;
+          let authorName = "Speaker";
           if (actor.contactId !== undefined) {
+            const actorContactId = actor.contactId;
             const allowed = yield* query(database, "Could not verify submission speaker", (db) =>
               db
-                .select({ id: submissionParticipants.id })
-                .from(submissionParticipants)
-                .where(
+                .select({ participantId: submissionParticipants.id, contact: contacts })
+                .from(contacts)
+                .leftJoin(
+                  submissionParticipants,
                   and(
                     eq(submissionParticipants.submissionId, row.submission.id),
-                    eq(submissionParticipants.contactId, actor.contactId!),
+                    eq(submissionParticipants.contactId, contacts.id),
                   ),
                 )
+                .where(eq(contacts.id, actorContactId))
                 .limit(1)
                 .execute(),
             );
-            if (row.submission.submitterContactId !== actor.contactId && allowed.length === 0) {
+            const contact = allowed[0];
+            if (
+              contact === undefined ||
+              (row.submission.submitterContactId !== actorContactId &&
+                contact.participantId === null)
+            ) {
               return yield* Effect.fail(new Forbidden({ message: "You cannot restore this edit" }));
             }
+            authorName = contactName(contact.contact);
           } else if (actor.userId !== undefined) {
             const member = yield* memberForAdmin(row.submission.eventId, actor.userId);
             memberId = member.id;
@@ -1474,6 +1610,31 @@ export const PortalLive = Layer.effect(
         }),
       recordFileVersion: (input) =>
         Effect.gen(function* () {
+          const uploaderContactId = input.uploaderContactId;
+          const uploaderEventMemberId = input.uploaderEventMemberId;
+          const uploaderName =
+            uploaderContactId !== null
+              ? yield* query(database, "Could not load file uploader", (db) =>
+                  db
+                    .select({ firstName: contacts.firstName, lastName: contacts.lastName })
+                    .from(contacts)
+                    .where(eq(contacts.id, uploaderContactId))
+                    .limit(1)
+                    .execute(),
+                ).pipe(
+                  Effect.map((rows) => (rows[0] === undefined ? "Speaker" : contactName(rows[0]))),
+                )
+              : uploaderEventMemberId !== null
+                ? yield* query(database, "Could not load file uploader", (db) =>
+                    db
+                      .select({ name: users.name })
+                      .from(eventMembers)
+                      .innerJoin(users, eq(users.id, eventMembers.userId))
+                      .where(eq(eventMembers.id, uploaderEventMemberId))
+                      .limit(1)
+                      .execute(),
+                  ).pipe(Effect.map((rows) => rows[0]?.name ?? "Organizer"))
+                : "Organizer";
           const versionRows = yield* query(database, "Could not record file version", (db) =>
             db
               .insert(fileVersions)
@@ -1485,7 +1646,7 @@ export const PortalLive = Layer.effect(
                 size: input.size,
                 uploaderContactId: input.uploaderContactId,
                 uploaderEventMemberId: input.uploaderEventMemberId,
-                uploaderName: input.uploaderName,
+                uploaderName,
                 uploadedAt: new Date(),
               })
               .returning()
@@ -1519,7 +1680,7 @@ export const PortalLive = Layer.effect(
                     contactId: headshotContactId,
                     authorContactId: input.uploaderContactId,
                     authorEventMemberId: input.uploaderEventMemberId,
-                    authorName: input.uploaderName,
+                    authorName: uploaderName,
                     changedFields: ["headshotKey", "headshotUrl"],
                     previousValues: {
                       headshotKey: existing.headshotKey,
@@ -1562,12 +1723,13 @@ export const PortalLive = Layer.effect(
             yield* setTaskStatus(input.completeAssignmentId, "done");
           return versionRows[0];
         }),
-      addSpeakerComment: (contactId, fileUploadId, name, body) =>
+      addSpeakerComment: (contactId, fileUploadId, body) =>
         Effect.gen(function* () {
           const owned = yield* query(database, "Could not verify uploaded file", (db) =>
             db
-              .selectDistinct({ id: fileUploads.id })
+              .selectDistinct({ id: fileUploads.id, author: contacts })
               .from(fileUploads)
+              .innerJoin(contacts, eq(contacts.id, contactId))
               .leftJoin(
                 submissionParticipants,
                 eq(submissionParticipants.submissionId, fileUploads.submissionId),
@@ -1598,7 +1760,7 @@ export const PortalLive = Layer.effect(
                 fileUploadId,
                 authorContactId: contactId,
                 authorEventMemberId: null,
-                authorName: name,
+                authorName: contactName(owned[0]!.author),
                 body,
               })
               .returning()
@@ -1606,7 +1768,7 @@ export const PortalLive = Layer.effect(
           );
           return rows[0];
         }),
-      addAdminComment: (eventId, userId, fileUploadId, name, body) =>
+      addAdminComment: (eventId, userId, fileUploadId, body) =>
         Effect.gen(function* () {
           const member = yield* memberForAdmin(eventId, userId);
           const owned = yield* query(database, "Could not verify uploaded file", (db) =>
@@ -1629,7 +1791,7 @@ export const PortalLive = Layer.effect(
                 fileUploadId,
                 authorContactId: null,
                 authorEventMemberId: member.id,
-                authorName: name,
+                authorName: member.authorName,
                 body,
               })
               .returning()
@@ -1832,7 +1994,28 @@ export const PortalLive = Layer.effect(
         ).pipe(Effect.map((rows) => rows[0])),
       createFileRequest: (input) =>
         query(database, "Could not create file request", (db) =>
-          db.insert(fileRequests).values(input).returning().execute(),
+          input.id === null
+            ? db
+                .insert(fileRequests)
+                .values({
+                  ...input,
+                  id: undefined,
+                  dueAt: input.dueAt === null ? null : new Date(input.dueAt),
+                })
+                .returning()
+                .execute()
+            : db
+                .update(fileRequests)
+                .set({
+                  title: input.title,
+                  targetType: input.targetType,
+                  instructions: input.instructions,
+                  dueAt: input.dueAt === null ? null : new Date(input.dueAt),
+                  updatedAt: new Date(),
+                })
+                .where(and(eq(fileRequests.id, input.id), eq(fileRequests.eventId, input.eventId)))
+                .returning()
+                .execute(),
         ).pipe(Effect.map((rows) => rows[0])),
       saveSessionFileRequirement: (input) =>
         Effect.gen(function* () {

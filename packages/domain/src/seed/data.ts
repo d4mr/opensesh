@@ -3196,6 +3196,7 @@ export const seedData = {
       targetType: "contact",
       instructions:
         "Upload the itemized receipt from your booked flight. Re-upload if finance requests a corrected copy.",
+      dueAt: new Date(1790773200000),
       createdAt: new Date(1785585600000),
       updatedAt: new Date(1785585600000),
     },
@@ -3300,7 +3301,7 @@ export const seedData = {
       instructions: "Upload the itemized receipt for your booked flight.",
       scope: "contact",
       portalFormId: null,
-      fileRequestId: "fr_flight",
+      fileRequestId: null,
       autoAssignOnAccept: true,
       dueDate: new Date(1790208000000),
       position: 2,

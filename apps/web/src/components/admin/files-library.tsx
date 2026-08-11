@@ -1,9 +1,12 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { DownloadIcon, FileArchiveIcon, FolderOpenIcon } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { PersonTag } from "@/components/app/person-tag";
+import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { FileThread } from "@/components/portal/file-thread";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -32,6 +36,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { downloadVersion } from "@/lib/files";
+import { cn } from "@/lib/utils";
 import { exportAdminFilesZip, getPortalAdmin } from "@/server-fns/portal";
 
 type AdminData = Extract<Awaited<ReturnType<typeof getPortalAdmin>>, { readonly ok: true }>["data"];
@@ -45,6 +51,7 @@ interface LibraryRow {
   readonly label: string;
   readonly kind: string;
   readonly status: "uploaded" | "outstanding";
+  readonly deliverableId: string | null;
   readonly file: AdminFile | undefined;
   readonly submission: AdminSubmission | null;
   readonly contacts: ReadonlyArray<AdminContact>;
@@ -90,6 +97,7 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
         label: latest?.filename ?? requirement.title,
         kind: requirement.title,
         status: latest === undefined ? "outstanding" : "uploaded",
+        deliverableId: `requirement:${requirement.id}`,
         file,
         submission,
         contacts: file === undefined ? speakers : [file.contact],
@@ -137,6 +145,7 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
         label: latest?.filename ?? request.title,
         kind: request.title,
         status: latest === undefined ? "outstanding" : "uploaded",
+        deliverableId: `request:${request.id}`,
         file,
         submission: assignment.submission,
         contacts: [contact],
@@ -168,6 +177,12 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
             ? "Slides"
             : "File request"),
       status: latest === undefined ? "outstanding" : "uploaded",
+      deliverableId:
+        file.upload.requirementId === null
+          ? file.upload.fileRequestId === null
+            ? null
+            : `request:${file.upload.fileRequestId}`
+          : `requirement:${file.upload.requirementId}`,
       file,
       submission: file.submission,
       contacts: [file.contact],
@@ -187,7 +202,13 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
 
 const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-export function FilesLibrary({ spotlightId }: { readonly spotlightId: string | undefined }) {
+export function FilesLibrary({
+  spotlightId,
+  deliverableId,
+}: {
+  readonly spotlightId: string | undefined;
+  readonly deliverableId: string | undefined;
+}) {
   const context = useAdminEvent();
   const navigate = useNavigate({ from: "/admin/files" });
   if (context === null) return null;
@@ -195,7 +216,13 @@ export function FilesLibrary({ spotlightId }: { readonly spotlightId: string | u
     <FilesLibraryData
       eventId={context.event.id}
       spotlightId={spotlightId}
-      setSpotlight={(id) => void navigate({ search: { spotlight: id }, replace: true })}
+      deliverableId={deliverableId}
+      setSearch={(next) =>
+        void navigate({
+          search: { spotlight: next.spotlight, deliverable: next.deliverable },
+          replace: true,
+        })
+      }
     />
   );
 }
@@ -203,11 +230,16 @@ export function FilesLibrary({ spotlightId }: { readonly spotlightId: string | u
 function FilesLibraryData({
   eventId,
   spotlightId,
-  setSpotlight,
+  deliverableId,
+  setSearch,
 }: {
   readonly eventId: string;
   readonly spotlightId: string | undefined;
-  readonly setSpotlight: (id: string | undefined) => void;
+  readonly deliverableId: string | undefined;
+  readonly setSearch: (search: {
+    readonly spotlight: string | undefined;
+    readonly deliverable: string | undefined;
+  }) => void;
 }) {
   const portal = useSuspenseQuery(adminPortalQuery(eventId));
   const [sessionId, setSessionId] = useState("all");
@@ -228,6 +260,7 @@ function FilesLibraryData({
   const rows = buildRows(data);
   const filtered = rows.filter(
     (row) =>
+      (deliverableId === undefined || row.deliverableId === deliverableId) &&
       (sessionId === "all" || row.submission?.id === sessionId) &&
       (contactId === "all" || row.contacts.some((contact) => contact.id === contactId)) &&
       (status === "all" || row.status === status),
@@ -253,7 +286,13 @@ function FilesLibraryData({
     setSessionId("all");
     setContactId("all");
     setStatus("all");
+    setSearch({ spotlight: undefined, deliverable: undefined });
   };
+  const pagination = usePagination(filtered, {
+    resetKey: `${deliverableId ?? "all"}:${sessionId}:${contactId}:${status}`,
+    spotlightId,
+    getId: (row) => row.id,
+  });
   const exportZip = useMutation({
     mutationFn: () =>
       exportAdminFilesZip({
@@ -281,213 +320,225 @@ function FilesLibraryData({
   };
 
   return (
-    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 text-sm lg:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">Files</h1>
-          <p className="text-xs text-muted-foreground">
-            Every upload target, latest version, and review thread in one place.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          className="pressable"
-          disabled={selected.size === 0}
-          onClick={() => {
-            setReady(undefined);
-            setExportError(undefined);
-            setExportOpen(true);
-          }}
-        >
-          <FileArchiveIcon /> Export ZIP ({selected.size})
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={sessionId} onValueChange={setSessionId}>
-          <SelectTrigger size="sm" className="w-48">
-            <SelectValue placeholder="Session" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All sessions</SelectItem>
-            {sessions.map((session) => (
-              <SelectItem key={session.id} value={session.id}>
-                {session.code} — {session.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={contactId} onValueChange={setContactId}>
-          <SelectTrigger size="sm" className="w-44">
-            <SelectValue placeholder="Speaker" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All speakers</SelectItem>
-            {speakers.map((speaker) => (
-              <SelectItem key={speaker.id} value={speaker.id}>
-                {speaker.firstName} {speaker.lastName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger size="sm" className="w-36">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="uploaded">Uploaded</SelectItem>
-            <SelectItem value="outstanding">Outstanding</SelectItem>
-          </SelectContent>
-        </Select>
-        {sessionId === "all" && contactId === "all" && status === "all" ? null : (
-          <Button size="sm" variant="ghost" onClick={clearFilters}>
-            Clear filters
-          </Button>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
+      <SpotlightLayout
+        spotlightId={spotlightId}
+        orderedIds={filtered.map((row) => row.id)}
+        onSpotlightChange={(id) => setSearch({ spotlight: id, deliverable: deliverableId })}
+        clearFilters={clearFilters}
+        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+          <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-lg font-semibold">Files</h1>
+                <p className="text-xs text-muted-foreground">
+                  Every upload target, latest version, and review thread in one place.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="pressable"
+                disabled={selected.size === 0}
+                onClick={() => {
+                  setReady(undefined);
+                  setExportError(undefined);
+                  setExportOpen(true);
+                }}
+              >
+                <FileArchiveIcon /> Export ZIP ({selected.size})
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={sessionId} onValueChange={setSessionId}>
+                <SelectTrigger size="sm" className="w-48">
+                  <SelectValue placeholder="Session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All sessions</SelectItem>
+                  {sessions.map((session) => (
+                    <SelectItem key={session.id} value={session.id}>
+                      {session.code} — {session.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={contactId} onValueChange={setContactId}>
+                <SelectTrigger size="sm" className="w-44">
+                  <SelectValue placeholder="Speaker" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All speakers</SelectItem>
+                  {speakers.map((speaker) => (
+                    <SelectItem key={speaker.id} value={speaker.id}>
+                      {speaker.firstName} {speaker.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger size="sm" className="w-36">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="uploaded">Uploaded</SelectItem>
+                  <SelectItem value="outstanding">Outstanding</SelectItem>
+                </SelectContent>
+              </Select>
+              {deliverableId === undefined &&
+              sessionId === "all" &&
+              contactId === "all" &&
+              status === "all" ? null : (
+                <Button size="sm" variant="ghost" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              )}
+              <p className="ml-auto text-xs text-muted-foreground tabular-nums">
+                {filtered.length} record{filtered.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+              <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-9">
+                        <Checkbox
+                          aria-label="Select all uploaded files"
+                          checked={
+                            allUploadedSelected
+                              ? true
+                              : uploadedIds.some((id) => selected.has(id))
+                                ? "indeterminate"
+                                : false
+                          }
+                          onCheckedChange={(checked) =>
+                            setSelected((current) => {
+                              const next = new Set(current);
+                              for (const id of uploadedIds) {
+                                if (checked === true) next.add(id);
+                                else next.delete(id);
+                              }
+                              return next;
+                            })
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>File</TableHead>
+                      {compact ? null : <TableHead>Session</TableHead>}
+                      {compact ? null : <TableHead>Speaker</TableHead>}
+                      <TableHead>Kind</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      {compact ? null : <TableHead className="text-right">Versions</TableHead>}
+                      <TableHead className="w-20 text-right">Detail</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagination.pageItems.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        ref={rowRef(row.id)}
+                        className={cn("h-9", rowClassName(row.id))}
+                      >
+                        <TableCell className="h-9 py-1">
+                          <Checkbox
+                            aria-label={`Select ${row.label}`}
+                            disabled={row.file === undefined || row.latest === undefined}
+                            checked={row.file !== undefined && selected.has(row.file.upload.id)}
+                            onCheckedChange={(checked) => {
+                              if (row.file === undefined) return;
+                              const uploadId = row.file.upload.id;
+                              setSelected((current) => {
+                                const next = new Set(current);
+                                if (checked === true) next.add(uploadId);
+                                else next.delete(uploadId);
+                                return next;
+                              });
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="h-9 max-w-60 truncate py-1 font-medium">
+                          {row.label}
+                        </TableCell>
+                        {compact ? null : (
+                          <TableCell className="h-9 max-w-52 truncate py-1">
+                            {row.submission === null ? (
+                              "—"
+                            ) : (
+                              <>
+                                <span className="font-mono text-xs tabular-nums">
+                                  {row.submission.code}
+                                </span>{" "}
+                                · {row.submission.title}
+                              </>
+                            )}
+                          </TableCell>
+                        )}
+                        {compact ? null : (
+                          <TableCell className="h-9 max-w-44 truncate py-1">
+                            {row.contacts
+                              .map((contact) => `${contact.firstName} ${contact.lastName}`)
+                              .join(", ") || "—"}
+                          </TableCell>
+                        )}
+                        <TableCell className="h-9 py-1">{row.kind}</TableCell>
+                        <TableCell className="h-9 py-1 text-xs text-muted-foreground tabular-nums">
+                          {row.date === null ? "—" : day.format(row.date)}
+                        </TableCell>
+                        <TableCell className="h-9 py-1">
+                          <Badge
+                            className={
+                              row.status === "uploaded"
+                                ? "bg-status-accepted text-status-accepted-foreground"
+                                : "bg-status-pending text-status-pending-foreground"
+                            }
+                          >
+                            {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
+                          </Badge>
+                        </TableCell>
+                        {compact ? null : (
+                          <TableCell className="h-9 py-1 text-right tabular-nums">
+                            {row.versionCount}
+                          </TableCell>
+                        )}
+                        <TableCell className="h-9 py-1 text-right">
+                          {row.file === undefined ? (
+                            "—"
+                          ) : (
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="pressable"
+                              onClick={() => openSpotlight(row.id)}
+                            >
+                              <FolderOpenIcon /> Open
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <PaginationFooter
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                total={filtered.length}
+                onPageChange={pagination.setPage}
+              />
+            </div>
+          </div>
         )}
-        <p className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {filtered.length} record{filtered.length === 1 ? "" : "s"}
-        </p>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-9">
-                <Checkbox
-                  aria-label="Select all uploaded files"
-                  checked={
-                    allUploadedSelected
-                      ? true
-                      : uploadedIds.some((id) => selected.has(id))
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={(checked) =>
-                    setSelected((current) => {
-                      const next = new Set(current);
-                      for (const id of uploadedIds) {
-                        if (checked === true) next.add(id);
-                        else next.delete(id);
-                      }
-                      return next;
-                    })
-                  }
-                />
-              </TableHead>
-              <TableHead>File</TableHead>
-              <TableHead>Session</TableHead>
-              <TableHead>Speaker</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Versions</TableHead>
-              <TableHead className="w-20 text-right">Detail</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((row) => (
-              <TableRow key={row.id} className="h-9">
-                <TableCell className="h-9 py-1">
-                  <Checkbox
-                    aria-label={`Select ${row.label}`}
-                    disabled={row.file === undefined || row.latest === undefined}
-                    checked={row.file !== undefined && selected.has(row.file.upload.id)}
-                    onCheckedChange={(checked) => {
-                      if (row.file === undefined) return;
-                      const uploadId = row.file.upload.id;
-                      setSelected((current) => {
-                        const next = new Set(current);
-                        if (checked === true) next.add(uploadId);
-                        else next.delete(uploadId);
-                        return next;
-                      });
-                    }}
-                  />
-                </TableCell>
-                <TableCell className="h-9 max-w-60 truncate py-1 font-medium">
-                  {row.label}
-                </TableCell>
-                <TableCell className="h-9 max-w-52 truncate py-1">
-                  {row.submission === null ? (
-                    "—"
-                  ) : (
-                    <>
-                      <span className="font-mono text-xs tabular-nums">{row.submission.code}</span>{" "}
-                      · {row.submission.title}
-                    </>
-                  )}
-                </TableCell>
-                <TableCell className="h-9 max-w-44 truncate py-1">
-                  {row.contacts
-                    .map((contact) => `${contact.firstName} ${contact.lastName}`)
-                    .join(", ") || "—"}
-                </TableCell>
-                <TableCell className="h-9 py-1">{row.kind}</TableCell>
-                <TableCell className="h-9 py-1 text-xs text-muted-foreground tabular-nums">
-                  {row.date === null ? "—" : day.format(row.date)}
-                </TableCell>
-                <TableCell className="h-9 py-1">
-                  <Badge
-                    className={
-                      row.status === "uploaded"
-                        ? "bg-status-accepted text-status-accepted-foreground"
-                        : "bg-status-pending text-status-pending-foreground"
-                    }
-                  >
-                    {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="h-9 py-1 text-right tabular-nums">
-                  {row.versionCount}
-                </TableCell>
-                <TableCell className="h-9 py-1 text-right">
-                  {row.file === undefined ? (
-                    "—"
-                  ) : (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="pressable"
-                      onClick={() => setSpotlight(row.id)}
-                    >
-                      <FolderOpenIcon /> Open
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog
-        open={selectedRow !== undefined}
-        onOpenChange={(open) => !open && setSpotlight(undefined)}
-      >
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{selectedRow?.label}</DialogTitle>
-            <DialogDescription>
-              {selectedRow?.submission?.code ?? "No session"} ·{" "}
-              {selectedRow?.contacts
-                .map((contact) => `${contact.firstName} ${contact.lastName}`)
-                .join(", ")}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRow?.file === undefined ? null : (
-            <FileThread
-              eventId={eventId}
-              upload={selectedRow.file.upload}
-              versions={data.versions
-                .map((item) => item.version)
-                .filter((version) => version.fileUploadId === selectedRow.file?.upload.id)}
-              comments={data.comments
-                .map((item) => item.comment)
-                .filter((comment) => comment.fileUploadId === selectedRow.file?.upload.id)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+        panel={
+          <FileSpotlight
+            eventId={eventId}
+            data={data}
+            row={selectedRow}
+            onClose={() => setSearch({ spotlight: undefined, deliverable: deliverableId })}
+          />
+        }
+      />
 
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
         <DialogContent>
@@ -543,5 +594,162 @@ function FilesLibraryData({
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function FileSpotlight({
+  eventId,
+  data,
+  row,
+  onClose,
+}: {
+  readonly eventId: string;
+  readonly data: AdminData;
+  readonly row: LibraryRow | undefined;
+  readonly onClose: () => void;
+}) {
+  if (row?.file === undefined) return null;
+  const upload = row.file.upload;
+  const requirement = data.requirements.find((item) => item.id === upload.requirementId);
+  const request = data.fileRequests.find((item) => item.id === upload.fileRequestId);
+  const linkedTask = data.templates.find(
+    (item) => item.template.fileRequestId === request?.id,
+  )?.template;
+  const versions = data.versions
+    .map((item) => item.version)
+    .filter((version) => version.fileUploadId === upload.id);
+  const comments = data.comments
+    .map((item) => item.comment)
+    .filter((comment) => comment.fileUploadId === upload.id);
+  const latest = row.latest;
+  const dueAt = requirement?.dueAt ?? request?.dueAt ?? null;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <SpotlightPanelHeader
+        identity={<span className="truncate text-sm font-medium">{row.label}</span>}
+        status={
+          <Badge
+            className={
+              row.status === "uploaded"
+                ? "bg-status-accepted text-status-accepted-foreground"
+                : "bg-status-pending text-status-pending-foreground"
+            }
+          >
+            {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
+          </Badge>
+        }
+        actions={
+          latest === undefined ? undefined : (
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              className="pressable"
+              onClick={async () => {
+                const result = await downloadVersion(latest.id);
+                if (result !== undefined && !result.ok) toast.error(result.error.message);
+              }}
+            >
+              <DownloadIcon /> Download
+            </Button>
+          )
+        }
+        onClose={onClose}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16">
+        <div className="grid gap-5">
+          <section>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Why this file exists
+            </p>
+            <dl className="divide-y overflow-hidden rounded-lg border">
+              <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
+                <dt className="text-xs text-muted-foreground">Deliverable</dt>
+                <dd className="text-sm font-medium">
+                  {requirement?.title ?? request?.title ?? row.kind}
+                </dd>
+              </div>
+              <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
+                <dt className="text-xs text-muted-foreground">Due</dt>
+                <dd className="text-sm">
+                  {dueAt === null ? "No due date" : day.format(new Date(dueAt))}
+                </dd>
+              </div>
+              {requirement === undefined ? (
+                <>
+                  <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
+                    <dt className="text-xs text-muted-foreground">Audience</dt>
+                    <dd className="text-sm">
+                      {request?.targetType === "submission" ? "Per session" : "Per speaker"}
+                    </dd>
+                  </div>
+                  <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
+                    <dt className="text-xs text-muted-foreground">Linked task</dt>
+                    <dd className="text-sm">{linkedTask?.title ?? "No linked task"}</dd>
+                  </div>
+                  {request?.instructions ? (
+                    <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
+                      <dt className="text-xs text-muted-foreground">Instructions</dt>
+                      <dd
+                        className="rte-content text-sm"
+                        dangerouslySetInnerHTML={{ __html: request.instructions }}
+                      />
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
+                  <dt className="text-xs text-muted-foreground">File limits</dt>
+                  <dd className="text-sm">
+                    {requirement.acceptTypes ?? "Any type"} ·{" "}
+                    {requirement.maxSizeMb === null ? "Any size" : `${requirement.maxSizeMb} MB`}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+          <section>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Context
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {row.submission === null ? null : (
+                <Link
+                  to="/admin/sessions"
+                  search={{ status: "all", spotlight: row.submission.id }}
+                  className="pressable rounded-md border px-2 py-1 font-mono text-xs tabular-nums hover:bg-muted/50"
+                >
+                  {row.submission.code}
+                </Link>
+              )}
+              {row.contacts.map((contact) => (
+                <Link
+                  key={contact.id}
+                  to="/admin/speakers"
+                  search={{ spotlight: contact.id }}
+                  className="pressable rounded-md"
+                >
+                  <PersonTag
+                    person={{
+                      name: `${contact.firstName} ${contact.lastName}`,
+                      image: contact.headshotUrl,
+                    }}
+                  />
+                </Link>
+              ))}
+            </div>
+          </section>
+          <FileThread
+            eventId={eventId}
+            authorName={data.currentUserName}
+            upload={upload}
+            versions={versions}
+            comments={comments}
+            embedded
+          />
+        </div>
+      </div>
+    </div>
   );
 }

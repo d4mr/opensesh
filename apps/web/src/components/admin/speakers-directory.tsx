@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -338,6 +339,11 @@ function Directory({
     [rows, search, statusFilter, statusOverrides, taskFilter],
   );
   const selected = rows.find((row) => row.contact.id === spotlightId);
+  const pages = usePagination(filtered, {
+    resetKey: `${search}:${statusFilter}:${taskFilter}`,
+    spotlightId,
+    getId: (row) => row.contact.id,
+  });
   const activeFilters = search.trim() !== "" || statusFilter !== "all" || taskFilter !== "all";
   const clearFilters = () => {
     setSearch("");
@@ -526,7 +532,7 @@ function Directory({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((row) => (
+                    pages.pageItems.map((row) => (
                       <TableRow
                         key={row.contact.id}
                         ref={rowRef(row.contact.id)}
@@ -600,6 +606,12 @@ function Directory({
                   )}
                 </TableBody>
               </Table>
+              <PaginationFooter
+                page={pages.page}
+                pageSize={pages.pageSize}
+                total={filtered.length}
+                onPageChange={pages.setPage}
+              />
             </div>
           </div>
         )}

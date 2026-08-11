@@ -452,6 +452,7 @@ CREATE TABLE "file_requests" (
 	"title" text NOT NULL,
 	"target_type" "target_type" NOT NULL,
 	"instructions" text NOT NULL,
+	"due_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
 );

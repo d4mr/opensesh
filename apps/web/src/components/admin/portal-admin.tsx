@@ -9,6 +9,7 @@ import {
   FileArchiveIcon,
   FilterIcon,
   PlusIcon,
+  PencilIcon,
   SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
@@ -20,12 +21,11 @@ import { SessionContentEditor } from "@/components/admin/session-content-editor"
 import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
-import { formatDateTime } from "@/components/forms/datetime-picker";
+import { DateTimePicker, formatDateTime } from "@/components/forms/datetime-picker";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -92,10 +93,12 @@ const portalAnswer = (value: unknown, field: FormFieldDefinition, timezone: stri
 export function PortalAdminSection({
   section,
   spotlightId,
+  fileRequestId,
   onSpotlightChange,
 }: {
   readonly section: string;
   readonly spotlightId: string | undefined;
+  readonly fileRequestId: string | undefined;
   readonly onSpotlightChange: (
     id: string | undefined,
     options: { readonly replace: boolean; readonly keyboard: boolean },
@@ -109,6 +112,7 @@ export function PortalAdminSection({
       timezone={eventContext.event.timezone}
       section={section}
       spotlightId={spotlightId}
+      fileRequestId={fileRequestId}
       onSpotlightChange={onSpotlightChange}
     />
   );
@@ -119,12 +123,14 @@ function PortalAdminData({
   timezone,
   section,
   spotlightId,
+  fileRequestId,
   onSpotlightChange,
 }: {
   readonly eventId: string;
   readonly timezone: string;
   readonly section: string;
   readonly spotlightId: string | undefined;
+  readonly fileRequestId: string | undefined;
   readonly onSpotlightChange: (
     id: string | undefined,
     options: { readonly replace: boolean; readonly keyboard: boolean },
@@ -132,11 +138,12 @@ function PortalAdminData({
 }) {
   const portal = useSuspenseQuery(adminPortalQuery(eventId));
   if (!portal.data.ok) return <p className="p-6">{portal.data.error.message}</p>;
-  if (section === "tasks") return <AdminTasks eventId={eventId} data={portal.data.data} />;
+  if (section === "tasks")
+    return <AdminTasks eventId={eventId} data={portal.data.data} fileRequestId={fileRequestId} />;
   if (section === "portal-forms")
     return <AdminPortalForms eventId={eventId} timezone={timezone} data={portal.data.data} />;
   if (section === "file-requests")
-    return <AdminFileRequests eventId={eventId} data={portal.data.data} />;
+    return <DeliverablesAdmin eventId={eventId} timezone={timezone} data={portal.data.data} />;
   if (section === "content")
     return (
       <AdminSessions
@@ -149,9 +156,17 @@ function PortalAdminData({
   return null;
 }
 
-function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data: AdminData }) {
+function AdminTasks({
+  eventId,
+  data,
+  fileRequestId,
+}: {
+  readonly eventId: string;
+  readonly data: AdminData;
+  readonly fileRequestId: string | undefined;
+}) {
   const queryClient = useQueryClient();
-  const [drawer, setDrawer] = useState(false);
+  const [drawer, setDrawer] = useState(fileRequestId !== undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [outstandingOnly, setOutstandingOnly] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -245,6 +260,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
         right.outstanding - left.outstanding ||
         left.contact.lastName.localeCompare(right.contact.lastName),
     );
+  const speakerPages = usePagination(speakers, { resetKey: String(outstandingOnly) });
   const open = (id: string | null) => {
     setEditingId(id);
     setDrawer(true);
@@ -360,7 +376,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {speakers.map((row) => (
+                {speakerPages.pageItems.map((row) => (
                   <Fragment key={row.contact.id}>
                     <TableRow
                       className="cursor-pointer"
@@ -489,14 +505,21 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                 ))}
               </TableBody>
             </Table>
+            <PaginationFooter
+              page={speakerPages.page}
+              pageSize={speakerPages.pageSize}
+              total={speakers.length}
+              onPageChange={speakerPages.setPage}
+            />
           </div>
         </TabsContent>
       </Tabs>
       <TaskTemplateDialog
-        key={editingId ?? "new"}
+        key={editingId ?? fileRequestId ?? "new"}
         eventId={eventId}
         data={data}
         templateId={editingId}
+        initialFileRequestId={fileRequestId}
         open={drawer}
         onOpenChange={setDrawer}
       />
@@ -508,12 +531,14 @@ function TaskTemplateDialog({
   eventId,
   data,
   templateId,
+  initialFileRequestId,
   open,
   onOpenChange,
 }: {
   readonly eventId: string;
   readonly data: AdminData;
   readonly templateId: string | null;
+  readonly initialFileRequestId: string | undefined;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
@@ -539,7 +564,9 @@ function TaskTemplateDialog({
     link:
       existing?.portalFormId === null || existing?.portalFormId === undefined
         ? existing?.fileRequestId === null || existing?.fileRequestId === undefined
-          ? "manual"
+          ? initialFileRequestId === undefined
+            ? "manual"
+            : `file:${initialFileRequestId}`
           : `file:${existing.fileRequestId}`
         : `form:${existing.portalFormId}`,
     auto: existing?.autoAssignOnAccept ?? true,
@@ -729,6 +756,7 @@ function AdminPortalForms({
   readonly data: AdminData;
 }) {
   const [highlightedId, setHighlightedId] = useState<string>();
+  const responsePages = usePagination(data.responses);
   useLayoutEffect(() => {
     const returned = takePortalFormListReturn(eventId);
     if (returned === null) return;
@@ -824,7 +852,7 @@ function AdminPortalForms({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.responses.map((row) => {
+                {responsePages.pageItems.map((row) => {
                   const form = data.forms.find((item) => item.id === row.response.formId);
                   const responseFields = portalFields(form);
                   return (
@@ -878,6 +906,12 @@ function AdminPortalForms({
                 })}
               </TableBody>
             </Table>
+            <PaginationFooter
+              page={responsePages.page}
+              pageSize={responsePages.pageSize}
+              total={data.responses.length}
+              onPageChange={responsePages.setPage}
+            />
           </div>
         </TabsContent>
       </Tabs>
@@ -885,26 +919,52 @@ function AdminPortalForms({
   );
 }
 
-function AdminFileRequests({
+type RequestForm = {
+  readonly id: string | null;
+  readonly title: string;
+  readonly scope: "contact" | "submission";
+  readonly instructions: string;
+  readonly dueAt: string;
+};
+
+const emptyRequestForm: RequestForm = {
+  id: null,
+  title: "",
+  scope: "contact",
+  instructions: "",
+  dueAt: "",
+};
+
+function DeliverablesAdmin({
   eventId,
+  timezone,
   data,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: AdminData;
 }) {
-  const [open, setOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [requirementOpen, setRequirementOpen] = useState(false);
   const [requirementForm, setRequirementForm] = useState(emptyRequirementForm);
-  const [form, setForm] = useState({ title: "", scope: "contact", instructions: "" });
+  const [requestForm, setRequestForm] = useState<RequestForm>(emptyRequestForm);
   const queryClient = useQueryClient();
-  const create = useMutation({
+  const requirements = usePagination(data.requirements);
+  const requests = usePagination(data.fileRequests);
+  const acceptedSessions = data.submissions.filter(
+    (submission) => submission.status === "accepted",
+  );
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+  const saveRequest = useMutation({
     mutationFn: () =>
       createAdminFileRequest({
         data: {
           eventId,
-          title: form.title,
-          targetType: form.scope === "submission" ? "submission" : "contact",
-          instructions: form.instructions,
+          id: requestForm.id,
+          title: requestForm.title,
+          targetType: requestForm.scope,
+          instructions: requestForm.instructions,
+          dueAt: requestForm.dueAt.length === 0 ? null : requestForm.dueAt,
         },
       }),
     onSuccess: async (result) => {
@@ -912,9 +972,10 @@ function AdminFileRequests({
         toast.error(result.error.message);
         return;
       }
-      setOpen(false);
-      toast.success("File request created");
-      await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+      setRequestOpen(false);
+      setRequestForm(emptyRequestForm);
+      toast.success(requestForm.id === null ? "File request created" : "File request saved");
+      await refresh();
     },
   });
   const saveRequirement = useMutation({
@@ -925,10 +986,7 @@ function AdminFileRequests({
           id: requirementForm.id,
           title: requirementForm.title,
           description: requirementForm.description,
-          dueAt:
-            requirementForm.dueAt.length === 0
-              ? null
-              : new Date(requirementForm.dueAt).toISOString(),
+          dueAt: requirementForm.dueAt.length === 0 ? null : requirementForm.dueAt,
           acceptTypes:
             requirementForm.acceptTypes.trim().length === 0 ? null : requirementForm.acceptTypes,
           maxSizeMb:
@@ -943,172 +1001,213 @@ function AdminFileRequests({
       setRequirementOpen(false);
       setRequirementForm(emptyRequirementForm);
       toast.success(requirementForm.id === null ? "Requirement added" : "Requirement saved");
-      await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+      await refresh();
     },
   });
-  const bundle = async (requestId: string, title: string) => {
-    const uploads = data.files.filter((row) => row.upload.fileRequestId === requestId);
-    const current = uploads.flatMap((row) =>
-      data.versions
-        .map((item) => item.version)
-        .filter((version) => version.fileUploadId === row.upload.id)
-        .sort(
-          (left, right) =>
-            new Date(right.uploadedAt).getTime() - new Date(left.uploadedAt).getTime(),
-        )
-        .slice(0, 1),
+  const openRequirement = (requirement?: AdminData["requirements"][number]) => {
+    setRequirementForm(
+      requirement === undefined ? emptyRequirementForm : requirementFormFor(requirement),
     );
-    const files = (
-      await Promise.all(current.map((version) => fetchVersionData(version.id)))
-    ).filter((file) => file !== null);
-    if (files.length === 0) {
-      toast.error("No files to bundle");
-      return;
-    }
-    downloadZip(`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.zip`, files);
+    setRequirementOpen(true);
   };
+  const openRequest = (request?: AdminData["fileRequests"][number]) => {
+    setRequestForm(
+      request === undefined
+        ? emptyRequestForm
+        : {
+            id: request.id,
+            title: request.title,
+            scope: request.targetType,
+            instructions: request.instructions,
+            dueAt: request.dueAt === null ? "" : new Date(request.dueAt).toISOString(),
+          },
+    );
+    setRequestOpen(true);
+  };
+  const dueLabel = (dueAt: Date | null) =>
+    dueAt === null ? "No due date" : `Due ${formatDateTime(dueAt.toISOString(), timezone)}`;
+
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Deliverables</h1>
-          <p className="text-xs text-muted-foreground">
-            Versioned uploads and cross-role review threads.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <PlusIcon /> Add request
-        </Button>
+    <main className="grid gap-5 p-4 lg:p-6">
+      <div>
+        <h1 className="text-lg font-semibold">Deliverables</h1>
+        <p className="text-xs text-muted-foreground">
+          Track files required for sessions and requested through speaker tasks.
+        </p>
       </div>
+
       <section>
-        <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="mb-2 flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Session file requirements</h2>
-            <p className="text-xs text-muted-foreground">
-              Assets every accepted session should provide.
+            <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Session requirements
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Applies to every accepted session.
             </p>
           </div>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              setRequirementForm(emptyRequirementForm);
-              setRequirementOpen(true);
-            }}
+            className="pressable"
+            onClick={() => openRequirement()}
           >
             <PlusIcon /> Add requirement
           </Button>
         </div>
-        <div className="divide-y overflow-hidden rounded-lg border">
-          {data.requirements.map((requirement) => (
-            <button
-              key={requirement.id}
-              type="button"
-              className="pressable flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-              onClick={() => {
-                setRequirementForm(requirementFormFor(requirement));
-                setRequirementOpen(true);
-              }}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">{requirement.title}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {requirement.description}
-                </span>
-              </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {requirement.dueAt === null
-                  ? "No due date"
-                  : `Due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(requirement.dueAt))}`}
-              </span>
-              <span className="w-28 truncate text-xs text-muted-foreground">
-                {requirement.acceptTypes ?? "Any type"}
-              </span>
-              <span className="w-16 text-right text-xs text-muted-foreground tabular-nums">
-                {requirement.maxSizeMb === null ? "Any size" : `${requirement.maxSizeMb} MB`}
-              </span>
-              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      </section>
-      <div className="grid gap-3">
-        {data.fileRequests.map((request) => {
-          const uploads = data.files.filter((row) => row.upload.fileRequestId === request.id);
-          return (
-            <Card key={request.id}>
-              <CardHeader className="border-b py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-sm">{request.title}</CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      {uploads.length} upload{uploads.length === 1 ? "" : "s"} ·{" "}
-                      <span className="capitalize">{request.targetType}</span>
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void bundle(request.id, request.title)}
+        <div className="overflow-hidden rounded-lg border">
+          <div className="divide-y">
+            {requirements.pageItems.map((requirement) => {
+              const uploadedSessionIds = new Set(
+                data.files.flatMap((file) =>
+                  file.upload.requirementId === requirement.id &&
+                  file.upload.submissionId !== null &&
+                  data.versions.some((version) => version.version.fileUploadId === file.upload.id)
+                    ? [file.upload.submissionId]
+                    : [],
+                ),
+              );
+              const uploaded = acceptedSessions.filter((session) =>
+                uploadedSessionIds.has(session.id),
+              ).length;
+              return (
+                <div key={requirement.id} className="flex items-center gap-2">
+                  <Link
+                    to="/admin/files"
+                    search={{
+                      deliverable: `requirement:${requirement.id}`,
+                      spotlight: undefined,
+                    }}
+                    className="pressable min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
                   >
-                    <FileArchiveIcon /> Download bundle
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {requirement.title}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {dueLabel(requirement.dueAt)} · {requirement.acceptTypes ?? "Any type"} ·{" "}
+                          {requirement.maxSizeMb === null
+                            ? "Any size"
+                            : `${requirement.maxSizeMb} MB max`}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {uploaded} of {acceptedSessions.length} sessions uploaded
+                      </span>
+                    </span>
+                  </Link>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="pressable mr-2"
+                    aria-label={`Edit ${requirement.title}`}
+                    onClick={() => openRequirement(requirement)}
+                  >
+                    <PencilIcon />
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="grid gap-3 py-3">
-                {uploads.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-5 text-center text-xs text-muted-foreground">
-                    No uploads yet.
-                  </div>
-                ) : (
-                  uploads.map((row) => {
-                    const versions = data.versions
-                      .map((item) => item.version)
-                      .filter((version) => version.fileUploadId === row.upload.id);
-                    const comments = data.comments
-                      .map((item) => item.comment)
-                      .filter((comment) => comment.fileUploadId === row.upload.id);
-                    const unread = comments.some(
-                      (comment) =>
-                        comment.authorContactId !== null &&
-                        (row.upload.adminLastReadAt === null ||
-                          new Date(comment.createdAt) > new Date(row.upload.adminLastReadAt)),
-                    );
-                    return (
-                      <div key={row.upload.id}>
-                        <div className="mb-2 flex items-center justify-between">
-                          <PersonTag
-                            person={{
-                              name: `${row.contact.firstName} ${row.contact.lastName}`,
-                              image: row.contact.headshotUrl,
-                            }}
-                          />
-                          {unread ? <Badge>Unread reply</Badge> : null}
-                        </div>
-                        <FileThread
-                          eventId={eventId}
-                          upload={row.upload}
-                          versions={versions}
-                          comments={comments}
-                        />
-                      </div>
-                    );
-                  })
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+          <PaginationFooter
+            page={requirements.page}
+            pageSize={requirements.pageSize}
+            total={data.requirements.length}
+            onPageChange={requirements.setPage}
+          />
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Requested files
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Ask specific people for a file, delivered as a task.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" className="pressable" onClick={() => openRequest()}>
+            <PlusIcon /> Add request
+          </Button>
+        </div>
+        <div className="overflow-hidden rounded-lg border">
+          <div className="divide-y">
+            {requests.pageItems.map((request) => {
+              const uploads = data.files.filter((file) => file.upload.fileRequestId === request.id);
+              const linkedTemplates = data.templates.filter(
+                (template) => template.template.fileRequestId === request.id,
+              );
+              return (
+                <div key={request.id} className="flex items-center gap-2">
+                  <Link
+                    to="/admin/files"
+                    search={{ deliverable: `request:${request.id}`, spotlight: undefined }}
+                    className="pressable min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">{request.title}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {request.targetType === "submission" ? "Per session" : "Per speaker"} ·{" "}
+                          {dueLabel(request.dueAt)} · {uploads.length} upload
+                          {uploads.length === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                      {linkedTemplates.length === 0 ? null : (
+                        <span className="max-w-48 truncate text-xs text-muted-foreground">
+                          {linkedTemplates.map((template) => template.template.title).join(", ")}
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                  {linkedTemplates.length === 0 ? (
+                    <div className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <span>Not assigned to any task yet</span>
+                      <Button size="xs" variant="ghost" className="pressable" asChild>
+                        <Link
+                          to="/admin/$section"
+                          params={{ section: "tasks" }}
+                          search={{ fileRequest: request.id, spotlight: undefined }}
+                        >
+                          Create task
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="pressable mr-2"
+                    aria-label={`Edit ${request.title}`}
+                    onClick={() => openRequest(request)}
+                  >
+                    <PencilIcon />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+          <PaginationFooter
+            page={requests.page}
+            pageSize={requests.pageSize}
+            total={data.fileRequests.length}
+            onPageChange={requests.setPage}
+          />
+        </div>
+      </section>
+
       <Dialog open={requirementOpen} onOpenChange={setRequirementOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {requirementForm.id === null ? "Add session file requirement" : "Edit requirement"}
+              {requirementForm.id === null ? "Add session requirement" : "Edit requirement"}
             </DialogTitle>
-            <DialogDescription>
-              Speakers see this on every accepted session in their portal.
-            </DialogDescription>
+            <DialogDescription>Applies to every accepted session.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid gap-1.5">
@@ -1134,13 +1233,11 @@ function AdminFileRequests({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="requirement-due">Due</Label>
-                <Input
+                <DateTimePicker
                   id="requirement-due"
-                  type="datetime-local"
                   value={requirementForm.dueAt}
-                  onChange={(event) =>
-                    setRequirementForm({ ...requirementForm, dueAt: event.target.value })
-                  }
+                  timezone={timezone}
+                  onChange={(dueAt) => setRequirementForm({ ...requirementForm, dueAt })}
                 />
               </div>
               <div className="grid gap-1.5">
@@ -1182,51 +1279,74 @@ function AdminFileRequests({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={open} onOpenChange={setOpen}>
+
+      <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add file request</DialogTitle>
+            <DialogTitle>
+              {requestForm.id === null ? "Add file request" : "Edit file request"}
+            </DialogTitle>
             <DialogDescription>
-              Files are stored on this request and versioned on every replacement.
+              Ask specific people for a file through a linked task.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             <div className="grid gap-1.5">
-              <Label>Title</Label>
+              <Label htmlFor="request-title">Title</Label>
               <Input
-                value={form.title}
-                onChange={(event) => setForm({ ...form, title: event.target.value })}
+                id="request-title"
+                value={requestForm.title}
+                onChange={(event) => setRequestForm({ ...requestForm, title: event.target.value })}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Scope</Label>
-              <Select value={form.scope} onValueChange={(scope) => setForm({ ...form, scope })}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="contact">Contact</SelectItem>
-                  <SelectItem value="submission">Submission</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Instructions</Label>
+              <Label htmlFor="request-instructions">Instructions</Label>
               <RichTextEditor
-                value={form.instructions}
-                onChange={(instructions) => setForm({ ...form, instructions })}
+                value={requestForm.instructions}
+                onChange={(instructions) => setRequestForm({ ...requestForm, instructions })}
               />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label>Audience</Label>
+                <Select
+                  value={requestForm.scope}
+                  onValueChange={(scope) =>
+                    setRequestForm({
+                      ...requestForm,
+                      scope: scope === "submission" ? "submission" : "contact",
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contact">Per speaker</SelectItem>
+                    <SelectItem value="submission">Per session</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="request-due">Due</Label>
+                <DateTimePicker
+                  id="request-due"
+                  value={requestForm.dueAt}
+                  timezone={timezone}
+                  onChange={(dueAt) => setRequestForm({ ...requestForm, dueAt })}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setRequestOpen(false)}>
               Cancel
             </Button>
             <Button
-              disabled={form.title.trim().length === 0 || create.isPending}
-              onClick={() => create.mutate()}
+              disabled={requestForm.title.trim().length === 0 || saveRequest.isPending}
+              onClick={() => saveRequest.mutate()}
             >
-              Create request
+              {saveRequest.isPending ? "Saving…" : "Save request"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1257,12 +1377,7 @@ const requirementFormFor = (requirement: AdminData["requirements"][number]): Req
   id: requirement.id,
   title: requirement.title,
   description: requirement.description,
-  dueAt:
-    requirement.dueAt === null
-      ? ""
-      : new Date(new Date(requirement.dueAt).getTime() - new Date().getTimezoneOffset() * 60_000)
-          .toISOString()
-          .slice(0, 16),
+  dueAt: requirement.dueAt === null ? "" : new Date(requirement.dueAt).toISOString(),
   acceptTypes: requirement.acceptTypes ?? "",
   maxSizeMb: requirement.maxSizeMb?.toString() ?? "",
 });
@@ -1335,6 +1450,10 @@ function AdminSessions({
   const visibleSubmissions = data.submissions.filter(
     (item) => item.status === "accepted" || item.status === "pending",
   );
+  const submissionPages = usePagination(visibleSubmissions, {
+    spotlightId,
+    getId: (submission) => submission.id,
+  });
   return (
     <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
       <SpotlightLayout
@@ -1456,75 +1575,87 @@ function AdminSessions({
                 </div>
               </div>
             )}
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Session</TableHead>
-                    <TableHead>Status</TableHead>
-                    {compact ? null : <TableHead>Speakers</TableHead>}
-                    {compact ? null : <TableHead className="text-right">Action</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleSubmissions.map((submission) => {
-                    const speakers = data.participants.filter(
-                      (row) => row.submission.id === submission.id,
-                    );
-                    return (
-                      <TableRow
-                        key={submission.id}
-                        ref={rowRef(submission.id)}
-                        className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
-                        onClick={() => openSpotlight(submission.id)}
-                      >
-                        <TableCell className="h-9 py-1.5">
-                          <span className="font-mono text-xs tabular-nums">{submission.code}</span>{" "}
-                          —{" "}
-                          <span className="font-medium">
-                            {compact ? (
-                              <span className="inline-block max-w-52 truncate align-bottom">
-                                {submission.title}
-                              </span>
-                            ) : (
-                              submission.title
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell className="h-9 py-1.5">
-                          <StatusBadge status={submission.status} />
-                        </TableCell>
-                        {compact ? null : (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
+              <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Session</TableHead>
+                      <TableHead>Status</TableHead>
+                      {compact ? null : <TableHead>Speakers</TableHead>}
+                      {compact ? null : <TableHead className="text-right">Action</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {submissionPages.pageItems.map((submission) => {
+                      const speakers = data.participants.filter(
+                        (row) => row.submission.id === submission.id,
+                      );
+                      return (
+                        <TableRow
+                          key={submission.id}
+                          ref={rowRef(submission.id)}
+                          className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
+                          onClick={() => openSpotlight(submission.id)}
+                        >
                           <TableCell className="h-9 py-1.5">
-                            {speakers.length === 0
-                              ? "—"
-                              : speakers
-                                  .map((row) => `${row.contact.firstName} ${row.contact.lastName}`)
-                                  .join(", ")}
+                            <span className="font-mono text-xs tabular-nums">
+                              {submission.code}
+                            </span>{" "}
+                            —{" "}
+                            <span className="font-medium">
+                              {compact ? (
+                                <span className="inline-block max-w-52 truncate align-bottom">
+                                  {submission.title}
+                                </span>
+                              ) : (
+                                submission.title
+                              )}
+                            </span>
                           </TableCell>
-                        )}
-                        {compact ? null : (
-                          <TableCell className="h-9 py-1.5 text-right">
-                            {submission.status === "pending" ? (
-                              <Button
-                                size="sm"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  accept.mutate(submission.id);
-                                }}
-                              >
-                                <UserRoundCheckIcon /> Accept
-                              </Button>
-                            ) : (
-                              <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
-                            )}
+                          <TableCell className="h-9 py-1.5">
+                            <StatusBadge status={submission.status} />
                           </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                          {compact ? null : (
+                            <TableCell className="h-9 py-1.5">
+                              {speakers.length === 0
+                                ? "—"
+                                : speakers
+                                    .map(
+                                      (row) => `${row.contact.firstName} ${row.contact.lastName}`,
+                                    )
+                                    .join(", ")}
+                            </TableCell>
+                          )}
+                          {compact ? null : (
+                            <TableCell className="h-9 py-1.5 text-right">
+                              {submission.status === "pending" ? (
+                                <Button
+                                  size="sm"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    accept.mutate(submission.id);
+                                  }}
+                                >
+                                  <UserRoundCheckIcon /> Accept
+                                </Button>
+                              ) : (
+                                <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
+                              )}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <PaginationFooter
+                page={submissionPages.page}
+                pageSize={submissionPages.pageSize}
+                total={visibleSubmissions.length}
+                onPageChange={submissionPages.setPage}
+              />
             </div>
           </div>
         )}
@@ -1667,6 +1798,7 @@ function SessionPeek({
                         <FileThread
                           embedded
                           eventId={eventId}
+                          authorName={data.currentUserName}
                           upload={file.upload}
                           versions={versions}
                           comments={comments}
@@ -1759,6 +1891,7 @@ function SpeakerCard({
         <div className="border-t p-3">
           <FileThread
             eventId={eventId}
+            authorName={data.currentUserName}
             upload={headshot.upload}
             versions={versions}
             comments={data.comments
