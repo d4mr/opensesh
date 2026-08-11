@@ -26,10 +26,13 @@ import {
   UserPlusIcon,
   XIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { DateTimePicker } from "@/components/forms/datetime-picker";
+import { EntityCombobox } from "@/components/forms/entity-combobox";
+import { PersonHoverCard } from "@/components/app/person-popover";
+import { PersonTag } from "@/components/app/person-tag";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -847,6 +850,14 @@ function AssignmentsPane({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [confirmAssignment, setConfirmAssignment] =
     useState<ReviewRoundAdminView["assignments"][number]>();
+  const reviewerItems = useMemo(
+    () =>
+      view.reviewers.map((reviewer) => ({
+        ...reviewer,
+        id: reviewer.member.eventMemberId,
+      })),
+    [view.reviewers],
+  );
   const filtered = view.submissions.filter(
     (submission) => trackId === "all" || submission.trackIds.includes(trackId),
   );
@@ -929,18 +940,38 @@ function AssignmentsPane({
         </div>
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/20 p-2">
-        <Select value={reviewerId} onValueChange={setReviewerId}>
-          <SelectTrigger className="h-8 w-56">
-            <SelectValue placeholder="Choose reviewer" />
-          </SelectTrigger>
-          <SelectContent>
-            {view.reviewers.map((reviewer) => (
-              <SelectItem key={reviewer.member.id} value={reviewer.member.eventMemberId}>
-                {reviewer.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <EntityCombobox
+          items={reviewerItems}
+          value={reviewerId}
+          onChange={setReviewerId}
+          getItemText={(reviewer) => `${reviewer.name} ${reviewer.email}`}
+          placeholder="Choose reviewer"
+          searchPlaceholder="Search reviewers…"
+          emptyText="No reviewers found."
+          className="h-8 w-56"
+          contentClassName="w-72"
+          renderValue={(reviewer) => <PersonTag person={{ name: reviewer.name, image: null }} />}
+          renderItem={(reviewer) => (
+            <PersonHoverCard
+              side="right"
+              person={{
+                name: reviewer.name,
+                image: null,
+                title: reviewer.email,
+                company: null,
+                bio: null,
+                status: null,
+              }}
+            >
+              <div className="min-w-0">
+                <PersonTag person={{ name: reviewer.name, image: null }} />
+                <p className="mt-0.5 truncate pl-5.5 text-xs text-muted-foreground">
+                  {reviewer.email}
+                </p>
+              </div>
+            </PersonHoverCard>
+          )}
+        />
         <Button
           size="sm"
           className="pressable"

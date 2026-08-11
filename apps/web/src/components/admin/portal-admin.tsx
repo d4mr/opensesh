@@ -12,15 +12,22 @@ import {
   SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
-import { Fragment, useLayoutEffect, useState } from "react";
+import { Fragment, useCallback, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { ChangeDiff } from "@/components/app/change-diff";
+import { PersonHoverCard } from "@/components/app/person-popover";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
-import { formatDateTime } from "@/components/forms/datetime-picker";
+import {
+  DatePicker,
+  dateKeyInTimezone,
+  formatDateTime,
+  zonedDateTimeIso,
+} from "@/components/forms/datetime-picker";
+import { EntityCombobox } from "@/components/forms/entity-combobox";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
 import { Badge } from "@/components/ui/badge";
@@ -72,11 +79,30 @@ import {
   rejectProfileChange,
   saveAdminSessionFileRequirement,
   saveAdminTaskTemplate,
+  searchEventContacts,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
 import { sendTaskReminders } from "@/server-fns/mail";
 
-type AdminData = Extract<Awaited<ReturnType<typeof getPortalAdmin>>, { readonly ok: true }>["data"];
+export type AdminData = Extract<
+  Awaited<ReturnType<typeof getPortalAdmin>>,
+  { readonly ok: true }
+>["data"];
+
+const personFor = (data: AdminData, contact: AdminData["contacts"][number]) => ({
+  id: contact.id,
+  name: `${contact.firstName} ${contact.lastName}`,
+  image: contact.headshotUrl,
+  title: contact.title,
+  company: contact.company,
+  bio: contact.bio,
+  status: contact.workflowStatus,
+  sessionsCount: new Set(
+    data.participants
+      .filter((row) => row.contact.id === contact.id)
+      .map((row) => row.submission.id),
+  ).size,
+});
 
 const portalFields = (form: AdminData["forms"][number] | undefined) =>
   form?.sections.flatMap((section) => section.fields) ?? [];
@@ -132,7 +158,8 @@ function PortalAdminData({
 }) {
   const portal = useSuspenseQuery(adminPortalQuery(eventId));
   if (!portal.data.ok) return <p className="p-6">{portal.data.error.message}</p>;
-  if (section === "tasks") return <AdminTasks eventId={eventId} data={portal.data.data} />;
+  if (section === "tasks")
+    return <AdminTasks eventId={eventId} timezone={timezone} data={portal.data.data} />;
   if (section === "portal-forms")
     return <AdminPortalForms eventId={eventId} timezone={timezone} data={portal.data.data} />;
   if (section === "file-requests")
@@ -149,7 +176,15 @@ function PortalAdminData({
   return null;
 }
 
-function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data: AdminData }) {
+function AdminTasks({
+  eventId,
+  timezone,
+  data,
+}: {
+  readonly eventId: string;
+  readonly timezone: string;
+  readonly data: AdminData;
+}) {
   const queryClient = useQueryClient();
   const [drawer, setDrawer] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -274,12 +309,12 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
           <TabsTrigger value="assignments">Assignments board</TabsTrigger>
         </TabsList>
         <TabsContent value="templates" className="pt-3">
-          <div className="grid gap-2">
+          <div className="max-w-4xl divide-y overflow-hidden rounded-lg border">
             {templateRows.map((row) => (
               <button
                 key={row.template.id}
                 type="button"
-                className="pressable flex items-center gap-3 rounded-md border bg-card px-3 py-2 text-left text-sm"
+                className="pressable flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
                 onClick={() => open(row.template.id)}
               >
                 <div className="min-w-0 flex-1">
@@ -389,12 +424,14 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                           <ChevronDownIcon
                             className={`size-3.5 ${expanded === row.contact.id ? "rotate-180" : ""}`}
                           />
-                          <PersonTag
-                            person={{
-                              name: `${row.contact.firstName} ${row.contact.lastName}`,
-                              image: row.contact.headshotUrl,
-                            }}
-                          />
+                          <PersonHoverCard person={personFor(data, row.contact)}>
+                            <PersonTag
+                              person={{
+                                name: `${row.contact.firstName} ${row.contact.lastName}`,
+                                image: row.contact.headshotUrl,
+                              }}
+                            />
+                          </PersonHoverCard>
                         </div>
                       </TableCell>
                       <TableCell className="capitalize">
@@ -428,11 +465,11 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                     {expanded === row.contact.id ? (
                       <TableRow key={`${row.contact.id}-details`}>
                         <TableCell colSpan={7} className="bg-muted/20 p-3">
-                          <div className="grid gap-2">
+                          <div className="grid max-w-4xl gap-0 border-y">
                             {row.assignments.map((assignment) => (
                               <div
                                 key={assignment.assignment.id}
-                                className="flex items-center justify-between rounded-md border bg-background px-2.5 py-2 text-xs"
+                                className="flex items-center justify-between border-b bg-background px-2.5 py-1.5 text-xs last:border-b-0"
                               >
                                 <span>
                                   {assignment.template.title}
@@ -463,7 +500,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
                                 </div>
                               </div>
                             ))}
-                            <div className="flex items-center gap-2 pt-1">
+                            <div className="flex items-center gap-2 px-2.5 py-1.5">
                               <span className="text-xs text-muted-foreground">Manual assign:</span>
                               {data.templates.map((template) => (
                                 <Button
@@ -495,6 +532,7 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
       <TaskTemplateDialog
         key={editingId ?? "new"}
         eventId={eventId}
+        timezone={timezone}
         data={data}
         templateId={editingId}
         open={drawer}
@@ -504,14 +542,16 @@ function AdminTasks({ eventId, data }: { readonly eventId: string; readonly data
   );
 }
 
-function TaskTemplateDialog({
+export function TaskTemplateDialog({
   eventId,
+  timezone,
   data,
   templateId,
   open,
   onOpenChange,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: AdminData;
   readonly templateId: string | null;
   readonly open: boolean;
@@ -546,10 +586,17 @@ function TaskTemplateDialog({
     dueDate:
       existing?.dueDate === null || existing?.dueDate === undefined
         ? ""
-        : new Date(existing.dueDate).toISOString().slice(0, 10),
+        : dateKeyInTimezone(existing.dueDate, timezone),
     assignmentMode: initialAssignmentMode,
     contactIds: initialContactIds,
   });
+  const loadSpeakers = useCallback(
+    async (query: string) => {
+      const result = await searchEventContacts({ data: { eventId, query } });
+      return result.ok ? result.data : [];
+    },
+    [eventId],
+  );
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: () =>
@@ -563,7 +610,8 @@ function TaskTemplateDialog({
           portalFormId: form.link.startsWith("form:") ? form.link.slice(5) : null,
           fileRequestId: form.link.startsWith("file:") ? form.link.slice(5) : null,
           autoAssignOnAccept: form.auto,
-          dueDate: form.dueDate || null,
+          dueDate:
+            form.dueDate.length === 0 ? null : zonedDateTimeIso(form.dueDate, 12 * 60, timezone),
           contactIds:
             form.scope === "contact"
               ? form.assignmentMode === "all"
@@ -624,10 +672,9 @@ function TaskTemplateDialog({
             </div>
             <div className="grid gap-1.5">
               <Label>Due date</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={form.dueDate}
-                onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
+                onChange={(dueDate) => setForm({ ...form, dueDate })}
               />
             </div>
           </div>
@@ -673,28 +720,61 @@ function TaskTemplateDialog({
                 </SelectContent>
               </Select>
               {form.assignmentMode !== "selection" ? null : (
-                <div className="grid max-h-36 gap-0.5 overflow-auto rounded-lg border p-1.5">
-                  {speakers.map((speaker) => (
-                    <label
-                      key={speaker.id}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5",
-                        form.contactIds.has(speaker.id) ? "bg-muted" : "hover:bg-muted/60",
-                      )}
+                <EntityCombobox
+                  multiple
+                  items={speakers}
+                  loadItems={loadSpeakers}
+                  value={[...form.contactIds]}
+                  onChange={(contactIds) => setForm({ ...form, contactIds: new Set(contactIds) })}
+                  getItemText={(speaker) =>
+                    [speaker.firstName, speaker.lastName, speaker.title, speaker.company]
+                      .filter(Boolean)
+                      .join(" ")
+                  }
+                  placeholder="Choose speakers"
+                  searchPlaceholder="Search speakers…"
+                  emptyText="No speakers found."
+                  renderValue={(speaker) => (
+                    <PersonTag
+                      person={{
+                        name: `${speaker.firstName} ${speaker.lastName}`,
+                        image: speaker.headshotUrl,
+                      }}
+                    />
+                  )}
+                  renderItem={(speaker) => (
+                    <PersonHoverCard
+                      side="right"
+                      person={{
+                        id: speaker.id,
+                        name: `${speaker.firstName} ${speaker.lastName}`,
+                        image: speaker.headshotUrl,
+                        title: speaker.title,
+                        company: speaker.company,
+                        bio: speaker.bio,
+                        status: speaker.workflowStatus,
+                        sessionsCount: new Set(
+                          data.participants
+                            .filter((row) => row.contact.id === speaker.id)
+                            .map((row) => row.submission.id),
+                        ).size,
+                      }}
                     >
-                      <Checkbox
-                        checked={form.contactIds.has(speaker.id)}
-                        onCheckedChange={(checked) => {
-                          const contactIds = new Set(form.contactIds);
-                          if (checked === true) contactIds.add(speaker.id);
-                          else contactIds.delete(speaker.id);
-                          setForm({ ...form, contactIds });
-                        }}
-                      />
-                      {speaker.firstName} {speaker.lastName}
-                    </label>
-                  ))}
-                </div>
+                      <div className="min-w-0">
+                        <PersonTag
+                          person={{
+                            name: `${speaker.firstName} ${speaker.lastName}`,
+                            image: speaker.headshotUrl,
+                          }}
+                        />
+                        <p className="mt-0.5 truncate pl-5.5 text-xs text-muted-foreground">
+                          {[speaker.title, speaker.company].filter(Boolean).join(" · ") ||
+                            speaker.email}
+                        </p>
+                      </div>
+                    </PersonHoverCard>
+                  )}
+                />
               )}
             </div>
           )}
@@ -830,12 +910,14 @@ function AdminPortalForms({
                   return (
                     <TableRow key={row.response.id}>
                       <TableCell>
-                        <PersonTag
-                          person={{
-                            name: `${row.contact.firstName} ${row.contact.lastName}`,
-                            image: row.contact.headshotUrl,
-                          }}
-                        />
+                        <PersonHoverCard person={personFor(data, row.contact)}>
+                          <PersonTag
+                            person={{
+                              name: `${row.contact.firstName} ${row.contact.lastName}`,
+                              image: row.contact.headshotUrl,
+                            }}
+                          />
+                        </PersonHoverCard>
                       </TableCell>
                       <TableCell>{form?.name ?? "Form"}</TableCell>
                       <TableCell className="text-xs">
@@ -1411,9 +1493,11 @@ function AdminSessions({
                       <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
                         Profile
                       </span>
-                      <span className="min-w-0 truncate font-medium">
-                        {contact.firstName} {contact.lastName}
-                      </span>
+                      <PersonHoverCard person={personFor(data, contact)}>
+                        <span className="min-w-0 truncate font-medium">
+                          {contact.firstName} {contact.lastName}
+                        </span>
+                      </PersonHoverCard>
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">
                         changed {describeChangedFields(entry.changedFields)}
                       </span>
@@ -1496,11 +1580,25 @@ function AdminSessions({
                         </TableCell>
                         {compact ? null : (
                           <TableCell className="h-9 py-1.5">
-                            {speakers.length === 0
-                              ? "—"
-                              : speakers
-                                  .map((row) => `${row.contact.firstName} ${row.contact.lastName}`)
-                                  .join(", ")}
+                            {speakers.length === 0 ? (
+                              "—"
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {speakers.map((row) => (
+                                  <PersonHoverCard
+                                    key={row.contact.id}
+                                    person={personFor(data, row.contact)}
+                                  >
+                                    <PersonTag
+                                      person={{
+                                        name: `${row.contact.firstName} ${row.contact.lastName}`,
+                                        image: row.contact.headshotUrl,
+                                      }}
+                                    />
+                                  </PersonHoverCard>
+                                ))}
+                              </div>
+                            )}
                           </TableCell>
                         )}
                         {compact ? null : (
@@ -1739,9 +1837,11 @@ function SpeakerCard({
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="truncate text-sm font-medium">
-              {contact.firstName} {contact.lastName}
-            </p>
+            <PersonHoverCard person={personFor(data, contact)}>
+              <p className="truncate text-sm font-medium">
+                {contact.firstName} {contact.lastName}
+              </p>
+            </PersonHoverCard>
             <p className="shrink-0 text-xs text-muted-foreground">{meta}</p>
           </div>
           <p className="truncate text-xs text-muted-foreground">{contact.email}</p>

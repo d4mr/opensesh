@@ -292,6 +292,9 @@ importers:
       '@opensesh/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@radix-ui/react-hover-card':
+        specifier: ^1.1.23
+        version: 1.1.23(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-form':
         specifier: ^1.33.4
         version: 1.33.4(@tanstack/react-start@1.168.41(@voidzero-dev/vite-plus-core@0.2.8(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.20.5)(typescript@6.0.3))(esbuild@0.28.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.3)(supports-color@10.2.2))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

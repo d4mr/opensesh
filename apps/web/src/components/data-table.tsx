@@ -5,6 +5,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { useState } from "react";
 
 import { PersonTag } from "@/components/app/person-tag";
+import { PersonHoverCard } from "@/components/app/person-popover";
 import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,7 +46,22 @@ const columns = columnHelper.columns([
   }),
   columnHelper.accessor("reviewer", {
     header: "Reviewer",
-    cell: ({ row }) => <PersonTag person={row.original.reviewer} />,
+    cell: ({ row }) =>
+      row.original.reviewer === null ? (
+        <PersonTag person={null} />
+      ) : (
+        <PersonHoverCard
+          person={{
+            ...row.original.reviewer,
+            title: null,
+            company: null,
+            bio: null,
+            status: null,
+          }}
+        >
+          <PersonTag person={row.original.reviewer} />
+        </PersonHoverCard>
+      ),
   }),
 ]);
 

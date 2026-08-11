@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { PersonTag } from "@/components/app/person-tag";
+import { PersonHoverCard } from "@/components/app/person-popover";
 import { SpotlightPanelHeader } from "@/components/app/spotlight";
 import { StatusBadge } from "@/components/app/status-badge";
 import { formatDateTime } from "@/components/forms/datetime-picker";
@@ -330,9 +331,20 @@ export function SubmissionDetail({
                   data.reviews.map((review) => (
                     <div key={review.id} className="space-y-2 px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <PersonTag
-                          person={{ name: review.reviewerName, image: review.reviewerImage }}
-                        />
+                        <PersonHoverCard
+                          person={{
+                            name: review.reviewerName,
+                            image: review.reviewerImage,
+                            title: null,
+                            company: null,
+                            bio: null,
+                            status: null,
+                          }}
+                        >
+                          <PersonTag
+                            person={{ name: review.reviewerName, image: review.reviewerImage }}
+                          />
+                        </PersonHoverCard>
                         <ReviewBadge review={review} />
                         <span className="ml-auto text-xs font-medium tabular-nums">
                           {review.score ?? "—"}/5

@@ -17,7 +17,10 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { ChangeDiff } from "@/components/app/change-diff";
+import { PersonHoverCard } from "@/components/app/person-popover";
+import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { TaskTemplateDialog } from "@/components/admin/portal-admin";
 import {
   CsvImportDialog,
   PortalInviteResultDialog,
@@ -39,6 +42,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Table,
   TableBody,
   TableCell,
@@ -48,6 +59,7 @@ import {
 } from "@/components/ui/table";
 import { profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
+import { adminPortalQuery } from "@/lib/portal-queries";
 import { cn } from "@/lib/utils";
 import { speakerDirectoryQuery } from "@/lib/widget-queries";
 import {
@@ -89,8 +101,10 @@ const readinessToneClass: Readonly<Record<"accepted" | "pending" | "declined", s
   declined: "bg-[var(--status-declined)]",
 };
 
-const shortDate = (value: Date) =>
-  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+const shortDate = (value: Date, timezone?: string) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: timezone }).format(
+    new Date(value),
+  );
 const fullDateTime = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -140,6 +154,7 @@ export function SpeakersDirectory({
   return (
     <DirectoryData
       eventId={context.event.id}
+      timezone={context.event.timezone}
       spotlightId={spotlightId}
       onSpotlightChange={onSpotlightChange}
     />
@@ -148,10 +163,12 @@ export function SpeakersDirectory({
 
 function DirectoryData({
   eventId,
+  timezone,
   spotlightId,
   onSpotlightChange,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly spotlightId: string | undefined;
   readonly onSpotlightChange: (
     id: string | undefined,
@@ -163,6 +180,7 @@ function DirectoryData({
   return (
     <Directory
       eventId={eventId}
+      timezone={timezone}
       rows={result.data.data.rows}
       csv={result.data.data.csv}
       spotlightId={spotlightId}
@@ -173,12 +191,14 @@ function DirectoryData({
 
 function Directory({
   eventId,
+  timezone,
   rows,
   csv,
   spotlightId,
   onSpotlightChange,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly rows: ReadonlyArray<SpeakerDirectoryRow>;
   readonly csv: string;
   readonly spotlightId: string | undefined;
@@ -208,10 +228,13 @@ function Directory({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string>();
   const [waivedIds, setWaivedIds] = useState<ReadonlySet<string>>(new Set());
+  const [peekTaskId, setPeekTaskId] = useState<string>();
+  const [editingTaskTemplateId, setEditingTaskTemplateId] = useState<string>();
   const [profileDecisions, setProfileDecisions] = useState<
     ReadonlyMap<string, "approve" | "reject">
   >(new Map());
   const queryClient = useQueryClient();
+  const portal = useQuery(adminPortalQuery(eventId));
   const directoryOptions = speakerDirectoryQuery(eventId);
   const refresh = () =>
     Promise.all([
@@ -338,6 +361,9 @@ function Directory({
     [rows, search, statusFilter, statusOverrides, taskFilter],
   );
   const selected = rows.find((row) => row.contact.id === spotlightId);
+  const portalData = portal.data?.ok ? portal.data.data : undefined;
+  const peekTask = selected?.tasks.find((task) => task.id === peekTaskId);
+  const peekAssignment = portalData?.assignments.find((row) => row.assignment.id === peekTaskId);
   const activeFilters = search.trim() !== "" || statusFilter !== "all" || taskFilter !== "all";
   const clearFilters = () => {
     setSearch("");
@@ -551,29 +577,43 @@ function Directory({
                           />
                         </TableCell>
                         <TableCell className="h-9 py-0">
-                          <div className="flex items-center gap-2.5">
-                            <Headshot row={row} />
-                            <div className="min-w-0">
-                              <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-                                {row.contact.firstName} {row.contact.lastName}
-                                {row.contact.profileReviewStatus === "pending_review" ? (
-                                  <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
-                                    Profile pending
-                                  </span>
-                                ) : null}
-                              </p>
-                              <p
-                                className={cn(
-                                  "truncate text-xs text-muted-foreground",
-                                  compact && "hidden",
-                                )}
-                              >
-                                {[row.contact.title, row.contact.company]
-                                  .filter(Boolean)
-                                  .join(" · ") || row.contact.email}
-                              </p>
+                          <PersonHoverCard
+                            person={{
+                              id: row.contact.id,
+                              name: `${row.contact.firstName} ${row.contact.lastName}`,
+                              image: row.contact.headshotUrl,
+                              title: row.contact.title,
+                              company: row.contact.company,
+                              bio: row.contact.bio,
+                              status:
+                                statusOverrides.get(row.contact.id) ?? row.contact.workflowStatus,
+                              sessionsCount: row.sessions.length,
+                            }}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Headshot row={row} />
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                                  {row.contact.firstName} {row.contact.lastName}
+                                  {row.contact.profileReviewStatus === "pending_review" ? (
+                                    <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                                      Profile pending
+                                    </span>
+                                  ) : null}
+                                </p>
+                                <p
+                                  className={cn(
+                                    "truncate text-xs text-muted-foreground",
+                                    compact && "hidden",
+                                  )}
+                                >
+                                  {[row.contact.title, row.contact.company]
+                                    .filter(Boolean)
+                                    .join(" · ") || row.contact.email}
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          </PersonHoverCard>
                         </TableCell>
                         {compact ? null : (
                           <TableCell className="h-9 py-0 text-xs">
@@ -814,7 +854,7 @@ function Directory({
                   </section>
                   <section>
                     <SectionLabel>Tasks</SectionLabel>
-                    <div className="mt-1 divide-y border-y">
+                    <div className="mt-1 max-w-xl divide-y border-y">
                       {selected.tasks.length === 0 ? (
                         <p className="flex h-8 items-center text-muted-foreground">
                           No tasks assigned.
@@ -823,24 +863,32 @@ function Directory({
                         selected.tasks.map((task) => {
                           const status = waivedIds.has(task.id) ? "waived" : task.status;
                           return (
-                            <div key={task.id} className="flex h-8 min-w-0 items-center gap-2">
-                              <span className="min-w-0 flex-1 truncate">
-                                {task.title}
-                                {task.submissionCode === null ? null : (
-                                  <span className="ml-1 font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {task.submissionCode}
-                                  </span>
-                                )}
-                              </span>
-                              <Badge
-                                variant={status === "todo" ? "outline" : "secondary"}
-                                className="h-5 rounded-sm px-1.5 text-[10px] font-normal"
+                            <div key={task.id} className="flex min-w-0 items-center gap-1">
+                              <button
+                                type="button"
+                                className="pressable flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 text-left transition-colors hover:bg-muted/50"
+                                onClick={() => setPeekTaskId(task.id)}
                               >
-                                {taskStatusLabels[status]}
-                              </Badge>
-                              <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
-                                {task.dueDate === null ? "No due" : shortDate(task.dueDate)}
-                              </span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  <span className="font-medium">{task.title}</span>
+                                  <span className="ml-1 text-[11px] text-muted-foreground">
+                                    {task.submissionCode === null ? null : (
+                                      <span className="font-mono tabular-nums">
+                                        {task.submissionCode} ·{" "}
+                                      </span>
+                                    )}
+                                    {task.dueDate === null
+                                      ? "No due date"
+                                      : shortDate(task.dueDate, timezone)}
+                                  </span>
+                                </span>
+                                <Badge
+                                  variant={status === "todo" ? "outline" : "secondary"}
+                                  className="h-5 shrink-0 rounded-sm px-1.5 text-[10px] font-normal"
+                                >
+                                  {taskStatusLabels[status]}
+                                </Badge>
+                              </button>
                               {status === "todo" ? (
                                 <Button
                                   type="button"
@@ -983,6 +1031,141 @@ function Directory({
           )
         }
       />
+      <Sheet
+        open={peekTaskId !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setPeekTaskId(undefined);
+        }}
+      >
+        <SheetContent className="gap-0 sm:max-w-md">
+          <SheetHeader className="border-b px-4 py-3">
+            <div className="flex items-center gap-2 pr-8">
+              <SheetTitle className="truncate text-sm">
+                {peekAssignment?.template.title ?? peekTask?.title ?? "Task"}
+              </SheetTitle>
+              {peekTask === undefined ? null : (
+                <Badge
+                  variant={
+                    (waivedIds.has(peekTask.id) ? "waived" : peekTask.status) === "todo"
+                      ? "outline"
+                      : "secondary"
+                  }
+                  className="h-5 shrink-0 rounded-sm px-1.5 text-[10px] font-normal"
+                >
+                  {taskStatusLabels[waivedIds.has(peekTask.id) ? "waived" : peekTask.status]}
+                </Badge>
+              )}
+            </div>
+            <SheetDescription className="text-xs">
+              {peekTask?.dueDate === null || peekTask?.dueDate === undefined
+                ? "No due date"
+                : `Due ${new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: timezone,
+                  }).format(peekTask.dueDate)}`}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto p-4 text-sm">
+            <section>
+              <SectionLabel>Instructions</SectionLabel>
+              {hasRichText(peekAssignment?.template.instructions ?? null) ? (
+                <div
+                  className="rte-content mt-1 text-xs text-muted-foreground"
+                  dangerouslySetInnerHTML={{
+                    __html: peekAssignment?.template.instructions ?? "",
+                  }}
+                />
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">No instructions.</p>
+              )}
+            </section>
+            {selected === undefined ? null : (
+              <section>
+                <SectionLabel>Speaker</SectionLabel>
+                <div className="mt-1">
+                  <PersonHoverCard
+                    person={{
+                      id: selected.contact.id,
+                      name: `${selected.contact.firstName} ${selected.contact.lastName}`,
+                      image: selected.contact.headshotUrl,
+                      title: selected.contact.title,
+                      company: selected.contact.company,
+                      bio: selected.contact.bio,
+                      status:
+                        statusOverrides.get(selected.contact.id) ?? selected.contact.workflowStatus,
+                      sessionsCount: selected.sessions.length,
+                    }}
+                  >
+                    <PersonTag
+                      person={{
+                        name: `${selected.contact.firstName} ${selected.contact.lastName}`,
+                        image: selected.contact.headshotUrl,
+                      }}
+                    />
+                  </PersonHoverCard>
+                </div>
+              </section>
+            )}
+            {peekAssignment?.submission === null ||
+            peekAssignment?.submission === undefined ? null : (
+              <section>
+                <SectionLabel>Session</SectionLabel>
+                <Link
+                  to="/admin/sessions"
+                  search={{ status: "all", spotlight: peekAssignment.submission.id }}
+                  className="pressable mt-1 flex min-w-0 items-center gap-2 rounded-sm py-1 text-xs hover:text-foreground"
+                >
+                  <span className="font-mono tabular-nums">{peekAssignment.submission.code}</span>
+                  <span className="truncate text-muted-foreground">
+                    {peekAssignment.submission.title}
+                  </span>
+                </Link>
+              </section>
+            )}
+          </div>
+          <SheetFooter className="flex-row justify-end border-t p-3">
+            {peekTask !== undefined &&
+            (waivedIds.has(peekTask.id) ? "waived" : peekTask.status) === "todo" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={waive.isPending}
+                onClick={() => waive.mutate(peekTask.id)}
+              >
+                Mark waived
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              disabled={peekAssignment === undefined}
+              onClick={() => {
+                if (peekAssignment === undefined) return;
+                setEditingTaskTemplateId(peekAssignment.template.id);
+                setPeekTaskId(undefined);
+              }}
+            >
+              Edit task
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+      {portalData === undefined || editingTaskTemplateId === undefined ? null : (
+        <TaskTemplateDialog
+          key={editingTaskTemplateId}
+          eventId={eventId}
+          timezone={timezone}
+          data={portalData}
+          templateId={editingTaskTemplateId}
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditingTaskTemplateId(undefined);
+          }}
+        />
+      )}
       <CsvImportDialog
         eventId={eventId}
         speakers={rows}

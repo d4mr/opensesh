@@ -7,8 +7,8 @@ import {
 import { CalendarClockIcon } from "lucide-react";
 import { useState } from "react";
 
+import { TimeSelect } from "@/components/forms/datetime-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -23,8 +23,7 @@ import {
   eventDateKeys,
   formatDay,
   formatTime,
-  inputMinutes,
-  timeInputValue,
+  minutesFor,
   zonedDateTimeIso,
 } from "./date-utils";
 
@@ -43,8 +42,8 @@ export function ScheduleEditor({
   const days = eventDateKeys(agenda.event.startsAt, agenda.event.endsAt, timezone);
   const initialDay =
     session.startsAt === null ? (days[0] ?? "") : dateKeyFor(session.startsAt, timezone);
-  const initialTime =
-    session.startsAt === null ? "09:00" : timeInputValue(session.startsAt, timezone);
+  const initialMinutes =
+    session.startsAt === null ? 9 * 60 : minutesFor(session.startsAt, timezone);
   const initialDuration =
     session.startsAt === null || session.endsAt === null
       ? session.durationMinutes
@@ -52,14 +51,14 @@ export function ScheduleEditor({
   const [open, setOpen] = useState(false);
   const [roomId, setRoomId] = useState(session.roomId ?? agenda.rooms[0]?.id ?? "");
   const [day, setDay] = useState(initialDay);
-  const [time, setTime] = useState(initialTime);
+  const [minutes, setMinutes] = useState(initialMinutes);
   const [duration, setDuration] = useState(initialDuration);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setRoomId(session.roomId ?? agenda.rooms[0]?.id ?? "");
     setDay(session.startsAt === null ? (days[0] ?? "") : dateKeyFor(session.startsAt, timezone));
-    setTime(session.startsAt === null ? "09:00" : timeInputValue(session.startsAt, timezone));
+    setMinutes(session.startsAt === null ? 9 * 60 : minutesFor(session.startsAt, timezone));
     setDuration(
       session.startsAt === null || session.endsAt === null
         ? session.durationMinutes
@@ -69,7 +68,7 @@ export function ScheduleEditor({
   };
 
   const submit = async () => {
-    const startsAt = zonedDateTimeIso(day, inputMinutes(time), timezone);
+    const startsAt = zonedDateTimeIso(day, minutes, timezone);
     const endsAt = new Date(Date.parse(startsAt) + duration * 60_000).toISOString();
     const change = {
       eventId: agenda.event.id,
@@ -166,14 +165,10 @@ export function ScheduleEditor({
               <Label htmlFor={`time-${session.id}`} className="text-xs">
                 Start
               </Label>
-              <Input
+              <TimeSelect
                 id={`time-${session.id}`}
-                type="time"
-                min="08:00"
-                max="18:45"
-                step={900}
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
+                value={minutes}
+                onChange={setMinutes}
                 className="col-span-2 h-8"
               />
             </div>
