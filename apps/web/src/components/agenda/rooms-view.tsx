@@ -448,7 +448,13 @@ export function RoomsView({
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const [activeSession, setActiveSession] = useState<AgendaSession | null>(null);
-  const [peekSession, setPeekSession] = useState<AgendaSession | null>(null);
+  // Track the peeked session by id and derive the row from live agenda data —
+  // holding the object would freeze the open dialog on pre-mutation state.
+  const [peekSessionId, setPeekSessionId] = useState<string | null>(null);
+  const peekSession =
+    peekSessionId === null
+      ? null
+      : (agenda.sessions.find((session) => session.id === peekSessionId) ?? null);
   const [search, setSearch] = useState("");
   const [trackId, setTrackId] = useState("all");
   const timezone = agenda.event.timezone;
@@ -582,7 +588,7 @@ export function RoomsView({
                         timezone={timezone}
                         conflicted={conflictedIds.has(session.id)}
                         highlighted={highlightedIds.has(session.id)}
-                        open={() => setPeekSession(session)}
+                        open={() => setPeekSessionId(session.id)}
                         remove={() =>
                           void save({
                             eventId: agenda.event.id,
@@ -658,7 +664,7 @@ export function RoomsView({
                 <PoolSession
                   key={session.id}
                   session={session}
-                  open={() => setPeekSession(session)}
+                  open={() => setPeekSessionId(session.id)}
                 />
               ))
             )}
@@ -684,7 +690,7 @@ export function RoomsView({
         agenda={agenda}
         session={peekSession}
         open={peekSession !== null}
-        onOpenChange={(open) => !open && setPeekSession(null)}
+        onOpenChange={(open) => !open && setPeekSessionId(null)}
         save={save}
       />
     </DndContext>

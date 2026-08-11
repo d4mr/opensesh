@@ -263,3 +263,13 @@ morning deploy — everything here ships in the next deploy.
   composer now defaults OFF — enrolling recipients as invited speakers is an explicit opt-in,
   and the success toast states the side effect ("Sent N emails and added N recipients to the
   event") when it was chosen. Dialog description already flips between the two behaviors.
+- Aug 12 — V2-008/019/025/027 stale mutation surfaces (screenshot-verified): only V2-019 needed
+  new code — the agenda rooms-view peek dialog held the session OBJECT in state, freezing the
+  open dialog on pre-mutation data; it now stores the id and derives the row from live agenda
+  data (schedule change with the dialog open updates its time in place, verified 9:00→10:00).
+  V2-008 (assignments) and V2-025 (session content block + version history) were re-verified
+  live against current code — assignment flips the tab to (1) and the row to "Sam Whitfield ·
+  pending" instantly; save-and-approve updates header, block, status, and Content history (1
+  version) with no reload — their invalidations landed in the wp27–29 arcs and the eval saw
+  stale prod. V2-027 (CRM add-to-event feedback) verified during the V2-022 pass: the linked-
+  events list updates immediately after Add to event.
