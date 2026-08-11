@@ -117,15 +117,10 @@ export const uploadAdminSpeakerHeadshot = createServerFn({ method: "POST" })
             new InvalidInput({ message: "The uploaded headshot is incomplete" }),
           );
         const portal = yield* Portal;
-        const prepared = yield* portal.prepareFileUpload(
+        const prepared = yield* portal.prepareAdminHeadshot(
+          data.eventId,
+          user.userId,
           data.contactId,
-          null,
-          null,
-          null,
-          "headshot",
-          null,
-          data.filename,
-          data.size,
         );
         const storageKey = `${data.contactId}/${prepared.fileUploadId}/${crypto.randomUUID()}`;
         yield* Effect.tryPromise({
@@ -145,8 +140,7 @@ export const uploadAdminSpeakerHeadshot = createServerFn({ method: "POST" })
           contentType: data.contentType,
           size: data.size,
           uploaderContactId: null,
-          uploaderEventMemberId: null,
-          uploaderName: user.email,
+          uploaderEventMemberId: prepared.eventMemberId,
           headshotContactId: data.contactId,
           adminApproved: true,
           completeAssignmentId: null,

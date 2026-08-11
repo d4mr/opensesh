@@ -71,6 +71,7 @@ export const fileRequests = pgTable(
     title: text("title").notNull(),
     targetType: targetType("target_type").notNull(),
     instructions: text("instructions").notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [index("file_requests_event_idx").on(table.eventId)],

@@ -1,4 +1,9 @@
-import type { CommunicationCenter, EmailTemplate, SpeakerWorkflowStatus } from "@opensesh/domain";
+import type {
+  CampaignRecipientHistory,
+  CommunicationCenter,
+  EmailTemplate,
+  SpeakerWorkflowStatus,
+} from "@opensesh/domain";
 import { campaignMergeTokens, resolveMergeFields } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
@@ -28,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -391,33 +397,7 @@ function Communications({
                   />
                 </button>
                 {expandedCampaign !== entry.campaign.id ? null : (
-                  <div className="border-t bg-muted/20 p-2">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Recipient</TableHead>
-                          <TableHead>Resolved subject</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {entry.recipients.map((recipient) => (
-                          <TableRow key={recipient.id}>
-                            <TableCell>
-                              <p>{recipient.contactName}</p>
-                              <p className="text-xs text-muted-foreground">{recipient.email}</p>
-                            </TableCell>
-                            <TableCell>{recipient.resolvedSubject}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize">
-                                {recipient.emailStatus ?? recipient.deliveryStatus}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <CampaignRecipients recipients={entry.recipients} />
                 )}
               </div>
             ))
@@ -433,6 +413,51 @@ function Communications({
         refresh={refresh}
       />
     </main>
+  );
+}
+
+function CampaignRecipients({
+  recipients,
+}: {
+  readonly recipients: ReadonlyArray<CampaignRecipientHistory>;
+}) {
+  const pages = usePagination(recipients);
+  return (
+    <div className="border-t bg-muted/20 p-2">
+      <div className="overflow-hidden rounded-md border bg-background">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Recipient</TableHead>
+              <TableHead>Resolved subject</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pages.pageItems.map((recipient) => (
+              <TableRow key={recipient.id}>
+                <TableCell>
+                  <p>{recipient.contactName}</p>
+                  <p className="text-xs text-muted-foreground">{recipient.email}</p>
+                </TableCell>
+                <TableCell>{recipient.resolvedSubject}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="capitalize">
+                    {recipient.emailStatus ?? recipient.deliveryStatus}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <PaginationFooter
+          page={pages.page}
+          pageSize={pages.pageSize}
+          total={recipients.length}
+          onPageChange={pages.setPage}
+        />
+      </div>
+    </div>
   );
 }
 

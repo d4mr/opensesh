@@ -21,6 +21,7 @@ const titles: Readonly<Record<string, string>> = {
 export const Route = createFileRoute("/admin/$section")({
   validateSearch: (search: Record<string, unknown>) => ({
     spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
+    fileRequest: typeof search.fileRequest === "string" ? search.fileRequest : undefined,
   }),
   loader: ({ context, params }) =>
     ["tasks", "portal-forms", "file-requests", "content"].includes(params.section)
@@ -31,15 +32,19 @@ export const Route = createFileRoute("/admin/$section")({
 
 function AdminPage() {
   const { section } = Route.useParams();
-  const { spotlight } = Route.useSearch();
+  const { spotlight, fileRequest } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   if (["tasks", "portal-forms", "file-requests", "content"].includes(section)) {
     return (
       <PortalAdminSection
         section={section}
         spotlightId={spotlight}
+        fileRequestId={fileRequest}
         onSpotlightChange={(id, options) =>
-          void navigate({ search: { spotlight: id }, replace: options.replace })
+          void navigate({
+            search: { spotlight: id, fileRequest },
+            replace: options.replace,
+          })
         }
       />
     );

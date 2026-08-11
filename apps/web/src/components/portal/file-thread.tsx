@@ -7,37 +7,151 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { downloadVersion } from "@/lib/files";
-import { addAdminFileComment, addPortalFileComment } from "@/server-fns/portal";
+import {
+  addAdminFileComment,
+  addPortalFileComment,
+  getPortalAdmin,
+  getSpeakerPortal,
+} from "@/server-fns/portal";
+
+type AdminPortalResult = Awaited<ReturnType<typeof getPortalAdmin>>;
+type SpeakerPortalResult = Awaited<ReturnType<typeof getSpeakerPortal>>;
+type ThreadComment = FileComment & { readonly pending?: boolean };
+
+const authorRole = (value: {
+  readonly authorContactId: string | null;
+  readonly authorEventMemberId: string | null;
+}) => (value.authorEventMemberId === null ? "Speaker" : "Organizer");
+
+const uploaderRole = (value: {
+  readonly uploaderContactId: string | null;
+  readonly uploaderEventMemberId: string | null;
+}) => (value.uploaderEventMemberId === null ? "Speaker" : "Organizer");
 
 export function FileThread({
   upload,
   versions,
   comments,
+  authorName,
   eventId,
   embedded = false,
 }: {
   readonly upload: FileUpload;
   readonly versions: ReadonlyArray<FileVersion>;
-  readonly comments: ReadonlyArray<FileComment>;
+  readonly comments: ReadonlyArray<ThreadComment>;
+  readonly authorName: string;
   readonly eventId?: string;
   readonly embedded?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
+  const queryKey =
+    eventId === undefined ? (["speaker-portal"] as const) : (["admin-portal", eventId] as const);
   const mutation = useMutation({
-    mutationFn: async () =>
+    mutationFn: async (commentBody: string) =>
       eventId === undefined
-        ? addPortalFileComment({ data: { fileUploadId: upload.id, body } })
-        : addAdminFileComment({ data: { eventId, fileUploadId: upload.id, body } }),
-    onSuccess: async (result) => {
+        ? addPortalFileComment({ data: { fileUploadId: upload.id, body: commentBody } })
+        : addAdminFileComment({ data: { eventId, fileUploadId: upload.id, body: commentBody } }),
+    onMutate: async (commentBody) => {
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      const optimisticId = `optimistic:${crypto.randomUUID()}`;
+      const now = new Date();
+      const optimistic: ThreadComment = {
+        id: optimisticId,
+        fileUploadId: upload.id,
+        authorContactId: eventId === undefined ? upload.contactId : null,
+        authorEventMemberId: eventId === undefined ? null : "optimistic-organizer",
+        authorName,
+        body: commentBody,
+        createdAt: now,
+        updatedAt: now,
+        pending: true,
+      };
+      setBody("");
+
+      if (eventId === undefined) {
+        const previous = queryClient.getQueryData<SpeakerPortalResult>(queryKey);
+        queryClient.setQueryData<SpeakerPortalResult>(queryKey, (current) =>
+          current?.ok
+            ? {
+                ...current,
+                data: {
+                  ...current.data,
+                  comments: [...current.data.comments, { comment: optimistic }],
+                },
+              }
+            : current,
+        );
+        return { commentBody, optimisticId, previousSpeaker: previous };
+      }
+
+      const previous = queryClient.getQueryData<AdminPortalResult>(queryKey);
+      queryClient.setQueryData<AdminPortalResult>(queryKey, (current) =>
+        current?.ok
+          ? {
+              ...current,
+              data: {
+                ...current.data,
+                comments: [...current.data.comments, { comment: optimistic }],
+              },
+            }
+          : current,
+      );
+      return { commentBody, optimisticId, previousAdmin: previous };
+    },
+    onError: (_error, _commentBody, context) => {
+      setBody(context?.commentBody ?? "");
+      if (eventId === undefined) {
+        if (context?.previousSpeaker !== undefined)
+          queryClient.setQueryData(queryKey, context.previousSpeaker);
+      } else if (context?.previousAdmin !== undefined) {
+        queryClient.setQueryData(queryKey, context.previousAdmin);
+      }
+      toast.error("Could not send the reply");
+    },
+    onSuccess: (result, _commentBody, context) => {
       if (!result.ok) {
+        setBody(context.commentBody);
+        if (eventId === undefined) {
+          if (context.previousSpeaker !== undefined)
+            queryClient.setQueryData(queryKey, context.previousSpeaker);
+        } else if (context.previousAdmin !== undefined) {
+          queryClient.setQueryData(queryKey, context.previousAdmin);
+        }
         toast.error(result.error.message);
         return;
       }
-      setBody("");
-      await queryClient.invalidateQueries({
-        queryKey: eventId === undefined ? ["speaker-portal"] : ["admin-portal", eventId],
-      });
+
+      if (eventId === undefined) {
+        queryClient.setQueryData<SpeakerPortalResult>(queryKey, (current) =>
+          current?.ok
+            ? {
+                ...current,
+                data: {
+                  ...current.data,
+                  comments: current.data.comments.map((item) =>
+                    item.comment.id === context.optimisticId ? { comment: result.data } : item,
+                  ),
+                },
+              }
+            : current,
+        );
+      } else {
+        queryClient.setQueryData<AdminPortalResult>(queryKey, (current) =>
+          current?.ok
+            ? {
+                ...current,
+                data: {
+                  ...current.data,
+                  comments: current.data.comments.map((item) =>
+                    item.comment.id === context.optimisticId ? { comment: result.data } : item,
+                  ),
+                },
+              }
+            : current,
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey, exact: true });
     },
   });
   const orderedVersions = [...versions].sort(
@@ -66,7 +180,7 @@ export function FileThread({
                   {index === 0 ? <span className="text-primary">· Current</span> : null}
                 </p>
                 <p className="text-muted-foreground">
-                  {version.uploaderName} ·{" "}
+                  {version.uploaderName} · {uploaderRole(version)} ·{" "}
                   {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
                     new Date(version.uploadedAt),
                   )}{" "}
@@ -76,6 +190,7 @@ export function FileThread({
               <Button
                 size="icon-sm"
                 variant="ghost"
+                className="pressable"
                 aria-label={`Download ${version.filename}`}
                 onClick={async () => {
                   const result = await downloadVersion(version.id);
@@ -99,14 +214,19 @@ export function FileThread({
             comments.map((comment) => (
               <div key={comment.id} className="rounded-md border bg-background px-2.5 py-2 text-xs">
                 <div className="flex justify-between gap-3 text-muted-foreground">
-                  <span className="font-medium text-foreground">{comment.authorName}</span>
                   <span>
-                    {new Intl.DateTimeFormat("en", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    }).format(new Date(comment.createdAt))}
+                    <span className="font-medium text-foreground">{comment.authorName}</span> ·{" "}
+                    {authorRole(comment)}
+                  </span>
+                  <span>
+                    {comment.pending === true
+                      ? "Sending…"
+                      : new Intl.DateTimeFormat("en", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        }).format(new Date(comment.createdAt))}
                   </span>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap">{comment.body}</p>
@@ -120,11 +240,16 @@ export function FileThread({
             placeholder="Add a reply…"
             className="h-8 text-xs"
             onChange={(event) => setBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && body.trim().length > 0 && !mutation.isPending)
+                mutation.mutate(body.trim());
+            }}
           />
           <Button
             size="sm"
+            className="pressable"
             disabled={body.trim().length === 0 || mutation.isPending}
-            onClick={() => mutation.mutate()}
+            onClick={() => mutation.mutate(body.trim())}
           >
             Reply
           </Button>

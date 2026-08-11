@@ -49,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -512,6 +513,12 @@ export function SubmissionTablePage({
       sorting: state.sorting,
     }),
   );
+  const tableRows = table.getRowModel().rows;
+  const pages = usePagination(tableRows, {
+    resetKey: `${status}:${search}:${track}:${format}:${tag}`,
+    spotlightId,
+    getId: (row) => row.original.id,
+  });
 
   if (context === null) return null;
   if (!list.data.ok) return <p className="p-6 text-sm">{list.data.error.message}</p>;
@@ -522,7 +529,7 @@ export function SubmissionTablePage({
     counts.set(submission.status, (counts.get(submission.status) ?? 0) + 1);
   }
   const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
-  const orderedIds = table.getRowModel().rows.map((row) => row.original.id);
+  const orderedIds = tableRows.map((row) => row.original.id);
   const exportRows = async (rows: ReadonlyArray<ReviewDeskListItem>) => {
     const columns = table
       .getVisibleLeafColumns()
@@ -823,7 +830,7 @@ export function SubmissionTablePage({
                           </TableCell>
                         </TableRow>
                       ) : (
-                        table.getRowModel().rows.map((row) => (
+                        pages.pageItems.map((row) => (
                           <TableRow
                             key={row.id}
                             ref={rowRef(row.original.id)}
@@ -857,10 +864,13 @@ export function SubmissionTablePage({
                       )}
                     </TableBody>
                   </Table>
+                  <PaginationFooter
+                    page={pages.page}
+                    pageSize={pages.pageSize}
+                    total={tableRows.length}
+                    onPageChange={pages.setPage}
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground tabular-nums">
-                  {table.getRowModel().rows.length} of {readyData.submissions.length} rows
-                </p>
               </TabsContent>
             </Tabs>
           </div>

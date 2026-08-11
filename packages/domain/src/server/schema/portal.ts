@@ -68,6 +68,7 @@ const fileRequestFields = {
   title: Schema.String,
   targetType: TargetType,
   instructions: Schema.String,
+  dueAt: NullableDate,
 };
 
 export const FileRequest = Schema.Struct({ ...EntityFields, ...fileRequestFields });
@@ -270,9 +271,11 @@ export const PortalFormMutationRequest = Schema.Struct({
 });
 export const FileRequestMutationRequest = Schema.Struct({
   eventId: Schema.String,
+  id: Schema.NullOr(Schema.String),
   title: Schema.String,
   targetType: TargetType,
   instructions: Schema.String,
+  dueAt: NullableString,
 });
 export const SessionFileRequirementMutationRequest = Schema.Struct({
   eventId: Schema.String,

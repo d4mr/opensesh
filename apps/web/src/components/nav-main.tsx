@@ -100,7 +100,7 @@ function NavItemLink({
     <Link
       to="/admin/$section"
       params={{ section: item.section }}
-      search={{ spotlight: undefined }}
+      search={{ spotlight: undefined, fileRequest: undefined }}
       {...props}
     >
       {content}

@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -165,6 +166,9 @@ function Directory({
     () => filterCrmDirectory(workspace.directory, filters),
     [workspace.directory, filters],
   );
+  const pages = usePagination(rows, {
+    resetKey: `${segmentId ?? "all"}:${filters.search}:${filters.company}:${filters.title}:${filters.tagIds.join(",")}`,
+  });
   const duplicates = useMemo(
     () => findCrmDuplicates(workspace.directory.map((row) => row.contact)),
     [workspace.directory],
@@ -372,7 +376,7 @@ function Directory({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              pages.pageItems.map((row) => (
                 <TableRow
                   key={row.contact.id}
                   className="h-10 cursor-pointer"
@@ -412,6 +416,12 @@ function Directory({
             )}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={pages.page}
+          pageSize={pages.pageSize}
+          total={rows.length}
+          onPageChange={pages.setPage}
+        />
       </div>
 
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} workspace={workspace} />

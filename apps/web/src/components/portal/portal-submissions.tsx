@@ -511,7 +511,13 @@ function SessionFileRow({
       </div>
       {upload === undefined ? null : (
         <div className="border-t px-3 py-3">
-          <FileThread embedded upload={upload} versions={versions} comments={comments} />
+          <FileThread
+            embedded
+            authorName={`${data.contact.firstName} ${data.contact.lastName}`}
+            upload={upload}
+            versions={versions}
+            comments={comments}
+          />
         </div>
       )}
     </div>
