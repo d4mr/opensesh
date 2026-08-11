@@ -25,7 +25,7 @@ import {
   TaskAssignmentRequest,
   TaskTemplateMutationRequest,
 } from "@opensesh/domain";
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Contacts, Events, Portal } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
@@ -41,18 +41,7 @@ const requireSpeaker = Effect.fn("requirePortalSpeaker")(function* () {
   return { user, contactId };
 });
 
-const requireAdminEvent = Effect.fn("requirePortalAdminEvent")(function* (eventId: string) {
-  const user = yield* getCurrentUser;
-  if (!user.roles.admin) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage portal content" }));
-  }
-  const events = yield* Events;
-  const event = yield* events.get(eventId);
-  if (event.organizationId !== user.orgId) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  }
-  return { user, event };
-});
+const requireAdminEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
 export const getSpeakerPortal = createServerFn({ method: "GET" }).handler(async () =>
   runServer(
@@ -95,9 +84,12 @@ export const getPortalAdmin = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.adminBootstrap(data.eventId, user.userId);
+        return yield* portal.adminBootstrap(data.eventId, {
+          userId: user.userId,
+          name: user.name,
+        });
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -122,7 +114,7 @@ export const searchEventContacts = createServerFn({ method: "GET" })
           )
           .slice(0, 50);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -143,7 +135,10 @@ export const getEventContactProfile = createServerFn({ method: "GET" })
         }
         const portal = yield* Portal;
         const user = yield* getCurrentUser;
-        const admin = yield* portal.adminBootstrap(data.eventId, user.userId);
+        const admin = yield* portal.adminBootstrap(data.eventId, {
+          userId: user.userId,
+          name: user.name,
+        });
         const sessionCount = new Set(
           admin.participants
             .filter((row) => row.contact.id === contact.id)
@@ -151,7 +146,7 @@ export const getEventContactProfile = createServerFn({ method: "GET" })
         ).size;
         return { contact, sessionCount };
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -164,13 +159,13 @@ export const updateAdminSessionContent = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.editAdminSubmission(
           data.eventId,
-          user.userId,
+          { userId: user.userId, name: user.name },
           data.submissionId,
           data.title,
           data.description,
         );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -181,9 +176,14 @@ export const updateAdminSpeakerProfile = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.editAdminProfile(data.eventId, user.userId, data.contactId, data.bio);
+        return yield* portal.editAdminProfile(
+          data.eventId,
+          { userId: user.userId, name: user.name },
+          data.contactId,
+          data.bio,
+        );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -211,7 +211,7 @@ export const uploadAdminHeadshot = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         const prepared = yield* portal.prepareAdminHeadshot(
           data.eventId,
-          user.userId,
+          { userId: user.userId, name: user.name },
           data.contactId,
         );
         const storageKey = `${data.contactId}/${prepared.fileUploadId}/${crypto.randomUUID()}`;
@@ -232,13 +232,13 @@ export const uploadAdminHeadshot = createServerFn({ method: "POST" })
           contentType: data.contentType,
           size: data.size,
           uploaderContactId: null,
-          uploaderEventMemberId: prepared.eventMemberId,
+          uploaderUserId: prepared.uploaderUserId,
           headshotContactId: data.contactId,
           adminApproved: true,
           completeAssignmentId: null,
         });
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });
 
@@ -282,7 +282,10 @@ export const exportAdminFilesZip = createServerFn({ method: "POST" })
           return yield* Effect.fail(new InvalidInput({ message: "Select at least one file" }));
         }
         const portal = yield* Portal;
-        const admin = yield* portal.adminBootstrap(data.eventId, user.userId);
+        const admin = yield* portal.adminBootstrap(data.eventId, {
+          userId: user.userId,
+          name: user.name,
+        });
         const selected = admin.files.filter((row) => selectedIds.has(row.upload.id));
         if (selected.length !== selectedIds.size) {
           return yield* Effect.fail(
@@ -344,7 +347,7 @@ export const exportAdminFilesZip = createServerFn({ method: "POST" })
           base64: btoa(binary),
         };
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });
 
@@ -412,10 +415,10 @@ export const restoreAdminHistory = createServerFn({ method: "POST" })
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
         return yield* portal.restoreHistory(data.historyId, {
-          userId: user.userId,
+          user: { userId: user.userId, name: user.name },
         });
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -495,7 +498,7 @@ export const uploadPortalFile = createServerFn({ method: "POST" })
           contentType: data.contentType || "application/octet-stream",
           size: data.size,
           uploaderContactId: contactId,
-          uploaderEventMemberId: null,
+          uploaderUserId: null,
           headshotContactId: data.kind === "headshot" ? contactId : null,
           adminApproved: false,
           completeAssignmentId: prepared.completeAssignmentId,
@@ -576,12 +579,12 @@ export const addAdminFileComment = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.addAdminComment(
           data.eventId,
-          user.userId,
+          { userId: user.userId, name: user.name },
           data.fileUploadId,
           data.body.trim(),
         );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -594,7 +597,7 @@ export const saveAdminTaskTemplate = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.saveTaskTemplate(data);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -611,7 +614,7 @@ export const waiveAdminAssignment = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.waiveAssignment(data.eventId, data.assignmentId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -624,7 +627,7 @@ export const manualAssignAdminTask = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.manualAssign(data);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -637,7 +640,7 @@ export const saveAdminPortalForm = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.savePortalForm(data);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -650,7 +653,7 @@ export const createAdminFileRequest = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.createFileRequest(data);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -671,7 +674,7 @@ export const saveAdminSessionFileRequirement = createServerFn({ method: "POST" }
         const portal = yield* Portal;
         return yield* portal.saveSessionFileRequirement(data);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -684,7 +687,7 @@ export const deleteAdminSessionFileRequirement = createServerFn({ method: "POST"
         const portal = yield* Portal;
         return yield* portal.deleteSessionFileRequirement(data.eventId, data.requirementId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -699,9 +702,14 @@ export const approveContentChange = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.reviewContent(data.eventId, user.userId, data.historyId, "approved");
+        return yield* portal.reviewContent(
+          data.eventId,
+          { userId: user.userId, name: user.name },
+          data.historyId,
+          "approved",
+        );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -716,9 +724,14 @@ export const rejectContentChange = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.reviewContent(data.eventId, user.userId, data.historyId, "rejected");
+        return yield* portal.reviewContent(
+          data.eventId,
+          { userId: user.userId, name: user.name },
+          data.historyId,
+          "rejected",
+        );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -733,9 +746,14 @@ export const approveProfileChange = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.reviewProfile(data.eventId, user.userId, data.historyId, "approved");
+        return yield* portal.reviewProfile(
+          data.eventId,
+          { userId: user.userId, name: user.name },
+          data.historyId,
+          "approved",
+        );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -750,9 +768,14 @@ export const rejectProfileChange = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { user } = yield* requireAdminEvent(data.eventId);
         const portal = yield* Portal;
-        return yield* portal.reviewProfile(data.eventId, user.userId, data.historyId, "rejected");
+        return yield* portal.reviewProfile(
+          data.eventId,
+          { userId: user.userId, name: user.name },
+          data.historyId,
+          "rejected",
+        );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -769,6 +792,6 @@ export const acceptPortalSubmission = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.acceptSubmission(data.eventId, data.submissionId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );

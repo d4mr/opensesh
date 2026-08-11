@@ -18,6 +18,7 @@ import {
   timestamps,
 } from "../columns";
 import { eventMembers, events } from "./core";
+import { users } from "./identity";
 import { submissions } from "./submissions";
 
 export const reviewRounds = pgTable(
@@ -151,10 +152,9 @@ export const aiReviewResults = pgTable(
     model: text("model").notNull(),
     overriddenScore: doublePrecision("overridden_score"),
     overrideReason: text("override_reason"),
-    overriddenByEventMemberId: text("overridden_by_event_member_id").references(
-      () => eventMembers.id,
-      { onDelete: "set null" },
-    ),
+    overriddenByUserId: text("overridden_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamps.createdAt,
     overriddenAt: timestamp("overridden_at", { withTimezone: true }),
     updatedAt: timestamps.updatedAt,

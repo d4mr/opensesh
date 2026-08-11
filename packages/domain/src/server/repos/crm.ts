@@ -11,7 +11,6 @@ import {
   emailCampaignRecipients,
   emailCampaigns,
   emailLog,
-  eventMembers,
   events,
   organizationContactEvents,
   organizationContactNotes,
@@ -68,15 +67,11 @@ import { decode, decodeFound, decodeMany, query } from "./shared";
 type JsonObject = Readonly<Record<string, Schema.Json>>;
 
 interface CrmService {
-  readonly organization: (
-    organizationId: string,
-    userId: string,
-  ) => Effect.Effect<
+  readonly organization: (organizationId: string) => Effect.Effect<
     {
       readonly id: string;
       readonly name: string;
       readonly logo: string | null;
-      readonly actorEventMemberId: string;
     },
     DbError | NotFound
   >;
@@ -104,7 +99,7 @@ interface CrmService {
   readonly addNote: (
     organizationContactId: string,
     body: string,
-    authorEventMemberId: string,
+    authorUserId: string,
   ) => Effect.Effect<OrganizationContactNote, DbError>;
   readonly saveContact: (
     organizationId: string,
@@ -163,13 +158,13 @@ interface CrmService {
     organizationContactId: string,
     stageId: string,
     note: string | null,
-    actorEventMemberId: string,
+    actorUserId: string,
   ) => Effect.Effect<CrmPipelineCard, DbError | NotFound | InvalidPipelineMove>;
   readonly moveCard: (
     organizationId: string,
     cardId: string,
     toStageId: string,
-    actorEventMemberId: string,
+    actorUserId: string,
   ) => Effect.Effect<CrmPipelineCard, DbError | NotFound | InvalidPipelineMove>;
   readonly merge: (
     organizationId: string,
@@ -188,7 +183,7 @@ interface CrmService {
     readonly subject: string;
     readonly body: string;
     readonly recipientFilter: JsonObject;
-    readonly createdByEventMemberId: string;
+    readonly createdByUserId: string;
     readonly organizationContactIds: ReadonlyArray<string>;
   }) => Effect.Effect<
     {
@@ -216,38 +211,29 @@ export const CrmLive = Layer.effect(
   Crm,
   Effect.gen(function* () {
     const { database } = yield* Db;
-    const noteAuthorMember = alias(eventMembers, "crm_note_author_member");
     const noteAuthor = alias(users, "crm_note_author");
-    const historyActorMember = alias(eventMembers, "crm_history_actor_member");
     const historyActor = alias(users, "crm_history_actor");
     const fromStage = alias(crmPipelineStages, "crm_from_stage");
     const toStage = alias(crmPipelineStages, "crm_to_stage");
 
     return {
-      organization: (organizationId, userId) =>
+      organization: (organizationId) =>
         query(database, "Could not load CRM organization", (db) =>
           db
             .select({
               id: organizations.id,
               name: organizations.name,
               logo: organizations.logo,
-              actorEventMemberId: eventMembers.id,
             })
             .from(organizations)
-            .innerJoin(events, eq(events.organizationId, organizations.id))
-            .innerJoin(
-              eventMembers,
-              and(eq(eventMembers.eventId, events.id), eq(eventMembers.userId, userId)),
-            )
             .where(eq(organizations.id, organizationId))
-            .orderBy(asc(events.startsAt))
             .limit(1)
             .execute(),
         ).pipe(
           Effect.flatMap((rows) =>
             rows[0] === undefined
               ? decodeFound(OrganizationContact, "CRM organization", undefined).pipe(
-                  Effect.map(() => ({ id: "", name: "", logo: null, actorEventMemberId: "" })),
+                  Effect.map(() => ({ id: "", name: "", logo: null })),
                 )
               : Effect.succeed(rows[0]),
           ),
@@ -450,11 +436,7 @@ export const CrmLive = Layer.effect(
               db
                 .select({ note: organizationContactNotes, authorName: noteAuthor.name })
                 .from(organizationContactNotes)
-                .innerJoin(
-                  noteAuthorMember,
-                  eq(noteAuthorMember.id, organizationContactNotes.authorEventMemberId),
-                )
-                .innerJoin(noteAuthor, eq(noteAuthor.id, noteAuthorMember.userId))
+                .innerJoin(noteAuthor, eq(noteAuthor.id, organizationContactNotes.authorUserId))
                 .where(eq(organizationContactNotes.organizationContactId, id))
                 .orderBy(desc(organizationContactNotes.createdAt))
                 .execute(),
@@ -479,11 +461,7 @@ export const CrmLive = Layer.effect(
                 .innerJoin(crmPipelineCards, eq(crmPipelineCards.id, crmStageHistory.cardId))
                 .leftJoin(fromStage, eq(fromStage.id, crmStageHistory.fromStageId))
                 .innerJoin(toStage, eq(toStage.id, crmStageHistory.toStageId))
-                .innerJoin(
-                  historyActorMember,
-                  eq(historyActorMember.id, crmStageHistory.actorEventMemberId),
-                )
-                .innerJoin(historyActor, eq(historyActor.id, historyActorMember.userId))
+                .innerJoin(historyActor, eq(historyActor.id, crmStageHistory.actorUserId))
                 .where(eq(crmPipelineCards.organizationContactId, id))
                 .orderBy(desc(crmStageHistory.createdAt))
                 .execute(),
@@ -637,11 +615,11 @@ export const CrmLive = Layer.effect(
             }),
           ),
         ),
-      addNote: (organizationContactId, body, authorEventMemberId) =>
+      addNote: (organizationContactId, body, authorUserId) =>
         query(database, "Could not add CRM note", (db) =>
           db
             .insert(organizationContactNotes)
-            .values({ organizationContactId, body, authorEventMemberId })
+            .values({ organizationContactId, body, authorUserId })
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(OrganizationContactNote, "CRM note", rows[0]))),
@@ -858,7 +836,7 @@ export const CrmLive = Layer.effect(
             }
           }),
         ).pipe(Effect.asVoid),
-      saveCard: (organizationId, organizationContactId, stageId, note, actorEventMemberId) =>
+      saveCard: (organizationId, organizationContactId, stageId, note, actorUserId) =>
         query(database, "Could not save CRM card", (db) =>
           db.transaction(async (transaction) => {
             const [contact] = await transaction
@@ -898,7 +876,7 @@ export const CrmLive = Layer.effect(
                   organizationContactId,
                   stageId,
                   note,
-                  ownerEventMemberId: actorEventMemberId,
+                  ownerUserId: actorUserId,
                 })
                 .returning()
                 .execute();
@@ -909,7 +887,7 @@ export const CrmLive = Layer.effect(
                     cardId: created.id,
                     fromStageId: null,
                     toStageId: stageId,
-                    actorEventMemberId,
+                    actorUserId,
                     createdAt: now,
                   })
                   .execute();
@@ -930,7 +908,7 @@ export const CrmLive = Layer.effect(
                   cardId: existing.id,
                   fromStageId: existing.stageId,
                   toStageId: stageId,
-                  actorEventMemberId,
+                  actorUserId,
                   createdAt: now,
                 })
                 .execute();
@@ -945,7 +923,7 @@ export const CrmLive = Layer.effect(
               : decode(CrmPipelineCard, "CRM card", outcome.row),
           ),
         ),
-      moveCard: (organizationId, cardId, toStageId, actorEventMemberId) =>
+      moveCard: (organizationId, cardId, toStageId, actorUserId) =>
         query(database, "Could not move CRM card", (db) =>
           db.transaction(async (transaction) => {
             const [card] = await transaction
@@ -981,7 +959,7 @@ export const CrmLive = Layer.effect(
                 cardId,
                 fromStageId: card.card.stageId,
                 toStageId,
-                actorEventMemberId,
+                actorUserId,
                 createdAt: now,
               })
               .execute();
@@ -1254,7 +1232,7 @@ export const CrmLive = Layer.effect(
                 subjectSnapshot: input.subject,
                 bodySnapshot: input.body,
                 recipientFilter: input.recipientFilter,
-                createdByEventMemberId: input.createdByEventMemberId,
+                createdByUserId: input.createdByUserId,
               })
               .returning()
               .execute();

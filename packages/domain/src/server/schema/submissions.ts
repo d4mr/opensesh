@@ -156,14 +156,14 @@ export const SubmissionEditHistory = Schema.Struct({
   ...EntityFields,
   submissionId: Schema.String,
   authorContactId: NullableString,
-  authorEventMemberId: NullableString,
+  authorUserId: NullableString,
   authorName: Schema.String,
   changedFields: Schema.Array(Schema.String),
   previousValues: JsonObject,
   newValues: JsonObject,
   approvalStatus: ContentApprovalStatus,
   reviewedAt: NullableDate,
-  reviewedByEventMemberId: NullableString,
+  reviewedByUserId: NullableString,
 });
 export type SubmissionEditHistory = typeof SubmissionEditHistory.Type;
 

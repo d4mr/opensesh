@@ -135,3 +135,23 @@ label.
 - No animation on keyboard-triggered actions; no mount animation for
   positioned indicators.
 - No airy hero spacing on admin surfaces.
+
+## 8. Permissions
+
+Access is derived, never stored. An organization owner or admin is an admin of
+every event in the organization — no fan-out rows, no sync. `event_members`
+holds only explicitly-invited per-event staff: reviewers, and event-scoped
+admins for people who are not org admins. It is a roster (who was invited to
+staff this event), never a gate; deleting a roster row revokes an invitation,
+it does not change what org admins can do.
+
+All access checks go through `requireEventAccess(eventId, required)` in
+`packages/domain/src/server/current-user.ts`, which recomputes the answer per
+target event from `CurrentUserValue` (org role + per-event member roles).
+Repositories take pre-authorized inputs and make no access decisions.
+
+Action attribution (who wrote a note, uploaded a file, reviewed a submission,
+overrode a score) is recorded against `users.id` directly. Only the
+reviewer-staffing tables — `reviewer_tracks`, `review_round_members`,
+`review_assignments` — keep `event_members.id` foreign keys, because they
+describe the roster itself.

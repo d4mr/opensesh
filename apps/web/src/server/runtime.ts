@@ -52,6 +52,7 @@ const sessionIdentity = (headers: Headers, origin: string) =>
       : {
           userId: session.user.id,
           email: session.user.email,
+          name: session.user.name,
           ...(session.session.activeOrganizationId === null
             ? {}
             : { activeOrganizationId: session.session.activeOrganizationId }),
@@ -116,6 +117,7 @@ export const runSessionServer = async <A, E extends AppError>(
       {
         userId: user.userId,
         email: user.email,
+        name: user.name,
         activeOrganizationId: user.orgId,
       },
       user.eventSlug,

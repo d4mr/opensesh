@@ -22,13 +22,13 @@ type ThreadComment = FileComment & { readonly pending?: boolean };
 
 const authorRole = (value: {
   readonly authorContactId: string | null;
-  readonly authorEventMemberId: string | null;
-}) => (value.authorEventMemberId === null ? "Speaker" : "Organizer");
+  readonly authorUserId: string | null;
+}) => (value.authorUserId === null ? "Speaker" : "Organizer");
 
 const uploaderRole = (value: {
   readonly uploaderContactId: string | null;
-  readonly uploaderEventMemberId: string | null;
-}) => (value.uploaderEventMemberId === null ? "Speaker" : "Organizer");
+  readonly uploaderUserId: string | null;
+}) => (value.uploaderUserId === null ? "Speaker" : "Organizer");
 
 // Admin-side person names carry the rich hover card; contact-backed names
 // lazy-load the full profile, organizer names show a static identity card.
@@ -92,7 +92,7 @@ export function FileThread({
         id: optimisticId,
         fileUploadId: upload.id,
         authorContactId: eventId === undefined ? upload.contactId : null,
-        authorEventMemberId: eventId === undefined ? null : "optimistic-organizer",
+        authorUserId: eventId === undefined ? null : "optimistic-organizer",
         authorName,
         body: commentBody,
         createdAt: now,

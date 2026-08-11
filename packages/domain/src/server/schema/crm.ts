@@ -37,7 +37,7 @@ export const OrganizationContactNote = Schema.Struct({
   id: Schema.String,
   organizationContactId: Schema.String,
   body: Schema.String,
-  authorEventMemberId: Schema.String,
+  authorUserId: Schema.String,
   createdAt: Schema.Date,
 });
 export type OrganizationContactNote = typeof OrganizationContactNote.Type;
@@ -62,7 +62,7 @@ export const CrmPipelineCard = Schema.Struct({
   ...EntityFields,
   organizationContactId: Schema.String,
   stageId: Schema.String,
-  ownerEventMemberId: NullableString,
+  ownerUserId: NullableString,
   note: NullableString,
 });
 export type CrmPipelineCard = typeof CrmPipelineCard.Type;
@@ -72,7 +72,7 @@ export const CrmStageHistory = Schema.Struct({
   cardId: Schema.String,
   fromStageId: NullableString,
   toStageId: Schema.String,
-  actorEventMemberId: Schema.String,
+  actorUserId: Schema.String,
   createdAt: Schema.Date,
 });
 export type CrmStageHistory = typeof CrmStageHistory.Type;
@@ -271,7 +271,6 @@ export const CrmWorkspace = Schema.Struct({
     name: Schema.String,
     logo: Schema.NullOr(Schema.String),
   }),
-  actorEventMemberId: Schema.String,
   events: Schema.Array(CrmEventSummary),
   directory: Schema.Array(CrmDirectoryRow),
   tags: Schema.Array(OrganizationTag),

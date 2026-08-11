@@ -1,28 +1,22 @@
 import { and, asc, desc, eq } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import {
   contacts,
-  eventMembers,
   events,
   formFields,
   formats,
   forms,
   levels,
-  organizationMembers,
-  rooms,
   submissionParticipants,
   submissions,
   submissionTags,
   submissionTracks,
   tags,
   tracks,
-  users,
 } from "../../db/schema";
-import type { SessionIdentity } from "../current-user";
 import { Db } from "../db";
-import { Forbidden, type DbError, type NotFound } from "../errors";
+import { type DbError, NotFound } from "../errors";
 import { Event, EventAdmin, Format, Level, Room, Tag, Track } from "../schema/core";
 import { Form, FormField, type FormSummary } from "../schema/forms";
 import {
@@ -58,12 +52,10 @@ interface DraftBundle extends FormBundle {
   }>;
 }
 
+// Admin read models receive an eventId the boundary has already authorized
+// (requireEventAccess); queries only tenant-scope by that id.
 interface ReadModelsService {
-  readonly eventLibraryForAdmin: (
-    session: SessionIdentity,
-    eventSlug: string,
-    eventId: string,
-  ) => Effect.Effect<
+  readonly eventLibraryForAdmin: (eventId: string) => Effect.Effect<
     {
       readonly tracks: ReadonlyArray<Track>;
       readonly formats: ReadonlyArray<Format>;
@@ -72,21 +64,17 @@ interface ReadModelsService {
       readonly levels: ReadonlyArray<Level>;
       readonly admins: ReadonlyArray<EventAdmin>;
     },
-    DbError | Forbidden
+    DbError
   >;
   readonly formSummariesForAdmin: (
-    session: SessionIdentity,
-    eventSlug: string,
     eventId: string,
-  ) => Effect.Effect<ReadonlyArray<FormSummary>, DbError | Forbidden>;
+  ) => Effect.Effect<ReadonlyArray<FormSummary>, DbError>;
   readonly formEditorForAdmin: (
-    session: SessionIdentity,
-    eventSlug: string,
     eventId: string,
     formId: string,
   ) => Effect.Effect<
     FormBundle & { readonly admins: ReadonlyArray<EventAdmin> },
-    DbError | Forbidden | NotFound
+    DbError | NotFound
   >;
   readonly publicForm: (
     eventSlug: string,
@@ -114,19 +102,6 @@ export const ReadModelsLive = Layer.effect(
   Effect.gen(function* () {
     const { database } = yield* Db;
     const eventRepo = yield* Events;
-    const currentEvent = alias(events, "read_current_event");
-    const scopeMember = alias(eventMembers, "read_scope_member");
-    const listedAdmin = alias(eventMembers, "read_listed_admin");
-
-    const adminWhere = (session: SessionIdentity, eventSlug: string, eventId: string) =>
-      and(
-        eq(events.id, eventId),
-        eq(currentEvent.slug, eventSlug),
-        eq(scopeMember.role, "admin"),
-        session.activeOrganizationId === undefined
-          ? undefined
-          : eq(currentEvent.organizationId, session.activeOrganizationId),
-      );
 
     const decodePublicForm = (
       baseRows: ReadonlyArray<{
@@ -172,221 +147,28 @@ export const ReadModelsLive = Layer.effect(
       });
 
     return {
-      eventLibraryForAdmin: (session, eventSlug, eventId) => {
-        return Effect.all(
-          [
-            query(database, "Could not list tracks and admins", (db) =>
-              db
-                .select({
-                  track: tracks,
-                  admin: { id: users.id, name: users.name, email: users.email },
-                })
-                .from(events)
-                .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-                .innerJoin(
-                  organizationMembers,
-                  and(
-                    eq(organizationMembers.organizationId, currentEvent.organizationId),
-                    eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  scopeMember,
-                  and(
-                    eq(scopeMember.eventId, currentEvent.id),
-                    eq(scopeMember.userId, session.userId),
-                  ),
-                )
-                .leftJoin(tracks, eq(tracks.eventId, events.id))
-                .leftJoin(
-                  listedAdmin,
-                  and(eq(listedAdmin.eventId, events.id), eq(listedAdmin.role, "admin")),
-                )
-                .leftJoin(users, eq(users.id, listedAdmin.userId))
-                .where(adminWhere(session, eventSlug, eventId))
-                .orderBy(asc(tracks.position), asc(users.name))
-                .execute(),
-            ),
-            query(database, "Could not list formats", (db) =>
-              db
-                .select({ item: formats })
-                .from(events)
-                .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-                .innerJoin(
-                  organizationMembers,
-                  and(
-                    eq(organizationMembers.organizationId, currentEvent.organizationId),
-                    eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  scopeMember,
-                  and(
-                    eq(scopeMember.eventId, currentEvent.id),
-                    eq(scopeMember.userId, session.userId),
-                  ),
-                )
-                .leftJoin(formats, eq(formats.eventId, events.id))
-                .where(adminWhere(session, eventSlug, eventId))
-                .orderBy(asc(formats.position))
-                .execute(),
-            ),
-            query(database, "Could not list rooms", (db) =>
-              db
-                .select({ item: rooms })
-                .from(events)
-                .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-                .innerJoin(
-                  organizationMembers,
-                  and(
-                    eq(organizationMembers.organizationId, currentEvent.organizationId),
-                    eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  scopeMember,
-                  and(
-                    eq(scopeMember.eventId, currentEvent.id),
-                    eq(scopeMember.userId, session.userId),
-                  ),
-                )
-                .leftJoin(rooms, eq(rooms.eventId, events.id))
-                .where(adminWhere(session, eventSlug, eventId))
-                .orderBy(asc(rooms.position))
-                .execute(),
-            ),
-            query(database, "Could not list tags", (db) =>
-              db
-                .select({ item: tags })
-                .from(events)
-                .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-                .innerJoin(
-                  organizationMembers,
-                  and(
-                    eq(organizationMembers.organizationId, currentEvent.organizationId),
-                    eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  scopeMember,
-                  and(
-                    eq(scopeMember.eventId, currentEvent.id),
-                    eq(scopeMember.userId, session.userId),
-                  ),
-                )
-                .leftJoin(tags, eq(tags.eventId, events.id))
-                .where(adminWhere(session, eventSlug, eventId))
-                .orderBy(asc(tags.position))
-                .execute(),
-            ),
-            query(database, "Could not list levels", (db) =>
-              db
-                .select({ item: levels })
-                .from(events)
-                .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-                .innerJoin(
-                  organizationMembers,
-                  and(
-                    eq(organizationMembers.organizationId, currentEvent.organizationId),
-                    eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  scopeMember,
-                  and(
-                    eq(scopeMember.eventId, currentEvent.id),
-                    eq(scopeMember.userId, session.userId),
-                  ),
-                )
-                .leftJoin(levels, eq(levels.eventId, events.id))
-                .where(adminWhere(session, eventSlug, eventId))
-                .orderBy(asc(levels.position))
-                .execute(),
-            ),
-          ],
-          { concurrency: 5 },
-        ).pipe(
-          Effect.filterOrFail(
-            ([trackAdminRows, formatRows, roomRows, tagRows, levelRows]) =>
-              trackAdminRows.length > 0 &&
-              formatRows.length > 0 &&
-              roomRows.length > 0 &&
-              tagRows.length > 0 &&
-              levelRows.length > 0,
-            () => new Forbidden({ message: "You do not have access" }),
-          ),
-          Effect.flatMap(([trackAdminRows, formatRows, roomRows, tagRows, levelRows]) => {
-            const unique = <T extends { readonly id: string }>(rows: ReadonlyArray<T>) =>
-              Array.from(new Map(rows.map((row) => [row.id, row])).values());
-            return Effect.all(
-              {
-                tracks: decodeMany(
-                  Track,
-                  "track",
-                  unique(trackAdminRows.flatMap((row) => (row.track === null ? [] : [row.track]))),
-                ),
-                formats: decodeMany(
-                  Format,
-                  "format",
-                  formatRows.flatMap((row) => (row.item === null ? [] : [row.item])),
-                ),
-                rooms: decodeMany(
-                  Room,
-                  "room",
-                  roomRows.flatMap((row) => (row.item === null ? [] : [row.item])),
-                ),
-                tags: decodeMany(
-                  Tag,
-                  "tag",
-                  tagRows.flatMap((row) => (row.item === null ? [] : [row.item])),
-                ),
-                levels: decodeMany(
-                  Level,
-                  "level",
-                  levelRows.flatMap((row) => (row.item === null ? [] : [row.item])),
-                ),
-                admins: decodeMany(
-                  EventAdmin,
-                  "event admin",
-                  unique(
-                    trackAdminRows.flatMap((row) =>
-                      row.admin === null || row.admin.id === null ? [] : [row.admin],
-                    ),
-                  ),
-                ),
-              },
-              { concurrency: 5 },
-            );
-          }),
-        );
-      },
-      formSummariesForAdmin: (session, eventSlug, eventId) =>
+      eventLibraryForAdmin: (eventId) =>
+        Effect.all(
+          {
+            tracks: eventRepo.listTracks(eventId),
+            formats: eventRepo.listFormats(eventId),
+            rooms: eventRepo.listRooms(eventId),
+            tags: eventRepo.listTags(eventId),
+            levels: eventRepo.listLevels(eventId),
+            admins: eventRepo.listAdmins(eventId),
+          },
+          { concurrency: 6 },
+        ),
+      formSummariesForAdmin: (eventId) =>
         query(database, "Could not list form summaries", (db) =>
           db
             .select({ form: forms, submission: submissions })
-            .from(events)
-            .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-            .innerJoin(
-              organizationMembers,
-              and(
-                eq(organizationMembers.organizationId, currentEvent.organizationId),
-                eq(organizationMembers.userId, session.userId),
-              ),
-            )
-            .innerJoin(
-              scopeMember,
-              and(eq(scopeMember.eventId, currentEvent.id), eq(scopeMember.userId, session.userId)),
-            )
-            .leftJoin(forms, eq(forms.eventId, events.id))
+            .from(forms)
             .leftJoin(submissions, eq(submissions.sourceFormId, forms.id))
-            .where(adminWhere(session, eventSlug, eventId))
+            .where(eq(forms.eventId, eventId))
             .orderBy(desc(forms.createdAt))
             .execute(),
         ).pipe(
-          Effect.filterOrFail(
-            (rows) => rows.length > 0,
-            () => new Forbidden({ message: "You do not have access" }),
-          ),
           Effect.flatMap((rows) => {
             const formRows = rows.flatMap((row) => (row.form === null ? [] : [row.form]));
             return Effect.all([
@@ -416,94 +198,37 @@ export const ReadModelsLive = Layer.effect(
             );
           }),
         ),
-      formEditorForAdmin: (session, eventSlug, eventId, formId) => {
+      formEditorForAdmin: (eventId, formId) => {
         const base = query(database, "Could not load form editor", (db) =>
           db
-            .select({
-              event: events,
-              form: forms,
-              field: formFields,
-            })
-            .from(events)
-            .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-            .innerJoin(
-              organizationMembers,
-              and(
-                eq(organizationMembers.organizationId, currentEvent.organizationId),
-                eq(organizationMembers.userId, session.userId),
-              ),
-            )
-            .innerJoin(
-              scopeMember,
-              and(eq(scopeMember.eventId, currentEvent.id), eq(scopeMember.userId, session.userId)),
-            )
-            .innerJoin(forms, and(eq(forms.eventId, events.id), eq(forms.id, formId)))
+            .select({ event: events, form: forms, field: formFields })
+            .from(forms)
+            .innerJoin(events, eq(events.id, forms.eventId))
             .leftJoin(formFields, eq(formFields.formId, forms.id))
-            .where(adminWhere(session, eventSlug, eventId))
+            .where(and(eq(forms.id, formId), eq(forms.eventId, eventId)))
             .orderBy(asc(formFields.position))
             .execute(),
         );
-        const library = <T>(
-          message: string,
-          table: typeof tracks | typeof formats | typeof tags | typeof levels,
-          order:
-            | typeof tracks.position
-            | typeof formats.position
-            | typeof tags.position
-            | typeof levels.position,
-        ) =>
-          query(database, message, (db) =>
-            db
-              .select({ item: table })
-              .from(events)
-              .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
-              .innerJoin(
-                organizationMembers,
-                and(
-                  eq(organizationMembers.organizationId, currentEvent.organizationId),
-                  eq(organizationMembers.userId, session.userId),
-                ),
-              )
-              .innerJoin(
-                scopeMember,
-                and(
-                  eq(scopeMember.eventId, currentEvent.id),
-                  eq(scopeMember.userId, session.userId),
-                ),
-              )
-              .innerJoin(table, eq(table.eventId, events.id))
-              .where(adminWhere(session, eventSlug, eventId))
-              .orderBy(asc(order))
-              .execute(),
-          ) as Effect.Effect<ReadonlyArray<{ readonly item: T }>, DbError>;
         return Effect.all(
           [
             base,
-            library<typeof tracks.$inferSelect>("Could not list tracks", tracks, tracks.position),
-            library<typeof formats.$inferSelect>(
-              "Could not list formats",
-              formats,
-              formats.position,
-            ),
-            library<typeof tags.$inferSelect>("Could not list tags", tags, tags.position),
-            library<typeof levels.$inferSelect>("Could not list levels", levels, levels.position),
+            eventRepo.listTracks(eventId),
+            eventRepo.listFormats(eventId),
+            eventRepo.listTags(eventId),
+            eventRepo.listLevels(eventId),
             eventRepo.listAdmins(eventId),
           ],
           { concurrency: 5 },
         ).pipe(
           Effect.filterOrFail(
             ([baseRows]) => baseRows.length > 0,
-            () => new Forbidden({ message: "You do not have access" }),
+            () => new NotFound({ message: "Form not found" }),
           ),
-          Effect.flatMap(([baseRows, trackRows, formatRows, tagRows, levelRows, admins]) => {
-            return decodePublicForm(
-              baseRows.map((row) => ({ event: row.event, form: row.form, field: row.field })),
-              trackRows.map((row) => row.item),
-              formatRows.map((row) => row.item),
-              tagRows.map((row) => row.item),
-              levelRows.map((row) => row.item),
-            ).pipe(Effect.map((bundle) => ({ ...bundle, admins })));
-          }),
+          Effect.flatMap(([baseRows, trackRows, formatRows, tagRows, levelRows, admins]) =>
+            decodePublicForm(baseRows, trackRows, formatRows, tagRows, levelRows).pipe(
+              Effect.map((bundle) => ({ ...bundle, admins })),
+            ),
+          ),
         );
       },
       publicForm: (eventSlug, formId) => {

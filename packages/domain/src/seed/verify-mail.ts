@@ -106,7 +106,7 @@ const verifyFailure = Effect.gen(function* () {
   const reviewDesk = yield* ReviewDesk;
   const mail = yield* Mail;
   const admin = yield* MailAdmin;
-  const decision = yield* reviewDesk.decide("ai-engineer-nyc-2026", {
+  const decision = yield* reviewDesk.decide({
     eventId,
     submissionIds: ["sub_02"],
     decision: "accept",

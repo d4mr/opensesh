@@ -79,14 +79,6 @@ export const seedData = {
   ],
   eventMembers: [
     {
-      id: "mem_dana",
-      eventId: "evt_aie_nyc_2026",
-      userId: "usr_dana",
-      role: "admin",
-      createdAt: new Date(1785585600000),
-      updatedAt: new Date(1785585600000),
-    },
-    {
       id: "mem_rey",
       eventId: "evt_aie_nyc_2026",
       userId: "usr_rey",
@@ -3006,7 +2998,7 @@ export const seedData = {
     {
       id: "rev_01",
       submissionId: "sub_02",
-      reviewerId: "mem_rey",
+      reviewerId: "usr_rey",
       decision: "approve",
       score: 5,
       comment:
@@ -3017,7 +3009,7 @@ export const seedData = {
     {
       id: "rev_02",
       submissionId: "sub_03",
-      reviewerId: "mem_rey",
+      reviewerId: "usr_rey",
       decision: "maybe",
       score: 4,
       comment: "Strong premise; ask for one full grader-disagreement example in the final outline.",
@@ -3027,7 +3019,7 @@ export const seedData = {
     {
       id: "rev_03",
       submissionId: "sub_06",
-      reviewerId: "mem_rey",
+      reviewerId: "usr_rey",
       decision: "deny",
       score: 2,
       comment:
@@ -3038,7 +3030,7 @@ export const seedData = {
     {
       id: "rev_04",
       submissionId: "sub_12",
-      reviewerId: "mem_rey",
+      reviewerId: "usr_rey",
       decision: "maybe",
       score: 4,
       comment:
@@ -3049,7 +3041,7 @@ export const seedData = {
     {
       id: "rev_05",
       submissionId: "sub_14",
-      reviewerId: "mem_rey",
+      reviewerId: "usr_rey",
       decision: "approve",
       score: 5,
       comment:
@@ -3060,7 +3052,7 @@ export const seedData = {
     {
       id: "rev_06",
       submissionId: "sub_22",
-      reviewerId: "mem_rey",
+      reviewerId: "usr_rey",
       decision: "deny",
       score: 2,
       comment:
@@ -3262,7 +3254,7 @@ export const seedData = {
       contentType: "application/pdf",
       size: 2876,
       uploaderContactId: "con_01",
-      uploaderEventMemberId: null,
+      uploaderUserId: null,
       uploaderName: "Maya Chen",
       uploadedAt: new Date(1788696000000),
       createdAt: new Date(1788696000000),
@@ -3274,7 +3266,7 @@ export const seedData = {
       id: "fc_sub21_slides_admin",
       fileUploadId: "fu_sub21_slides",
       authorContactId: null,
-      authorEventMemberId: "mem_dana",
+      authorUserId: "usr_dana",
       authorName: "Dana Organizer",
       body: "Looks great — can you add a title slide with the session code?",
       createdAt: new Date(1788868800000),
@@ -3284,7 +3276,7 @@ export const seedData = {
       id: "fc_sub21_slides_maya",
       fileUploadId: "fu_sub21_slides",
       authorContactId: "con_01",
-      authorEventMemberId: null,
+      authorUserId: null,
       authorName: "Maya Chen",
       body: "Absolutely — I’ll include it in the next version.",
       createdAt: new Date(1788955200000),

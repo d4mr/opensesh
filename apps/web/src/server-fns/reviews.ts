@@ -15,26 +15,15 @@ import {
   UnassignReviewRequest,
   type ReviewCriterionSave,
 } from "@opensesh/domain";
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Events, Reviews } from "@opensesh/domain/server/repos";
+import { Reviews } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
 
-const requireAdminEvent = Effect.fn("requireEvaluationAdminEvent")(function* (eventId: string) {
-  const user = yield* getCurrentUser;
-  if (!user.roles.admin) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage evaluation" }));
-  }
-  const events = yield* Events;
-  const event = yield* events.get(eventId);
-  if (event.organizationId !== user.orgId) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  }
-  return event;
-});
+const requireAdminEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
 const requireRound = Effect.fn("requireEvaluationRound")(function* (
   eventId: string,
@@ -137,7 +126,7 @@ export const getAdminEvaluation = createServerFn({ method: "GET" })
         const reviews = yield* Reviews;
         return yield* reviews.adminWorkspace(data.eventId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -200,7 +189,7 @@ export const saveReviewRound = createServerFn({ method: "POST" })
         const workspace = yield* reviews.adminWorkspace(data.eventId);
         return { roundId: round.id, workspace };
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -232,7 +221,7 @@ export const addReviewMember = createServerFn({ method: "POST" })
         }
         return provisioned;
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -253,7 +242,7 @@ export const assignReviews = createServerFn({ method: "POST" })
         const created = assignments.filter((assignment) => assignment.created).length;
         return { created, skipped: assignments.length - created };
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -268,7 +257,7 @@ export const autoDistributeReviews = createServerFn({ method: "POST" })
         const result = yield* reviews.autoDistribute(data.roundId, data.trackIds);
         return { created: result.assignments.length, skipped: result.skipped };
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -283,7 +272,7 @@ export const unassignReview = createServerFn({ method: "POST" })
         yield* reviews.unassign(data.roundId, data.assignmentId);
         return { unassigned: 1 };
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -344,7 +333,7 @@ export const sendReviewReminders = createServerFn({ method: "POST" })
           failed: deliveries.filter((delivery) => delivery.status === "failed").length,
         };
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -358,7 +347,7 @@ export const generateAiReview = createServerFn({ method: "POST" })
         const reviews = yield* Reviews;
         return yield* reviews.generateAiResult(data.roundId, data.submissionId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -386,10 +375,9 @@ export const overrideAiReview = createServerFn({ method: "POST" })
           );
         }
         const user = yield* getCurrentUser;
-        const eventMemberId = yield* reviews.eventMemberId(data.eventId, user.userId);
-        return yield* reviews.overrideAiResult(result.id, data.score, reason, eventMemberId);
+        return yield* reviews.overrideAiResult(result.id, data.score, reason, user.userId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -452,7 +440,7 @@ export const exportReviewResults = createServerFn({ method: "POST" })
           .map((row) => row.map((value) => csvCell(value)).join(","))
           .join("\r\n");
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
     if (!result.ok) return new Response(result.error.message, { status: result.error.status });
     const roundSlug = data.roundId.replaceAll(/[^a-zA-Z0-9_-]/g, "-");

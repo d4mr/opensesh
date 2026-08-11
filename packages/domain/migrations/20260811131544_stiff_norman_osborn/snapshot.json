@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "95daff3b-b1e9-4c5f-9f09-5bb905c828ec",
+  "id": "8137de03-3e5f-49b8-afbe-660c8df42a01",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -2299,7 +2299,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "owner_event_member_id",
+      "name": "owner_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "crm_pipeline_cards"
@@ -2572,7 +2572,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "actor_event_member_id",
+      "name": "actor_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "crm_stage_history"
@@ -2741,7 +2741,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "author_event_member_id",
+      "name": "author_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "organization_contact_notes"
@@ -3339,7 +3339,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "created_by_event_member_id",
+      "name": "created_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "email_campaigns"
@@ -4548,7 +4548,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "author_event_member_id",
+      "name": "author_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "file_comments"
@@ -4951,7 +4951,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "uploader_event_member_id",
+      "name": "uploader_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "file_versions"
@@ -5861,7 +5861,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "overridden_by_event_member_id",
+      "name": "overridden_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "ai_review_results"
@@ -6563,7 +6563,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "author_event_member_id",
+      "name": "author_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "contact_edit_history"
@@ -6654,7 +6654,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "reviewed_by_event_member_id",
+      "name": "reviewed_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "contact_edit_history"
@@ -7213,7 +7213,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "author_event_member_id",
+      "name": "author_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "submission_edit_history"
@@ -7304,7 +7304,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "reviewed_by_event_member_id",
+      "name": "reviewed_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "submission_edit_history"
@@ -9702,16 +9702,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "owner_event_member_id"
+        "owner_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "crm_pipeline_cards_owner_event_member_id_event_members_id_fkey",
+      "name": "crm_pipeline_cards_owner_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "crm_pipeline_cards"
@@ -9804,16 +9804,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "actor_event_member_id"
+        "actor_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "crm_stage_history_actor_event_member_id_event_members_id_fkey",
+      "name": "crm_stage_history_actor_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "crm_stage_history"
@@ -9889,16 +9889,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "author_event_member_id"
+        "author_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "organization_contact_notes_QWSWRCfWzd19_fkey",
+      "name": "organization_contact_notes_author_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "organization_contact_notes"
@@ -10059,16 +10059,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "created_by_event_member_id"
+        "created_by_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "email_campaigns_QqF6HxTldSMQ_fkey",
+      "name": "email_campaigns_created_by_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "email_campaigns"
@@ -10229,16 +10229,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "author_event_member_id"
+        "author_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "file_comments_author_event_member_id_event_members_id_fkey",
+      "name": "file_comments_author_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "file_comments"
@@ -10382,16 +10382,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "uploader_event_member_id"
+        "uploader_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "file_versions_uploader_event_member_id_event_members_id_fkey",
+      "name": "file_versions_uploader_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "file_versions"
@@ -10671,16 +10671,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "overridden_by_event_member_id"
+        "overridden_by_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "ai_review_results_qBcxiMmli4Eo_fkey",
+      "name": "ai_review_results_overridden_by_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "ai_review_results"
@@ -10875,16 +10875,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "author_event_member_id"
+        "author_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "contact_edit_history_3CH3nLe2GftD_fkey",
+      "name": "contact_edit_history_author_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "contact_edit_history"
@@ -10892,16 +10892,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "reviewed_by_event_member_id"
+        "reviewed_by_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "contact_edit_history_D6OFLegOounl_fkey",
+      "name": "contact_edit_history_reviewed_by_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "contact_edit_history"
@@ -10946,13 +10946,13 @@
         "reviewer_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "reviews_reviewer_id_event_members_id_fkey",
+      "name": "reviews_reviewer_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "reviews"
@@ -10994,16 +10994,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "author_event_member_id"
+        "author_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "submission_edit_history_lGpBq3BATzJH_fkey",
+      "name": "submission_edit_history_author_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "submission_edit_history"
@@ -11011,16 +11011,16 @@
     {
       "nameExplicit": false,
       "columns": [
-        "reviewed_by_event_member_id"
+        "reviewed_by_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "event_members",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
-      "name": "submission_edit_history_t1uISl1nyA9l_fkey",
+      "name": "submission_edit_history_reviewed_by_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "submission_edit_history"
