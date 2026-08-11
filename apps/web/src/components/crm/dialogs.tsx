@@ -626,7 +626,10 @@ export function CampaignDialog({
   const [body, setBody] = useState(
     "Hello {speaker_name},\n\nWe would love to discuss a session for {talk_title}.",
   );
-  const [addToEvent, setAddToEvent] = useState(true);
+  // Enrolling every recipient in an event is a side effect the organizer must
+  // opt into — a broad campaign silently minting speaker invites is worse than
+  // an extra click for the outreach flow that wants it.
+  const [addToEvent, setAddToEvent] = useState(false);
   const [sent, setSent] = useState<number>();
   const contacts = useMemo(
     () => workspace.directory.filter((row) => contactIds.includes(row.contact.id)),
@@ -640,7 +643,11 @@ export function CampaignDialog({
     onSuccess: async (result) => {
       if (!result.ok) return toast.error(result.error.message);
       setSent(result.data.sent);
-      toast.success(`Sent ${result.data.sent} personalized emails`);
+      toast.success(
+        addToEvent
+          ? `Sent ${result.data.sent} personalized emails and added ${contactIds.length} ${contactIds.length === 1 ? "recipient" : "recipients"} to the event`
+          : `Sent ${result.data.sent} personalized emails`,
+      );
       await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
     },
   });

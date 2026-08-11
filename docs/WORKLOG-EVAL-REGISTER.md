@@ -259,3 +259,7 @@ morning deploy — everything here ships in the next deploy.
   consistent with the relaxed rule. Verified: accepted DevFlow SESS-4 (Lightning, 10 min) →
   popover preselects "10 minutes" → saved May 12 9:00–9:10 Main Stage (DB 10.0 minutes) →
   rooms grid renders the partial-height block.
+- Aug 12 — V2-023 (screenshot-verified): "Also add recipients to event" in the CRM campaign
+  composer now defaults OFF — enrolling recipients as invited speakers is an explicit opt-in,
+  and the success toast states the side effect ("Sent N emails and added N recipients to the
+  event") when it was chosen. Dialog description already flips between the two behaviors.
