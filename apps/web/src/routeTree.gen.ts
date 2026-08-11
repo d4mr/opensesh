@@ -13,8 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ERouteImport } from './routes/e'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SubmitRouteImport } from './routes/submit'
+import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
 import { Route as AdminAbstractsRouteImport } from './routes/admin.abstracts'
@@ -73,9 +76,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SubmitRoute = SubmitRouteImport.update({
@@ -83,6 +96,12 @@ const SubmitRoute = SubmitRouteImport.update({
   path: '/submit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcceptInvitationInvitationIdRoute =
+  AcceptInvitationInvitationIdRouteImport.update({
+    id: '/accept-invitation/$invitationId',
+    path: '/accept-invitation/$invitationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -276,8 +295,11 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/e': typeof ERouteWithChildren
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/portal': typeof PortalRouteWithChildren
+  '/signup': typeof SignupRoute
   '/submit': typeof SubmitRouteWithChildren
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
@@ -320,7 +342,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/e': typeof ERouteWithChildren
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
+  '/signup': typeof SignupRoute
   '/submit': typeof SubmitRouteWithChildren
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
@@ -364,8 +389,11 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/e': typeof ERouteWithChildren
   '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/portal': typeof PortalRouteWithChildren
+  '/signup': typeof SignupRoute
   '/submit': typeof SubmitRouteWithChildren
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/$section': typeof AdminSectionRoute
   '/admin/abstracts': typeof AdminAbstractsRoute
   '/admin/agenda': typeof AdminAgendaRoute
@@ -411,8 +439,11 @@ export interface FileRouteTypes {
     | '/admin'
     | '/e'
     | '/login'
+    | '/onboarding'
     | '/portal'
+    | '/signup'
     | '/submit'
+    | '/accept-invitation/$invitationId'
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
@@ -455,7 +486,10 @@ export interface FileRouteTypes {
     | '/'
     | '/e'
     | '/login'
+    | '/onboarding'
+    | '/signup'
     | '/submit'
+    | '/accept-invitation/$invitationId'
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
@@ -498,8 +532,11 @@ export interface FileRouteTypes {
     | '/admin'
     | '/e'
     | '/login'
+    | '/onboarding'
     | '/portal'
+    | '/signup'
     | '/submit'
+    | '/accept-invitation/$invitationId'
     | '/admin/$section'
     | '/admin/abstracts'
     | '/admin/agenda'
@@ -544,8 +581,11 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   ERoute: typeof ERouteWithChildren
   LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
   PortalRoute: typeof PortalRouteWithChildren
+  SignupRoute: typeof SignupRoute
   SubmitRoute: typeof SubmitRouteWithChildren
+  AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   EmbedEmbedIdRoute: typeof EmbedEmbedIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
@@ -583,6 +623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portal': {
       id: '/portal'
       path: '/portal'
@@ -590,11 +637,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/submit': {
       id: '/submit'
       path: '/submit'
       fullPath: '/submit'
       preLoaderRoute: typeof SubmitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-invitation/$invitationId': {
+      id: '/accept-invitation/$invitationId'
+      path: '/accept-invitation/$invitationId'
+      fullPath: '/accept-invitation/$invitationId'
+      preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -972,8 +1033,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   ERoute: ERouteWithChildren,
   LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
   PortalRoute: PortalRouteWithChildren,
+  SignupRoute: SignupRoute,
   SubmitRoute: SubmitRouteWithChildren,
+  AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   EmbedEmbedIdRoute: EmbedEmbedIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,

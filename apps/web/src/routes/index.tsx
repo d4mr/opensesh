@@ -11,7 +11,7 @@ export const Route = createFileRoute("/")({
       staleTime: 5 * 60_000,
     });
     if (!viewer.ok) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: viewer.error.status === 428 ? "/onboarding" : "/login" });
     }
     if (viewer.data.roles.admin || viewer.data.roles.reviewer) {
       throw redirect({ to: "/admin" });

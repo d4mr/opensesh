@@ -73,6 +73,25 @@ export const magicLink = (input: {
   };
 };
 
+export const organizationInvitation = (input: {
+  readonly organizationName: string;
+  readonly inviterName: string;
+  readonly role: string;
+  readonly url: string;
+}): RenderedEmail => {
+  const role = input.role === "admin" ? "an administrator" : "a member";
+  const subject = `Join ${input.organizationName} on opensesh`;
+  return {
+    subject,
+    text: `${input.inviterName} invited you to join ${input.organizationName} as ${role}. Accept the invitation: ${input.url}`,
+    html: layout(
+      input.organizationName,
+      undefined,
+      `${paragraph(`${input.inviterName} invited you to join ${input.organizationName} as ${role}.`)}<p style="margin:0">${link("Accept invitation", input.url)}</p>`,
+    ),
+  };
+};
+
 const decision = (input: {
   readonly accepted: boolean;
   readonly eventName: string;

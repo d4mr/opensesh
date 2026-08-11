@@ -5,7 +5,7 @@ import type {
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { Building2Icon, MailPlusIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { Building2Icon, MailPlusIcon, Trash2Icon, UserPlusIcon, UsersIcon } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -39,6 +39,7 @@ import { organizationSettingsQuery } from "@/lib/organization-queries";
 import { cn } from "@/lib/utils";
 import {
   getOrganizationSettings,
+  inviteOrganizationMember,
   removeOrganizationMember,
   revokeOrganizationInvitation,
   updateOrganizationMemberRole,
@@ -375,12 +376,84 @@ function MembersSection({ settings }: { readonly settings: OrganizationSettings 
         title="Members"
         description={`${settings.members.length} ${settings.members.length === 1 ? "person" : "people"} in ${settings.organization.name}. Owners control the organization; admins manage non-owner members.`}
       />
+      <InviteMemberForm settings={settings} />
       <div>
         {settings.members.map((member) => (
           <MemberRow key={member.id} member={member} settings={settings} />
         ))}
       </div>
     </div>
+  );
+}
+
+function InviteMemberForm({ settings }: { readonly settings: OrganizationSettings }) {
+  const queryClient = useQueryClient();
+  const canInvite = settings.viewer.role !== "member";
+  const form = useForm({
+    defaultValues: { email: "", role: "member" as "admin" | "member" },
+    onSubmit: async ({ value }) => {
+      const result = await inviteOrganizationMember({ data: value });
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      form.reset();
+      toast.success(`Invited ${value.email}`);
+      await queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey });
+    },
+  });
+  if (!canInvite) return null;
+  return (
+    <form
+      className="mb-4 flex items-center gap-2 rounded-xl bg-muted/40 p-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.Field name="email">
+        {(field) => (
+          <Input
+            aria-label="Invite by email"
+            type="email"
+            required
+            placeholder="teammate@company.com"
+            className="h-8 flex-1 bg-background"
+            value={field.state.value}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+      <form.Field name="role">
+        {(field) => (
+          <Select
+            value={field.state.value}
+            onValueChange={(value) => {
+              if (value === "admin" || value === "member") field.handleChange(value);
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              aria-label="Invite role"
+              className="h-8 w-fit gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-muted/60 hover:text-foreground data-[state=open]:bg-muted/60"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="member">Member</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </form.Field>
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(submitting) => (
+          <Button type="submit" size="sm" className="pressable" disabled={submitting}>
+            <UserPlusIcon /> {submitting ? "Inviting…" : "Invite"}
+          </Button>
+        )}
+      </form.Subscribe>
+    </form>
   );
 }
 

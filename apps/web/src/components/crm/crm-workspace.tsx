@@ -12,10 +12,12 @@ import {
   FilterXIcon,
   FolderKanbanIcon,
   ListFilterIcon,
+  UserPlusIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ContactDetail } from "@/components/crm/contact-detail";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import {
   CampaignDialog,
   ContactEditorDialog,
@@ -197,6 +199,33 @@ function Directory({
       else next.delete(id);
       return next;
     });
+
+  if (workspace.directory.length === 0) {
+    return (
+      <section className="grid gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-medium">Organization directory</h2>
+            <p className="text-xs text-muted-foreground">Contacts shared across every event.</p>
+          </div>
+          <Button size="sm" className="pressable" onClick={() => setContactOpen(true)}>
+            Add contact
+          </Button>
+        </div>
+        <AdminEmptyState
+          icon={UserPlusIcon}
+          title="Build your speaker network"
+          description="Add a contact once, then reuse their profile across organization events."
+          action={
+            <Button size="sm" className="pressable" onClick={() => setContactOpen(true)}>
+              <UserPlusIcon /> Add contact
+            </Button>
+          }
+        />
+        <ContactEditorDialog open={contactOpen} onOpenChange={setContactOpen} />
+      </section>
+    );
+  }
 
   return (
     <section className="grid gap-3">

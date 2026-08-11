@@ -14,6 +14,8 @@ import type {
   InvalidInput,
   InvalidPipelineMove,
   MailError,
+  NeedsFirstEvent,
+  NeedsOrganization,
   NotFound,
   NumericOutOfBounds,
   OrganizationLastOwner,
@@ -41,6 +43,8 @@ export type AppError =
   | InvalidInput
   | InvalidPipelineMove
   | MailError
+  | NeedsFirstEvent
+  | NeedsOrganization
   | NotFound
   | NumericOutOfBounds
   | OrganizationLastOwner
@@ -83,6 +87,8 @@ const toServerError = Match.type<AppError>().pipe(
     Unauthenticated: (error) => ({ status: 401, message: error.message }),
     Forbidden: (error) => ({ status: 403, message: error.message }),
     MailError: (error) => ({ status: 502, message: error.message }),
+    NeedsFirstEvent: (error) => ({ status: 409, message: error.message }),
+    NeedsOrganization: (error) => ({ status: 428, message: error.message }),
   }),
 );
 

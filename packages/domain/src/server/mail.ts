@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { contacts, emailLog, events } from "../db/schema";
 import { Db, makeDbLive } from "./db";
 import { type DbError, MailError, type NotFound } from "./errors";
-import { magicLink } from "./mail/templates";
+import { magicLink, organizationInvitation } from "./mail/templates";
 import { decodeFound, query } from "./repos/shared";
 import { Event } from "./schema/core";
 import { EmailLogEntry, EmailType } from "./schema/portal";
@@ -32,6 +32,15 @@ export const MagicLinkMail = Schema.Struct({
 });
 export type MagicLinkMail = typeof MagicLinkMail.Type;
 
+export const OrganizationInvitationMail = Schema.Struct({
+  organizationName: Schema.String,
+  inviterName: Schema.String,
+  email: Schema.String,
+  role: Schema.String,
+  url: Schema.String,
+});
+export type OrganizationInvitationMail = typeof OrganizationInvitationMail.Type;
+
 export interface TransportResult {
   readonly providerId: string | null;
 }
@@ -48,6 +57,9 @@ interface MailService {
   readonly sendMagicLink: (
     input: MagicLinkMail,
   ) => Effect.Effect<MailDeliveryResult, DbError | NotFound>;
+  readonly sendOrganizationInvitation: (
+    input: OrganizationInvitationMail,
+  ) => Effect.Effect<void, MailError>;
   readonly sendDecision: (mail: OutboundMail) => Effect.Effect<void, MailError>;
   readonly sendLogged: (
     logId: string,
@@ -156,6 +168,17 @@ const makeMailLayer = (
         );
 
       return {
+        sendOrganizationInvitation: (input) => {
+          const rendered = organizationInvitation(input);
+          return demoMode
+            ? Effect.void
+            : deliver({
+                to: input.email,
+                subject: rendered.subject,
+                text: rendered.text,
+                html: rendered.html,
+              }).pipe(Effect.asVoid);
+        },
         sendDecision: (mail) =>
           demoMode ? Effect.succeed(undefined) : deliver(mail).pipe(Effect.asVoid),
         sendLogged,
@@ -239,4 +262,10 @@ export const sendMagicLink = (input: MagicLinkMail) =>
   Effect.gen(function* () {
     const mail = yield* Mail;
     return yield* mail.sendMagicLink(input);
+  });
+
+export const sendOrganizationInvitation = (input: OrganizationInvitationMail) =>
+  Effect.gen(function* () {
+    const mail = yield* Mail;
+    return yield* mail.sendOrganizationInvitation(input);
   });

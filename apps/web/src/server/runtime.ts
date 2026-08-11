@@ -1,7 +1,8 @@
-import { DbError, Unauthenticated } from "@opensesh/domain";
+import { DbError, NeedsFirstEvent } from "@opensesh/domain";
 import {
   type SessionIdentity,
   type CurrentUser,
+  getCurrentUser,
   makeCurrentUserLive,
   requireCurrentUser,
   type RequiredRole,
@@ -15,7 +16,7 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
-const EVENT_SLUG = "ai-engineer-nyc-2026";
+const DEMO_EVENT_SLUG = "ai-engineer-nyc-2026";
 const EVALUATOR_EVENT_SLUG = "devflow-conf-2027";
 const evaluatorEmails = new Set([
   "jordan.organizer@sbek-test.example.com",
@@ -23,8 +24,19 @@ const evaluatorEmails = new Set([
   "marcus.speaker@sbek-test.example.com",
   "sam.reviewer@sbek-test.example.com",
 ]);
-const eventSlugForSession = (session: SessionIdentity) =>
-  evaluatorEmails.has(session.email) ? EVALUATOR_EVENT_SLUG : EVENT_SLUG;
+const demoEmails = new Set([
+  "demo@opensesh.io",
+  "reviewer@opensesh.io",
+  "maya.chen@retrievallabs.ai",
+  "lina.haddad@checkpoint.health",
+  "jamal.reed@agentdesk.co",
+]);
+const preferredEventSlugForSession = (session: SessionIdentity) =>
+  evaluatorEmails.has(session.email)
+    ? EVALUATOR_EVENT_SLUG
+    : demoEmails.has(session.email)
+      ? DEMO_EVENT_SLUG
+      : undefined;
 
 const sessionIdentity = (headers: Headers, origin: string) =>
   Effect.gen(function* () {
@@ -51,14 +63,29 @@ export const runSessionServer = async <A, E extends AppError>(
   const { env } = await import("cloudflare:workers");
   const request = getRequest();
   const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
+  const connectionString = env.HYPERDRIVE.connectionString;
+  const currentUserLive = makeCurrentUserLive(
+    connectionString,
+    loadSession,
+    preferredEventSlugForSession,
+  );
   const secured = Effect.gen(function* () {
-    const session = yield* loadSession;
-    if (session === null) {
-      return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
+    const user = yield* getCurrentUser;
+    if (user.eventSlug === null) {
+      return yield* Effect.fail(
+        new NeedsFirstEvent({ message: "Create your first event to continue" }),
+      );
     }
-    return yield* program(session, eventSlugForSession(session));
+    return yield* program(
+      {
+        userId: user.userId,
+        email: user.email,
+        activeOrganizationId: user.orgId,
+      },
+      user.eventSlug,
+    );
   });
-  return await run(secured, makeRepositoriesLive(env.HYPERDRIVE.connectionString));
+  return await run(secured, Layer.merge(makeRepositoriesLive(connectionString), currentUserLive));
 };
 
 export const runServer = async <A, E extends AppError>(
@@ -69,7 +96,11 @@ export const runServer = async <A, E extends AppError>(
   const request = getRequest();
   const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
   const connectionString = env.HYPERDRIVE.connectionString;
-  const currentUserLive = makeCurrentUserLive(connectionString, loadSession, eventSlugForSession);
+  const currentUserLive = makeCurrentUserLive(
+    connectionString,
+    loadSession,
+    preferredEventSlugForSession,
+  );
   const mailLive = mailLayerFromEnv(env);
   const services = Layer.mergeAll(
     makeRepositoriesLive(connectionString),

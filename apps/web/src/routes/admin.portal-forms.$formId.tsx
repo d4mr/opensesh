@@ -29,11 +29,15 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { hasPortalFormListReturn, updatePortalFormReturnId } from "@/lib/portal-form-navigation";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { getPortalAdmin, saveAdminPortalForm } from "@/server-fns/portal";
 
 export const Route = createFileRoute("/admin/portal-forms/$formId")({
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(adminPortalQuery("evt_aie_nyc_2026")),
+  loader: async ({ context }) => {
+    const events = await context.queryClient.ensureQueryData(adminEventsQuery);
+    const eventId = events.ok ? events.data[0]?.id : undefined;
+    if (eventId !== undefined) await context.queryClient.ensureQueryData(adminPortalQuery(eventId));
+  },
   component: PortalFormEditorRoute,
 });
 

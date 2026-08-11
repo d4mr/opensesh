@@ -8,7 +8,9 @@ import {
   users,
   verifications,
 } from "@opensesh/domain/db/auth";
-import { sendMagicLink } from "@opensesh/domain/server/mail";
+import { eventMembers, events } from "@opensesh/domain";
+import { eq } from "drizzle-orm";
+import { sendMagicLink, sendOrganizationInvitation } from "@opensesh/domain/server/mail";
 import { run } from "@opensesh/domain/server/runtime";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -21,18 +23,27 @@ export interface CapturedMagicLink {
   readonly url: string;
 }
 
+export interface CapturedInvitation {
+  readonly invitationId: string;
+  readonly url: string;
+}
+
 const DEMO_ORGANIZATION_ID = "org_ai_engineer";
+const keepsDemoMembership = (email: string) =>
+  email.endsWith("@opensesh.io") || email.endsWith("@sbek-test.example.com");
 
 export const makeAuth = (
   env: Cloudflare.Env,
   origin: string,
   capture?: (link: CapturedMagicLink) => void,
-) => buildAuth(env, origin, capture);
+  captureInvitation?: (invitation: CapturedInvitation) => void,
+) => buildAuth(env, origin, capture, captureInvitation);
 
 const buildAuth = (
   env: Cloudflare.Env,
   origin: string,
   capture?: (link: CapturedMagicLink) => void,
+  captureInvitation?: (invitation: CapturedInvitation) => void,
 ) => {
   const connectionString = env.HYPERDRIVE.connectionString;
   const database = makeDatabase(connectionString);
@@ -78,6 +89,7 @@ const buildAuth = (
       user: {
         create: {
           after: async (user) => {
+            if (!keepsDemoMembership(user.email.toLowerCase())) return;
             await database
               .insert(organizationMembers)
               .values({
@@ -106,6 +118,47 @@ const buildAuth = (
         },
       }),
       organization({
+        organizationHooks: {
+          beforeCreateOrganization: async ({ organization: nextOrganization }) => ({
+            data: {
+              ...nextOrganization,
+              id: `org_${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`,
+            },
+          }),
+          afterAcceptInvitation: async ({ invitation, member }) => {
+            if (member.role !== "admin" && member.role !== "owner") return;
+            const organizationEvents = await database
+              .select({ id: events.id })
+              .from(events)
+              .where(eq(events.organizationId, invitation.organizationId));
+            if (organizationEvents.length === 0) return;
+            await database
+              .insert(eventMembers)
+              .values(
+                organizationEvents.map((event) => ({
+                  eventId: event.id,
+                  userId: member.userId,
+                  role: "admin" as const,
+                })),
+              )
+              .onConflictDoNothing();
+          },
+        },
+        sendInvitationEmail: async (data) => {
+          const url = `${origin}/accept-invitation/${data.id}`;
+          captureInvitation?.({ invitationId: data.id, url });
+          const result = await run(
+            sendOrganizationInvitation({
+              organizationName: data.organization.name,
+              inviterName: data.inviter.user.name,
+              email: data.email,
+              role: data.role,
+              url,
+            }),
+            mailLive,
+          );
+          if (!result.ok) return await Promise.reject(new Error(result.error.message));
+        },
         schema: {
           organization: { modelName: "organizations" },
           member: { modelName: "organizationMembers" },

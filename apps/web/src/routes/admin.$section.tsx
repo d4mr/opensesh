@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PagePlaceholder } from "@/components/app/page-placeholder";
 import { PortalAdminSection } from "@/components/admin/portal-admin";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { adminEventsQuery } from "@/lib/review-desk-queries";
 
 const titles: Readonly<Record<string, string>> = {
   abstracts: "Abstracts",
@@ -23,10 +24,12 @@ export const Route = createFileRoute("/admin/$section")({
     spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
     fileRequest: typeof search.fileRequest === "string" ? search.fileRequest : undefined,
   }),
-  loader: ({ context, params }) =>
-    ["tasks", "portal-forms", "file-requests", "content"].includes(params.section)
-      ? context.queryClient.ensureQueryData(adminPortalQuery("evt_aie_nyc_2026"))
-      : undefined,
+  loader: async ({ context, params }) => {
+    if (!["tasks", "portal-forms", "file-requests", "content"].includes(params.section)) return;
+    const events = await context.queryClient.ensureQueryData(adminEventsQuery);
+    const eventId = events.ok ? events.data[0]?.id : undefined;
+    if (eventId !== undefined) await context.queryClient.ensureQueryData(adminPortalQuery(eventId));
+  },
   component: AdminPage,
 });
 

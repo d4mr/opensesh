@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRightIcon, EyeOffIcon, PlusIcon } from "lucide-react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { formatDateTime } from "@/components/forms/datetime-picker";
 import { ReviewerEvaluationWorkspace } from "@/components/evaluation/reviewer-workspace";
 import { Badge } from "@/components/ui/badge";
@@ -60,19 +61,18 @@ function EvaluationRoute() {
       </div>
 
       {rounds.length === 0 ? (
-        <div className="grid min-h-72 place-items-center text-center">
-          <div>
-            <h2 className="font-semibold">No evaluation rounds</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Create a round to define its scorecard and reviewer pool.
-            </p>
+        <AdminEmptyState
+          icon={EyeOffIcon}
+          title="Create your first evaluation round"
+          description="Define a scorecard and reviewer pool before assigning submissions."
+          action={
             <Button asChild size="sm" className="pressable mt-3">
               <Link to="/admin/evaluation/$roundId" params={{ roundId: "new" }}>
                 <PlusIcon /> Create round
               </Link>
             </Button>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <div className="mt-4 overflow-hidden rounded-lg border">
           <div className="grid h-8 grid-cols-[minmax(15rem,1.4fr)_minmax(14rem,1fr)_8rem_9rem_11rem_2rem] items-center gap-3 border-b bg-muted/40 px-3 text-[11px] font-medium text-muted-foreground">

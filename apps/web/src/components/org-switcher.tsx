@@ -1,5 +1,11 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
-import { Building2Icon, CheckIcon, ChevronsUpDownIcon, Settings2Icon } from "lucide-react";
+import {
+  Building2Icon,
+  CheckIcon,
+  ChevronsUpDownIcon,
+  PlusIcon,
+  Settings2Icon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { OrgSettingsDialog } from "@/components/organization/org-settings-dialog";
@@ -95,18 +101,23 @@ export function OrgSwitcher({ user }: { readonly user: CurrentUserValue }) {
                 {organization.id === user.orgId ? <CheckIcon className="ml-auto size-3.5" /> : null}
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
             {user.roles.admin ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-[13px] text-muted-foreground"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  <Settings2Icon />
-                  Organization settings
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem
+                className="text-[13px] text-muted-foreground"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings2Icon />
+                Organization settings
+              </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem
+              className="text-[13px] text-muted-foreground"
+              onClick={() => window.location.assign("/onboarding")}
+            >
+              <PlusIcon />
+              Create organization
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <OrgSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />

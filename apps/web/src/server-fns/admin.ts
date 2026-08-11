@@ -43,11 +43,21 @@ const requireEvent = Effect.fn("requireAdminEvent")(function* (eventId: string) 
 });
 
 export const getAdminBootstrap = createServerFn({ method: "GET" }).handler(async () =>
-  runSessionServer((session, eventSlug) =>
+  runServer(
     Effect.gen(function* () {
       const events = yield* Events;
-      return yield* events.listForAdmin(session, eventSlug);
+      const user = yield* getCurrentUser;
+      if (user.eventSlug === null) return [];
+      return yield* events.listForAdmin(
+        {
+          userId: user.userId,
+          email: user.email,
+          activeOrganizationId: user.orgId,
+        },
+        user.eventSlug,
+      );
     }),
+    { require: "staff" },
   ),
 );
 
@@ -97,7 +107,7 @@ export const createEvent = createServerFn({ method: "POST" })
             slug,
             tagline: null,
             description: null,
-            type: "conference",
+            type: data.type,
             websiteUrl: null,
             location: null,
             timezone: data.timezone,

@@ -13,6 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { StatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -99,13 +100,21 @@ function FormsList() {
           <FormCard key={form.id} form={form} eventSlug={context.event.slug} />
         ))}
         {forms.data.data.length === 0 ? (
-          <Card className="py-10 text-center">
-            <CardContent>
-              <FileInputIcon className="mx-auto size-6 text-muted-foreground" />
-              <p className="mt-2 font-medium">No submission forms yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">Create one to open your CFP.</p>
-            </CardContent>
-          </Card>
+          <AdminEmptyState
+            icon={FileInputIcon}
+            title="Open your call for papers"
+            description="Create a form to collect proposals and participant details."
+            action={
+              <Button
+                size="sm"
+                className="pressable"
+                disabled={creating}
+                onClick={() => void create()}
+              >
+                <PlusIcon /> Create form
+              </Button>
+            }
+          />
         ) : null}
       </div>
     </main>

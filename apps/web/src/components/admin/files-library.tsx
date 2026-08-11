@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { PersonHoverCard } from "@/components/app/person-popover";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
@@ -349,192 +350,213 @@ function FilesLibraryData({
                 <FileArchiveIcon /> Export ZIP ({selected.size})
               </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={sessionId} onValueChange={setSessionId}>
-                <SelectTrigger size="sm" className="w-48">
-                  <SelectValue placeholder="Session" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All sessions</SelectItem>
-                  {sessions.map((session) => (
-                    <SelectItem key={session.id} value={session.id}>
-                      {session.code} — {session.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={contactId} onValueChange={setContactId}>
-                <SelectTrigger size="sm" className="w-44">
-                  <SelectValue placeholder="Speaker" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All speakers</SelectItem>
-                  {speakers.map((speaker) => (
-                    <SelectItem key={speaker.id} value={speaker.id}>
-                      {speaker.firstName} {speaker.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger size="sm" className="w-36">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="uploaded">Uploaded</SelectItem>
-                  <SelectItem value="outstanding">Outstanding</SelectItem>
-                </SelectContent>
-              </Select>
-              {deliverableId === undefined &&
-              sessionId === "all" &&
-              contactId === "all" &&
-              status === "all" ? null : (
-                <Button size="sm" variant="ghost" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              )}
-              <p className="ml-auto text-xs text-muted-foreground tabular-nums">
-                {filtered.length} record{filtered.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-              <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                <Table containerClassName="overflow-visible">
-                  <TableHeader className="sticky top-0 z-10 bg-background">
-                    <TableRow>
-                      <TableHead className="w-9">
-                        <Checkbox
-                          aria-label="Select all uploaded files"
-                          checked={
-                            allUploadedSelected
-                              ? true
-                              : uploadedIds.some((id) => selected.has(id))
-                                ? "indeterminate"
-                                : false
-                          }
-                          onCheckedChange={(checked) =>
-                            setSelected((current) => {
-                              const next = new Set(current);
-                              for (const id of uploadedIds) {
-                                if (checked === true) next.add(id);
-                                else next.delete(id);
-                              }
-                              return next;
-                            })
-                          }
-                        />
-                      </TableHead>
-                      <TableHead>File</TableHead>
-                      {compact ? null : <TableHead>Session</TableHead>}
-                      {compact ? null : <TableHead>Speaker</TableHead>}
-                      <TableHead>Kind</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      {compact ? null : <TableHead className="text-right">Versions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pagination.pageItems.map((row) => (
-                      <TableRow
-                        key={row.id}
-                        ref={rowRef(row.id)}
-                        className={cn("h-9 cursor-pointer", rowClassName(row.id))}
-                        onClick={() => openSpotlight(row.id)}
-                      >
-                        <TableCell
-                          className="h-9 py-1"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <Checkbox
-                            aria-label={`Select ${row.label}`}
-                            disabled={row.file === undefined || row.latest === undefined}
-                            checked={row.file !== undefined && selected.has(row.file.upload.id)}
-                            onCheckedChange={(checked) => {
-                              if (row.file === undefined) return;
-                              const uploadId = row.file.upload.id;
-                              setSelected((current) => {
-                                const next = new Set(current);
-                                if (checked === true) next.add(uploadId);
-                                else next.delete(uploadId);
-                                return next;
-                              });
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="h-9 max-w-60 truncate py-1 font-medium">
-                          {row.label}
-                        </TableCell>
-                        {compact ? null : (
-                          <TableCell className="h-9 max-w-52 truncate py-1">
-                            {row.submission === null ? (
-                              "—"
-                            ) : (
-                              <>
-                                <span className="font-mono text-xs tabular-nums">
-                                  {row.submission.code}
-                                </span>{" "}
-                                · {row.submission.title}
-                              </>
-                            )}
-                          </TableCell>
-                        )}
-                        {compact ? null : (
-                          <TableCell className="h-9 max-w-44 py-1">
-                            {row.contacts.length === 0 ? (
-                              "—"
-                            ) : (
-                              <span className="flex flex-wrap gap-x-1.5 truncate">
-                                {row.contacts.map((contact) => (
-                                  <PersonHoverCard
-                                    key={contact.id}
-                                    person={{
-                                      id: contact.id,
-                                      name: `${contact.firstName} ${contact.lastName}`,
-                                      image: contact.headshotUrl,
-                                    }}
-                                  >
-                                    <span>
-                                      {contact.firstName} {contact.lastName}
-                                    </span>
-                                  </PersonHoverCard>
-                                ))}
-                              </span>
-                            )}
-                          </TableCell>
-                        )}
-                        <TableCell className="h-9 py-1">{row.kind}</TableCell>
-                        <TableCell className="h-9 py-1 text-xs text-muted-foreground tabular-nums">
-                          {row.date === null ? "—" : day.format(row.date)}
-                        </TableCell>
-                        <TableCell className="h-9 py-1">
-                          <Badge
-                            className={
-                              row.status === "uploaded"
-                                ? "bg-status-accepted text-status-accepted-foreground"
-                                : "bg-status-pending text-status-pending-foreground"
-                            }
-                          >
-                            {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
-                          </Badge>
-                        </TableCell>
-                        {compact ? null : (
-                          <TableCell className="h-9 py-1 text-right tabular-nums">
-                            {row.versionCount}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <PaginationFooter
-                page={pagination.page}
-                pageSize={pagination.pageSize}
-                total={filtered.length}
-                onPageChange={pagination.setPage}
+            {rows.length === 0 ? (
+              <AdminEmptyState
+                icon={FileArchiveIcon}
+                title="No file requests yet"
+                description="Create a deliverable before speaker uploads can appear here."
+                action={
+                  <Button asChild size="sm" className="pressable">
+                    <Link
+                      to="/admin/$section"
+                      params={{ section: "file-requests" }}
+                      search={{ spotlight: undefined, fileRequest: undefined }}
+                    >
+                      Create deliverable
+                    </Link>
+                  </Button>
+                }
               />
-            </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={sessionId} onValueChange={setSessionId}>
+                    <SelectTrigger size="sm" className="w-48">
+                      <SelectValue placeholder="Session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sessions</SelectItem>
+                      {sessions.map((session) => (
+                        <SelectItem key={session.id} value={session.id}>
+                          {session.code} — {session.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={contactId} onValueChange={setContactId}>
+                    <SelectTrigger size="sm" className="w-44">
+                      <SelectValue placeholder="Speaker" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All speakers</SelectItem>
+                      {speakers.map((speaker) => (
+                        <SelectItem key={speaker.id} value={speaker.id}>
+                          {speaker.firstName} {speaker.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger size="sm" className="w-36">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="uploaded">Uploaded</SelectItem>
+                      <SelectItem value="outstanding">Outstanding</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {deliverableId === undefined &&
+                  sessionId === "all" &&
+                  contactId === "all" &&
+                  status === "all" ? null : (
+                    <Button size="sm" variant="ghost" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
+                  )}
+                  <p className="ml-auto text-xs text-muted-foreground tabular-nums">
+                    {filtered.length} record{filtered.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+                  <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+                    <Table containerClassName="overflow-visible">
+                      <TableHeader className="sticky top-0 z-10 bg-background">
+                        <TableRow>
+                          <TableHead className="w-9">
+                            <Checkbox
+                              aria-label="Select all uploaded files"
+                              checked={
+                                allUploadedSelected
+                                  ? true
+                                  : uploadedIds.some((id) => selected.has(id))
+                                    ? "indeterminate"
+                                    : false
+                              }
+                              onCheckedChange={(checked) =>
+                                setSelected((current) => {
+                                  const next = new Set(current);
+                                  for (const id of uploadedIds) {
+                                    if (checked === true) next.add(id);
+                                    else next.delete(id);
+                                  }
+                                  return next;
+                                })
+                              }
+                            />
+                          </TableHead>
+                          <TableHead>File</TableHead>
+                          {compact ? null : <TableHead>Session</TableHead>}
+                          {compact ? null : <TableHead>Speaker</TableHead>}
+                          <TableHead>Kind</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          {compact ? null : <TableHead className="text-right">Versions</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pagination.pageItems.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            ref={rowRef(row.id)}
+                            className={cn("h-9 cursor-pointer", rowClassName(row.id))}
+                            onClick={() => openSpotlight(row.id)}
+                          >
+                            <TableCell
+                              className="h-9 py-1"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <Checkbox
+                                aria-label={`Select ${row.label}`}
+                                disabled={row.file === undefined || row.latest === undefined}
+                                checked={row.file !== undefined && selected.has(row.file.upload.id)}
+                                onCheckedChange={(checked) => {
+                                  if (row.file === undefined) return;
+                                  const uploadId = row.file.upload.id;
+                                  setSelected((current) => {
+                                    const next = new Set(current);
+                                    if (checked === true) next.add(uploadId);
+                                    else next.delete(uploadId);
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="h-9 max-w-60 truncate py-1 font-medium">
+                              {row.label}
+                            </TableCell>
+                            {compact ? null : (
+                              <TableCell className="h-9 max-w-52 truncate py-1">
+                                {row.submission === null ? (
+                                  "—"
+                                ) : (
+                                  <>
+                                    <span className="font-mono text-xs tabular-nums">
+                                      {row.submission.code}
+                                    </span>{" "}
+                                    · {row.submission.title}
+                                  </>
+                                )}
+                              </TableCell>
+                            )}
+                            {compact ? null : (
+                              <TableCell className="h-9 max-w-44 py-1">
+                                {row.contacts.length === 0 ? (
+                                  "—"
+                                ) : (
+                                  <span className="flex flex-wrap gap-x-1.5 truncate">
+                                    {row.contacts.map((contact) => (
+                                      <PersonHoverCard
+                                        key={contact.id}
+                                        person={{
+                                          id: contact.id,
+                                          name: `${contact.firstName} ${contact.lastName}`,
+                                          image: contact.headshotUrl,
+                                        }}
+                                      >
+                                        <span>
+                                          {contact.firstName} {contact.lastName}
+                                        </span>
+                                      </PersonHoverCard>
+                                    ))}
+                                  </span>
+                                )}
+                              </TableCell>
+                            )}
+                            <TableCell className="h-9 py-1">{row.kind}</TableCell>
+                            <TableCell className="h-9 py-1 text-xs text-muted-foreground tabular-nums">
+                              {row.date === null ? "—" : day.format(row.date)}
+                            </TableCell>
+                            <TableCell className="h-9 py-1">
+                              <Badge
+                                className={
+                                  row.status === "uploaded"
+                                    ? "bg-status-accepted text-status-accepted-foreground"
+                                    : "bg-status-pending text-status-pending-foreground"
+                                }
+                              >
+                                {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
+                              </Badge>
+                            </TableCell>
+                            {compact ? null : (
+                              <TableCell className="h-9 py-1 text-right tabular-nums">
+                                {row.versionCount}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <PaginationFooter
+                    page={pagination.page}
+                    pageSize={pagination.pageSize}
+                    total={filtered.length}
+                    onPageChange={pagination.setPage}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
         panel={

@@ -53,6 +53,26 @@ export const OrganizationMemberRemoveRequest = Schema.Struct({ memberId: Schema.
 
 export const OrganizationInvitationRevokeRequest = Schema.Struct({ invitationId: Schema.String });
 
+export const OrganizationCreateRequest = Schema.Struct({
+  name: Schema.String,
+  slug: Schema.String,
+  logoUpload: Schema.NullOr(
+    Schema.Struct({
+      filename: Schema.String,
+      contentType: Schema.String,
+      size: Schema.Number,
+      base64: Schema.String,
+    }),
+  ),
+});
+
+export const OrganizationInviteRequest = Schema.Struct({
+  email: Schema.String,
+  role: Schema.Literals(["admin", "member"]),
+});
+
+export const OrganizationInvitationRequest = Schema.Struct({ invitationId: Schema.String });
+
 export const OrganizationProfileRequest = Schema.Struct({
   name: Schema.String,
   logo: NullableString,

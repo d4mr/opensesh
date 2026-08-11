@@ -10,6 +10,7 @@ import { CheckIcon, ChevronRightIcon, ClipboardIcon, Code2Icon, PlusIcon } from 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -115,13 +116,21 @@ function WidgetData({
       </div>
       <div className="divide-y overflow-hidden rounded-lg border bg-card">
         {widgets.data.data.length === 0 ? (
-          <div className="py-12 text-center">
-            <Code2Icon className="mx-auto size-5 text-muted-foreground" />
-            <p className="mt-3 text-sm font-medium">No widgets yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Add one to embed a public program view.
-            </p>
-          </div>
+          <AdminEmptyState
+            icon={Code2Icon}
+            title="Publish your first widget"
+            description="Create an embeddable sessions, speakers, or agenda view."
+            action={
+              <Button
+                size="sm"
+                className="pressable"
+                disabled={create.isPending}
+                onClick={() => create.mutate()}
+              >
+                <PlusIcon /> Add widget
+              </Button>
+            }
+          />
         ) : (
           widgets.data.data.map((widget) => (
             <WidgetRow
