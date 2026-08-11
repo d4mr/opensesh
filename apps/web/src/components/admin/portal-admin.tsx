@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminEvent } from "@/components/app/admin-event-context";
-import { contentDiffRows, describeChangedFields, profileDiffRows } from "@/lib/content-diff";
+import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { rememberPortalFormList, takePortalFormListReturn } from "@/lib/portal-form-navigation";
@@ -64,12 +64,10 @@ import { cn } from "@/lib/utils";
 import {
   acceptPortalSubmission,
   approveContentChange,
-  approveProfileChange,
   createAdminFileRequest,
   getPortalAdmin,
   manualAssignAdminTask,
   rejectContentChange,
-  rejectProfileChange,
   saveAdminSessionFileRequirement,
   saveAdminTaskTemplate,
   waiveAdminAssignment,
@@ -1309,23 +1307,6 @@ function AdminSessions({
       await refresh();
     },
   });
-  const reviewProfile = useMutation({
-    mutationFn: ({
-      id,
-      decision,
-    }: {
-      readonly id: string;
-      readonly decision: "approve" | "reject";
-    }) =>
-      decision === "approve"
-        ? approveProfileChange({ data: { eventId, historyId: id } })
-        : rejectProfileChange({ data: { eventId, historyId: id } }),
-    onSuccess: async (result) => {
-      if (!result.ok) toast.error(result.error.message);
-      else toast.success("Profile review updated");
-      await refresh();
-    },
-  });
   const pendingHistory = data.history
     .map((item) => item.history)
     .filter((item) => item.approvalStatus === "pending_review");
@@ -1417,40 +1398,16 @@ function AdminSessions({
                       <span className="min-w-0 flex-1 truncate text-muted-foreground">
                         changed {describeChangedFields(entry.changedFields)}
                       </span>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                            Review
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Review profile changes</DialogTitle>
-                            <DialogDescription>
-                              {contact.firstName} {contact.lastName} · the approved profile stays
-                              public until you decide
-                            </DialogDescription>
-                          </DialogHeader>
-                          <ChangeDiff rows={profileDiffRows(entry)} />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() =>
-                                reviewProfile.mutate({ id: entry.id, decision: "reject" })
-                              }
-                            >
-                              Reject
-                            </Button>
-                            <Button
-                              onClick={() =>
-                                reviewProfile.mutate({ id: entry.id, decision: "approve" })
-                              }
-                            >
-                              Approve
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="pressable h-7 px-2 text-xs"
+                        asChild
+                      >
+                        <Link to="/admin/speakers" search={{ spotlight: contact.id }}>
+                          Review
+                        </Link>
+                      </Button>
                     </div>
                   ))}
                 </div>

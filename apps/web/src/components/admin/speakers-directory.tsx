@@ -46,7 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { profileDiffRows } from "@/lib/content-diff";
+import { describeChangedFields, profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { speakerDirectoryQuery } from "@/lib/widget-queries";
@@ -510,6 +510,7 @@ function Directory({
                       />
                     </TableHead>
                     <TableHead>Speaker</TableHead>
+                    {compact ? null : <TableHead>Role</TableHead>}
                     {compact ? null : <TableHead>Profile readiness</TableHead>}
                     {compact ? null : <TableHead>Workflow</TableHead>}
                     {compact ? null : <TableHead>Task progress</TableHead>}
@@ -519,7 +520,7 @@ function Directory({
                   {filtered.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={compact ? 2 : 5}
+                        colSpan={compact ? 2 : 6}
                         className="py-10 text-center text-sm text-muted-foreground"
                       >
                         No speakers match.
@@ -553,28 +554,25 @@ function Directory({
                         <TableCell className="h-9 py-0">
                           <div className="flex items-center gap-2.5">
                             <Headshot row={row} />
-                            <div className="min-w-0">
-                              <p className="flex items-center gap-1.5 truncate text-sm font-medium">
-                                {row.contact.firstName} {row.contact.lastName}
-                                {row.contact.profileReviewStatus === "pending_review" ? (
-                                  <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
-                                    Profile pending
-                                  </span>
-                                ) : null}
-                              </p>
-                              <p
-                                className={cn(
-                                  "truncate text-xs text-muted-foreground",
-                                  compact && "hidden",
-                                )}
-                              >
-                                {[row.contact.title, row.contact.company]
-                                  .filter(Boolean)
-                                  .join(" · ") || row.contact.email}
-                              </p>
-                            </div>
+                            <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+                              {row.contact.firstName} {row.contact.lastName}
+                              {row.contact.profileReviewStatus === "pending_review" ? (
+                                <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                                  Profile pending
+                                </span>
+                              ) : null}
+                            </p>
                           </div>
                         </TableCell>
+                        {compact ? null : (
+                          <TableCell className="h-9 max-w-52 py-0">
+                            <p className="truncate text-xs text-muted-foreground">
+                              {[row.contact.title, row.contact.company]
+                                .filter(Boolean)
+                                .join(" · ") || row.contact.email}
+                            </p>
+                          </TableCell>
+                        )}
                         {compact ? null : (
                           <TableCell className="h-9 py-0 text-xs">
                             <ProfileReadiness row={row} />
@@ -667,6 +665,56 @@ function Directory({
                     selected.contact.email}
                 </p>
                 <div className="grid gap-5 [&>section]:min-w-0">
+                  {pendingProfile === undefined ? null : (
+                    <section>
+                      <div className="flex items-center justify-between gap-2">
+                        <SectionLabel>Awaiting your review</SectionLabel>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {shortDate(pendingProfile.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">
+                        {selected.contact.firstName} changed{" "}
+                        {describeChangedFields(pendingProfile.changedFields)} from the portal. The
+                        approved profile stays public until you decide.
+                      </p>
+                      <ChangeDiff
+                        rows={profileDiffRows(pendingProfile)}
+                        className="mt-2 border-y py-2"
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          className="pressable"
+                          disabled={reviewProfile.isPending}
+                          onClick={() =>
+                            reviewProfile.mutate({
+                              historyId: pendingProfile.id,
+                              decision: "reject",
+                            })
+                          }
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          type="button"
+                          size="xs"
+                          className="pressable"
+                          disabled={reviewProfile.isPending}
+                          onClick={() =>
+                            reviewProfile.mutate({
+                              historyId: pendingProfile.id,
+                              decision: "approve",
+                            })
+                          }
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </section>
+                  )}
                   <SpeakerProfileEditor
                     key={selected.contact.id}
                     eventId={eventId}
@@ -934,49 +982,6 @@ function Directory({
                       )}
                     </div>
                   </section>
-                  {pendingProfile === undefined ? null : (
-                    <section>
-                      <div className="flex items-center justify-between gap-2">
-                        <SectionLabel>Profile changes</SectionLabel>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
-                          {shortDate(pendingProfile.createdAt)}
-                        </span>
-                      </div>
-                      <ChangeDiff
-                        rows={profileDiffRows(pendingProfile)}
-                        className="mt-2 border-y py-2"
-                      />
-                      <div className="mt-2 flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="outline"
-                          className="pressable"
-                          onClick={() =>
-                            reviewProfile.mutate({
-                              historyId: pendingProfile.id,
-                              decision: "reject",
-                            })
-                          }
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          className="pressable"
-                          onClick={() =>
-                            reviewProfile.mutate({
-                              historyId: pendingProfile.id,
-                              decision: "approve",
-                            })
-                          }
-                        >
-                          Approve
-                        </Button>
-                      </div>
-                    </section>
-                  )}
                 </div>
               </div>
             </div>
