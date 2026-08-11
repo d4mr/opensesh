@@ -37,7 +37,7 @@ export function PortalProfile() {
 
 function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
   const queryClient = useQueryClient();
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<"idle" | "saved" | "pending">("idle");
   const [preview, setPreview] = useState<string | null>(null);
 
   const [profile, setProfile] = useState(() => ({
@@ -75,8 +75,9 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
         toast.error(result.error.message);
         return;
       }
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 1400);
+      const pending = result.data.profileReviewStatus === "pending_review";
+      setSaved(pending ? "pending" : "saved");
+      window.setTimeout(() => setSaved("idle"), pending ? 2600 : 1400);
       await queryClient.invalidateQueries({ queryKey: ["speaker-portal"] });
     },
   });
@@ -129,7 +130,13 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
             <p className="text-xs text-muted-foreground">{data.contact.email}</p>
           </div>
           <span className="ml-auto text-xs text-muted-foreground" aria-live="polite">
-            {saveMutation.isPending ? "Saving…" : saved ? "Saved" : ""}
+            {saveMutation.isPending
+              ? "Saving…"
+              : saved === "pending"
+                ? "Saved — sent for organizer approval"
+                : saved === "saved"
+                  ? "Saved"
+                  : ""}
           </span>
         </div>
         {data.contact.profileReviewStatus !== "pending_review" ? null : (

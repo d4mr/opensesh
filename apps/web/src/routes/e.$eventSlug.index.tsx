@@ -9,6 +9,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 
+import { RichText } from "@/components/forms/rich-text";
 import { publicProgramQuery } from "@/lib/widget-queries";
 
 export const Route = createFileRoute("/e/$eventSlug/")({
@@ -39,12 +40,7 @@ function PublicEventIndex() {
           </span>
         )}
       </p>
-      {event.description === null ? null : (
-        <div
-          className="rte-content mt-4 text-sm text-muted-foreground"
-          dangerouslySetInnerHTML={{ __html: event.description }}
-        />
-      )}
+      <RichText markdown={event.description} className="mt-4 text-sm text-muted-foreground" />
       {sessions.length === 0 ? (
         <p className="mt-8 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
           The program is still being finalized — sessions and speakers will appear here as they are

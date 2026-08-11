@@ -1,5 +1,7 @@
 import { Schema, Struct } from "effect";
 
+import { plainTextFromRichText } from "../../rich-text";
+
 import {
   EntityFields,
   Heading15,
@@ -231,7 +233,7 @@ export const makeFormAnswersSchema = (fields: ReadonlyArray<FormFieldDefinition>
         }
         const measuredValue =
           typeof value === "string" && field.fieldType === "richtext"
-            ? value.replace(/<[^>]*>/g, "")
+            ? plainTextFromRichText(value)
             : value;
         if (
           field.maxChars !== null &&

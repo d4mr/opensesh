@@ -1,11 +1,14 @@
-import { filterPublicSessions, type PublicSession, type Widget } from "@opensesh/domain";
+import {
+  filterPublicSessions,
+  plainTextFromRichText,
+  type PublicSession,
+  type Widget,
+} from "@opensesh/domain";
 import { Widgets } from "@opensesh/domain/server/repos";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { runServer } from "@/server/runtime";
-
-const stripTags = (value: string) => value.replace(/<[^>]*>/g, "");
 
 // Machine-readable feed for the saved widget: same live data and filters as
 // the iframe, so integrators can build their own markup against a stable URL.
@@ -47,7 +50,7 @@ export const Route = createFileRoute("/embed/$embedId/json")({
             id: session.id,
             code: session.code,
             title: session.title,
-            description: stripTags(session.description),
+            description: plainTextFromRichText(session.description),
             startsAt: session.startsAt,
             endsAt: session.endsAt,
             room: session.roomName,

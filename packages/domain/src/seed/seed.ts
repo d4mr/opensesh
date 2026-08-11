@@ -313,7 +313,7 @@ const devflowFormFields = [
   {
     id: "fld_devflow_bio",
     label: "Biography",
-    fieldType: "textarea" as const,
+    fieldType: "richtext" as const,
     mapsTo: "bio",
     position: 4,
     formId: devflowForm.id,

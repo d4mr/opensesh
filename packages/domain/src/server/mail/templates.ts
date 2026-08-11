@@ -1,3 +1,5 @@
+import { markdownToHtml, plainTextFromRichText } from "../../rich-text";
+
 export interface RenderedEmail {
   readonly subject: string;
   readonly html: string;
@@ -41,17 +43,19 @@ export const confirmation = (input: {
   readonly logoUrl?: string | null;
 }): RenderedEmail => {
   const subject = `We received “${input.submissionTitle}”`;
+  // The organizer-authored body is markdown; markdownToHtml escapes any raw
+  // markup, so the rendered fragment is safe to inline unescaped.
   const body =
     input.customBody?.trim() ||
     `Thanks, ${input.name}. Your submission “${input.submissionTitle}” is in the review queue.`;
-  const text = `${body}\n\nView your submission: ${input.portalUrl}`;
+  const text = `${plainTextFromRichText(body)}\n\nView your submission: ${input.portalUrl}`;
   return {
     subject,
     text,
     html: layout(
       input.eventName,
       input.logoUrl,
-      `${paragraph(body)}${paragraph("You can review its status in the speaker portal.")}<p style="margin:0">${link("View submission", input.portalUrl)}</p>`,
+      `<div style="line-height:1.6">${markdownToHtml(body)}</div>${paragraph("You can review its status in the speaker portal.")}<p style="margin:0">${link("View submission", input.portalUrl)}</p>`,
     ),
   };
 };

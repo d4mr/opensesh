@@ -26,6 +26,7 @@ import { SpotlightPanelHeader } from "@/components/app/spotlight";
 import { Timestamp } from "@/components/app/timestamp";
 import { StatusBadge } from "@/components/app/status-badge";
 import { formatDateTime } from "@/components/forms/datetime-picker";
+import { RichText } from "@/components/forms/rich-text";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -453,6 +454,13 @@ const displayAnswer = (
   fieldType: import("@opensesh/domain").FormFieldType,
   timezone: string,
 ) => {
+  // Rich-text answers (description, bios) hold markdown; participant fields
+  // arrive as one value per speaker.
+  if (fieldType === "richtext") {
+    const markdown = typeof value === "string" ? value : value.join("\n\n");
+    if (markdown !== "Not provided" && markdown.length > 0)
+      return <RichText markdown={markdown} className="text-sm" />;
+  }
   if (typeof value !== "string") return value.join(", ") || "Not provided";
   return fieldType === "datetime" && value !== "Not provided"
     ? `${formatDateTime(value, timezone)} (${timezone})`

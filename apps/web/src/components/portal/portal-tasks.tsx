@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Timestamp } from "@/components/app/timestamp";
 import { FormRenderer } from "@/components/forms/form-renderer";
+import { RichText } from "@/components/forms/rich-text";
 import { FileThread } from "@/components/portal/file-thread";
 import { SessionFileUploadAction } from "@/components/portal/session-file-upload-action";
 import { Badge } from "@/components/ui/badge";
@@ -246,9 +247,9 @@ function TaskContent({
                   </Badge>
                 ) : null}
               </div>
-              <div
+              <RichText
+                markdown={item.template.instructions}
                 className="mt-1 text-xs text-muted-foreground"
-                dangerouslySetInnerHTML={{ __html: item.template.instructions }}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 {item.template.dueDate === null ? (

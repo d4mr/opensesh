@@ -5,6 +5,7 @@ import {
   WidgetListRequest,
   WidgetRequest,
   WidgetUpdateRequest,
+  plainTextFromRichText,
 } from "@opensesh/domain";
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
@@ -172,7 +173,7 @@ export const downloadPublicSessionIcs = createServerFn({ method: "GET" })
             endsAt: new Date(session.endsAt),
             timezone: program.event.timezone,
             room: session.roomName,
-            description: session.description.replace(/<[^>]*>/g, ""),
+            description: plainTextFromRichText(session.description),
             portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/sessions/${session.code}`,
             sequence: 0,
           }),
@@ -210,7 +211,7 @@ export const downloadPersonalScheduleIcs = createServerFn({ method: "POST" })
               endsAt: new Date(session.endsAt),
               timezone: program.event.timezone,
               room: session.roomName,
-              description: session.description.replace(/<[^>]*>/g, ""),
+              description: plainTextFromRichText(session.description),
               portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/sessions/${session.code}`,
               sequence: 0,
             })),

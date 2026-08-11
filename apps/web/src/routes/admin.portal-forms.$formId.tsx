@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { RichText } from "@/components/forms/rich-text";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { FormRenderer } from "@/components/forms/form-renderer";
@@ -438,12 +439,10 @@ function PortalFormEditorPage({
                   {section.title.trim().length === 0 ? null : (
                     <p className="text-sm font-medium">{section.title}</p>
                   )}
-                  {section.instructions.length === 0 ? null : (
-                    <div
-                      className="rte-content mt-1 text-xs text-muted-foreground"
-                      dangerouslySetInnerHTML={{ __html: section.instructions }}
-                    />
-                  )}
+                  <RichText
+                    markdown={section.instructions}
+                    className="mt-1 text-xs text-muted-foreground"
+                  />
                 </div>
               ))}
               {fields.length === 0 ? (

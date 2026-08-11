@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { ChangeDiff } from "@/components/app/change-diff";
+import { RichText } from "@/components/forms/rich-text";
 import { Timestamp } from "@/components/app/timestamp";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Button } from "@/components/ui/button";
@@ -166,9 +167,9 @@ export function SessionContentEditor({
             <div className="border-b px-3 py-2.5">
               <p className="text-sm font-medium">{submission.title}</p>
             </div>
-            <div
-              className="rte-content px-3 py-2.5 text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: submission.description }}
+            <RichText
+              markdown={submission.description}
+              className="px-3 py-2.5 text-muted-foreground"
             />
           </div>
         )}

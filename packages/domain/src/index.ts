@@ -15,6 +15,7 @@ export * from "./agenda/solver";
 export * from "./crm/operations";
 export * from "./files/zip";
 export * from "./public-program";
+export * from "./rich-text";
 export * from "./server/errors";
 export * from "./server/schema/agenda";
 export * from "./server/schema/common";

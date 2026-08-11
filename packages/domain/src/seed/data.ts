@@ -6,7 +6,7 @@ export const seedData = {
       slug: "ai-engineer-nyc-2026",
       tagline: "The production AI engineering conference",
       description:
-        "<p>Join the engineers shipping reliable AI systems in production. Three focused days cover retrieval, agents, evaluation, and infrastructure through concrete architectures and candid lessons.</p>",
+        "Join the engineers shipping reliable AI systems in production. Three focused days cover retrieval, agents, evaluation, and infrastructure through concrete architectures and candid lessons.",
       type: "conference",
       websiteUrl: "https://www.ai.engineer/",
       location: "Brooklyn Navy Yard, New York, NY",
@@ -324,7 +324,7 @@ export const seedData = {
       status: "open",
       welcomeHeading: "Welcome",
       welcomeMessage:
-        "<p>AI.Engineer Sandbox is built by the people shipping production AI. We are looking for specific, honest talks across RAG & Retrieval, Agents, Evals & Observability, and Infra & GPUs. Show the architecture, the tradeoffs, and what broke before it worked.</p>",
+        "AI.Engineer Sandbox is built by the people shipping production AI. We are looking for specific, honest talks across RAG & Retrieval, Agents, Evals & Observability, and Infra & GPUs. Show the architecture, the tradeoffs, and what broke before it worked.",
       showWelcome: true,
       abstractSection: {
         title: "Your session",
@@ -343,11 +343,11 @@ export const seedData = {
       submissionLimit: null,
       allowMultipleDrafts: false,
       successMessage:
-        "<p>Thank you for sharing your work. We sent a confirmation and will post decisions in your speaker portal.</p>",
+        "Thank you for sharing your work. We sent a confirmation and will post decisions in your speaker portal.",
       autoRedirectPortal: true,
       confirmationEmailEnabled: true,
       confirmationEmailBody:
-        "<p>We received {{submission.title}}. You can revise it from your speaker portal until September 15.</p>",
+        "We received {{submission.title}}. You can revise it from your speaker portal until September 15.",
       adminAlertUserIds: ["usr_dana"],
       createdAt: new Date(1785585600000),
       updatedAt: new Date(1785585600000),
@@ -3127,7 +3127,7 @@ export const seedData = {
       ],
       confirmationEmailEnabled: true,
       confirmationEmailBody:
-        "<p>Thanks — our speaker team will confirm your reservation details by email.</p>",
+        "Thanks — our speaker team will confirm your reservation details by email.",
       createdAt: new Date(1785585600000),
       updatedAt: new Date(1785585600000),
     },
@@ -3184,7 +3184,7 @@ export const seedData = {
       ],
       confirmationEmailEnabled: true,
       confirmationEmailBody:
-        "<p>Your estimate is with the speaker operations team. We will contact you if approval is needed.</p>",
+        "Your estimate is with the speaker operations team. We will contact you if approval is needed.",
       createdAt: new Date(1785585600000),
       updatedAt: new Date(1785585600000),
     },

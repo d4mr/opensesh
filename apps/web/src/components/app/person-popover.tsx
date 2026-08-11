@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ReactElement, useState } from "react";
 
+import { plainTextFromRichText } from "@opensesh/domain";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,6 @@ const initials = (name: string) =>
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-
-const plainText = (value: string) =>
-  value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 
 const statusClassName: Readonly<Record<string, string>> = {
   invited: "bg-[var(--status-pending)] text-[var(--status-pending-foreground)]",
@@ -86,7 +81,8 @@ export function PersonHoverCard({
           sessionsCount: loaded.sessionCount,
         };
   const secondary = [display.title, display.company].filter(Boolean).join(" · ");
-  const bio = display.bio === undefined || display.bio === null ? "" : plainText(display.bio);
+  const bio =
+    display.bio === undefined || display.bio === null ? "" : plainTextFromRichText(display.bio);
 
   return (
     <HoverCard openDelay={350} closeDelay={150} open={open} onOpenChange={setOpen}>

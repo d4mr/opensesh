@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { RichText } from "@/components/forms/rich-text";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -406,12 +407,12 @@ export function SessionList({
                 </div>
                 {(options?.showSessionDescription ?? true) && session.description.trim() !== "" ? (
                   <div className="mt-2">
-                    <div
+                    <RichText
+                      markdown={session.description}
                       className={cn(
-                        "os-session-description rte-content text-xs text-muted-foreground",
+                        "os-session-description text-xs text-muted-foreground",
                         !isExpanded && "line-clamp-2",
                       )}
-                      dangerouslySetInnerHTML={{ __html: session.description }}
                     />
                     <button
                       type="button"
@@ -507,12 +508,9 @@ function SpeakerDetailDialog({
                 <p className="text-sm text-muted-foreground">Bio not provided.</p>
               ) : (
                 <>
-                  <div
-                    className={cn(
-                      "rte-content text-sm text-muted-foreground",
-                      !bioExpanded && "line-clamp-3",
-                    )}
-                    dangerouslySetInnerHTML={{ __html: entry.speaker.bio }}
+                  <RichText
+                    markdown={entry.speaker.bio}
+                    className={cn("text-sm text-muted-foreground", !bioExpanded && "line-clamp-3")}
                   />
                   <button
                     type="button"
@@ -789,10 +787,7 @@ function SessionDialog({
             ) : null}
           </div>
           {(options?.showSessionDescription ?? true) ? (
-            <div
-              className="rte-content text-sm text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: session.description }}
-            />
+            <RichText markdown={session.description} className="text-sm text-muted-foreground" />
           ) : null}
           <div className="border-t pt-3">
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -1062,12 +1057,12 @@ export function Itinerary({
                       {(options?.showSessionDescription ?? true) &&
                       session.description.trim() !== "" ? (
                         <div className="mt-2">
-                          <div
+                          <RichText
+                            markdown={session.description}
                             className={cn(
-                              "os-session-description rte-content text-xs text-muted-foreground",
+                              "os-session-description text-xs text-muted-foreground",
                               !isExpanded && "line-clamp-2",
                             )}
-                            dangerouslySetInnerHTML={{ __html: session.description }}
                           />
                           <button
                             type="button"
@@ -1185,10 +1180,7 @@ export function SessionDetail({
           </Button>
         </div>
       </div>
-      <div
-        className="rte-content text-sm text-muted-foreground"
-        dangerouslySetInnerHTML={{ __html: session.description }}
-      />
+      <RichText markdown={session.description} className="text-sm text-muted-foreground" />
       <section>
         <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Speakers
@@ -1200,12 +1192,7 @@ export function SessionDetail({
               <div>
                 <p className="text-sm font-medium">{publicSpeakerName(speaker)}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{speakerFallback(speaker)}</p>
-                {speaker.bio === null ? null : (
-                  <div
-                    className="rte-content mt-2 text-xs text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: speaker.bio }}
-                  />
-                )}
+                <RichText markdown={speaker.bio} className="mt-2 text-xs text-muted-foreground" />
               </div>
             </div>
           ))}

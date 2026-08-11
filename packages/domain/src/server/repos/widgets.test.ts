@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { findPublicSession, publicSubmissionVisible, speakerCsvUpdateValues } from "./widgets";
 
 describe("speaker CSV updates", () => {
-  it("preserves profile fields omitted by a sparse import and clears present blank cells", () => {
+  it("preserves profile fields for omitted columns and blank cells alike", () => {
     const existing = {
       dietaryRequirements: "vegetarian" as const,
       tshirtSize: "M" as const,
@@ -46,9 +46,11 @@ describe("speaker CSV updates", () => {
       dietaryRequirements: "vegetarian",
       tshirtSize: "M",
     });
+    // Enrichment policy (V2-005/026): a blank cell means "no information",
+    // never "erase" — deliberate clearing belongs to the profile editors.
     expect({ ...existing, ...clearing }).toMatchObject({
-      dietaryRequirements: "none",
-      tshirtSize: null,
+      dietaryRequirements: "vegetarian",
+      tshirtSize: "M",
     });
   });
 });

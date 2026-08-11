@@ -1,3 +1,4 @@
+import { plainTextFromRichText } from "@opensesh/domain";
 import { Widgets } from "@opensesh/domain/server/repos";
 import { buildPersonalScheduleCalendar } from "@opensesh/domain/server/mail/ics";
 import { createFileRoute } from "@tanstack/react-router";
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/embed/$embedId/ics")({
             endsAt: new Date(session.endsAt),
             timezone: program.event.timezone,
             room: session.roomName,
-            description: session.description.replace(/<[^>]*>/g, ""),
+            description: plainTextFromRichText(session.description),
             portalUrl: `${origin}/e/${program.event.slug}/sessions/${session.code}`,
             sequence: 0,
           })),

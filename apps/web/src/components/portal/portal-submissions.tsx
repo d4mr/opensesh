@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { StatusBadge } from "@/components/app/status-badge";
 import { Timestamp } from "@/components/app/timestamp";
 import { FormRenderer } from "@/components/forms/form-renderer";
+import { RichText } from "@/components/forms/rich-text";
 import { FileThread } from "@/components/portal/file-thread";
 import { SessionFileUploadAction } from "@/components/portal/session-file-upload-action";
 import { Button } from "@/components/ui/button";
@@ -280,10 +281,7 @@ function SubmissionContent({
                   This submission form is closed. Your content is now read-only.
                 </div>
               ) : fields.length === 0 ? (
-                <div
-                  className="prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: selected.submission.description }}
-                />
+                <RichText markdown={selected.submission.description} className="text-sm" />
               ) : (
                 <FormRenderer
                   key={selected.submission.id}

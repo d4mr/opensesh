@@ -1,9 +1,11 @@
 import type { Schema } from "effect";
 
+import { plainTextFromRichText } from "@opensesh/domain";
+
 type JsonRecord = Readonly<Record<string, Schema.Json>>;
 
 const formatValue = (value: Schema.Json | undefined) =>
-  typeof value === "string" ? value.replace(/<[^>]+>/g, "") : JSON.stringify(value, null, 2);
+  typeof value === "string" ? plainTextFromRichText(value) : JSON.stringify(value, null, 2);
 
 const contentFieldLabels: Readonly<Record<string, string>> = {
   title: "Title",
@@ -83,8 +85,13 @@ const profileFieldLabels: Readonly<Record<string, string>> = {
   headshotUrl: "Headshot URL",
 };
 
-const profileValueText = (value: unknown) =>
-  typeof value === "string" && value.length > 0 ? value : "—";
+// Diff cells are plain text on both sides — rich-text fields (bio) must show
+// their text, never literal markup.
+const profileValueText = (value: unknown) => {
+  if (typeof value !== "string") return "—";
+  const text = plainTextFromRichText(value);
+  return text.length > 0 ? text : "—";
+};
 
 export const profileDiffRows = (entry: {
   readonly changedFields: ReadonlyArray<string>;

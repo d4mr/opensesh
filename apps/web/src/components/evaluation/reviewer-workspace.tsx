@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { formatDateTime } from "@/components/forms/datetime-picker";
+import { RichText } from "@/components/forms/rich-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -308,7 +309,10 @@ export function ReviewerEvaluationWorkspace({
                     .join("; ")}
                 </p>
               )}
-              <p className="mt-4 leading-6 text-muted-foreground">{selected.item.description}</p>
+              <RichText
+                markdown={selected.item.description}
+                className="mt-4 leading-6 text-muted-foreground"
+              />
 
               {selected.item.assignment.status === "recused" ? (
                 <div className="mt-6 border-t pt-5">

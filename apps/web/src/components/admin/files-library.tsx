@@ -4,6 +4,7 @@ import { DownloadIcon, FileArchiveIcon, SendIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { RichText } from "@/components/forms/rich-text";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
@@ -788,10 +789,9 @@ function FileSpotlight({
                   {request?.instructions ? (
                     <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
                       <dt className="text-xs text-muted-foreground">Instructions</dt>
-                      <dd
-                        className="rte-content text-sm"
-                        dangerouslySetInnerHTML={{ __html: request.instructions }}
-                      />
+                      <dd>
+                        <RichText markdown={request.instructions} className="text-sm" />
+                      </dd>
                     </div>
                   ) : null}
                 </>

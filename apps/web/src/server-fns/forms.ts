@@ -124,7 +124,7 @@ export const createForm = createServerFn({ method: "POST" })
           {
             section: "participant",
             label: "Biography",
-            fieldType: "textarea",
+            fieldType: "richtext",
             maxChars: 2000,
             required: false,
             locked: false,

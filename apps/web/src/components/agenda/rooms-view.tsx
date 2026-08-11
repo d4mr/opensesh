@@ -30,6 +30,7 @@ import {
 } from "react";
 
 import { PersonHoverCard } from "@/components/app/person-popover";
+import { RichText } from "@/components/forms/rich-text";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -404,9 +405,10 @@ function SessionPeek({
               <div className="flex flex-wrap items-center gap-1">
                 <AgendaSpeakerNames speakers={session.speakers} tags />
               </div>
-              {session.description.trim().length === 0 ? null : (
-                <p className="leading-relaxed text-muted-foreground">{session.description}</p>
-              )}
+              <RichText
+                markdown={session.description}
+                className="leading-relaxed text-muted-foreground"
+              />
             </div>
             <DialogFooter className="border-t pt-4 sm:justify-between">
               <Button

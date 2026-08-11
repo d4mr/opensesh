@@ -1,4 +1,8 @@
-import type { SpeakerDirectoryRow, SpeakerWorkflowStatus } from "@opensesh/domain";
+import {
+  hasRichText,
+  type SpeakerDirectoryRow,
+  type SpeakerWorkflowStatus,
+} from "@opensesh/domain";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -15,6 +19,7 @@ import {
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { RichText } from "@/components/forms/rich-text";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { ChangeDiff } from "@/components/app/change-diff";
@@ -110,9 +115,6 @@ const shortDate = (value: Date, timezone: string) =>
   new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: timezone }).format(
     new Date(value),
   );
-
-const hasRichText = (value: string | null) =>
-  value !== null && value.replace(/<[^>]*>/g, "").trim().length > 0;
 
 function ReadinessLine({
   label,
@@ -929,14 +931,11 @@ function Directory({
                         </Button>
                       )}
                     </div>
-                    {!hasRichText(selected.contact.bio) ? (
-                      <p className="mt-2 italic text-muted-foreground">No bio yet.</p>
-                    ) : (
-                      <div
-                        className="rte-content mt-2 text-muted-foreground"
-                        dangerouslySetInnerHTML={{ __html: selected.contact.bio ?? "" }}
-                      />
-                    )}
+                    <RichText
+                      markdown={selected.contact.bio}
+                      className="mt-2 text-muted-foreground"
+                      fallback={<p className="mt-2 italic text-muted-foreground">No bio yet.</p>}
+                    />
                   </section>
                   <section>
                     <SectionLabel>Sessions</SectionLabel>
@@ -1145,16 +1144,11 @@ function Directory({
           <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto p-4 text-sm [&>section]:min-w-0">
             <section>
               <SectionLabel>Instructions</SectionLabel>
-              {hasRichText(peekAssignment?.template.instructions ?? null) ? (
-                <div
-                  className="rte-content mt-1 text-xs text-muted-foreground"
-                  dangerouslySetInnerHTML={{
-                    __html: peekAssignment?.template.instructions ?? "",
-                  }}
-                />
-              ) : (
-                <p className="mt-1 text-xs text-muted-foreground">No instructions.</p>
-              )}
+              <RichText
+                markdown={peekAssignment?.template.instructions}
+                className="mt-1 text-xs text-muted-foreground"
+                fallback={<p className="mt-1 text-xs text-muted-foreground">No instructions.</p>}
+              />
             </section>
             {selected === undefined ? null : (
               <section>

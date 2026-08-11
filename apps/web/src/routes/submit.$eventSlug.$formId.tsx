@@ -1,4 +1,10 @@
-import type { FormAnswers, FormField, ParticipantAnswers, Submission } from "@opensesh/domain";
+import {
+  plainTextFromRichText,
+  type FormAnswers,
+  type FormField,
+  type ParticipantAnswers,
+  type Submission,
+} from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -10,6 +16,7 @@ import { FormRenderer } from "@/components/forms/form-renderer";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { RichText } from "@/components/forms/rich-text";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { requestMagicLink } from "@/server-fns/auth";
@@ -310,9 +317,9 @@ function Wizard({
             <CheckIcon className="size-5" />
           </span>
           <h1 className="mt-5 text-xl font-semibold tracking-tight">Submission received</h1>
-          <div
-            className="prose prose-sm mx-auto mt-3 max-w-none text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: form.successMessage }}
+          <RichText
+            markdown={form.successMessage}
+            className="mx-auto mt-3 text-sm text-muted-foreground"
           />
           {form.autoRedirectPortal && !redirectCancelled ? (
             <p className="mt-5 text-xs text-muted-foreground">
@@ -437,10 +444,7 @@ function Wizard({
         {step === 0 ? (
           <div>
             {form.showWelcome ? (
-              <div
-                className="prose prose-sm max-w-none text-muted-foreground"
-                dangerouslySetInnerHTML={{ __html: form.welcomeMessage }}
-              />
+              <RichText markdown={form.welcomeMessage} className="text-sm text-muted-foreground" />
             ) : null}
             <p className="mt-4 text-xs text-muted-foreground">
               {closeLabel === null ? "Submissions are open." : `Submissions close ${closeLabel}.`}
@@ -819,7 +823,7 @@ function ReviewSection({
             : typeof value === "string"
               ? field.fieldType === "dropdown"
                 ? optionName(field, value, library)
-                : value.replace(/<[^>]+>/g, " ").trim()
+                : plainTextFromRichText(value)
               : value === true
                 ? "Yes"
                 : "—";

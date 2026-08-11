@@ -9,6 +9,7 @@ import { ArrowRightIcon, XIcon } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { FormRenderer, type FormRendererLibrary } from "@/components/forms/form-renderer";
+import { RichText } from "@/components/forms/rich-text";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -199,9 +200,9 @@ function PreviewBody({
             {pane === "welcome" ? (
               <div>
                 {values.showWelcome ? (
-                  <div
-                    className="prose prose-sm max-w-none text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: values.welcomeMessage }}
+                  <RichText
+                    markdown={values.welcomeMessage}
+                    className="text-sm text-muted-foreground"
                   />
                 ) : null}
                 <p className="mt-4 text-xs text-muted-foreground">

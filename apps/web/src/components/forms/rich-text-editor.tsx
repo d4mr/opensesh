@@ -1,4 +1,5 @@
 import Placeholder from "@tiptap/extension-placeholder";
+import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
@@ -62,15 +63,21 @@ export function RichTextEditor({
   readonly placeholder?: string;
   readonly className?: string;
 }) {
+  // Rich text is stored as markdown; the editor parses it on load and
+  // serializes back on every update.
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
         link: { openOnClick: false },
+        // No toolbar button and no markdown syntax — keep Cmd+U inert.
+        underline: false,
       }),
+      Markdown,
       Placeholder.configure({ placeholder: placeholder ?? "" }),
     ],
     content: value,
+    contentType: "markdown",
     // SSR: render nothing on the server, mount on the client.
     immediatelyRender: false,
     editorProps: {
@@ -79,7 +86,7 @@ export function RichTextEditor({
       },
     },
     onUpdate: ({ editor: instance }) => {
-      onChange(instance.isEmpty ? "" : instance.getHTML());
+      onChange(instance.isEmpty ? "" : instance.getMarkdown());
     },
     onBlur: () => {
       onBlur?.();
@@ -104,8 +111,8 @@ export function RichTextEditor({
 
   useEffect(() => {
     if (editor === null || editor.isFocused) return;
-    const current = editor.isEmpty ? "" : editor.getHTML();
-    if (value !== current) editor.commands.setContent(value);
+    const current = editor.isEmpty ? "" : editor.getMarkdown();
+    if (value !== current) editor.commands.setContent(value, { contentType: "markdown" });
   }, [editor, value]);
 
   const [linkOpen, setLinkOpen] = useState(false);

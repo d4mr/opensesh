@@ -17,12 +17,12 @@ const description: FormFieldDefinition = {
 };
 
 describe("form answer validation", () => {
-  it("measures rich-text character limits without HTML tags", () => {
+  it("measures rich-text character limits by visible markdown text", () => {
     const decode = Schema.decodeUnknownSync(makeFormAnswersSchema([description]));
 
-    expect(decode({ description: "<p>12345</p>" })).toEqual({
-      description: "<p>12345</p>",
+    expect(decode({ description: "**12345**" })).toEqual({
+      description: "**12345**",
     });
-    expect(() => decode({ description: "<p>123456</p>" })).toThrow();
+    expect(() => decode({ description: "**123456**" })).toThrow();
   });
 });
