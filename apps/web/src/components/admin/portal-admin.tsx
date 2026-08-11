@@ -21,6 +21,7 @@ import { SessionContentEditor } from "@/components/admin/session-content-editor"
 import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonHoverCard } from "@/components/app/person-popover";
 import { PersonTag } from "@/components/app/person-tag";
+import { SpeakerRow } from "@/components/app/speaker-row";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import {
   DatePicker,
@@ -1910,42 +1911,21 @@ function SpeakerCard({
     .join(" · ");
   return (
     <div className="rounded-md border bg-background">
-      <div className="flex items-start gap-3 p-3">
-        {(image.data ?? contact.headshotUrl) ? (
-          <img
-            src={image.data ?? contact.headshotUrl ?? undefined}
-            alt=""
-            className="size-10 rounded-md object-cover"
-          />
+      <div className="p-3">
+        <SpeakerRow
+          person={personFor(data, contact)}
+          email={contact.email}
+          image={image.data ?? contact.headshotUrl}
+          meta={meta.length === 0 ? undefined : meta}
+        />
+        {contact.bio === null || contact.bio.length === 0 ? (
+          <p className="mt-2 text-xs italic text-muted-foreground/70">No bio yet.</p>
         ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold">
-            {contact.firstName[0]}
-            {contact.lastName[0]}
-          </div>
+          <div
+            className="mt-2 text-xs leading-relaxed text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: contact.bio }}
+          />
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <PersonHoverCard person={personFor(data, contact)}>
-              <Link
-                to="/admin/speakers"
-                search={{ spotlight: contact.id }}
-                className="min-w-0 truncate text-sm font-medium hover:underline"
-              >
-                {contact.firstName} {contact.lastName}
-              </Link>
-            </PersonHoverCard>
-            <p className="shrink-0 text-xs text-muted-foreground">{meta}</p>
-          </div>
-          <p className="truncate text-xs text-muted-foreground">{contact.email}</p>
-          {contact.bio === null || contact.bio.length === 0 ? (
-            <p className="mt-2 text-xs italic text-muted-foreground/70">No bio yet.</p>
-          ) : (
-            <div
-              className="mt-2 text-xs leading-relaxed text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: contact.bio }}
-            />
-          )}
-        </div>
       </div>
       {headshot === undefined ? null : (
         <div className="border-t p-3">

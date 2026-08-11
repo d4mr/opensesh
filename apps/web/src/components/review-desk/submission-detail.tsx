@@ -22,14 +22,13 @@ import { useAdminEvent } from "@/components/app/admin-event-context";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { PersonTag } from "@/components/app/person-tag";
 import { PersonHoverCard } from "@/components/app/person-popover";
+import { SpeakerRow } from "@/components/app/speaker-row";
 import { SpotlightPanelHeader } from "@/components/app/spotlight";
 import { StatusBadge } from "@/components/app/status-badge";
 import { formatDateTime } from "@/components/forms/datetime-picker";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -49,13 +48,6 @@ const dateTime = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0] ?? "")
-    .join("");
 
 function ReviewBadge({ review }: { readonly review: ReviewDeskReview }) {
   const className =
@@ -234,177 +226,145 @@ export function SubmissionDetail({
                 history={contentHistory}
               />
             )}
-            <Card className="gap-0 py-0">
-              <CardHeader className="border-b px-4 py-3">
-                <CardTitle className="text-sm">Submission answers</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <AnswerSection
-                  title="Abstract"
-                  answers={abstractAnswers}
-                  timezone={context.event.timezone}
-                />
-                {participantAnswers.length === 0 ? null : (
-                  <>
-                    <Separator />
-                    <AnswerSection
-                      title="Participant answers"
-                      answers={participantAnswers}
-                      timezone={context.event.timezone}
-                    />
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            <DetailSection title="Submission answers">
+              <AnswerSection
+                title="Abstract"
+                answers={abstractAnswers}
+                timezone={context.event.timezone}
+              />
+              {participantAnswers.length === 0 ? null : (
+                <>
+                  <Separator />
+                  <AnswerSection
+                    title="Participant answers"
+                    answers={participantAnswers}
+                    timezone={context.event.timezone}
+                  />
+                </>
+              )}
+            </DetailSection>
 
-            <Card className="gap-0 py-0">
-              <CardHeader className="border-b px-4 py-3">
-                <CardTitle className="text-sm">Speakers</CardTitle>
-              </CardHeader>
-              <CardContent className="divide-y p-0">
-                {submission.speakers.map((speaker) => (
-                  <div key={speaker.id} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar size="lg">
-                      {speaker.headshotUrl === null ? null : (
-                        <AvatarImage src={speaker.headshotUrl} alt="" />
-                      )}
-                      <AvatarFallback>{initials(speaker.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{speaker.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{speaker.email}</p>
-                    </div>
-                    <div className="text-right text-xs text-muted-foreground">
-                      <p>{speaker.bioPresent ? "Bio added" : "Bio missing"}</p>
-                      {speaker.confirmedAt === null ? null : (
-                        <p className="mt-1 inline-flex items-center gap-1 text-status-accepted">
-                          <UserRoundCheckIcon className="size-3.5" /> Confirmed
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <DetailSection title="Speakers" className="divide-y">
+              {submission.speakers.map((speaker) => (
+                <div key={speaker.id} className="px-3 py-2.5">
+                  <SpeakerRow
+                    person={{
+                      id: speaker.id,
+                      name: speaker.name,
+                      image: speaker.headshotUrl,
+                    }}
+                    email={speaker.email}
+                    meta={
+                      <>
+                        <p>{speaker.bioPresent ? "Bio added" : "Bio missing"}</p>
+                        {speaker.confirmedAt === null ? null : (
+                          <p className="mt-1 inline-flex items-center gap-1 text-status-accepted">
+                            <UserRoundCheckIcon className="size-3.5" /> Confirmed
+                          </p>
+                        )}
+                      </>
+                    }
+                  />
+                </div>
+              ))}
+            </DetailSection>
           </div>
 
           <div className="space-y-4">
-            <Card className="gap-0 py-0">
-              <CardHeader className="border-b px-4 py-3">
-                <CardTitle className="text-sm">Decision</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Current status</span>
-                  <StatusBadge status={submission.status} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" onClick={() => openDecision("accept")}>
-                    Accept
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => openDecision("decline")}>
-                    Decline
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-1 border-t pt-3">
-                  <Button size="xs" variant="ghost" onClick={() => void changeStatus("pending")}>
-                    Pending
-                  </Button>
-                  <Button size="xs" variant="ghost" onClick={() => void changeStatus("maybe")}>
-                    Maybe
-                  </Button>
-                  <Button size="xs" variant="ghost" onClick={() => void changeStatus("withdrawn")}>
-                    Withdrawn
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <DetailSection title="Decision" className="space-y-3 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Current status</span>
+                <StatusBadge status={submission.status} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" onClick={() => openDecision("accept")}>
+                  Accept
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => openDecision("decline")}>
+                  Decline
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1 border-t pt-3">
+                <Button size="xs" variant="ghost" onClick={() => void changeStatus("pending")}>
+                  Pending
+                </Button>
+                <Button size="xs" variant="ghost" onClick={() => void changeStatus("maybe")}>
+                  Maybe
+                </Button>
+                <Button size="xs" variant="ghost" onClick={() => void changeStatus("withdrawn")}>
+                  Withdrawn
+                </Button>
+              </div>
+            </DetailSection>
 
-            <Card className="gap-0 py-0">
-              <CardHeader className="border-b px-4 py-3">
-                <CardTitle className="text-sm">Reviews · {data.reviews.length}</CardTitle>
-              </CardHeader>
-              <CardContent className="divide-y p-0">
-                {data.reviews.length === 0 ? (
-                  <EmptyRow>No reviews yet.</EmptyRow>
-                ) : (
-                  data.reviews.map((review) => (
-                    <div key={review.id} className="space-y-2 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <PersonHoverCard
-                          person={{
-                            name: review.reviewerName,
-                            image: review.reviewerImage,
-                            title: null,
-                            company: null,
-                            bio: null,
-                            status: null,
-                          }}
-                        >
-                          <PersonTag
-                            person={{ name: review.reviewerName, image: review.reviewerImage }}
-                          />
-                        </PersonHoverCard>
-                        <ReviewBadge review={review} />
-                        <span className="ml-auto text-xs font-medium tabular-nums">
-                          {review.score ?? "—"}/5
-                        </span>
-                      </div>
-                      {review.comment === null ? null : (
-                        <p className="text-xs leading-5 text-muted-foreground">{review.comment}</p>
-                      )}
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="gap-0 py-0">
-              <CardHeader className="border-b px-4 py-3">
-                <CardTitle className="text-sm">Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-4">
-                {data.activity.map((activity) => (
-                  <div key={activity.id} className="flex gap-2">
-                    <CircleIcon className="mt-1 size-2.5 fill-muted-foreground text-muted-foreground" />
-                    <div>
-                      <p className="text-xs font-medium">{activity.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {dateTime.format(activity.at)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="gap-0 py-0">
-              <CardHeader className="border-b px-4 py-3">
-                <CardTitle className="text-sm">Email history</CardTitle>
-              </CardHeader>
-              <CardContent className="divide-y p-0">
-                {data.emails.length === 0 ? (
-                  <EmptyRow>No email recorded.</EmptyRow>
-                ) : (
-                  data.emails.map((email) => (
-                    <button
-                      key={email.id}
-                      type="button"
-                      className="flex w-full items-start gap-2 px-4 py-3 text-left hover:bg-muted/50"
-                      onClick={() => setEmailPreview(email)}
-                    >
-                      <MailIcon className="mt-0.5 size-4 text-muted-foreground" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs font-medium">{email.subject}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {email.recipient ?? "Unknown recipient"} · {email.status}
-                        </span>
+            <DetailSection title={`Reviews · ${data.reviews.length}`} className="divide-y">
+              {data.reviews.length === 0 ? (
+                <EmptyRow>No reviews yet.</EmptyRow>
+              ) : (
+                data.reviews.map((review) => (
+                  <div key={review.id} className="space-y-2 px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <PersonHoverCard
+                        person={{
+                          name: review.reviewerName,
+                          image: review.reviewerImage,
+                          title: null,
+                          company: null,
+                          bio: null,
+                          status: null,
+                        }}
+                      >
+                        <PersonTag
+                          person={{ name: review.reviewerName, image: review.reviewerImage }}
+                        />
+                      </PersonHoverCard>
+                      <ReviewBadge review={review} />
+                      <span className="ml-auto text-xs font-medium tabular-nums">
+                        {review.score ?? "—"}/5
                       </span>
-                    </button>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                    </div>
+                    {review.comment === null ? null : (
+                      <p className="text-xs leading-5 text-muted-foreground">{review.comment}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </DetailSection>
+
+            <DetailSection title="Activity" className="space-y-3 p-3">
+              {data.activity.map((activity) => (
+                <div key={activity.id} className="flex gap-2">
+                  <CircleIcon className="mt-1 size-2.5 fill-muted-foreground text-muted-foreground" />
+                  <div>
+                    <p className="text-xs font-medium">{activity.label}</p>
+                    <p className="text-xs text-muted-foreground">{dateTime.format(activity.at)}</p>
+                  </div>
+                </div>
+              ))}
+            </DetailSection>
+
+            <DetailSection title="Email history" className="divide-y">
+              {data.emails.length === 0 ? (
+                <EmptyRow>No email recorded.</EmptyRow>
+              ) : (
+                data.emails.map((email) => (
+                  <button
+                    key={email.id}
+                    type="button"
+                    className="flex w-full items-start gap-2 px-3 py-2.5 text-left hover:bg-muted/50"
+                    onClick={() => setEmailPreview(email)}
+                  >
+                    <MailIcon className="mt-0.5 size-4 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{email.subject}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {email.recipient ?? "Unknown recipient"} · {email.status}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </DetailSection>
           </div>
         </div>
       </div>
@@ -475,7 +435,7 @@ function AnswerSection({
   }>;
 }) {
   return (
-    <section className="p-4">
+    <section className="p-3">
       <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {title}
       </h2>
@@ -498,4 +458,25 @@ function AnswerSection({
 
 function EmptyRow({ children }: { readonly children: React.ReactNode }) {
   return <p className="px-4 py-6 text-center text-xs text-muted-foreground">{children}</p>;
+}
+
+// Dense section shell: h-9 muted header strip instead of CardHeader, whose
+// [.border-b]:pb-6 variant inflates any bordered header past what py-* can fix.
+function DetailSection({
+  title,
+  className,
+  children,
+}: {
+  readonly title: string;
+  readonly className?: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border bg-card">
+      <header className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
+        <h3 className="text-xs font-medium">{title}</h3>
+      </header>
+      <div className={className}>{children}</div>
+    </section>
+  );
 }

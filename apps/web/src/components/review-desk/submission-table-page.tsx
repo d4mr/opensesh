@@ -34,10 +34,11 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { PersonHoverCard } from "@/components/app/person-popover";
+import { PersonTag } from "@/components/app/person-tag";
 import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { SubmissionDetail } from "@/components/review-desk/submission-detail";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -450,11 +451,16 @@ export function SubmissionTablePage({
             id: "speakers",
             header: "Speakers",
             cell: ({ row }) => (
-              <div className="flex gap-1">
+              <div className="flex gap-2">
                 {row.original.speakers.map((speaker) => (
-                  <Badge key={speaker.id} variant="secondary" className="rounded-md">
-                    {speaker.name}
-                  </Badge>
+                  <PersonHoverCard
+                    key={speaker.id}
+                    person={{ id: speaker.id, name: speaker.name, image: null }}
+                  >
+                    <span>
+                      <PersonTag person={{ name: speaker.name, image: null }} />
+                    </span>
+                  </PersonHoverCard>
                 ))}
               </div>
             ),
