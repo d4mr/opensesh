@@ -24,5 +24,8 @@
       "id": "444bb6f8798144dcaae2dd671459ac2d",
     },
   ],
-  "placement": { "mode": "smart" },
+  "durable_objects": {
+    "bindings": [{ "name": "APP_RUNNER", "class_name": "AppRunner" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AppRunner"] }],
 }

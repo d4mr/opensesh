@@ -13,7 +13,7 @@ import {
   CheckIcon,
   ClipboardIcon,
   ExternalLinkIcon,
-  SaveIcon,
+  LoaderCircleIcon,
   UsersIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -265,17 +265,23 @@ function FormEditor({
 
   return (
     <main className="flex-1 p-4 text-sm lg:p-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Button variant="link" className="h-auto p-0 text-muted-foreground" asChild>
-            <Link to="/admin/forms">
-              <ArrowLeftIcon /> Back to forms
-            </Link>
-          </Button>
-          <h1 className="mt-2 text-lg font-semibold">Edit submission form</h1>
-          <p className="text-sm text-muted-foreground">{form.state.values.internalName}</p>
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="-ml-1.5 text-muted-foreground"
+          aria-label="Back to forms"
+          asChild
+        >
+          <Link to="/admin/forms">
+            <ArrowLeftIcon />
+          </Link>
+        </Button>
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-semibold">{form.state.values.internalName}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
+          <SaveStatus state={saveState} retry={() => void persist()} />
           <Button size="sm" variant="outline" asChild>
             <a href={publicPath} target="_blank" rel="noreferrer">
               <ExternalLinkIcon /> View form
@@ -289,22 +295,6 @@ function FormEditor({
             }
           >
             <ClipboardIcon /> Copy link
-          </Button>
-          <span
-            className="text-xs text-muted-foreground tabular-nums"
-            role="status"
-            aria-live="polite"
-          >
-            {saveState === "saving"
-              ? "Saving…"
-              : saveState === "dirty"
-                ? "Unsaved changes"
-                : saveState === "error"
-                  ? "Save failed"
-                  : "Saved"}
-          </span>
-          <Button size="sm" onClick={() => void persist()}>
-            <SaveIcon /> Save
           </Button>
         </div>
       </div>
@@ -689,6 +679,46 @@ function FormEditor({
         </Card>
       </div>
     </main>
+  );
+}
+
+// Quiet sync indicator, Linear-style: a small fixed-width annotation that
+// never competes with the toolbar buttons. Failure is the only loud state.
+function SaveStatus({
+  state,
+  retry,
+}: {
+  readonly state: "saved" | "dirty" | "saving" | "error";
+  readonly retry: () => void;
+}) {
+  if (state === "error") {
+    return (
+      <button
+        type="button"
+        onClick={retry}
+        className="flex items-center gap-1 text-xs font-medium text-destructive"
+        role="status"
+        aria-live="polite"
+      >
+        Save failed — retry
+      </button>
+    );
+  }
+  return (
+    <span
+      className="mr-1 flex items-center gap-1.5 text-xs text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      {state === "saving" ? (
+        <LoaderCircleIcon className="size-3 animate-spin" />
+      ) : state === "saved" ? (
+        <CheckIcon className="size-3" />
+      ) : (
+        <span className="size-1.5 rounded-full bg-muted-foreground/40" aria-hidden />
+      )}
+      {state === "saving" ? "Saving" : state === "saved" ? "Saved" : "Unsaved"}
+    </span>
   );
 }
 
