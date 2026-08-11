@@ -159,9 +159,9 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
           <div className="relative hidden bg-primary/10 md:block">
             {panelFailed ? null : (
               <img
-                src="/brand/login-panel.jpg"
+                src="/art/ancient-agora-conference.png"
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+                className="absolute inset-0 h-full w-full object-cover dark:brightness-90"
                 onError={() => setPanelFailed(true)}
                 ref={(element) => {
                   if (element?.complete === true && element.naturalWidth === 0) {
@@ -170,9 +170,13 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                 }}
               />
             )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/80 to-transparent p-8">
-              <p className="text-lg font-semibold">opensesh</p>
-              <p className="text-sm text-muted-foreground">The open program OS for conferences.</p>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-8 pt-16">
+              <p className="text-lg font-semibold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)]">
+                opensesh
+              </p>
+              <p className="text-sm text-white/85 [text-shadow:0_1px_2px_rgb(0_0_0/0.6)]">
+                The open program OS for conferences.
+              </p>
             </div>
           </div>
         </CardContent>

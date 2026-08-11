@@ -41,19 +41,33 @@ function Login() {
 
   if (demoEmail !== undefined && !demoFailed) {
     return (
-      <main className="flex min-h-svh flex-col items-center justify-center bg-muted p-6">
+      <LoginBackdrop>
         <p className="text-sm text-muted-foreground" aria-live="polite">
           Signing you in to the demo…
         </p>
-      </main>
+      </LoginBackdrop>
     );
   }
 
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
+    <LoginBackdrop>
       <div className="w-full max-w-sm md:max-w-4xl">
         <LoginForm />
       </div>
+    </LoginBackdrop>
+  );
+}
+
+function LoginBackdrop({ children }: { readonly children: React.ReactNode }) {
+  return (
+    <main className="relative flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
+      <img
+        src="/art/renaissance-salon-full-green-haze.png"
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-background/50 dark:bg-background/65" />
+      <div className="relative z-10 flex w-full flex-col items-center">{children}</div>
     </main>
   );
 }
