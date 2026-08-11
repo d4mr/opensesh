@@ -106,27 +106,32 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
         const slug = organizationEvents.some((event) => event.slug === base)
           ? `${base}-${organizationEvents.length + 1}`
           : base;
-        return yield* events.create({
-          organizationId: context.principal.organizationId,
-          name: body.name,
-          slug,
-          tagline: null,
-          description: null,
-          type: body.type,
-          websiteUrl: null,
-          location: null,
-          timezone: body.timezone,
-          startsAt,
-          endsAt,
-          theme: null,
-          logoUrl: null,
-          logoKey: null,
-          backgroundUrl: null,
-          defaultSubmissionLimit: 3,
-          agendaPublishedAt: null,
-          publishedAgenda: [],
-          agendaDirty: false,
-        });
+        return yield* events.create(
+          {
+            organizationId: context.principal.organizationId,
+            name: body.name,
+            slug,
+            tagline: null,
+            description: null,
+            type: body.type,
+            websiteUrl: null,
+            location: null,
+            timezone: body.timezone,
+            startsAt,
+            endsAt,
+            theme: null,
+            logoUrl: null,
+            logoKey: null,
+            backgroundUrl: null,
+            defaultSubmissionLimit: 3,
+            agendaPublishedAt: null,
+            publishedAgenda: [],
+            agendaDirty: false,
+          },
+          // API keys act as the whole organization, not a person — access to
+          // the new event flows from the org, so there is no member row.
+          null,
+        );
       }),
   },
   {

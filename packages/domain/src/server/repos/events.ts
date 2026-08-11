@@ -56,7 +56,11 @@ interface EventsService {
   ) => Effect.Effect<ReadonlyArray<Event>, DbError | Forbidden>;
   readonly get: (id: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly getBySlug: (slug: string) => Effect.Effect<Event, DbError | NotFound>;
-  readonly create: (input: EventCreate) => Effect.Effect<Event, DbError>;
+  // creatorUserId gets an event_members admin row in the same transaction —
+  // "you create an event, you are its admin" must hold even when the creator
+  // is only an event-scoped admin elsewhere (org owners/admins keep derived
+  // access regardless; their row is idempotent insurance against demotion).
+  readonly create: (input: EventCreate, creatorUserId: string | null) => Effect.Effect<Event, DbError>;
   readonly update: (id: string, input: EventUpdate) => Effect.Effect<Event, DbError | NotFound>;
   readonly listAdmins: (eventId: string) => Effect.Effect<ReadonlyArray<EventAdmin>, DbError>;
   readonly listAccess: (eventId: string) => Effect.Effect<EventAccess, DbError>;
@@ -179,9 +183,20 @@ export const EventsLive = Layer.effect(
         ),
       get: (id) => find(events.id, id),
       getBySlug: (slug) => find(events.slug, slug),
-      create: (input) =>
+      create: (input, creatorUserId) =>
         query(database, "Could not create event", (db) =>
-          db.insert(events).values(input).returning().execute(),
+          db.transaction(async (transaction) => {
+            const rows = await transaction.insert(events).values(input).returning().execute();
+            const event = rows[0];
+            if (event !== undefined && creatorUserId !== null) {
+              await transaction
+                .insert(eventMembers)
+                .values({ eventId: event.id, userId: creatorUserId, role: "admin" })
+                .onConflictDoNothing({ target: [eventMembers.eventId, eventMembers.userId] })
+                .execute();
+            }
+            return rows;
+          }),
         ).pipe(Effect.flatMap((rows) => decode(Event, "event", rows[0]))),
       update: (id, input) =>
         query(database, "Could not update event", (db) =>

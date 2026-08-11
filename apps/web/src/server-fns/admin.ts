@@ -91,29 +91,30 @@ export const createEvent = createServerFn({ method: "POST" })
         const slug = organizationEvents.some((event) => event.slug === base)
           ? `${base}-${organizationEvents.length + 1}`
           : base;
-        // The creator needs no event_members row — an org admin is a derived
-        // admin of every organization event.
-        return yield* events.create({
-          organizationId: user.orgId,
-          name: data.name,
-          slug,
-          tagline: null,
-          description: null,
-          type: data.type,
-          websiteUrl: null,
-          location: null,
-          timezone: data.timezone,
-          startsAt,
-          endsAt,
-          theme: null,
-          logoUrl: null,
-          logoKey: null,
-          backgroundUrl: null,
-          defaultSubmissionLimit: 3,
-          agendaPublishedAt: null,
-          publishedAgenda: [],
-          agendaDirty: false,
-        });
+        return yield* events.create(
+          {
+            organizationId: user.orgId,
+            name: data.name,
+            slug,
+            tagline: null,
+            description: null,
+            type: data.type,
+            websiteUrl: null,
+            location: null,
+            timezone: data.timezone,
+            startsAt,
+            endsAt,
+            theme: null,
+            logoUrl: null,
+            logoKey: null,
+            backgroundUrl: null,
+            defaultSubmissionLimit: 3,
+            agendaPublishedAt: null,
+            publishedAgenda: [],
+            agendaDirty: false,
+          },
+          user.userId,
+        );
       }),
       { require: "admin" },
     ),
