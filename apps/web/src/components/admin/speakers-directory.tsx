@@ -124,7 +124,7 @@ function ReadinessLine({
   readonly tone: "accepted" | "pending" | "declined";
 }) {
   return (
-    <div className="flex h-8 items-center gap-2 border-b last:border-b-0">
+    <div className="flex h-8 items-center gap-2 px-3">
       <span className={cn("size-1.5 shrink-0 rounded-full", readinessToneClass[tone])} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className="shrink-0 text-muted-foreground">{detail}</span>
@@ -133,11 +133,7 @@ function ReadinessLine({
 }
 
 function SectionLabel({ children }: { readonly children: string }) {
-  return (
-    <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-      {children}
-    </h3>
-  );
+  return <h3 className="text-xs font-medium text-muted-foreground">{children}</h3>;
 }
 
 export function SpeakersDirectory({
@@ -754,7 +750,7 @@ function Directory({
                       </p>
                       <ChangeDiff
                         rows={profileDiffRows(pendingProfile)}
-                        className="mt-2 border-y py-2"
+                        className="mt-2 rounded-lg border px-3 py-2"
                       />
                       <div className="mt-2 flex justify-end gap-2">
                         <Button
@@ -830,7 +826,7 @@ function Directory({
                   </section>
                   <section>
                     <SectionLabel>Profile readiness</SectionLabel>
-                    <div className="mt-1 border-y">
+                    <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
                       <ReadinessLine
                         label="Bio"
                         detail={hasRichText(selected.contact.bio) ? "Present" : "Missing"}
@@ -898,7 +894,7 @@ function Directory({
                         ? ""
                         : ` · T-shirt ${selected.contact.tshirtSize}`}
                     </p>
-                    <div className="mt-2 flex items-start gap-2 border-t pt-2">
+                    <div className="mt-2 flex items-start gap-2">
                       {typeof selected.contact.custom.travelLogistics === "string" &&
                       selected.contact.custom.travelLogistics.trim() !== "" ? (
                         <>
@@ -937,16 +933,16 @@ function Directory({
                       <p className="mt-2 italic text-muted-foreground">No bio yet.</p>
                     ) : (
                       <div
-                        className="rte-content mt-2 border-t pt-2 text-muted-foreground"
+                        className="rte-content mt-2 text-muted-foreground"
                         dangerouslySetInnerHTML={{ __html: selected.contact.bio ?? "" }}
                       />
                     )}
                   </section>
                   <section>
                     <SectionLabel>Sessions</SectionLabel>
-                    <div className="mt-1 divide-y border-y">
+                    <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
                       {selected.sessions.length === 0 ? (
-                        <p className="flex h-8 items-center text-muted-foreground">
+                        <p className="flex h-8 items-center px-3 text-muted-foreground">
                           No sessions attached.
                         </p>
                       ) : (
@@ -955,7 +951,7 @@ function Directory({
                             key={session.id}
                             to="/admin/sessions"
                             search={{ status: "all", spotlight: session.id }}
-                            className="pressable flex h-8 min-w-0 items-center gap-2 transition-colors hover:text-foreground"
+                            className="pressable flex h-8 min-w-0 items-center gap-2 px-3 transition-colors hover:bg-muted/50 hover:text-foreground"
                           >
                             <span className="shrink-0 font-mono tabular-nums">{session.code}</span>
                             <span className="truncate text-muted-foreground">{session.title}</span>
@@ -966,16 +962,16 @@ function Directory({
                   </section>
                   <section>
                     <SectionLabel>Tasks</SectionLabel>
-                    <div className="mt-1 max-w-xl divide-y border-y">
+                    <div className="mt-1.5 max-w-xl divide-y overflow-hidden rounded-lg border">
                       {selected.tasks.length === 0 ? (
-                        <p className="flex h-8 items-center text-muted-foreground">
+                        <p className="flex h-8 items-center px-3 text-muted-foreground">
                           No tasks assigned.
                         </p>
                       ) : (
                         selected.tasks.map((task) => {
                           const status = waivedIds.has(task.id) ? "waived" : task.status;
                           return (
-                            <div key={task.id} className="flex min-w-0 items-center gap-1">
+                            <div key={task.id} className="flex min-w-0 items-center gap-1 px-2">
                               <button
                                 type="button"
                                 className="pressable flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 text-left transition-colors hover:bg-muted/50"
@@ -1020,12 +1016,14 @@ function Directory({
                   </section>
                   <section>
                     <SectionLabel>Files</SectionLabel>
-                    <div className="mt-1 divide-y border-y">
+                    <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
                       {selected.files.length === 0 ? (
-                        <p className="flex h-8 items-center text-muted-foreground">No files yet.</p>
+                        <p className="flex h-8 items-center px-3 text-muted-foreground">
+                          No files yet.
+                        </p>
                       ) : (
                         selected.files.map((file) => (
-                          <div key={file.id} className="flex h-8 min-w-0 items-center gap-2">
+                          <div key={file.id} className="flex h-8 min-w-0 items-center gap-2 px-3">
                             <div className="min-w-0 flex-1">
                               <p className="truncate">{file.filename}</p>
                               <p className="truncate text-[10px] leading-none text-muted-foreground">
@@ -1055,9 +1053,9 @@ function Directory({
                   </section>
                   <section>
                     <SectionLabel>Emails</SectionLabel>
-                    <div className="mt-1 divide-y border-y">
+                    <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
                       {selected.emails.length === 0 ? (
-                        <p className="flex h-8 items-center text-muted-foreground">
+                        <p className="flex h-8 items-center px-3 text-muted-foreground">
                           No emails sent.
                         </p>
                       ) : (
@@ -1066,7 +1064,7 @@ function Directory({
                             key={email.id}
                             to="/admin/emails"
                             search={{ email: email.id }}
-                            className="pressable flex h-8 min-w-0 items-center gap-2 transition-colors hover:text-foreground"
+                            className="pressable flex h-8 min-w-0 items-center gap-2 px-3 transition-colors hover:bg-muted/50 hover:text-foreground"
                           >
                             <span className="min-w-0 flex-1 truncate">{email.subject}</span>
                             <Badge
@@ -1333,7 +1331,7 @@ function SpeakerProfileEditor({
   return (
     <section>
       <div className="flex items-center justify-between gap-2">
-        <SectionLabel>Edit speaker</SectionLabel>
+        <SectionLabel>Profile</SectionLabel>
         {editing ? null : (
           <Button
             type="button"
@@ -1342,7 +1340,7 @@ function SpeakerProfileEditor({
             className="pressable"
             onClick={() => setEditing(true)}
           >
-            <PencilIcon /> Edit speaker
+            <PencilIcon /> Edit
           </Button>
         )}
       </div>
@@ -1426,10 +1424,10 @@ function SpeakerProfileEditor({
       {history.length === 0 ? (
         <p className="mt-1 italic text-muted-foreground">No profile changes yet.</p>
       ) : (
-        <div className="mt-1 divide-y border-y">
+        <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
           {history.map((entry) => (
             <details key={entry.id}>
-              <summary className="pressable flex cursor-pointer list-none items-center gap-2 py-2">
+              <summary className="pressable flex cursor-pointer list-none items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/50">
                 <HistoryIcon className="size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{entry.authorName}</span>
@@ -1443,7 +1441,7 @@ function SpeakerProfileEditor({
                   {entry.approvalStatus.replace("_", " ")}
                 </span>
               </summary>
-              <ChangeDiff rows={profileDiffRows(entry)} className="border-t py-2" />
+              <ChangeDiff rows={profileDiffRows(entry)} className="border-t px-3 py-2" />
             </details>
           ))}
         </div>

@@ -1856,7 +1856,9 @@ function AdminSessions({
                               <TableCell className="h-9 py-1.5 text-right">
                                 {submission.status === "pending" ? (
                                   <Button
-                                    size="sm"
+                                    size="xs"
+                                    className="pressable"
+                                    disabled={accept.isPending}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       accept.mutate(submission.id);

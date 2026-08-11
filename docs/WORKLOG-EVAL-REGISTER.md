@@ -146,3 +146,11 @@ morning deploy — everything here ships in the next deploy.
   stay contained); library page scrolls whole-pane, title included. Members dialog trash now
   floats in the gutter outside the row (absolute, hover-revealed) so role selects sit flush right.
   All browser-verified.
+- Aug 11 night — user-directed polish round 2: (1) RTE link button fixed — integrated agent
+  worktree claude/ecstatic-darwin-55f3fd replacing window.prompt with a popover URL input
+  (https default, extendMarkRange, Remove action, bounded focus claim); verified link applies.
+  (2) Content page Accept button size sm→xs (h-6) to fit the h-9 rows. (3) Speaker spotlight
+  de-HR'd to the session-peek grammar: SectionLabel drops uppercase/tracking, every list
+  (readiness, sessions, tasks, files, emails, profile history) moved from edge-to-edge border-y
+  hairlines into rounded bordered cards with px-3 rows + hover states; contact/bio hairlines
+  removed; "Edit speaker/Edit speaker" label-button dedup → "Profile [Edit]".
