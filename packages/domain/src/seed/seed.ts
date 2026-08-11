@@ -196,64 +196,113 @@ const devflowForm = {
   createdAt: seededAt,
   updatedAt: seededAt,
 };
-const devflowFormFields = (
-  [
-    { id: "fld_devflow_title", label: "Title", fieldType: "text", mapsTo: "title", position: 1 },
-    {
-      id: "fld_devflow_description",
-      label: "Description",
-      fieldType: "richtext",
-      mapsTo: "description",
-      position: 2,
-    },
-    {
-      id: "fld_devflow_format",
-      label: "Format",
-      fieldType: "dropdown",
-      mapsTo: "format_id",
-      position: 3,
-    },
-    {
-      id: "fld_devflow_track",
-      label: "Track",
-      fieldType: "dropdown",
-      mapsTo: "tracks",
-      position: 4,
-    },
-    {
-      id: "fld_devflow_level",
-      label: "Audience level",
-      fieldType: "dropdown",
-      mapsTo: "level_id",
-      position: 5,
-    },
-    {
-      id: "fld_devflow_notes",
-      label: "Notes for reviewers",
-      fieldType: "textarea",
-      mapsTo: "notes_for_reviewers",
-      position: 6,
-    },
-  ] as const
-).map((field) => ({
-  ...field,
-  formId: devflowForm.id,
-  section: "abstract" as const,
-  maxChars: field.fieldType === "textarea" ? 5000 : 255,
-  required: true,
-  locked: field.id === "fld_devflow_title",
-  options:
-    field.id === "fld_devflow_format"
-      ? ({ bind: "format" } as const)
-      : field.id === "fld_devflow_track"
-        ? ({ bind: "track" } as const)
-        : field.id === "fld_devflow_level"
-          ? ({ bind: "level" } as const)
-          : null,
-  condition: null,
-  createdAt: seededAt,
-  updatedAt: seededAt,
-}));
+const devflowFormFields = [
+  ...(
+    [
+      {
+        id: "fld_devflow_title",
+        label: "Title",
+        fieldType: "text",
+        maxChars: 255,
+        mapsTo: "title",
+        position: 1,
+      },
+      {
+        id: "fld_devflow_description",
+        label: "Description",
+        fieldType: "richtext",
+        maxChars: 5000,
+        mapsTo: "description",
+        position: 2,
+      },
+      {
+        id: "fld_devflow_format",
+        label: "Format",
+        fieldType: "dropdown",
+        maxChars: null,
+        mapsTo: "format_id",
+        position: 3,
+      },
+      {
+        id: "fld_devflow_track",
+        label: "Track",
+        fieldType: "dropdown",
+        maxChars: null,
+        mapsTo: "tracks",
+        position: 4,
+      },
+      {
+        id: "fld_devflow_level",
+        label: "Audience level",
+        fieldType: "dropdown",
+        maxChars: null,
+        mapsTo: "level_id",
+        position: 5,
+      },
+      {
+        id: "fld_devflow_notes",
+        label: "Notes for reviewers",
+        fieldType: "textarea",
+        maxChars: 5000,
+        mapsTo: "notes_for_reviewers",
+        position: 6,
+      },
+    ] as const
+  ).map((field) => ({
+    ...field,
+    formId: devflowForm.id,
+    section: "abstract" as const,
+    required: true,
+    locked: field.id === "fld_devflow_title",
+    options:
+      field.id === "fld_devflow_format"
+        ? ({ bind: "format" } as const)
+        : field.id === "fld_devflow_track"
+          ? ({ bind: "track" } as const)
+          : field.id === "fld_devflow_level"
+            ? ({ bind: "level" } as const)
+            : null,
+    condition: null,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  })),
+  ...(
+    [
+      {
+        id: "fld_devflow_first",
+        label: "First Name",
+        fieldType: "text",
+        mapsTo: "first_name",
+        position: 1,
+      },
+      {
+        id: "fld_devflow_last",
+        label: "Last Name",
+        fieldType: "text",
+        mapsTo: "last_name",
+        position: 2,
+      },
+      {
+        id: "fld_devflow_email",
+        label: "Email",
+        fieldType: "email",
+        mapsTo: "email",
+        position: 3,
+      },
+    ] as const
+  ).map((field) => ({
+    ...field,
+    formId: devflowForm.id,
+    section: "participant" as const,
+    maxChars: 255,
+    required: true,
+    locked: true,
+    options: null,
+    condition: null,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  })),
+];
 const devflowContacts = [
   {
     id: "con_devflow_priya",

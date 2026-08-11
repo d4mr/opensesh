@@ -14,6 +14,7 @@ import {
   type FormField,
   makeFormAnswersSchema,
   type ParticipantAnswers,
+  type ParticipantRole,
 } from "./schema/forms";
 
 const stringAnswer = (answers: FormAnswers, field: FormField | undefined) => {
@@ -34,6 +35,21 @@ const stringArrayAnswer = (answers: FormAnswers, field: FormField | undefined) =
 const nullableStringAnswer = (answers: FormAnswers, field: FormField | undefined) => {
   const value = stringAnswer(answers, field);
   return value.length === 0 ? null : value;
+};
+
+const normalizeParticipants = (
+  participants: ReadonlyArray<ParticipantAnswers>,
+  roles: ReadonlyArray<ParticipantRole>,
+) => {
+  const enabled = roles.filter((role) => role.enabled);
+  const fallback = enabled[0]?.role;
+  return participants.map((participant) => ({
+    ...participant,
+    role:
+      enabled.some((role) => role.role === participant.role) || fallback === undefined
+        ? participant.role
+        : fallback,
+  }));
 };
 
 const customAnswers = (answers: FormAnswers, fields: ReadonlyArray<FormField>) => {
@@ -117,15 +133,27 @@ const upsertParticipants = Effect.fn("upsertCfpParticipants")(function* (
   submissionId: string,
   participants: ReadonlyArray<ParticipantAnswers>,
   fields: ReadonlyArray<FormField>,
+  roles: ReadonlyArray<ParticipantRole>,
 ) {
   const submissions = yield* Submissions;
   const links = [];
+  const roleCounts = new Map<string, number>();
   for (const [position, participant] of participants.entries()) {
+    const role = roles.find((item) => item.enabled && item.role === participant.role);
+    const rolePosition = roleCounts.get(participant.role) ?? 0;
+    roleCounts.set(participant.role, rolePosition + 1);
     const email = stringAnswer(
       participant.answers,
       fields.find((field) => field.mapsTo === "email"),
     );
-    if (email.length === 0) continue;
+    if (email.length === 0) {
+      if (role !== undefined && rolePosition < role.min) {
+        return yield* Effect.fail(
+          new InvalidInput({ message: `${participant.role} needs an email address` }),
+        );
+      }
+      continue;
+    }
     const contact = yield* upsertContact(contactInput(eventId, email, participant.answers, fields));
     links.push({ contactId: contact.id, role: participant.role, position });
   }
@@ -138,6 +166,7 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
   const bundle = yield* loadCfpForm(input.eventSlug, input.formId);
   const abstractFields = bundle.fields.filter((field) => field.section === "abstract");
   const participantFields = bundle.fields.filter((field) => field.section === "participant");
+  const participants = normalizeParticipants(input.participants, bundle.form.participantRoles);
   const submitter = yield* contacts
     .findByEmail(bundle.event.id, input.email)
     .pipe(
@@ -182,7 +211,13 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
   yield* Effect.all([
     submissions.replaceTrackIds(draft.id, stringArrayAnswer(input.answers, trackField)),
     submissions.replaceTagIds(draft.id, stringArrayAnswer(input.answers, tagField)),
-    upsertParticipants(bundle.event.id, draft.id, input.participants, participantFields),
+    upsertParticipants(
+      bundle.event.id,
+      draft.id,
+      participants,
+      participantFields,
+      bundle.form.participantRoles,
+    ),
   ]);
   return draft;
 });
@@ -204,8 +239,9 @@ const validateSubmit = Effect.fn("validateCfpSubmit")(function* (
     Effect.mapError(() => new InvalidInput({ message: "Complete the required submission fields" })),
   );
   if (!collectParticipants) return;
+  const participants = normalizeParticipants(input.participants, roles);
   for (const role of roles.filter((item) => item.enabled)) {
-    const count = input.participants.filter((participant) => participant.role === role.role).length;
+    const count = participants.filter((participant) => participant.role === role.role).length;
     if (count < role.min || count > role.max) {
       return yield* Effect.fail(
         new InvalidInput({
@@ -214,7 +250,7 @@ const validateSubmit = Effect.fn("validateCfpSubmit")(function* (
       );
     }
   }
-  for (const participant of input.participants) {
+  for (const participant of participants) {
     yield* Schema.decodeUnknownEffect(makeFormAnswersSchema(participantFields))(
       participant.answers,
     ).pipe(

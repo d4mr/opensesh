@@ -220,7 +220,7 @@ export const EventsLive = Layer.effect(
             .select({ id: users.id, name: users.name, email: users.email })
             .from(eventMembers)
             .innerJoin(users, eq(users.id, eventMembers.userId))
-            .where(eq(eventMembers.eventId, eventId))
+            .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.role, "admin")))
             .orderBy(asc(users.name))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(EventAdmin, "event admin", rows))),

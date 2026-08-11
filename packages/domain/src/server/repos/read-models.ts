@@ -33,6 +33,7 @@ import {
   SubmissionTrack,
 } from "../schema/submissions";
 import { decodeFound, decodeMany, query } from "./shared";
+import { Events } from "./events";
 
 interface FormBundle {
   readonly event: Event;
@@ -112,6 +113,7 @@ export const ReadModelsLive = Layer.effect(
   ReadModels,
   Effect.gen(function* () {
     const { database } = yield* Db;
+    const eventRepo = yield* Events;
     const currentEvent = alias(events, "read_current_event");
     const scopeMember = alias(eventMembers, "read_scope_member");
     const listedAdmin = alias(eventMembers, "read_listed_admin");
@@ -421,7 +423,6 @@ export const ReadModelsLive = Layer.effect(
               event: events,
               form: forms,
               field: formFields,
-              admin: { id: users.id, name: users.name, email: users.email },
             })
             .from(events)
             .innerJoin(currentEvent, eq(currentEvent.organizationId, events.organizationId))
@@ -438,13 +439,8 @@ export const ReadModelsLive = Layer.effect(
             )
             .innerJoin(forms, and(eq(forms.eventId, events.id), eq(forms.id, formId)))
             .leftJoin(formFields, eq(formFields.formId, forms.id))
-            .leftJoin(
-              listedAdmin,
-              and(eq(listedAdmin.eventId, events.id), eq(listedAdmin.role, "admin")),
-            )
-            .leftJoin(users, eq(users.id, listedAdmin.userId))
             .where(adminWhere(session, eventSlug, eventId))
-            .orderBy(asc(formFields.position), asc(users.name))
+            .orderBy(asc(formFields.position))
             .execute(),
         );
         const library = <T>(
@@ -491,6 +487,7 @@ export const ReadModelsLive = Layer.effect(
             ),
             library<typeof tags.$inferSelect>("Could not list tags", tags, tags.position),
             library<typeof levels.$inferSelect>("Could not list levels", levels, levels.position),
+            eventRepo.listAdmins(eventId),
           ],
           { concurrency: 5 },
         ).pipe(
@@ -498,30 +495,14 @@ export const ReadModelsLive = Layer.effect(
             ([baseRows]) => baseRows.length > 0,
             () => new Forbidden({ message: "You do not have access" }),
           ),
-          Effect.flatMap(([baseRows, trackRows, formatRows, tagRows, levelRows]) => {
+          Effect.flatMap(([baseRows, trackRows, formatRows, tagRows, levelRows, admins]) => {
             return decodePublicForm(
               baseRows.map((row) => ({ event: row.event, form: row.form, field: row.field })),
               trackRows.map((row) => row.item),
               formatRows.map((row) => row.item),
               tagRows.map((row) => row.item),
               levelRows.map((row) => row.item),
-            ).pipe(
-              Effect.flatMap((bundle) =>
-                decodeMany(
-                  EventAdmin,
-                  "event admin",
-                  Array.from(
-                    new Map(
-                      baseRows.flatMap((row) =>
-                        row.admin === null || row.admin.id === null
-                          ? []
-                          : [[row.admin.id, row.admin] as const],
-                      ),
-                    ).values(),
-                  ),
-                ).pipe(Effect.map((admins) => ({ ...bundle, admins }))),
-              ),
-            );
+            ).pipe(Effect.map((bundle) => ({ ...bundle, admins })));
           }),
         );
       },

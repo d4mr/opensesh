@@ -82,6 +82,18 @@ export const createForm = createServerFn({ method: "POST" })
             condition: null,
           },
           {
+            section: "abstract",
+            label: "Description",
+            fieldType: "richtext",
+            maxChars: 5000,
+            required: true,
+            locked: false,
+            position: 2,
+            options: null,
+            mapsTo: "description",
+            condition: null,
+          },
+          {
             section: "participant",
             label: "First Name",
             fieldType: "text",
@@ -155,17 +167,26 @@ export const saveForm = createServerFn({ method: "POST" })
             new InvalidInput({ message: "The locked Title field is required" }),
           );
         }
-        // Two database phases: the org/event authorization reads together,
-        // then the independent form-row and field-set writes together.
-        yield* Effect.all(
+        const [, existing] = yield* Effect.all(
           [requireManagedEvent(data.eventId), forms.getByEvent(data.eventId, data.formId)],
           { concurrency: 2 },
         );
-        const [form, fields] = yield* Effect.all(
-          [forms.update(data.formId, data.form), forms.replaceFields(data.formId, data.fields)],
-          { concurrency: 2 },
+        const status = data.form.status ?? existing.status;
+        const collectParticipants = data.form.collectParticipants ?? existing.collectParticipants;
+        const participantRoles = data.form.participantRoles ?? existing.participantRoles;
+        const needsParticipant = participantRoles.some((role) => role.enabled && role.min > 0);
+        const hasParticipantEmail = data.fields.some(
+          (field) => field.section === "participant" && field.mapsTo === "email",
         );
-        return { form, fields };
+        if (status === "open" && collectParticipants && needsParticipant && !hasParticipantEmail) {
+          return yield* Effect.fail(
+            new InvalidInput({
+              message:
+                "Participant collection needs an email question — add it in the Speakers step",
+            }),
+          );
+        }
+        return yield* forms.saveWithFields(data.formId, data.form, data.fields);
       }),
       { require: "admin" },
     ),
