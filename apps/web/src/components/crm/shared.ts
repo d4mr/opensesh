@@ -9,6 +9,18 @@ export const filtersFromJson = (value: Readonly<Record<string, unknown>>): CrmDi
     : [],
 });
 
+// One-shot handoff for Overview drill-throughs: the Directory tab remounts on
+// tab navigation, so target filters travel out-of-band like the return path.
+let pendingDirectoryFilters: CrmDirectoryFilters | null = null;
+export const setCrmDirectoryPrefilter = (filters: CrmDirectoryFilters) => {
+  pendingDirectoryFilters = filters;
+};
+export const takeCrmDirectoryPrefilter = () => {
+  const filters = pendingDirectoryFilters;
+  pendingDirectoryFilters = null;
+  return filters;
+};
+
 export const parseCsv = (source: string): ReadonlyArray<ReadonlyArray<string>> => {
   const rows: Array<Array<string>> = [];
   let row: Array<string> = [];

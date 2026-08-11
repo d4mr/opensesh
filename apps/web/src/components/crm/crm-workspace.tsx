@@ -29,7 +29,11 @@ import {
 } from "@/components/crm/dialogs";
 import { PipelineBoard } from "@/components/crm/pipeline-board";
 import { Timestamp } from "@/components/app/timestamp";
-import { filtersFromJson } from "@/components/crm/shared";
+import {
+  filtersFromJson,
+  setCrmDirectoryPrefilter,
+  takeCrmDirectoryPrefilter,
+} from "@/components/crm/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -139,7 +143,13 @@ export function CrmWorkspacePage({
               open={(id) => navigate({ tab: "directory", contact: undefined, segment: id })}
             />
           ) : (
-            <Overview workspace={workspace} />
+            <Overview
+              workspace={workspace}
+              openFiltered={(filters) => {
+                setCrmDirectoryPrefilter(filters);
+                navigate({ tab: "directory", contact: undefined, segment: undefined });
+              }}
+            />
           )}
         </div>
       )}
@@ -174,13 +184,12 @@ function Directory({
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredScroll = useRef(false);
   const skipSegmentSync = useRef(returned !== null);
-  const [filters, setFilters] = useState<CrmDirectoryFilters>(() =>
-    returned !== null
-      ? returned.filters
-      : activeSegment === undefined
-        ? emptyCrmFilters
-        : filtersFromJson(activeSegment.filter),
-  );
+  const [filters, setFilters] = useState<CrmDirectoryFilters>(() => {
+    if (returned !== null) return returned.filters;
+    const prefilter = takeCrmDirectoryPrefilter();
+    if (prefilter !== null) return prefilter;
+    return activeSegment === undefined ? emptyCrmFilters : filtersFromJson(activeSegment.filter);
+  });
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -604,7 +613,29 @@ function Segments({
   );
 }
 
-function Overview({ workspace }: { readonly workspace: CrmWorkspace }) {
+function Overview({
+  workspace,
+  openFiltered,
+}: {
+  readonly workspace: CrmWorkspace;
+  readonly openFiltered: (filters: CrmDirectoryFilters) => void;
+}) {
+  const companyCounts = new Map<string, number>();
+  for (const row of workspace.directory) {
+    const company = row.contact.company?.trim();
+    if (company !== undefined && company !== "")
+      companyCounts.set(company, (companyCounts.get(company) ?? 0) + 1);
+  }
+  const topCompanies = [...companyCounts]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 6);
+  const tagCounts = workspace.tags
+    .map((tag) => ({
+      tag,
+      count: workspace.directory.filter((row) => row.tags.some((item) => item.id === tag.id))
+        .length,
+    }))
+    .sort((left, right) => right.count - left.count || left.tag.name.localeCompare(right.tag.name));
   const eventReach = new Set(
     workspace.directory.flatMap((row) => row.events.map((event) => event.eventId)),
   ).size;
@@ -696,6 +727,64 @@ function Overview({ workspace }: { readonly workspace: CrmWorkspace }) {
                 style={{ width: `${completeness}%` }}
               />
             </div>
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="min-w-0 rounded-lg border">
+          <div className="flex h-10 items-center justify-between border-b bg-muted/40 px-3">
+            <h2 className="text-[13px] font-medium">Top companies</h2>
+            <span className="text-[11px] text-muted-foreground">
+              {companyCounts.size} companies
+            </span>
+          </div>
+          <div className="divide-y">
+            {topCompanies.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Add companies to contacts to see where your network clusters.
+              </p>
+            ) : (
+              topCompanies.map(([company, total]) => (
+                <button
+                  key={company}
+                  type="button"
+                  className="pressable flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                  onClick={() => openFiltered({ ...emptyCrmFilters, company })}
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">{company}</span>
+                  <Badge variant="secondary" className="tabular-nums">
+                    {total}
+                  </Badge>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-lg border">
+          <div className="flex h-10 items-center justify-between border-b bg-muted/40 px-3">
+            <h2 className="text-[13px] font-medium">Tags</h2>
+            <span className="text-[11px] text-muted-foreground">{workspace.tags.length} tags</span>
+          </div>
+          <div className="divide-y">
+            {tagCounts.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Tag directory contacts to build reusable audiences.
+              </p>
+            ) : (
+              tagCounts.map(({ tag, count }) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className="pressable flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                  onClick={() => openFiltered({ ...emptyCrmFilters, tagIds: [tag.id] })}
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">{tag.name}</span>
+                  <Badge variant="secondary" className="tabular-nums">
+                    {count}
+                  </Badge>
+                </button>
+              ))
+            )}
           </div>
         </div>
       </div>
