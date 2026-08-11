@@ -105,6 +105,7 @@ const normalizeOptions = (value: Readonly<Record<string, unknown>>): WidgetOptio
   showSessionLevel: bool(value.showSessionLevel, true),
   showSessionFormat: bool(value.showSessionFormat, true),
   showAddToCalendar: bool(value.showAddToCalendar, true),
+  customCss: typeof value.customCss === "string" ? value.customCss : "",
 });
 const widgetValue = (row: typeof embeds.$inferSelect) => ({
   ...row,

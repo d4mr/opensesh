@@ -32,6 +32,8 @@ export const WidgetOptions = Schema.Struct({
   showSessionLevel: Schema.Boolean,
   showSessionFormat: Schema.Boolean,
   showAddToCalendar: Schema.Boolean,
+  // optionalKey: widgets saved before this field exists have no key at all.
+  customCss: Schema.optionalKey(Schema.String),
 });
 export type WidgetOptions = typeof WidgetOptions.Type;
 
@@ -50,6 +52,7 @@ export const defaultWidgetOptions: WidgetOptions = {
   showSessionLevel: true,
   showSessionFormat: true,
   showAddToCalendar: true,
+  customCss: "",
 };
 
 export const Widget = Schema.Struct({

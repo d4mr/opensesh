@@ -20,6 +20,14 @@ export const publicSessionQuery = (eventSlug: string, code: string) =>
     queryFn: () => getPublicSession({ data: { eventSlug, code } }),
     staleTime: 10_000,
   });
+// postMessage channel between the widget builder and its preview iframe. The
+// builder pushes the live draft into the embed so the preview updates without
+// reloading the frame or waiting for autosave; the embed announces readiness
+// so the first paint syncs even if it finishes loading after the builder's
+// initial post.
+export const WIDGET_PREVIEW_MESSAGE = "opensesh-widget-preview";
+export const WIDGET_PREVIEW_READY_MESSAGE = "opensesh-widget-preview-ready";
+
 export const publicWidgetQuery = (embedId: string) =>
   queryOptions({
     queryKey: ["public-widget", embedId],

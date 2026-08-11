@@ -2,14 +2,20 @@ import type { CrmPipelineStage, CrmSemanticStatus, CrmWorkspace } from "@openses
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   pointerWithin,
+  rectIntersection,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type ClientRect,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
+  type KeyboardCoordinateGetter,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -65,6 +71,44 @@ type MoveInput = {
 const cardDndId = (cardId: string) => `crm-card:${cardId}`;
 const stageDndId = (stageId: string) => `crm-stage:${stageId}`;
 
+// pointerWithin needs a pointer, so keyboard drags (no pointer coordinates)
+// would never find a drop target without the rect-intersection fallback.
+const boardCollisions: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+};
+
+// Keyboard drags jump whole stages: ← and → move the card onto the previous
+// or next column's drop zone instead of nudging by pixels.
+const stageCoordinateGetter: KeyboardCoordinateGetter = (event, { context }) => {
+  const { droppableRects, droppableContainers, collisionRect } = context;
+  if (collisionRect === null) return undefined;
+  if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") return undefined;
+  event.preventDefault();
+  const columns = droppableContainers
+    .getEnabled()
+    .map((container) => ({ id: container.id, rect: droppableRects.get(container.id) }))
+    .filter(
+      (entry): entry is { id: UniqueIdentifier; rect: ClientRect } => entry.rect !== undefined,
+    )
+    .sort((left, right) => left.rect.left - right.rect.left);
+  if (columns.length === 0) return undefined;
+  const centerX = collisionRect.left + collisionRect.width / 2;
+  const currentIndex = columns.reduce((best, entry, index) => {
+    const entryCenter = entry.rect.left + entry.rect.width / 2;
+    const bestEntry = columns[best];
+    if (bestEntry === undefined) return index;
+    const bestCenter = bestEntry.rect.left + bestEntry.rect.width / 2;
+    return Math.abs(entryCenter - centerX) < Math.abs(bestCenter - centerX) ? index : best;
+  }, 0);
+  const next = columns[event.code === "ArrowLeft" ? currentIndex - 1 : currentIndex + 1];
+  if (next === undefined) return undefined;
+  return {
+    x: next.rect.left + next.rect.width / 2 - collisionRect.width / 2,
+    y: next.rect.top + 8,
+  };
+};
+
 const moveOptimistically = (
   current: CrmWorkspaceResult | undefined,
   cardId: string,
@@ -106,7 +150,10 @@ export function PipelineBoard({
   const [manageOpen, setManageOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<PipelineRow | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: stageCoordinateGetter }),
+  );
   const queryClient = useQueryClient();
   const move = useMutation({
     mutationFn: ({ cardId, toStageId }: MoveInput) => moveCrmCard({ data: { cardId, toStageId } }),
@@ -165,7 +212,7 @@ export function PipelineBoard({
     <DndContext
       id="crm-pipeline-dnd"
       sensors={sensors}
-      collisionDetection={pointerWithin}
+      collisionDetection={boardCollisions}
       onDragStart={handleDragStart}
       onDragCancel={() => setActiveCard(null)}
       onDragEnd={handleDragEnd}
@@ -329,15 +376,20 @@ function PipelineCard({
         isDragging ? "opacity-30" : "",
       )}
     >
-      <button
-        {...listeners}
-        {...attributes}
-        type="button"
-        className="pressable flex w-full touch-none items-start gap-2 text-left"
-        onClick={open}
-      >
-        <GripVerticalIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">
+      {/* The drag handle is its own focusable button so keyboard users can
+          both drag (Enter/Space + arrows on the grip) and open the contact
+          (Enter on the card body) — one button can't do both. */}
+      <div className="flex items-start gap-2">
+        <button
+          {...listeners}
+          {...attributes}
+          type="button"
+          aria-label={`Drag ${contact.firstName} ${contact.lastName} to another stage`}
+          className="pressable mt-0.5 shrink-0 cursor-grab touch-none rounded-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <GripVerticalIcon className="size-4" />
+        </button>
+        <button type="button" className="pressable min-w-0 flex-1 text-left" onClick={open}>
           <span className="block truncate font-medium">
             {contact.firstName} {contact.lastName}
           </span>
@@ -348,8 +400,8 @@ function PipelineCard({
           {card.note === null ? null : (
             <span className="mt-2 block line-clamp-2 text-xs">{card.note}</span>
           )}
-        </span>
-      </button>
+        </button>
+      </div>
       <div className="mt-2 flex gap-1 border-t pt-2">
         <Select value={target} onValueChange={setTarget}>
           <SelectTrigger

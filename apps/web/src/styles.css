@@ -579,3 +579,16 @@
     }
   }
 }
+
+/* Shiki dual-theme output: the dark palette is carried in CSS variables and
+   activated by the app's .dark class. */
+.shiki-viewer pre.shiki {
+  background-color: transparent !important;
+  padding: 0.75rem;
+  min-width: 100%;
+  width: fit-content;
+}
+.dark .shiki-viewer .shiki,
+.dark .shiki-viewer .shiki span {
+  color: var(--shiki-dark) !important;
+}

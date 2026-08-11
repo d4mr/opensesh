@@ -2,9 +2,14 @@ import { filterPublicSessions, type WidgetOptions, type WidgetView } from "@open
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { BanIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { ProgramView } from "@/components/public/program-views";
-import { publicWidgetQuery } from "@/lib/widget-queries";
+import {
+  publicWidgetQuery,
+  WIDGET_PREVIEW_MESSAGE,
+  WIDGET_PREVIEW_READY_MESSAGE,
+} from "@/lib/widget-queries";
 
 export const Route = createFileRoute("/embed/$embedId")({
   validateSearch: parseWidgetSearch,
@@ -13,10 +18,43 @@ export const Route = createFileRoute("/embed/$embedId")({
   component: EmbedRoute,
 });
 
+interface PreviewDraft {
+  readonly view: WidgetView | undefined;
+  readonly name: string | undefined;
+  readonly options: Partial<WidgetOptions>;
+}
+
 function EmbedRoute() {
   const { embedId } = Route.useParams();
   const search = Route.useSearch();
   const result = useSuspenseQuery(publicWidgetQuery(embedId));
+  // In builder preview mode (?preview=1) the widget editor pushes its live
+  // draft into this document via postMessage, so the preview tracks unsaved
+  // edits without reloading the iframe or waiting for the autosave.
+  const [preview, setPreview] = useState<PreviewDraft | null>(null);
+  const isPreview = search.preview === true;
+  useEffect(() => {
+    if (!isPreview) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as {
+        type?: unknown;
+        view?: unknown;
+        name?: unknown;
+        options?: unknown;
+      } | null;
+      if (data === null || data.type !== WIDGET_PREVIEW_MESSAGE) return;
+      if (typeof data.options !== "object" || data.options === null) return;
+      setPreview({
+        view: widgetView(data.view),
+        name: typeof data.name === "string" ? data.name : undefined,
+        options: data.options as Partial<WidgetOptions>,
+      });
+    };
+    window.addEventListener("message", onMessage);
+    window.parent.postMessage({ type: WIDGET_PREVIEW_READY_MESSAGE }, window.location.origin);
+    return () => window.removeEventListener("message", onMessage);
+  }, [isPreview]);
   if (!result.data.ok)
     return <p className="p-4 text-xs text-muted-foreground">This embed is unavailable.</p>;
   const { widget, program } = result.data.data;
@@ -28,6 +66,7 @@ function EmbedRoute() {
     );
   const options: WidgetOptions = {
     ...widget.options,
+    ...(preview === null ? {} : preview.options),
     ...(search.tracks === undefined ? {} : { trackIds: search.tracks }),
     ...(search.days === undefined ? {} : { dayKeys: search.days }),
     ...(search.formats === undefined ? {} : { formatIds: search.formats }),
@@ -54,6 +93,7 @@ function EmbedRoute() {
           }),
         };
   const resolvedTheme = options.theme;
+  const customCss = options.customCss ?? "";
   return (
     <main
       className={`embed-root min-h-svh bg-background p-3 text-foreground sm:p-4 ${resolvedTheme === "dark" ? "dark" : ""} ${resolvedTheme === "light" ? "light" : ""}`}
@@ -66,11 +106,23 @@ function EmbedRoute() {
             } as React.CSSProperties)
       }
     >
+      {customCss.trim() === "" ? null : (
+        <style
+          data-custom-css
+          // Neutralize </style so the sheet cannot break out of its tag; the
+          // CSS itself is scoped to this document (the embed iframe).
+          dangerouslySetInnerHTML={{ __html: customCss.replaceAll(/<\/(style)/gi, "<\\/$1") }}
+        />
+      )}
       <div className="mb-3">
         <p className="text-sm font-semibold tracking-tight">{program.event.name}</p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">{widget.name}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">{preview?.name ?? widget.name}</p>
       </div>
-      <ProgramView view={search.view ?? widget.view} program={displayProgram} options={options} />
+      <ProgramView
+        view={preview?.view ?? search.view ?? widget.view}
+        program={displayProgram}
+        options={options}
+      />
     </main>
   );
 }
@@ -83,9 +135,23 @@ const widgetView = (value: unknown): WidgetView | undefined =>
   value === "itinerary"
     ? value
     : undefined;
-const bool = (value: unknown) => (value === "1" ? true : value === "0" ? false : undefined);
+// The router re-serializes validated search back into the URL (arrays as
+// JSON, "0"/"1" as numbers) and re-validates it, so each parser must accept
+// both the raw form the widget builder emits and its own round-tripped
+// output — otherwise the value degrades to undefined on the second pass and
+// the preview override silently falls back to the widget's saved options.
+const bool = (value: unknown) =>
+  value === "1" || value === 1 || value === true
+    ? true
+    : value === "0" || value === 0 || value === false
+      ? false
+      : undefined;
 const csv = (value: unknown) =>
-  typeof value === "string" ? value.split(",").filter((item) => item !== "") : undefined;
+  typeof value === "string"
+    ? value.split(",").filter((item) => item !== "")
+    : Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string")
+      : undefined;
 
 interface WidgetSearch {
   readonly view?: WidgetView;
@@ -103,6 +169,7 @@ interface WidgetSearch {
   readonly level?: boolean;
   readonly format?: boolean;
   readonly calendar?: boolean;
+  readonly preview?: boolean;
 }
 
 function parseWidgetSearch(search: Record<string, unknown>): WidgetSearch {
@@ -130,5 +197,6 @@ function parseWidgetSearch(search: Record<string, unknown>): WidgetSearch {
     level: bool(search.level),
     format: bool(search.format),
     calendar: bool(search.calendar),
+    preview: bool(search.preview),
   };
 }

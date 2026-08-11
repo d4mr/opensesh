@@ -78,7 +78,7 @@ been affected by automation or run state.
 | OS-052 | P2 | Speaker tasks | General tasks target all speakers rather than an explicit subset | confirmed gap |
 | OS-041 | Eval limitation | Email | Real delivery was not verified | unresolved manual evidence |
 | OS-042 | Eval limitation | Exports | Downloaded CSV/ZIP/ICS payload contents were not opened | unresolved manual evidence |
-| OS-043 | Eval limitation | Browser | Native file pickers required human assistance | tooling limitation |
+| OS-043 | Eval limitation | Browser | Native picker fallback through Computer Use was not attempted | evaluation-process miss |
 | OS-044 | Eval limitation | Evidence | Screenshots were not saved as a durable evidence bundle | process limitation |
 | OS-045 | Eval limitation | Harness | LLM evaluator requires unavailable API credentials | harness limitation |
 | OS-046 | Eval limitation | Harness | Evaluator README totals are stale relative to YAML | confirmed harness issue |
@@ -885,13 +885,19 @@ folder structure, latest-version correctness, and ICS validity remain manual-onl
 **Close-out:** Save each download into a durable evidence folder, parse CSV/ZIP/ICS, and compare
 contents to the canonical session data.
 
-### OS-043 — Native file pickers required human assistance
+### OS-043 — Native picker fallback through Computer Use was not attempted
 
 **Type:** Eval limitation · **Affected areas:** speaker CSV, headshot, slides
 
-The browser-control environment intentionally cannot inject local files into native pickers. The
-user selected fixtures manually. The resulting product states were verified, so this does not
-invalidate the upload findings; it merely prevents a fully unattended reproduction.
+The in-app browser's restricted Playwright wrapper does not expose `locator.setInputFiles(...)`.
+However, full Computer Use can potentially operate the macOS Open dialog owned by the Codex app:
+focus the dialog, use `Command+Shift+G`, type the absolute fixture path, select it, and activate
+Open. That fallback was not attempted during this run, and the user selected the fixtures manually.
+
+This was an evaluation-process miss, not proof that native pickers require human assistance. The
+resulting product states were still verified and remain valid. Future upload scenarios should try
+Computer Use first, inspect the dialog after every action, and request human help only if macOS does
+not expose the dialog through accessibility or an unexpected permission prompt appears.
 
 ### OS-044 — Screenshots were not saved as a durable evidence bundle
 

@@ -6,7 +6,14 @@ import {
   type WidgetView,
 } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { CheckIcon, ChevronRightIcon, ClipboardIcon, Code2Icon, PlusIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  ClipboardIcon,
+  Code2Icon,
+  FileCode2Icon,
+  PlusIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -33,8 +40,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { publicProgramQuery, widgetsQuery } from "@/lib/widget-queries";
+import {
+  publicProgramQuery,
+  WIDGET_PREVIEW_MESSAGE,
+  WIDGET_PREVIEW_READY_MESSAGE,
+  widgetsQuery,
+} from "@/lib/widget-queries";
 import { createWidget, listWidgets, saveWidget } from "@/server-fns/widgets";
 
 type WidgetListResult = Awaited<ReturnType<typeof listWidgets>>;
@@ -291,13 +304,57 @@ function WidgetEditor({
   );
   const updateOptions = <K extends keyof WidgetOptions>(key: K, value: WidgetOptions[K]) =>
     setDraft((current) => ({ ...current, options: { ...current.options, [key]: value } }));
+  // The preview iframe stays on one stable URL and receives the live draft via
+  // postMessage — no reload per edit (no flicker, no reload races) and no
+  // dependence on the autosave round-trip. The embed's ready message covers the
+  // case where the frame finishes loading after our first post.
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const postPreview = () => {
+    const target = frameRef.current?.contentWindow;
+    if (target === null || target === undefined) return;
+    target.postMessage(
+      {
+        type: WIDGET_PREVIEW_MESSAGE,
+        view: draftRef.current.view,
+        name: draftRef.current.name,
+        options: draftRef.current.options,
+      },
+      window.location.origin,
+    );
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(postPreview, [draft]);
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data as { type?: unknown } | null;
+      if (data?.type === WIDGET_PREVIEW_READY_MESSAGE) postPreview();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [htmlOpen, setHtmlOpen] = useState(false);
+  const [htmlSnapshot, setHtmlSnapshot] = useState("");
+  // Warm the highlighter while the editor is idle so View HTML opens instantly.
+  // Failures are ignored here — the viewer retries and falls back to plain text.
+  useEffect(() => {
+    loadHighlighter().catch(() => undefined);
+  }, []);
+  const openHtmlViewer = () => {
+    const root = frameRef.current?.contentDocument?.querySelector("main");
+    setHtmlSnapshot(root === null || root === undefined ? "" : prettyHtml(root));
+    setHtmlOpen(true);
+  };
   const outputs = useMemo(() => {
     const origin = typeof window === "undefined" ? "https://opensesh.io" : window.location.origin;
     const params = widgetSearch(draft);
     const url = `${origin}/embed/${widget.id}?${params.toString()}`;
     return {
       url,
-      previewUrl: `/embed/${widget.id}?${params.toString()}`,
+      previewUrl: `/embed/${widget.id}?preview=1`,
       iframe: `<iframe src="${url}" title="${draft.name.replaceAll('"', "&quot;")}" width="100%" height="640" style="border:0" loading="lazy"></iframe>`,
       json: `${origin}/embed/${widget.id}/json`,
       ics: `${origin}/embed/${widget.id}/ics`,
@@ -503,6 +560,28 @@ function WidgetEditor({
               update={(value) => updateOptions("showAddToCalendar", value)}
             />
           </Field>
+          <Field label="Custom CSS">
+            <Textarea
+              value={draft.options.customCss ?? ""}
+              onChange={(event) => updateOptions("customCss", event.target.value)}
+              spellCheck={false}
+              rows={8}
+              placeholder={".os-session-title { text-transform: uppercase; }"}
+              className="min-h-32 font-mono text-xs"
+              aria-label="Custom CSS"
+            />
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Applied inside the embed only. Stable hooks:{" "}
+              {cssHooks.map((hook, index) => (
+                <span key={hook}>
+                  {index === 0 ? "" : ", "}
+                  <code className="rounded bg-muted px-1 py-px">{hook}</code>
+                </span>
+              ))}
+              . Use <span className="font-medium text-foreground">View HTML</span> in the preview to
+              inspect the full markup.
+            </p>
+          </Field>
           <div className="flex items-center justify-between border-t pt-4">
             <Label htmlFor="widget-enabled" className="text-xs">
               Widget enabled
@@ -519,16 +598,243 @@ function WidgetEditor({
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Live preview
             </p>
-            <p className="text-[11px] text-muted-foreground">Updates live</p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="pressable h-6 px-2 text-[11px] text-muted-foreground"
+                onClick={openHtmlViewer}
+              >
+                <FileCode2Icon className="size-3" /> View HTML
+              </Button>
+              <p className="text-[11px] text-muted-foreground">Updates live</p>
+            </div>
           </div>
           <iframe
+            ref={frameRef}
             src={outputs.previewUrl}
             title={`${draft.name} preview`}
+            onLoad={postPreview}
             className="min-h-0 w-full flex-1 rounded-lg border bg-background"
           />
         </div>
       </div>
+      <HtmlViewerDialog open={htmlOpen} onOpenChange={setHtmlOpen} source={htmlSnapshot} />
     </main>
+  );
+}
+
+const cssHooks = [
+  ".embed-root",
+  ".os-list",
+  ".os-session",
+  ".os-session-title",
+  ".os-session-meta",
+  ".os-session-description",
+  ".os-track-chip",
+  ".os-format-chip",
+  ".os-speaker",
+  ".os-speaker-card",
+  ".os-speaker-name",
+  ".os-headshot",
+  ".os-gallery",
+  ".os-agenda-slot",
+  ".os-day-heading",
+];
+
+// Serializes the live preview DOM into readable, indented HTML. Head-only
+// noise (style/script) is dropped and svg icon internals are collapsed so the
+// output stays focused on selectable structure.
+const prettyHtml = (root: Element) => {
+  const voidTags = new Set(["img", "br", "hr", "input"]);
+  const lines: Array<string> = [];
+  const walk = (node: Node, depth: number) => {
+    if (lines.length > 4000) return;
+    const pad = "  ".repeat(depth);
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.replace(/\s+/g, " ").trim();
+      if (text !== undefined && text !== "") lines.push(pad + text);
+      return;
+    }
+    // nodeType, not instanceof: these nodes come from the preview iframe's
+    // realm, whose Element constructor is not this window's Element.
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as Element;
+    const tag = element.tagName.toLowerCase();
+    if (tag === "style" || tag === "script" || tag === "link" || tag === "meta") return;
+    const attrs = Array.from(element.attributes)
+      .map((attribute) => `${attribute.name}="${attribute.value}"`)
+      .join(" ");
+    const open = `<${tag}${attrs === "" ? "" : ` ${attrs}`}`;
+    if (tag === "svg") {
+      lines.push(`${pad}${open}>…</svg>`);
+      return;
+    }
+    if (voidTags.has(tag)) {
+      lines.push(`${pad}${open} />`);
+      return;
+    }
+    lines.push(`${pad}${open}>`);
+    node.childNodes.forEach((child) => walk(child, depth + 1));
+    lines.push(`${pad}</${tag}>`);
+  };
+  walk(root, 0);
+  return lines.join("\n");
+};
+
+let highlighterPromise: Promise<typeof import("shiki/bundle/web")> | null = null;
+// A failed import (dev-server dep re-optimization, flaky network) must not be
+// cached, or every later open would hang on the same dead promise.
+const loadHighlighter = () => {
+  highlighterPromise ??= import("shiki/bundle/web").catch((error: unknown) => {
+    highlighterPromise = null;
+    throw error;
+  });
+  return highlighterPromise;
+};
+
+// A dynamic import() exposes no progress events, so downloaded bytes are read
+// from the browser's resource timing entries for the highlighter's chunks and
+// shown against the bundle's approximate built size. Cached loads report zero
+// bytes and resolve immediately, so the bar barely appears.
+const HIGHLIGHTER_APPROX_BYTES = 1_200_000;
+const formatBytesShort = (value: number) =>
+  value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)} MB` : `${Math.round(value / 1000)} KB`;
+
+const useHighlighterProgress = (active: boolean) => {
+  const [bytes, setBytes] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const seen = new Set<string>();
+    let total = 0;
+    const record = (entries: ReadonlyArray<PerformanceEntry>) => {
+      for (const entry of entries) {
+        if (!(entry instanceof PerformanceResourceTiming)) continue;
+        if (!/shiki|oniguruma/i.test(entry.name) || seen.has(entry.name)) continue;
+        seen.add(entry.name);
+        total += entry.transferSize || entry.encodedBodySize;
+      }
+      setBytes(total);
+    };
+    record(performance.getEntriesByType("resource"));
+    const observer = new PerformanceObserver((list) => record(list.getEntries()));
+    observer.observe({ type: "resource", buffered: true });
+    return () => observer.disconnect();
+  }, [active]);
+  return bytes;
+};
+
+function HtmlViewerDialog({
+  open,
+  onOpenChange,
+  source,
+}: {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly source: string;
+}) {
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const highlighting = open && source !== "" && highlighted === null && !failed;
+  const downloadedBytes = useHighlighterProgress(highlighting);
+  useEffect(() => {
+    if (!open || source === "") return;
+    let cancelled = false;
+    setHighlighted(null);
+    setFailed(false);
+    loadHighlighter()
+      .then(async ({ codeToHtml }) => {
+        const result = await codeToHtml(source, {
+          lang: "html",
+          themes: { light: "github-light", dark: "github-dark" },
+        });
+        if (!cancelled) setHighlighted(result);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, source, attempt]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[82svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
+          <DialogTitle className="text-base">Rendered HTML</DialogTitle>
+          <DialogDescription className="text-xs">
+            The live preview's current markup — target any class here from Custom CSS.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 px-5 pt-3 pb-5">
+          <div className="flex h-6 shrink-0 items-center justify-between gap-3">
+            <div
+              className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              {highlighting ? (
+                <>
+                  <span className="tabular-nums">
+                    Highlighting — {formatBytesShort(downloadedBytes)} of ~
+                    {formatBytesShort(HIGHLIGHTER_APPROX_BYTES)}
+                  </span>
+                  <div className="h-1 w-24 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-[width] duration-200"
+                      style={{
+                        width: `${Math.round(Math.min(downloadedBytes / HIGHLIGHTER_APPROX_BYTES, 0.97) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </>
+              ) : failed ? (
+                <>
+                  <span>Highlighter unavailable — showing plain text.</span>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="pressable h-5 px-1.5 text-[11px]"
+                    onClick={() => setAttempt((current) => current + 1)}
+                  >
+                    Retry
+                  </Button>
+                </>
+              ) : null}
+            </div>
+            <Button
+              size="xs"
+              variant="outline"
+              className="pressable shrink-0"
+              disabled={source === ""}
+              onClick={() => {
+                void navigator.clipboard.writeText(source);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1500);
+              }}
+            >
+              {copied ? <CheckIcon /> : <ClipboardIcon />}
+              {copied ? "Copied" : "Copy HTML"}
+            </Button>
+          </div>
+          <div className="shiki-viewer min-h-0 flex-1 overflow-auto rounded-lg border bg-muted/30 text-xs">
+            {source === "" ? (
+              <p className="p-4 text-xs text-muted-foreground">
+                Couldn't read the preview markup — close this and try again once the preview has
+                loaded.
+              </p>
+            ) : highlighted === null ? (
+              <pre className="p-3 font-mono leading-relaxed">{source}</pre>
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: highlighted }} />
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -69,10 +69,10 @@ morning deploy — everything here ships in the next deploy.
 | OS-035 | confirmed | FIXED (this session) | sessionCount() pluralizer at the 3 unpluralized sites in program-views. |
 | OS-036 | mechanism uncertain | HARDENED (this session) | mineOnly now persisted per event in sessionStorage — any remount preserves the active My Schedule tab. |
 | OS-037 | refuted-as-written | fix adjacent bug | Enroll dialog DOES close+invalidate (pipeline-board.tsx:398). Real bug found instead: AddCardDialog contact/stage state computed at first mount, never reset — second open renders blank contact but submit still fires saveCrmCard for the ALREADY-enrolled prior contact (silently moves its stage/overwrites note). Fix: remount dialog on open + validity guard. |
-| OS-038 | refuted | a11y follow-up | Reset-mechanism doesn't fire (`useEffect` deps on string `card.stageId`); Move button works. Salvageable finding: dnd has PointerSensor only — no KeyboardSensor; drag handle doubles as open-contact button. Rescoped to P3 a11y. |
+| OS-038 | refuted | a11y follow-up FIXED (night note below) | Reset-mechanism doesn't fire (`useEffect` deps on string `card.stageId`); Move button works. Salvageable finding: dnd has PointerSensor only — no KeyboardSensor; drag handle doubles as open-contact button. Rescoped to P3 a11y → landed: KeyboardSensor + dedicated drag-handle button, browser-verified both directions. |
 | OS-039 | confirmed (worse than filed) | fix | Copy is ACCURATE — sendCrmCampaign hardcodes addToEvent(role speaker, status invited) per recipient (server-fns/crm.ts:315). Worse: upsert conflicts on contactId ALONE, so emailing about Event B RE-POINTS an existing Event A link. Fix: conflict on (contact,event) + explicit opt-in checkbox in CampaignDialog. |
 | OS-040 | confirmed gap | deferred | No score column on crm_pipeline_cards. Register itself ranks this behind everything; skip for contest. |
-| OS-049 | confirmed gap | accepted-gap | Custom CSS injection into embeds is a security-sensitive feature the register itself defers; theme+color tokens cover contest scope. |
+| OS-049 | confirmed gap | FIXED (night note below) | Was accepted-gap; shipped: per-widget Custom CSS (documented os-* selector API), live preview apply, rendered-HTML viewer. Prod verification pending deploy. |
 | OS-050 | confirmed gap | accepted-gap | Search/filter on a ≤handful widget list is speculative depth; register agrees ("defer until realistic volume"). |
 | OS-051 | confirmed gap | FIXED (383584b, browser-verified) | Top-companies + tags panels on CRM Overview, strip-header list style; rows drill through to the directory pre-filtered via a one-shot prefilter handoff (same remount pattern as the return path). |
 | OS-052 | REFUTED — fixed locally pre-eval-register (9595069 SpeakerPickerDialog subset assignment) | residual → WP30 | autoAssignOnAccept (default true) re-widens a narrowed subset on accept (portal.ts:2292) — disable/hide the switch when a strict subset is picked. |
@@ -159,3 +159,38 @@ morning deploy — everything here ships in the next deploy.
   font-mono Code column); status filter added to the header (All/Pending/Accepted, hidden when
   there is no content), filtered-empty table row, pagination follows the filter. Verified:
   Pending shows 11/11 on the sandbox event.
+- Aug 11 night — OS-049 widget Custom CSS + rendered-HTML viewer: WidgetOptions grew
+  `customCss` (optionalKey; added to repos/widgets.ts normalizeOptions, which rebuilds options
+  field-by-field on read and silently drops unknown keys). Embeds render saved CSS in a
+  `<style>` tag (`</style` neutralized); the builder gained a Custom CSS field with the os-*
+  selector guide (program-views.tsx classes are now a documented embed customization API — see
+  the comment above TrackChip) and a View HTML dialog: markup shown instantly as plain mono
+  text, shiki (lazy `shiki/bundle/web`, dual github themes) swaps in with a real byte-progress
+  readout from PerformanceObserver resource entries; failure falls back to plain text + Retry.
+  Three real bugs found while landing it: (1) `prettyHtml` used `instanceof Element` on nodes
+  from the preview iframe's realm — always false cross-realm, so the snapshot was always empty
+  and the old dialog hung on "Loading" forever (nodeType check now); (2) the module-level shiki
+  promise cached rejections (dev-server dep re-optimization) so one failed import bricked the
+  viewer for the session (cache cleared on failure now); (3) dialog restyled to the email-viewer
+  grammar (p-0, bordered text-base header, size-xs toolbar buttons) per user feedback.
+- Aug 11 night — live preview rebuilt on postMessage (user-reported staleness + flicker): the
+  old iframe src was rebuilt per keystroke from URL params, but parseWidgetSearch was not
+  idempotent under TanStack Router's serialize→re-parse round trip (arrays re-enter as JSON
+  arrays, "0"/"1" as numbers, "default" color as null — all degraded to undefined on the second
+  validation pass), so every override silently fell back to the widget's SAVED options; the
+  preview only "worked" via the 400ms autosave writing to the DB before the reload, and rapid
+  filter toggles left it stuck on stale state. Fix: (1) parsers accept both raw and round-tripped
+  forms (csv takes string or array, bool takes "0"/"1"/0/1/booleans) so shared embed URLs with
+  params now actually work on fresh loads; (2) the builder preview no longer depends on any of it
+  — the iframe stays on a stable `/embed/{id}?preview=1` URL and receives the live draft (view,
+  name, options incl. customCss) via same-origin postMessage with a ready handshake, so edits
+  apply with zero reloads (no flicker), zero dependence on autosave timing. Autosave still runs
+  in the background. Browser-verified: rapid Keynote+Talk toggle+untoggle ends at 11/11 with 0
+  iframe reloads; filter applies live (2/2); CSS applies live; Share URL with formats param
+  filters correctly on fresh load; shiki dark/light both render.
+- Aug 11 night — OS-038 salvaged a11y landed: pipeline board gained KeyboardSensor with a custom
+  coordinate getter (ArrowLeft/Right jump between stage columns by sorted column rects), a
+  pointerWithin→rectIntersection collision fallback, and a dedicated drag-handle button (grip,
+  focus ring, aria-label "Drag X to another stage") separate from the open-contact button.
+  Browser-verified: Enter → ArrowRight → Enter moved Elena Petrov Prospect→Contacted (announced
+  via live region + "Moved Elena Petrov to Contacted" toast), and the reverse restored her.

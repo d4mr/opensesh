@@ -115,9 +115,12 @@ function EmptyProgram({ agenda = false }: { readonly agenda?: boolean }) {
   );
 }
 
+// The os-* classes below are the embed customization API: stable selector
+// hooks documented in the widget editor's Custom CSS guide. Renaming one is a
+// breaking change for customer embeds.
 function TrackChip({ track }: { readonly track: PublicSession["tracks"][number] }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium">
+    <span className="os-track-chip inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-medium">
       <span className="size-1.5 rounded-full" style={{ backgroundColor: track.color }} />
       {track.name}
     </span>
@@ -126,7 +129,7 @@ function TrackChip({ track }: { readonly track: PublicSession["tracks"][number] 
 
 function FormatChip({ session }: { readonly session: PublicSession }) {
   return session.format === null ? null : (
-    <span className="rounded-md border px-1.5 py-0.5 text-[11px] font-medium">
+    <span className="os-format-chip rounded-md border px-1.5 py-0.5 text-[11px] font-medium">
       {session.format.name}
     </span>
   );
@@ -335,7 +338,7 @@ export function SessionList({
           {sessionCount(sessions.length)}
         </p>
       ) : null}
-      <div className="divide-y overflow-hidden rounded-lg border bg-card">
+      <div className="os-list divide-y overflow-hidden rounded-lg border bg-card">
         {sessions.length === 0 ? (
           <p className="px-3 py-10 text-center text-sm text-muted-foreground">
             No sessions match these filters. Clear filters to see the full program.
@@ -344,12 +347,12 @@ export function SessionList({
           sessions.map((session) => {
             const isExpanded = expanded.includes(session.id);
             return (
-              <article key={session.id} className="px-3 py-3">
+              <article key={session.id} className="os-session px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <Link
                     to="/e/$eventSlug/sessions/$code"
                     params={{ eventSlug: program.event.slug, code: session.code }}
-                    className="pressable min-w-0 text-sm font-medium hover:underline"
+                    className="os-session-title pressable min-w-0 text-sm font-medium hover:underline"
                   >
                     {session.title}
                   </Link>
@@ -367,7 +370,7 @@ export function SessionList({
                     ) : null}
                   </div>
                 </div>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <p className="os-session-meta mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <Clock3Icon className="size-3" />
                     {dateTimeRange(session, program.event.timezone, options?.dateFormat ?? "12h")}
@@ -376,7 +379,7 @@ export function SessionList({
                     <MapPinIcon className="size-3" /> {session.roomName}
                   </span>
                 </p>
-                <div className="mt-2 grid gap-0.5">
+                <div className="os-session-speakers mt-2 grid gap-0.5">
                   {session.speakers.length === 0 ? (
                     <p className="text-xs text-muted-foreground">Speaker TBA</p>
                   ) : (
@@ -404,7 +407,7 @@ export function SessionList({
                   <div className="mt-2">
                     <div
                       className={cn(
-                        "rte-content text-xs text-muted-foreground",
+                        "os-session-description rte-content text-xs text-muted-foreground",
                         !isExpanded && "line-clamp-2",
                       )}
                       dangerouslySetInnerHTML={{ __html: session.description }}
@@ -452,7 +455,7 @@ function Headshot({
       src={speaker.headshotUrl ?? undefined}
       alt={publicSpeakerName(speaker)}
       onError={() => setFailed(true)}
-      className={cn("shrink-0 rounded-md object-cover", className)}
+      className={cn("os-headshot shrink-0 rounded-md object-cover", className)}
     />
   );
 }
@@ -601,7 +604,7 @@ export function SpeakerList({
   return (
     <>
       <SpeakerSearch value={value} onChange={update} count={speakers.length} total={all.length} />
-      <div className="divide-y overflow-hidden rounded-lg border bg-card">
+      <div className="os-list divide-y overflow-hidden rounded-lg border bg-card">
         {speakers.length === 0 ? (
           <p className="px-3 py-10 text-center text-sm text-muted-foreground">
             No speakers match this search.
@@ -612,11 +615,13 @@ export function SpeakerList({
               key={entry.speaker.id}
               type="button"
               onClick={() => setSelected(entry)}
-              className="pressable flex w-full gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+              className="os-speaker pressable flex w-full gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
             >
               <Headshot speaker={entry.speaker} className="size-10 text-xs" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{publicSpeakerName(entry.speaker)}</p>
+                <p className="os-speaker-name text-sm font-medium">
+                  {publicSpeakerName(entry.speaker)}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {speakerFallback(entry.speaker, options)}
                 </p>
@@ -666,19 +671,21 @@ export function SpeakerGallery({
           No speakers match this search.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="os-gallery grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {speakers.map((entry) => (
             <button
               key={entry.speaker.id}
               type="button"
               onClick={() => setSelected(entry)}
-              className="pressable overflow-hidden rounded-lg border bg-card text-left transition-colors hover:bg-muted/30"
+              className="os-speaker-card pressable overflow-hidden rounded-lg border bg-card text-left transition-colors hover:bg-muted/30"
             >
               <div className="aspect-[4/3] overflow-hidden bg-muted">
                 <Headshot speaker={entry.speaker} className="size-full rounded-none text-2xl" />
               </div>
               <div className="p-3">
-                <h3 className="text-sm font-medium">{publicSpeakerName(entry.speaker)}</h3>
+                <h3 className="os-speaker-name text-sm font-medium">
+                  {publicSpeakerName(entry.speaker)}
+                </h3>
                 <p className="mt-0.5 min-h-8 text-[11px] text-muted-foreground">
                   {speakerFallback(entry.speaker, options)}
                 </p>
@@ -842,10 +849,13 @@ export function Agenda({
             {current.length} {current.length === 1 ? "session" : "sessions"}
           </p>
         </div>
-        <div className="divide-y overflow-hidden rounded-lg border bg-card">
+        <div className="os-list divide-y overflow-hidden rounded-lg border bg-card">
           {Array.from(groups, ([startsAt, group]) => (
-            <div key={startsAt} className="grid grid-cols-[82px_1fr] gap-3 px-3 py-3">
-              <div className="text-xs tabular-nums">
+            <div
+              key={startsAt}
+              className="os-agenda-slot grid grid-cols-[82px_1fr] gap-3 px-3 py-3"
+            >
+              <div className="os-agenda-time text-xs tabular-nums">
                 <p className="font-medium">
                   {timeLabel(startsAt, program.event.timezone, options?.dateFormat ?? "12h")}
                 </p>
@@ -861,7 +871,7 @@ export function Agenda({
                 {group.map((session) => (
                   <article
                     key={session.id}
-                    className="relative min-w-0 border-l-2 pl-2"
+                    className="os-session relative min-w-0 border-l-2 pl-2"
                     style={{ borderLeftColor: session.tracks[0]?.color }}
                   >
                     <button
@@ -991,18 +1001,20 @@ export function Itinerary({
           );
           return (
             <section key={day}>
-              <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <h2 className="os-day-heading mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {current[0] === undefined
                   ? day
                   : dayLabel(current[0].startsAt, program.event.timezone, true)}
               </h2>
-              <div className="divide-y overflow-hidden rounded-lg border bg-card">
+              <div className="os-list divide-y overflow-hidden rounded-lg border bg-card">
                 {current.map((session) => {
                   const isExpanded = expanded.includes(session.id);
                   return (
-                    <article key={session.id} className="px-3 py-3">
+                    <article key={session.id} className="os-session px-3 py-3">
                       <div className="flex items-start justify-between gap-3">
-                        <h3 className="min-w-0 text-sm font-medium">{session.title}</h3>
+                        <h3 className="os-session-title min-w-0 text-sm font-medium">
+                          {session.title}
+                        </h3>
                         <div className="flex shrink-0 items-center gap-2">
                           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                             {session.code}
@@ -1051,7 +1063,7 @@ export function Itinerary({
                         <div className="mt-2">
                           <div
                             className={cn(
-                              "rte-content text-xs text-muted-foreground",
+                              "os-session-description rte-content text-xs text-muted-foreground",
                               !isExpanded && "line-clamp-2",
                             )}
                             dangerouslySetInnerHTML={{ __html: session.description }}
