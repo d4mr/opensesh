@@ -31,3 +31,8 @@ codex-wp18.log
 codex-wp19.log
 codex-wp20.log
 .claude/worktrees/
+codex-wp*.log
+dbreset.log
+install.log
+WP*-BRIEF.md
+REPORT-WP*.md
