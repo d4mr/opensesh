@@ -4,6 +4,7 @@ import { type Db, makeDbLive } from "../db";
 import { ContactsLive } from "./contacts";
 import { CrmLive } from "./crm";
 import { AgendaLive } from "./agenda";
+import { ApiKeysLive } from "./api-keys";
 import { EmailLogLive } from "./email-log";
 import { EventsLive } from "./events";
 import { FilesLive } from "./files";
@@ -24,6 +25,7 @@ import { WidgetsLive } from "./widgets";
 import type { Contacts } from "./contacts";
 import type { Crm } from "./crm";
 import type { Agenda } from "./agenda";
+import type { ApiKeys } from "./api-keys";
 import type { EmailLog } from "./email-log";
 import type { Events } from "./events";
 import type { Files } from "./files";
@@ -44,6 +46,7 @@ import type { Widgets } from "./widgets";
 export * from "./contacts";
 export * from "./crm";
 export * from "./agenda";
+export * from "./api-keys";
 export * from "./email-log";
 export * from "./events";
 export * from "./files";
@@ -63,6 +66,7 @@ export * from "./widgets";
 
 export type RepositoryServices =
   | Agenda
+  | ApiKeys
   | Contacts
   | Crm
   | EmailLog
@@ -86,6 +90,7 @@ const EventsAndReadModelsLive = ReadModelsLive.pipe(Layer.provideMerge(EventsLiv
 
 const RepositoriesLive = Layer.mergeAll(
   AgendaLive,
+  ApiKeysLive,
   ContactsLive,
   CrmLive,
   EmailLogLive,

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./db/auth": "./src/db/auth.ts",
+    "./db/schema": "./src/db/schema.ts",
     "./server/current-user": "./src/server/current-user.ts",
     "./server/cfp": "./src/server/cfp.ts",
     "./server/integrations/accelevents": "./src/server/integrations/accelevents.ts",

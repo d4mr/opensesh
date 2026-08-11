@@ -327,3 +327,9 @@ export const requireCurrentUser = (required: RequiredRole) =>
 
     return user;
   });
+
+// Machine principals (API keys) carry a pre-derived CurrentUserValue — no
+// session and no membership rows behind it. requireEventAccess still applies
+// per target event, so tenant isolation is identical to the session path.
+export const makeCurrentUserFromValueLive = (value: CurrentUserValue) =>
+  Layer.succeed(CurrentUser, { get: Effect.succeed(value) });

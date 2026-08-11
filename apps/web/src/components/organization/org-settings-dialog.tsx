@@ -5,7 +5,18 @@ import type {
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { Building2Icon, MailPlusIcon, Trash2Icon, UserPlusIcon, UsersIcon } from "lucide-react";
+import { createApiKey, revokeApiKey } from "@/server-fns/api-keys";
+import {
+  Building2Icon,
+  CheckIcon,
+  CopyIcon,
+  KeyRoundIcon,
+  MailPlusIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserPlusIcon,
+  UsersIcon,
+} from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -36,7 +47,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { fileAsBase64 } from "@/lib/files";
-import { organizationSettingsQuery } from "@/lib/organization-queries";
+import { apiKeysQuery, organizationSettingsQuery } from "@/lib/organization-queries";
 import { cn } from "@/lib/utils";
 import {
   getOrganizationSettings,
@@ -49,12 +60,13 @@ import {
 
 type OrganizationSettingsResult = Awaited<ReturnType<typeof getOrganizationSettings>>;
 
-type SectionName = "Profile" | "Members" | "Invitations";
+type SectionName = "Profile" | "Members" | "Invitations" | "API keys";
 
 const nav: ReadonlyArray<{ readonly name: SectionName; readonly icon: typeof Building2Icon }> = [
   { name: "Profile", icon: Building2Icon },
   { name: "Members", icon: UsersIcon },
   { name: "Invitations", icon: MailPlusIcon },
+  { name: "API keys", icon: KeyRoundIcon },
 ];
 
 const initials = (name: string) =>
@@ -98,7 +110,7 @@ export function OrgSettingsDialog({
       <DialogContent className="overflow-hidden p-0 md:max-h-[620px] md:max-w-[820px] lg:max-w-[960px]">
         <DialogTitle className="sr-only">Organization settings</DialogTitle>
         <DialogDescription className="sr-only">
-          Manage your organization profile, members, and invitations.
+          Manage your organization profile, members, invitations, and API keys.
         </DialogDescription>
         <SidebarProvider
           className="items-start"
@@ -197,6 +209,7 @@ function SectionContent({ section }: { readonly section: SectionName }) {
   const settings = result.data.data;
   if (section === "Members") return <MembersSection settings={settings} />;
   if (section === "Invitations") return <InvitationsSection settings={settings} />;
+  if (section === "API keys") return <ApiKeysSection settings={settings} />;
   return <ProfileSection settings={settings} />;
 }
 
@@ -750,6 +763,214 @@ function InvitationRow({
       >
         Revoke
       </Button>
+    </div>
+  );
+}
+
+type ApiKeysResult = Awaited<ReturnType<typeof import("@/server-fns/api-keys").listApiKeys>>;
+type ApiKeyItem = Extract<ApiKeysResult, { ok: true }>["data"][number];
+
+function ApiKeysSection({ settings }: { readonly settings: OrganizationSettings }) {
+  const canManage = settings.viewer.role !== "member";
+  const result = useSuspenseQuery(apiKeysQuery);
+  const [createdToken, setCreatedToken] = useState<{
+    readonly name: string;
+    readonly token: string;
+  } | null>(null);
+
+  if (!result.data.ok) {
+    return (
+      <div className="mx-auto w-full max-w-xl">
+        <SectionHeader
+          title="API keys"
+          description="Programmatic access to your organization over the REST API."
+        />
+        <p className="text-sm text-muted-foreground">{result.data.error.message}</p>
+      </div>
+    );
+  }
+  const keys = result.data.data;
+
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-1 flex-col">
+      <SectionHeader
+        title="API keys"
+        description="Keys grant full admin access to this organization over the REST API. Send them as Authorization: Bearer headers."
+      />
+      {canManage ? <CreateApiKeyForm onCreated={setCreatedToken} /> : null}
+      {createdToken === null ? null : (
+        <NewTokenReveal created={createdToken} onDismiss={() => setCreatedToken(null)} />
+      )}
+      {keys.length === 0 && createdToken === null ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
+          <div className="flex size-9 items-center justify-center rounded-full bg-muted">
+            <KeyRoundIcon className="size-4 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium">No API keys yet</p>
+          <p className="text-xs text-muted-foreground">
+            Create a key to use the REST API — the full surface is documented at{" "}
+            <span className="font-medium text-foreground">/api/v1/openapi.json</span>.
+          </p>
+        </div>
+      ) : (
+        <div>
+          {keys.map((item) => (
+            <ApiKeyRow key={item.id} item={item} canManage={canManage} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateApiKeyForm({
+  onCreated,
+}: {
+  readonly onCreated: (created: { readonly name: string; readonly token: string }) => void;
+}) {
+  const queryClient = useQueryClient();
+  const form = useForm({
+    defaultValues: { name: "" },
+    onSubmit: async ({ value }) => {
+      const result = await createApiKey({ data: { name: value.name } });
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      form.reset();
+      onCreated({ name: result.data.key.name, token: result.data.token });
+      await queryClient.invalidateQueries({ queryKey: apiKeysQuery.queryKey });
+    },
+  });
+  return (
+    <form
+      className="mb-4 flex items-center gap-2 rounded-xl bg-muted/40 p-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.Field name="name">
+        {(field) => (
+          <Input
+            aria-label="API key name"
+            required
+            placeholder="e.g. MCP server, staging sync"
+            className="h-8 flex-1 bg-background"
+            value={field.state.value}
+            onChange={(event) => field.handleChange(event.target.value)}
+          />
+        )}
+      </form.Field>
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(submitting) => (
+          <Button type="submit" size="sm" className="pressable" disabled={submitting}>
+            <PlusIcon /> {submitting ? "Creating…" : "Create key"}
+          </Button>
+        )}
+      </form.Subscribe>
+    </form>
+  );
+}
+
+function NewTokenReveal({
+  created,
+  onDismiss,
+}: {
+  readonly created: { readonly name: string; readonly token: string };
+  readonly onDismiss: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[13px] font-medium">
+          {created.name} — copy this key now. It won&apos;t be shown again.
+        </p>
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          className="pressable text-muted-foreground"
+          onClick={onDismiss}
+        >
+          Done
+        </Button>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-md border bg-background px-2 py-1.5 font-mono text-xs">
+          {created.token}
+        </code>
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          className="pressable shrink-0"
+          onClick={() => {
+            void navigator.clipboard.writeText(created.token).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            });
+          }}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />} {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ApiKeyRow({
+  item,
+  canManage,
+}: {
+  readonly item: ApiKeyItem;
+  readonly canManage: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const revoke = useMutation({
+    mutationFn: () => revokeApiKey({ data: { keyId: item.id } }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success(`Revoked ${item.name}`);
+    },
+    onSettled: async () => queryClient.invalidateQueries({ queryKey: apiKeysQuery.queryKey }),
+  });
+  return (
+    <div className="group/apikey -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{item.name}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          <span className="font-mono">{item.keyPrefix}</span>
+          {" · created "}
+          <Timestamp value={item.createdAt} mode="date" />
+          {item.createdByName === null ? "" : ` by ${item.createdByName}`}
+        </p>
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {item.lastUsedAt === null ? (
+          "Never used"
+        ) : (
+          <>
+            Used <Timestamp value={item.lastUsedAt} mode="date" />
+          </>
+        )}
+      </span>
+      {canManage ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          className="pressable text-muted-foreground opacity-0 group-hover/apikey:opacity-100 focus-visible:opacity-100"
+          disabled={revoke.isPending}
+          onClick={() => revoke.mutate()}
+        >
+          Revoke
+        </Button>
+      ) : null}
     </div>
   );
 }

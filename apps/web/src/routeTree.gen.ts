@@ -44,6 +44,7 @@ import { Route as AdminPortalFormsFormIdRouteImport } from './routes/admin.porta
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
 import { Route as EEventSlugIndexRouteImport } from './routes/e.$eventSlug.index'
 import { Route as EEventSlugAgendaRouteImport } from './routes/e.$eventSlug.agenda'
 import { Route as EEventSlugItineraryRouteImport } from './routes/e.$eventSlug.itinerary'
@@ -234,6 +235,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
+  id: '/api/v1/$',
+  path: '/api/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EEventSlugIndexRoute = EEventSlugIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -338,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
@@ -385,6 +392,7 @@ export interface FileRoutesByTo {
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
@@ -436,6 +444,7 @@ export interface FileRoutesById {
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/v1/$': typeof ApiV1SplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
@@ -488,6 +497,7 @@ export interface FileRouteTypes {
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
+    | '/api/v1/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
     | '/e/$eventSlug/sessions'
@@ -535,6 +545,7 @@ export interface FileRouteTypes {
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
+    | '/api/v1/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
     | '/e/$eventSlug/sessions'
@@ -585,6 +596,7 @@ export interface FileRouteTypes {
     | '/admin/settings/event'
     | '/admin/settings/library'
     | '/api/auth/$'
+    | '/api/v1/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
     | '/e/$eventSlug/sessions'
@@ -612,6 +624,7 @@ export interface RootRouteChildren {
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   EmbedEmbedIdRoute: typeof EmbedEmbedIdRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiV1SplatRoute: typeof ApiV1SplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
   OrgAssetsOrgIdIconRoute: typeof OrgAssetsOrgIdIconRoute
   SpeakerAssetsContactIdHeadshotRoute: typeof SpeakerAssetsContactIdHeadshotRoute
@@ -864,6 +877,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/$': {
+      id: '/api/v1/$'
+      path: '/api/v1/$'
+      fullPath: '/api/v1/$'
+      preLoaderRoute: typeof ApiV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/e/$eventSlug/': {
       id: '/e/$eventSlug/'
       path: '/'
@@ -1092,6 +1112,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   EmbedEmbedIdRoute: EmbedEmbedIdRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiV1SplatRoute: ApiV1SplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,
   OrgAssetsOrgIdIconRoute: OrgAssetsOrgIdIconRoute,
   SpeakerAssetsContactIdHeadshotRoute: SpeakerAssetsContactIdHeadshotRoute,

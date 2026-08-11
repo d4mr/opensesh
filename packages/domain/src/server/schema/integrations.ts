@@ -48,3 +48,15 @@ export type SaveIntegrationRequest = typeof SaveIntegrationRequest.Type;
 export const RunIntegrationSyncRequest = Schema.Struct({
   eventId: Schema.String,
 });
+
+// --- API keys (organization-scoped REST credentials) -----------------------
+
+export const ApiKeyCreateRequest = Schema.Struct({
+  name: Schema.String,
+});
+export type ApiKeyCreateRequest = typeof ApiKeyCreateRequest.Type;
+
+export const ApiKeyRevokeRequest = Schema.Struct({
+  keyId: Schema.String,
+});
+export type ApiKeyRevokeRequest = typeof ApiKeyRevokeRequest.Type;
