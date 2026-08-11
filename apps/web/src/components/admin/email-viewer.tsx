@@ -3,6 +3,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
+import { useMemo } from "react";
 import {
   CalendarDaysIcon,
   CheckCircle2Icon,
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { Timestamp } from "@/components/app/timestamp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +35,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { adminEmailsQuery } from "@/lib/mail-queries";
@@ -70,58 +73,54 @@ function DeliveryBadge({ status }: { readonly status: EmailStatus }) {
   );
 }
 
-const formatDate = (date: Date | null) =>
-  date === null
-    ? "—"
-    : new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(new Date(date));
-
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, AdminEmail>();
-const columns = columnHelper.columns([
-  columnHelper.accessor("recipient", {
-    header: "To",
-    cell: ({ row }) => <span className="text-xs">{row.original.recipient}</span>,
-  }),
-  columnHelper.accessor("type", {
-    header: "Type",
-    cell: ({ row }) => (
-      <Badge variant="secondary" className="rounded-md">
-        {typeLabels[row.original.type]}
-      </Badge>
-    ),
-  }),
-  columnHelper.accessor("subject", {
-    header: "Subject",
-    cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-medium">{row.original.subject}</span>
-        {row.original.icsAttached ? (
-          <CalendarDaysIcon
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-label="ICS attached"
+const buildColumns = (timezone: string) =>
+  columnHelper.columns([
+    columnHelper.accessor("recipient", {
+      header: "To",
+      cell: ({ row }) => <span className="text-xs">{row.original.recipient}</span>,
+    }),
+    columnHelper.accessor("type", {
+      header: "Type",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="rounded-md">
+          {typeLabels[row.original.type]}
+        </Badge>
+      ),
+    }),
+    columnHelper.accessor("subject", {
+      header: "Subject",
+      cell: ({ row }) => (
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-medium">{row.original.subject}</span>
+          {row.original.icsAttached ? (
+            <CalendarDaysIcon
+              className="size-3.5 shrink-0 text-muted-foreground"
+              aria-label="ICS attached"
+            />
+          ) : null}
+        </div>
+      ),
+    }),
+    columnHelper.accessor("status", {
+      header: "Status",
+      cell: ({ row }) => <DeliveryBadge status={row.original.status} />,
+    }),
+    columnHelper.accessor("sentAt", {
+      header: "Sent at",
+      cell: ({ row }) =>
+        row.original.sentAt === null ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : (
+          <Timestamp
+            value={row.original.sentAt}
+            timezone={timezone}
+            className="whitespace-nowrap text-xs tabular-nums text-muted-foreground"
           />
-        ) : null}
-      </div>
-    ),
-  }),
-  columnHelper.accessor("status", {
-    header: "Status",
-    cell: ({ row }) => <DeliveryBadge status={row.original.status} />,
-  }),
-  columnHelper.accessor("sentAt", {
-    header: "Sent at",
-    cell: ({ row }) => (
-      <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-        {formatDate(row.original.sentAt)}
-      </span>
-    ),
-  }),
-]);
+        ),
+    }),
+  ]);
 
 export function EmailViewer() {
   const { email } = useSearch({ from: "/admin/emails" });
@@ -131,6 +130,7 @@ export function EmailViewer() {
   return (
     <EmailViewerData
       eventId={eventContext.event.id}
+      timezone={eventContext.event.timezone}
       selectedId={email}
       select={(id) => void navigate({ search: { email: id }, replace: true })}
     />
@@ -139,10 +139,12 @@ export function EmailViewer() {
 
 function EmailViewerData({
   eventId,
+  timezone,
   selectedId,
   select,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly selectedId: string | undefined;
   readonly select: (id: string | undefined) => void;
 }) {
@@ -151,6 +153,7 @@ function EmailViewerData({
   const query = useSuspenseQuery(options);
   const data = query.data.ok ? query.data.data : [];
   const selected = data.find((email) => email.id === selectedId) ?? null;
+  const columns = useMemo(() => buildColumns(timezone), [timezone]);
   const table = useTable({ features, columns, data });
   const rows = table.getRowModel().rows;
   const pages = usePagination(rows, {
@@ -202,8 +205,8 @@ function EmailViewerData({
   };
 
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
+      <div className="shrink-0">
         <h1 className="text-lg font-semibold tracking-tight">Email delivery</h1>
         <p className="text-xs text-muted-foreground">
           Every transactional message, including demo sends and calendar attachments.
@@ -221,9 +224,18 @@ function EmailViewerData({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <TableShell
+          footer={
+            <PaginationFooter
+              page={pages.page}
+              pageSize={pages.pageSize}
+              total={rows.length}
+              onPageChange={pages.setPage}
+            />
+          }
+        >
           <Table>
-            <TableHeader className="bg-muted/50">
+            <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -254,13 +266,7 @@ function EmailViewerData({
               ))}
             </TableBody>
           </Table>
-          <PaginationFooter
-            page={pages.page}
-            pageSize={pages.pageSize}
-            total={rows.length}
-            onPageChange={pages.setPage}
-          />
-        </div>
+        </TableShell>
       )}
 
       <Dialog open={selected !== null} onOpenChange={(open) => !open && select(undefined)}>

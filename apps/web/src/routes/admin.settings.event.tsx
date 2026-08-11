@@ -139,15 +139,15 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
   const publicPath = `/e/${event.slug}`;
 
   return (
-    <main className="flex-1 p-4 pb-14 text-sm lg:p-6 lg:pb-14">
-      <div className="mb-4">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden p-4 text-sm lg:p-6">
+      <div className="mb-4 shrink-0">
         <h1 className="text-lg font-semibold">Event settings</h1>
         <p className="text-xs text-muted-foreground">
           Identity, schedule, branding, and submission defaults.
         </p>
       </div>
       <form
-        className="grid max-w-4xl gap-3"
+        className="grid min-h-0 max-w-4xl flex-1 content-start gap-3 overflow-y-auto pb-14"
         onSubmit={(submitEvent) => {
           submitEvent.preventDefault();
           void form.handleSubmit();

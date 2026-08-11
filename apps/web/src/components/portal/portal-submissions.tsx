@@ -1,11 +1,18 @@
 import type { FormAnswers, FormFieldDefinition } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { Clock3Icon, HistoryIcon, RotateCcwIcon, UploadIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ChevronRightIcon,
+  Clock3Icon,
+  HistoryIcon,
+  RotateCcwIcon,
+  UploadIcon,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
-import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { Timestamp } from "@/components/app/timestamp";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { FileThread } from "@/components/portal/file-thread";
 import { Button } from "@/components/ui/button";
@@ -23,7 +30,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { fileAsBase64 } from "@/lib/files";
 import { speakerPortalQuery } from "@/lib/portal-queries";
-import { cn } from "@/lib/utils";
 import {
   editPortalSubmission,
   restorePortalHistory,
@@ -171,200 +177,227 @@ function SubmissionContent({
     .map((item) => item.history)
     .filter((item) => item.submissionId === selected?.submission.id);
 
-  return (
-    <main className="mx-auto flex h-[calc(100svh-3rem)] w-full max-w-5xl min-h-0 flex-col overflow-hidden text-sm">
-      <SpotlightLayout
-        spotlightId={spotlightId}
-        orderedIds={data.submissions.map((item) => item.submission.id)}
-        onSpotlightChange={onSpotlightChange}
-        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
-          <div className="flex h-full min-h-0 flex-col gap-2 px-4 py-5">
-            <h1 className="mb-1 text-lg font-semibold">Submissions</h1>
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
-              {data.submissions.map(({ submission, format }) => (
+  // A speaker has a handful of submissions at most — no split layout. The
+  // list is a set of rich cards; opening one takes over the page with a
+  // breadcrumb back, the same shape as the CRM contact detail.
+  if (selected === undefined) {
+    const fileTotal = data.requirements.length;
+    return (
+      <main className="h-[calc(100svh-3rem)] overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-4 py-10">
+          <h1 className="text-xl font-semibold tracking-tight">My submissions</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {data.submissions.length === 1
+              ? "Your proposal"
+              : `Your ${data.submissions.length} proposals`}{" "}
+            for {data.event.name}. Open one to edit content, upload files, and follow changes.
+          </p>
+          <div className="mt-6 grid gap-3 pb-10">
+            {data.submissions.map(({ submission, format }) => {
+              const uploaded =
+                submission.status === "accepted" && fileTotal > 0
+                  ? data.requirements.filter((requirement) =>
+                      data.files.some(
+                        (item) =>
+                          item.upload.submissionId === submission.id &&
+                          item.upload.requirementId === requirement.id,
+                      ),
+                    ).length
+                  : null;
+              return (
                 <button
                   key={submission.id}
-                  ref={rowRef(submission.id)}
                   type="button"
-                  onClick={() => openSpotlight(submission.id)}
-                  className={cn(
-                    rowClassName(submission.id),
-                    "pressable h-9 w-full rounded-md border px-2.5 text-left",
-                  )}
+                  onClick={() =>
+                    onSpotlightChange(submission.id, { replace: false, keyboard: false })
+                  }
+                  className="pressable group w-full rounded-xl border bg-card p-5 text-left transition-colors hover:bg-muted/30"
                 >
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      {submission.code}
+                    </span>
                     <StatusBadge status={submission.status} />
-                    <p className="min-w-0 truncate text-sm font-medium">
-                      <span className="font-mono text-xs tabular-nums">{submission.code}</span>
-                      <span className="mx-1.5 text-muted-foreground">—</span>
-                      <span>{submission.title}</span>
-                    </p>
-                    {compact ? null : (
-                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                        {format?.name ?? "Format pending"}
+                    {submission.contentReviewStatus === "pending_review" ? (
+                      <span className="rounded-md bg-[var(--status-pending-bg)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-pending)]">
+                        Edits pending approval
                       </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        panel={
-          selected === undefined ? null : (
-            <div className="flex h-full min-h-0 flex-col">
-              <SpotlightPanelHeader
-                identity={
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {selected.submission.code}
-                  </span>
-                }
-                status={<StatusBadge status={selected.submission.status} />}
-                onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
-              />
-              <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16">
-                <h2 className="mb-3 text-base font-semibold">{selected.submission.title}</h2>
-                {selected.submission.contentReviewStatus === "pending_review" ? (
-                  <div className="mb-3 rounded-md border border-[var(--status-pending)]/30 bg-[var(--status-pending-bg)] px-3 py-2 text-xs text-[var(--status-pending)]">
-                    Your content changes are pending organizer approval. The last approved version
-                    remains public.
-                  </div>
-                ) : null}
-                <Tabs defaultValue="details">
-                  <TabsList variant="line">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    <TabsTrigger value="history">History ({history.length})</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="details" className="pt-4">
-                    {closed ? (
-                      <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
-                        <Clock3Icon className="size-4" />
-                        This submission form is closed. Your content is now read-only.
-                      </div>
-                    ) : fields.length === 0 ? (
-                      <div
-                        className="prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: selected.submission.description }}
-                      />
-                    ) : (
-                      <FormRenderer
-                        key={selected.submission.id}
-                        fields={fields}
-                        timezone={data.event.timezone}
-                        library={data.library}
-                        answers={answers}
-                        onAnswersChange={setAnswers}
-                        onContinue={async () => {
-                          await edit.mutateAsync();
-                        }}
-                        continueLabel={
-                          selected.submission.status === "accepted"
-                            ? "Submit changes for approval"
-                            : "Save changes"
-                        }
-                        showContinue={!closed}
-                      />
-                    )}
-                    {selected.submission.status === "accepted" ? (
-                      <SessionFiles data={data} submissionId={selected.submission.id} />
                     ) : null}
-                    <div className="mt-5 flex justify-end border-t pt-4">
-                      {selected.submission.status === "withdrawn" ? null : (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                              Withdraw submission
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Withdraw {selected.submission.code}?</DialogTitle>
-                              <DialogDescription>
-                                This removes the submission from consideration. Its history remains
-                                available.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                              <DialogClose asChild>
-                                <Button variant="outline">Cancel</Button>
-                              </DialogClose>
-                              <DialogClose asChild>
-                                <Button variant="destructive" onClick={() => withdraw.mutate()}>
-                                  Withdraw
-                                </Button>
-                              </DialogClose>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      )}
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="history" className="pt-4">
-                    {history.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No content edits yet.</p>
-                    ) : (
-                      <div className="grid gap-2">
-                        {history.map((entry) => (
-                          <details key={entry.id} className="rounded-md border bg-card">
-                            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
-                              <HistoryIcon className="size-3.5" />
-                              <span className="font-medium">{entry.authorName}</span>
-                              <span className="text-muted-foreground">
-                                edited {describeChangedFields(entry.changedFields)} ·{" "}
-                                {new Intl.DateTimeFormat("en", {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                }).format(new Date(entry.createdAt))}
-                              </span>
-                              <span className="ml-auto capitalize text-muted-foreground">
-                                {entry.approvalStatus.replace("_", " ")}
-                              </span>
-                            </summary>
-                            <div className="border-t p-3">
-                              <div className="grid gap-2">
-                                {contentDiffRows(entry).map((row) => (
-                                  <div key={row.key} className="grid grid-cols-2 gap-2 text-xs">
-                                    <div className="rounded bg-muted p-2">
-                                      <p className="mb-1 font-medium capitalize text-muted-foreground">
-                                        Before · {row.label}
-                                      </p>
-                                      <pre className="whitespace-pre-wrap font-sans">
-                                        {row.before}
-                                      </pre>
-                                    </div>
-                                    <div className="rounded bg-muted p-2">
-                                      <p className="mb-1 font-medium capitalize text-muted-foreground">
-                                        After · {row.label}
-                                      </p>
-                                      <pre className="whitespace-pre-wrap font-sans">
-                                        {row.after}
-                                      </pre>
-                                    </div>
-                                  </div>
-                                ))}
+                    <ChevronRightIcon className="ml-auto size-4 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover:opacity-100" />
+                  </div>
+                  <h2 className="mt-2.5 text-base font-semibold tracking-tight">
+                    {submission.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {format?.name ?? "Format pending"}
+                    {uploaded === null ? null : (
+                      <>
+                        {" "}
+                        · {uploaded} of {fileTotal} file{fileTotal === 1 ? "" : "s"} uploaded
+                      </>
+                    )}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="h-[calc(100svh-3rem)] overflow-y-auto">
+      <div className="mx-auto w-full max-w-3xl px-4 py-8">
+        <button
+          type="button"
+          onClick={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+          className="pressable -ml-1.5 flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-3.5" /> My submissions
+        </button>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {selected.submission.code}
+          </span>
+          <StatusBadge status={selected.submission.status} />
+          <span className="text-xs text-muted-foreground">
+            {selected.format?.name ?? "Format pending"}
+          </span>
+        </div>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight">{selected.submission.title}</h1>
+        {selected.submission.contentReviewStatus === "pending_review" ? (
+          <div className="mt-4 rounded-md border border-[var(--status-pending)]/30 bg-[var(--status-pending-bg)] px-3 py-2 text-xs text-[var(--status-pending)]">
+            Your content changes are pending organizer approval. The last approved version remains
+            public.
+          </div>
+        ) : null}
+        <div className="pb-16">
+          <Tabs defaultValue="details" className="mt-6">
+            <TabsList variant="line">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="history">History ({history.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="pt-4">
+              {closed ? (
+                <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                  <Clock3Icon className="size-4" />
+                  This submission form is closed. Your content is now read-only.
+                </div>
+              ) : fields.length === 0 ? (
+                <div
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: selected.submission.description }}
+                />
+              ) : (
+                <FormRenderer
+                  key={selected.submission.id}
+                  fields={fields}
+                  timezone={data.event.timezone}
+                  library={data.library}
+                  answers={answers}
+                  onAnswersChange={setAnswers}
+                  onContinue={async () => {
+                    await edit.mutateAsync();
+                  }}
+                  continueLabel={
+                    selected.submission.status === "accepted"
+                      ? "Submit changes for approval"
+                      : "Save changes"
+                  }
+                  showContinue={!closed}
+                />
+              )}
+              {selected.submission.status === "accepted" ? (
+                <SessionFiles data={data} submissionId={selected.submission.id} />
+              ) : null}
+              <div className="mt-5 flex justify-end border-t pt-4">
+                {selected.submission.status === "withdrawn" ? null : (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        Withdraw submission
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Withdraw {selected.submission.code}?</DialogTitle>
+                        <DialogDescription>
+                          This removes the submission from consideration. Its history remains
+                          available.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button variant="outline">Cancel</Button>
+                        </DialogClose>
+                        <DialogClose asChild>
+                          <Button variant="destructive" onClick={() => withdraw.mutate()}>
+                            Withdraw
+                          </Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </TabsContent>
+            <TabsContent value="history" className="pt-4">
+              {history.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No content edits yet.</p>
+              ) : (
+                <div className="grid gap-2">
+                  {history.map((entry) => (
+                    <details key={entry.id} className="rounded-md border bg-card">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs">
+                        <HistoryIcon className="size-3.5" />
+                        <span className="font-medium">{entry.authorName}</span>
+                        <span className="text-muted-foreground">
+                          edited {describeChangedFields(entry.changedFields)} ·{" "}
+                          <Timestamp value={entry.createdAt} timezone={data.event.timezone} />
+                        </span>
+                        <span className="ml-auto capitalize text-muted-foreground">
+                          {entry.approvalStatus.replace("_", " ")}
+                        </span>
+                      </summary>
+                      <div className="border-t p-3">
+                        <div className="grid gap-2">
+                          {contentDiffRows(entry).map((row) => (
+                            <div key={row.key} className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="rounded bg-muted p-2">
+                                <p className="mb-1 font-medium capitalize text-muted-foreground">
+                                  Before · {row.label}
+                                </p>
+                                <pre className="whitespace-pre-wrap font-sans">{row.before}</pre>
                               </div>
-                              <div className="mt-3 flex justify-end">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={restore.isPending}
-                                  onClick={() => restore.mutate(entry.id)}
-                                >
-                                  <RotateCcwIcon /> Restore
-                                </Button>
+                              <div className="rounded bg-muted p-2">
+                                <p className="mb-1 font-medium capitalize text-muted-foreground">
+                                  After · {row.label}
+                                </p>
+                                <pre className="whitespace-pre-wrap font-sans">{row.after}</pre>
                               </div>
                             </div>
-                          </details>
-                        ))}
+                          ))}
+                        </div>
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={restore.isPending}
+                            onClick={() => restore.mutate(entry.id)}
+                          >
+                            <RotateCcwIcon /> Restore
+                          </Button>
+                        </div>
                       </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </div>
-          )
-        }
-      />
+                    </details>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
     </main>
   );
 }
@@ -479,10 +512,7 @@ function SessionFileRow({
             className={`shrink-0 text-xs ${overdue ? "text-destructive" : "text-muted-foreground"}`}
           >
             {overdue ? "Overdue" : "Due"}{" "}
-            {new Intl.DateTimeFormat("en", {
-              month: "short",
-              day: "numeric",
-            }).format(due)}
+            <Timestamp value={due} timezone={data.event.timezone} mode="date" />
           </p>
         )}
         <input
@@ -513,6 +543,7 @@ function SessionFileRow({
         <div className="border-t px-3 py-3">
           <FileThread
             embedded
+            timezone={data.event.timezone}
             authorName={`${data.contact.firstName} ${data.contact.lastName}`}
             upload={upload}
             versions={versions}

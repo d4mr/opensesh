@@ -10,6 +10,7 @@ import { CheckIcon, ChevronRightIcon, ClipboardIcon, Code2Icon, PlusIcon } from 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { Timestamp } from "@/components/app/timestamp";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,6 +54,7 @@ export function WidgetBuilder({
     <WidgetData
       eventId={eventContext.event.id}
       eventSlug={eventContext.event.slug}
+      timezone={eventContext.event.timezone}
       selectedId={selectedId}
       select={select}
     />
@@ -62,11 +64,13 @@ export function WidgetBuilder({
 function WidgetData({
   eventId,
   eventSlug,
+  timezone,
   selectedId,
   select,
 }: {
   readonly eventId: string;
   readonly eventSlug: string;
+  readonly timezone: string;
   readonly selectedId?: string;
   readonly select: (id?: string) => void;
 }) {
@@ -97,8 +101,8 @@ function WidgetData({
       />
     );
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div className="flex items-start justify-between gap-3">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
+      <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">Widgets</h1>
           <p className="text-xs text-muted-foreground">
@@ -114,7 +118,7 @@ function WidgetData({
           <PlusIcon /> Add widget
         </Button>
       </div>
-      <div className="divide-y overflow-hidden rounded-lg border bg-card">
+      <div className="min-h-0 flex-1 divide-y overflow-y-auto rounded-lg border bg-card">
         {widgets.data.data.length === 0 ? (
           <AdminEmptyState
             icon={Code2Icon}
@@ -137,6 +141,7 @@ function WidgetData({
               key={widget.id}
               widget={widget}
               eventId={eventId}
+              timezone={timezone}
               onOpen={() => select(widget.id)}
             />
           ))
@@ -149,10 +154,12 @@ function WidgetData({
 function WidgetRow({
   widget,
   eventId,
+  timezone,
   onOpen,
 }: {
   readonly widget: Widget;
   readonly eventId: string;
+  readonly timezone: string;
   readonly onOpen: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -199,10 +206,7 @@ function WidgetRow({
         <p className="mt-0.5 text-xs text-muted-foreground">
           <span className="rounded-md border px-1.5 py-0.5">{labels[widget.view]}</span>
           <span className="ml-2 tabular-nums">
-            Updated{" "}
-            {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-              new Date(widget.updatedAt),
-            )}
+            Updated <Timestamp value={widget.updatedAt} timezone={timezone} mode="date" />
           </span>
         </p>
       </button>

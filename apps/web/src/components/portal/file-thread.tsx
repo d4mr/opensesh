@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { PersonHoverCard } from "@/components/app/person-popover";
+import { Timestamp } from "@/components/app/timestamp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { downloadVersion } from "@/lib/files";
@@ -62,6 +63,7 @@ export function FileThread({
   versions,
   comments,
   authorName,
+  timezone,
   eventId,
   embedded = false,
 }: {
@@ -69,6 +71,7 @@ export function FileThread({
   readonly versions: ReadonlyArray<FileVersion>;
   readonly comments: ReadonlyArray<ThreadComment>;
   readonly authorName: string;
+  readonly timezone: string;
   readonly eventId?: string;
   readonly embedded?: boolean;
 }) {
@@ -189,7 +192,8 @@ export function FileThread({
 
   return (
     <div className={embedded ? "grid gap-3" : "grid gap-3 rounded-md border bg-muted/20 p-3"}>
-      <div>
+      {/* min-w-0: long filenames must not inflate the implicit grid track */}
+      <div className="min-w-0">
         <p className="text-xs font-semibold">Versions</p>
         <div
           className={
@@ -216,10 +220,8 @@ export function FileThread({
                     admin={eventId !== undefined}
                   />{" "}
                   · {uploaderRole(version)} ·{" "}
-                  {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
-                    new Date(version.uploadedAt),
-                  )}{" "}
-                  · {(version.size / 1024).toFixed(1)} KB
+                  <Timestamp value={version.uploadedAt} timezone={timezone} mode="date" /> ·{" "}
+                  {(version.size / 1024).toFixed(1)} KB
                 </p>
               </div>
               <Button
@@ -258,16 +260,11 @@ export function FileThread({
                     />{" "}
                     · {authorRole(comment)}
                   </span>
-                  <span>
-                    {comment.pending === true
-                      ? "Sending…"
-                      : new Intl.DateTimeFormat("en", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }).format(new Date(comment.createdAt))}
-                  </span>
+                  {comment.pending === true ? (
+                    <span>Sending…</span>
+                  ) : (
+                    <Timestamp value={comment.createdAt} timezone={timezone} />
+                  )}
                 </div>
                 <p className="mt-1 whitespace-pre-wrap">{comment.body}</p>
               </div>

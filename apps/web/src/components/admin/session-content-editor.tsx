@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { ChangeDiff } from "@/components/app/change-diff";
+import { Timestamp } from "@/components/app/timestamp";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,17 +28,14 @@ type SessionContent = Pick<
   "id" | "code" | "title" | "description" | "contentReviewStatus"
 >;
 
-const timestamp = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 export function SessionContentEditor({
   eventId,
+  timezone,
   submission,
   history,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly submission: SessionContent;
   readonly history: ReadonlyArray<SubmissionEditHistory>;
 }) {
@@ -195,9 +193,11 @@ export function SessionContentEditor({
                     <span className="block truncate font-medium">
                       {entry.authorName} · {describeChangedFields(entry.changedFields)}
                     </span>
-                    <span className="block text-[11px] text-muted-foreground tabular-nums">
-                      {timestamp.format(new Date(entry.createdAt))}
-                    </span>
+                    <Timestamp
+                      value={entry.createdAt}
+                      timezone={timezone}
+                      className="block w-fit text-[11px] text-muted-foreground tabular-nums"
+                    />
                   </span>
                   <span className="capitalize text-muted-foreground">
                     {entry.approvalStatus.replace("_", " ")}

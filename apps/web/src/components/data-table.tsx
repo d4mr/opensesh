@@ -5,7 +5,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { useState } from "react";
 
 import { PersonTag } from "@/components/app/person-tag";
-import { PersonHoverCard } from "@/components/app/person-popover";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +50,7 @@ const columns = columnHelper.columns([
       row.original.reviewer === null ? (
         <PersonTag person={null} />
       ) : (
-        <PersonHoverCard
+        <SpeakerBadge
           person={{
             ...row.original.reviewer,
             title: null,
@@ -58,9 +58,7 @@ const columns = columnHelper.columns([
             bio: null,
             status: null,
           }}
-        >
-          <PersonTag person={row.original.reviewer} />
-        </PersonHoverCard>
+        />
       ),
   }),
 ]);

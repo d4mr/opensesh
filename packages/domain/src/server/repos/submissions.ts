@@ -112,6 +112,12 @@ export interface DashboardStats {
   /** Submitted (non-draft) submissions with at least one review. */
   readonly reviewed: number;
   readonly submitted: number;
+  /** Non-draft, non-withdrawn proposals (abstracts) — the review denominator. */
+  readonly reviewEligible: number;
+  /** Of reviewEligible: reviewed, or already decided (accepted/declined). */
+  readonly reviewedEligible: number;
+  /** Whether the public agenda has been published. */
+  readonly agendaPublished: boolean;
   readonly scheduled: number;
   readonly acceptedUnscheduled: number;
   /** Overlapping accepted sessions sharing a room. */
@@ -324,7 +330,7 @@ export const SubmissionsLive = Layer.effect(
             ),
             query(database, "Could not load dashboard lifecycle", async (db) => {
               const [event] = await db
-                .select({ id: events.id })
+                .select({ id: events.id, agendaPublishedAt: events.agendaPublishedAt })
                 .from(events)
                 .where(eq(events.slug, eventSlug))
                 .limit(1)
@@ -338,6 +344,7 @@ export const SubmissionsLive = Layer.effect(
                 tasksTotal: 0,
                 tasksComplete: 0,
                 notified: 0,
+                agendaPublished: false,
               };
               if (event === undefined) return empty;
               const value = async (promise: Promise<ReadonlyArray<{ value: number }>>) =>
@@ -414,6 +421,7 @@ export const SubmissionsLive = Layer.effect(
                 tasksTotal: Number(taskTotals[0]?.total ?? 0),
                 tasksComplete: Number(taskTotals[0]?.complete ?? 0),
                 notified: notifiedCount,
+                agendaPublished: event.agendaPublishedAt !== null,
               };
             }),
           ],
@@ -481,6 +489,22 @@ export const SubmissionsLive = Layer.effect(
                 const reviewedIds = new Set(
                   decodedRows.filter((row) => row.reviewId !== null).map((row) => row.submissionId),
                 );
+                // The review denominator: proposals that actually flow through
+                // evaluation. Manually created sessions never do; withdrawn
+                // and draft entries left the pipeline. A decided proposal
+                // counts as handled even without a recorded review.
+                const eligibleRows = unique.filter(
+                  (submission) =>
+                    submission.kind === "abstract" &&
+                    submission.status !== "draft" &&
+                    submission.status !== "withdrawn",
+                );
+                const reviewedEligible = eligibleRows.filter(
+                  (submission) =>
+                    reviewedIds.has(submission.submissionId) ||
+                    submission.status === "accepted" ||
+                    submission.status === "declined",
+                ).length;
                 const count = (status: string) =>
                   unique.filter((submission) => submission.status === status).length;
                 const accepted = count("accepted");
@@ -543,6 +567,9 @@ export const SubmissionsLive = Layer.effect(
                   speakers: rows[0]?.speakers ?? 0,
                   reviewed: reviewedIds.size,
                   submitted: unique.length - count("draft"),
+                  reviewEligible: eligibleRows.length,
+                  reviewedEligible,
+                  agendaPublished: lifecycleCounts.agendaPublished,
                   scheduled: scheduledSessions.length,
                   acceptedUnscheduled: accepted - scheduledSessions.length,
                   conflicts,
@@ -553,7 +580,14 @@ export const SubmissionsLive = Layer.effect(
                           .slice()
                           .sort((left, right) => left.getTime() - right.getTime())[0] ?? null),
                   lifecycle: {
-                    ...lifecycleCounts,
+                    tracks: lifecycleCounts.tracks,
+                    formats: lifecycleCounts.formats,
+                    rooms: lifecycleCounts.rooms,
+                    rounds: lifecycleCounts.rounds,
+                    widgets: lifecycleCounts.widgets,
+                    tasksTotal: lifecycleCounts.tasksTotal,
+                    tasksComplete: lifecycleCounts.tasksComplete,
+                    notified: lifecycleCounts.notified,
                     forms: formRows.length,
                     openForms: formRows.filter((form) => form.status === "open").length,
                   },

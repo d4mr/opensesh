@@ -16,7 +16,7 @@ import {
   SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
-import { Fragment, useCallback, useLayoutEffect, useState } from "react";
+import { Fragment, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
@@ -24,9 +24,10 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonHoverCard } from "@/components/app/person-popover";
-import { PersonTag } from "@/components/app/person-tag";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { SpeakerRow } from "@/components/app/speaker-row";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { Timestamp } from "@/components/app/timestamp";
 import {
   DatePicker,
   DateTimePicker,
@@ -34,7 +35,8 @@ import {
   formatDateTime,
   zonedDateTimeIso,
 } from "@/components/forms/datetime-picker";
-import { EntityCombobox } from "@/components/forms/entity-combobox";
+import { SpeakerPickerDialog } from "@/components/admin/speaker-picker-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +69,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -84,7 +87,6 @@ import {
   rejectContentChange,
   saveAdminSessionFileRequirement,
   saveAdminTaskTemplate,
-  searchEventContacts,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
 import { sendTaskReminders } from "@/server-fns/mail";
@@ -185,6 +187,7 @@ function PortalAdminData({
     return (
       <AdminSessions
         eventId={eventId}
+        timezone={timezone}
         data={portal.data.data}
         spotlightId={spotlightId}
         onSpotlightChange={onSpotlightChange}
@@ -311,8 +314,8 @@ function AdminTasks({
     outstandingIds.length > 0 && outstandingIds.every((id) => selectedSpeakerIds.has(id));
 
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div className="flex items-end justify-between">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
+      <div className="flex shrink-0 items-end justify-between">
         <div>
           <h1 className="text-lg font-semibold">Tasks</h1>
           <p className="text-xs text-muted-foreground">
@@ -323,12 +326,12 @@ function AdminTasks({
           <PlusIcon /> Add task
         </Button>
       </div>
-      <Tabs defaultValue="templates">
+      <Tabs defaultValue="templates" className="flex min-h-0 flex-1 flex-col">
         <TabsList variant="line">
           <TabsTrigger value="templates">Templates ({templateRows.length})</TabsTrigger>
           <TabsTrigger value="assignments">Assignments board</TabsTrigger>
         </TabsList>
-        <TabsContent value="templates" className="pt-3">
+        <TabsContent value="templates" className="min-h-0 flex-1 overflow-y-auto pt-3">
           {templateRows.length === 0 ? (
             <AdminEmptyState
               icon={ListTodoIcon}
@@ -371,8 +374,8 @@ function AdminTasks({
             </div>
           )}
         </TabsContent>
-        <TabsContent value="assignments" className="pt-3">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        <TabsContent value="assignments" className="flex min-h-0 flex-1 flex-col pt-3">
+          <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
                 <Checkbox
@@ -412,7 +415,16 @@ function AdminTasks({
                 : `Send ${selectedSpeakerIds.size} reminder${selectedSpeakerIds.size === 1 ? "" : "s"}`}
             </Button>
           </div>
-          <div className="overflow-hidden rounded-md border">
+          <TableShell
+            footer={
+              <PaginationFooter
+                page={speakerPages.page}
+                pageSize={speakerPages.pageSize}
+                total={speakers.length}
+                onPageChange={speakerPages.setPage}
+              />
+            }
+          >
             <Table>
               <TableHeader>
                 <TableRow>
@@ -457,14 +469,7 @@ function AdminTasks({
                           <ChevronDownIcon
                             className={`size-3.5 ${expanded === row.contact.id ? "rotate-180" : ""}`}
                           />
-                          <PersonHoverCard person={personFor(data, row.contact)}>
-                            <PersonTag
-                              person={{
-                                name: `${row.contact.firstName} ${row.contact.lastName}`,
-                                image: row.contact.headshotUrl,
-                              }}
-                            />
-                          </PersonHoverCard>
+                          <SpeakerBadge person={personFor(data, row.contact)} />
                         </div>
                       </TableCell>
                       <TableCell className="capitalize">
@@ -559,13 +564,7 @@ function AdminTasks({
                 ))}
               </TableBody>
             </Table>
-            <PaginationFooter
-              page={speakerPages.page}
-              pageSize={speakerPages.pageSize}
-              total={speakers.length}
-              onPageChange={speakerPages.setPage}
-            />
-          </div>
+          </TableShell>
         </TabsContent>
       </Tabs>
       <TaskTemplateDialog
@@ -608,12 +607,11 @@ export function TaskTemplateDialog({
         : [],
     ),
   );
-  const initialAssignmentMode: "all" | "selection" =
-    assignedContactIds.size > 0 && assignedContactIds.size < speakers.length ? "selection" : "all";
   const initialContactIds: ReadonlySet<string> =
     assignedContactIds.size > 0
       ? assignedContactIds
       : new Set(speakers.map((speaker) => speaker.id));
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [form, setForm] = useState({
     title: existing?.title ?? "",
     instructions: existing?.instructions ?? "",
@@ -631,16 +629,8 @@ export function TaskTemplateDialog({
       existing?.dueDate === null || existing?.dueDate === undefined
         ? ""
         : dateKeyInTimezone(existing.dueDate, timezone),
-    assignmentMode: initialAssignmentMode,
     contactIds: initialContactIds,
   });
-  const loadSpeakers = useCallback(
-    async (query: string) => {
-      const result = await searchEventContacts({ data: { eventId, query } });
-      return result.ok ? result.data : [];
-    },
-    [eventId],
-  );
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: () =>
@@ -656,12 +646,7 @@ export function TaskTemplateDialog({
           autoAssignOnAccept: form.auto,
           dueDate:
             form.dueDate.length === 0 ? null : zonedDateTimeIso(form.dueDate, 12 * 60, timezone),
-          contactIds:
-            form.scope === "contact"
-              ? form.assignmentMode === "all"
-                ? speakers.map((speaker) => speaker.id)
-                : [...form.contactIds]
-              : [],
+          contactIds: form.scope === "contact" ? [...form.contactIds] : [],
         },
       }),
     onSuccess: async (result) => {
@@ -744,82 +729,50 @@ export function TaskTemplateDialog({
             </Select>
           </div>
           {form.scope !== "contact" ? null : (
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label>Assign speakers</Label>
-              <Select
-                value={form.assignmentMode}
-                onValueChange={(assignmentMode) =>
-                  setForm({
-                    ...form,
-                    assignmentMode: assignmentMode === "selection" ? "selection" : "all",
-                  })
-                }
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="pressable flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All speakers</SelectItem>
-                  <SelectItem value="selection">Selected speakers</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.assignmentMode !== "selection" ? null : (
-                <EntityCombobox
-                  multiple
-                  items={speakers}
-                  loadItems={loadSpeakers}
-                  value={[...form.contactIds]}
-                  onChange={(contactIds) => setForm({ ...form, contactIds: new Set(contactIds) })}
-                  getItemText={(speaker) =>
-                    [speaker.firstName, speaker.lastName, speaker.title, speaker.company]
-                      .filter(Boolean)
-                      .join(" ")
-                  }
-                  placeholder="Choose speakers"
-                  searchPlaceholder="Search speakers…"
-                  emptyText="No speakers found."
-                  renderValue={(speaker) => (
-                    <PersonTag
-                      person={{
-                        name: `${speaker.firstName} ${speaker.lastName}`,
-                        image: speaker.headshotUrl,
-                      }}
-                    />
-                  )}
-                  renderItem={(speaker) => (
-                    <PersonHoverCard
-                      side="right"
-                      person={{
-                        id: speaker.id,
-                        name: `${speaker.firstName} ${speaker.lastName}`,
-                        image: speaker.headshotUrl,
-                        title: speaker.title,
-                        company: speaker.company,
-                        bio: speaker.bio,
-                        status: speaker.workflowStatus,
-                        sessionsCount: new Set(
-                          data.participants
-                            .filter((row) => row.contact.id === speaker.id)
-                            .map((row) => row.submission.id),
-                        ).size,
-                      }}
-                    >
-                      <div className="min-w-0">
-                        <PersonTag
-                          person={{
-                            name: `${speaker.firstName} ${speaker.lastName}`,
-                            image: speaker.headshotUrl,
-                          }}
-                        />
-                        <p className="mt-0.5 truncate pl-5.5 text-xs text-muted-foreground">
-                          {[speaker.title, speaker.company].filter(Boolean).join(" · ") ||
-                            speaker.email}
-                        </p>
-                      </div>
-                    </PersonHoverCard>
-                  )}
-                />
-              )}
+                {form.contactIds.size === 0 ? (
+                  <span className="text-muted-foreground">No speakers selected</span>
+                ) : (
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="flex shrink-0 -space-x-1.5">
+                      {speakers
+                        .filter((speaker) => form.contactIds.has(speaker.id))
+                        .slice(0, 5)
+                        .map((speaker) => (
+                          <Avatar key={speaker.id} className="size-5 ring-2 ring-background">
+                            {speaker.headshotUrl === null ? null : (
+                              <AvatarImage src={speaker.headshotUrl} alt="" />
+                            )}
+                            <AvatarFallback className="text-[9px]">
+                              {`${speaker.firstName[0] ?? ""}${speaker.lastName[0] ?? ""}`}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                    </span>
+                    <span className="truncate">
+                      {form.contactIds.size === speakers.length
+                        ? `All ${speakers.length} speakers`
+                        : `${form.contactIds.size} of ${speakers.length} speakers`}
+                    </span>
+                  </span>
+                )}
+                <span className="shrink-0 text-xs text-muted-foreground">Edit</span>
+              </button>
+              <SpeakerPickerDialog
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+                contacts={speakers}
+                value={form.contactIds}
+                onChange={(contactIds) => setForm({ ...form, contactIds: new Set(contactIds) })}
+                title="Assign speakers"
+                description="Everyone selected is assigned this task."
+              />
             </div>
           )}
           <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
@@ -885,8 +838,8 @@ function AdminPortalForms({
     downloadCsv("portal-form-responses.csv", rows);
   };
   return (
-    <main className="grid gap-4 p-4 lg:p-6">
-      <div className="flex items-end justify-between">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
+      <div className="flex shrink-0 items-end justify-between">
         <div>
           <h1 className="text-lg font-semibold">Portal forms</h1>
           <p className="text-xs text-muted-foreground">
@@ -903,12 +856,12 @@ function AdminPortalForms({
           </Link>
         </Button>
       </div>
-      <Tabs defaultValue="forms">
+      <Tabs defaultValue="forms" className="flex min-h-0 flex-1 flex-col">
         <TabsList variant="line">
           <TabsTrigger value="forms">Forms ({data.forms.length})</TabsTrigger>
           <TabsTrigger value="responses">Responses ({data.responses.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="forms" className="pt-3">
+        <TabsContent value="forms" className="min-h-0 flex-1 overflow-y-auto pt-3">
           {data.forms.length === 0 ? (
             <AdminEmptyState
               icon={FileCheckIcon}
@@ -951,13 +904,22 @@ function AdminPortalForms({
             </div>
           )}
         </TabsContent>
-        <TabsContent value="responses" className="pt-3">
-          <div className="mb-2 flex justify-end">
+        <TabsContent value="responses" className="flex min-h-0 flex-1 flex-col pt-3">
+          <div className="mb-2 flex shrink-0 justify-end">
             <Button size="sm" variant="outline" onClick={exportCsv}>
               <DownloadIcon /> Export CSV
             </Button>
           </div>
-          <div className="overflow-hidden rounded-md border">
+          <TableShell
+            footer={
+              <PaginationFooter
+                page={responsePages.page}
+                pageSize={responsePages.pageSize}
+                total={data.responses.length}
+                onPageChange={responsePages.setPage}
+              />
+            }
+          >
             <Table>
               <TableHeader>
                 <TableRow>
@@ -974,21 +936,11 @@ function AdminPortalForms({
                   return (
                     <TableRow key={row.response.id}>
                       <TableCell>
-                        <PersonHoverCard person={personFor(data, row.contact)}>
-                          <PersonTag
-                            person={{
-                              name: `${row.contact.firstName} ${row.contact.lastName}`,
-                              image: row.contact.headshotUrl,
-                            }}
-                          />
-                        </PersonHoverCard>
+                        <SpeakerBadge person={personFor(data, row.contact)} />
                       </TableCell>
                       <TableCell>{form?.name ?? "Form"}</TableCell>
                       <TableCell className="text-xs">
-                        {new Intl.DateTimeFormat("en", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(new Date(row.response.submittedAt))}
+                        <Timestamp value={row.response.submittedAt} timezone={timezone} />
                       </TableCell>
                       <TableCell className="text-right">
                         <Dialog>
@@ -1024,13 +976,7 @@ function AdminPortalForms({
                 })}
               </TableBody>
             </Table>
-            <PaginationFooter
-              page={responsePages.page}
-              pageSize={responsePages.pageSize}
-              total={data.responses.length}
-              onPageChange={responsePages.setPage}
-            />
-          </div>
+          </TableShell>
         </TabsContent>
       </Tabs>
     </main>
@@ -1146,8 +1092,8 @@ function DeliverablesAdmin({
     dueAt === null ? "No due date" : `Due ${formatDateTime(dueAt.toISOString(), timezone)}`;
 
   return (
-    <main className="grid gap-5 p-4 lg:p-6">
-      <div>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-5 overflow-hidden p-4 lg:p-6">
+      <div className="shrink-0">
         <h1 className="text-lg font-semibold">Deliverables</h1>
         <p className="text-xs text-muted-foreground">
           Track files required for sessions and requested through speaker tasks.
@@ -1166,7 +1112,7 @@ function DeliverablesAdmin({
           }
         />
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
           <section>
             <div className="mb-2 flex items-end justify-between gap-3">
               <div>
@@ -1345,7 +1291,7 @@ function DeliverablesAdmin({
               />
             </div>
           </section>
-        </>
+        </div>
       )}
 
       <Dialog open={requirementOpen} onOpenChange={setRequirementOpen}>
@@ -1531,11 +1477,13 @@ const requirementFormFor = (requirement: AdminData["requirements"][number]): Req
 
 function AdminSessions({
   eventId,
+  timezone,
   data,
   spotlightId,
   onSpotlightChange,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: AdminData;
   readonly spotlightId: string | undefined;
   readonly onSpotlightChange: (
@@ -1706,100 +1654,95 @@ function AdminSessions({
                     </div>
                   </div>
                 )}
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
-                  <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Session</TableHead>
-                          <TableHead>Status</TableHead>
-                          {compact ? null : <TableHead>Speakers</TableHead>}
-                          {compact ? null : <TableHead className="text-right">Action</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {submissionPages.pageItems.map((submission) => {
-                          const speakers = data.participants.filter(
-                            (row) => row.submission.id === submission.id,
-                          );
-                          return (
-                            <TableRow
-                              key={submission.id}
-                              ref={rowRef(submission.id)}
-                              className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
-                              onClick={() => openSpotlight(submission.id)}
-                            >
+                <TableShell
+                  scrollRef={scrollRef}
+                  footer={
+                    <PaginationFooter
+                      page={submissionPages.page}
+                      pageSize={submissionPages.pageSize}
+                      total={visibleSubmissions.length}
+                      onPageChange={submissionPages.setPage}
+                    />
+                  }
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Session</TableHead>
+                        <TableHead>Status</TableHead>
+                        {compact ? null : <TableHead>Speakers</TableHead>}
+                        {compact ? null : <TableHead className="text-right">Action</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {submissionPages.pageItems.map((submission) => {
+                        const speakers = data.participants.filter(
+                          (row) => row.submission.id === submission.id,
+                        );
+                        return (
+                          <TableRow
+                            key={submission.id}
+                            ref={rowRef(submission.id)}
+                            className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
+                            onClick={() => openSpotlight(submission.id)}
+                          >
+                            <TableCell className="h-9 py-1.5">
+                              <span className="font-mono text-xs tabular-nums">
+                                {submission.code}
+                              </span>{" "}
+                              —{" "}
+                              <span className="font-medium">
+                                {compact ? (
+                                  <span className="inline-block max-w-52 truncate align-bottom">
+                                    {submission.title}
+                                  </span>
+                                ) : (
+                                  submission.title
+                                )}
+                              </span>
+                            </TableCell>
+                            <TableCell className="h-9 py-1.5">
+                              <StatusBadge status={submission.status} />
+                            </TableCell>
+                            {compact ? null : (
                               <TableCell className="h-9 py-1.5">
-                                <span className="font-mono text-xs tabular-nums">
-                                  {submission.code}
-                                </span>{" "}
-                                —{" "}
-                                <span className="font-medium">
-                                  {compact ? (
-                                    <span className="inline-block max-w-52 truncate align-bottom">
-                                      {submission.title}
-                                    </span>
-                                  ) : (
-                                    submission.title
-                                  )}
-                                </span>
+                                {speakers.length === 0 ? (
+                                  "—"
+                                ) : (
+                                  <div className="flex flex-wrap gap-1">
+                                    {speakers.map((row) => (
+                                      <SpeakerBadge
+                                        key={row.contact.id}
+                                        person={personFor(data, row.contact)}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                               </TableCell>
-                              <TableCell className="h-9 py-1.5">
-                                <StatusBadge status={submission.status} />
+                            )}
+                            {compact ? null : (
+                              <TableCell className="h-9 py-1.5 text-right">
+                                {submission.status === "pending" ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      accept.mutate(submission.id);
+                                    }}
+                                  >
+                                    <UserRoundCheckIcon /> Accept
+                                  </Button>
+                                ) : (
+                                  <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
+                                )}
                               </TableCell>
-                              {compact ? null : (
-                                <TableCell className="h-9 py-1.5">
-                                  {speakers.length === 0 ? (
-                                    "—"
-                                  ) : (
-                                    <div className="flex flex-wrap gap-1">
-                                      {speakers.map((row) => (
-                                        <PersonHoverCard
-                                          key={row.contact.id}
-                                          person={personFor(data, row.contact)}
-                                        >
-                                          <PersonTag
-                                            person={{
-                                              name: `${row.contact.firstName} ${row.contact.lastName}`,
-                                              image: row.contact.headshotUrl,
-                                            }}
-                                          />
-                                        </PersonHoverCard>
-                                      ))}
-                                    </div>
-                                  )}
-                                </TableCell>
-                              )}
-                              {compact ? null : (
-                                <TableCell className="h-9 py-1.5 text-right">
-                                  {submission.status === "pending" ? (
-                                    <Button
-                                      size="sm"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        accept.mutate(submission.id);
-                                      }}
-                                    >
-                                      <UserRoundCheckIcon /> Accept
-                                    </Button>
-                                  ) : (
-                                    <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
-                                  )}
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <PaginationFooter
-                    page={submissionPages.page}
-                    pageSize={submissionPages.pageSize}
-                    total={visibleSubmissions.length}
-                    onPageChange={submissionPages.setPage}
-                  />
-                </div>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableShell>
               </>
             )}
           </div>
@@ -1808,6 +1751,7 @@ function AdminSessions({
           <SessionPeek
             data={data}
             eventId={eventId}
+            timezone={timezone}
             submissionId={spotlightId}
             onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
           />
@@ -1820,11 +1764,13 @@ function AdminSessions({
 function SessionPeek({
   data,
   eventId,
+  timezone,
   submissionId,
   onClose,
 }: {
   readonly data: AdminData;
   readonly eventId: string;
+  readonly timezone: string;
   readonly submissionId: string | undefined;
   readonly onClose: () => void;
 }) {
@@ -1889,7 +1835,12 @@ function SessionPeek({
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-16">
         <h2 className="mb-4 text-base font-semibold">{submission.title}</h2>
         <div className="grid gap-5">
-          <SessionContentEditor eventId={eventId} submission={submission} history={history} />
+          <SessionContentEditor
+            eventId={eventId}
+            timezone={timezone}
+            submission={submission}
+            history={history}
+          />
           <section className="grid gap-2">
             <h3 className="text-xs font-medium text-muted-foreground">Speakers</h3>
             {speakers.length === 0 ? (
@@ -1901,6 +1852,7 @@ function SessionPeek({
                   data={data}
                   contact={row.contact}
                   eventId={eventId}
+                  timezone={timezone}
                 />
               ))
             )}
@@ -1943,6 +1895,7 @@ function SessionPeek({
                         <FileThread
                           embedded
                           eventId={eventId}
+                          timezone={timezone}
                           authorName={data.currentUserName}
                           upload={file.upload}
                           versions={versions}
@@ -1973,10 +1926,12 @@ function SpeakerCard({
   data,
   contact,
   eventId,
+  timezone,
 }: {
   readonly data: AdminData;
   readonly contact: AdminData["participants"][number]["contact"];
   readonly eventId: string;
+  readonly timezone: string;
 }) {
   const headshot = data.files.find(
     (row) => row.contact.id === contact.id && row.upload.kind === "headshot",
@@ -2021,6 +1976,7 @@ function SpeakerCard({
         <div className="border-t p-3">
           <FileThread
             eventId={eventId}
+            timezone={timezone}
             authorName={data.currentUserName}
             upload={headshot.upload}
             versions={versions}

@@ -6,9 +6,9 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
-import { PersonHoverCard } from "@/components/app/person-popover";
-import { PersonTag } from "@/components/app/person-tag";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { Timestamp } from "@/components/app/timestamp";
 import { FileThread } from "@/components/portal/file-thread";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { downloadVersion } from "@/lib/files";
@@ -202,8 +203,6 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
   });
 };
 
-const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
-
 export function FilesLibrary({
   spotlightId,
   deliverableId,
@@ -217,6 +216,7 @@ export function FilesLibrary({
   return (
     <FilesLibraryData
       eventId={context.event.id}
+      timezone={context.event.timezone}
       spotlightId={spotlightId}
       deliverableId={deliverableId}
       setSearch={(next) =>
@@ -231,11 +231,13 @@ export function FilesLibrary({
 
 function FilesLibraryData({
   eventId,
+  timezone,
   spotlightId,
   deliverableId,
   setSearch,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly spotlightId: string | undefined;
   readonly deliverableId: string | undefined;
   readonly setSearch: (search: {
@@ -418,143 +420,145 @@ function FilesLibraryData({
                     {filtered.length} record{filtered.length === 1 ? "" : "s"}
                   </p>
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-                  <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                    <Table containerClassName="overflow-visible">
-                      <TableHeader className="sticky top-0 z-10 bg-background">
-                        <TableRow>
-                          <TableHead className="w-9">
+                <TableShell
+                  scrollRef={scrollRef}
+                  footer={
+                    <PaginationFooter
+                      page={pagination.page}
+                      pageSize={pagination.pageSize}
+                      total={filtered.length}
+                      onPageChange={pagination.setPage}
+                    />
+                  }
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-9">
+                          <Checkbox
+                            aria-label="Select all uploaded files"
+                            checked={
+                              allUploadedSelected
+                                ? true
+                                : uploadedIds.some((id) => selected.has(id))
+                                  ? "indeterminate"
+                                  : false
+                            }
+                            onCheckedChange={(checked) =>
+                              setSelected((current) => {
+                                const next = new Set(current);
+                                for (const id of uploadedIds) {
+                                  if (checked === true) next.add(id);
+                                  else next.delete(id);
+                                }
+                                return next;
+                              })
+                            }
+                          />
+                        </TableHead>
+                        <TableHead>File</TableHead>
+                        {compact ? null : <TableHead>Session</TableHead>}
+                        {compact ? null : <TableHead>Speaker</TableHead>}
+                        <TableHead>Kind</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        {compact ? null : <TableHead className="text-right">Versions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagination.pageItems.map((row) => (
+                        <TableRow
+                          key={row.id}
+                          ref={rowRef(row.id)}
+                          className={cn("h-9 cursor-pointer", rowClassName(row.id))}
+                          onClick={() => openSpotlight(row.id)}
+                        >
+                          <TableCell
+                            className="h-9 py-1"
+                            onClick={(event) => event.stopPropagation()}
+                          >
                             <Checkbox
-                              aria-label="Select all uploaded files"
-                              checked={
-                                allUploadedSelected
-                                  ? true
-                                  : uploadedIds.some((id) => selected.has(id))
-                                    ? "indeterminate"
-                                    : false
-                              }
-                              onCheckedChange={(checked) =>
+                              aria-label={`Select ${row.label}`}
+                              disabled={row.file === undefined || row.latest === undefined}
+                              checked={row.file !== undefined && selected.has(row.file.upload.id)}
+                              onCheckedChange={(checked) => {
+                                if (row.file === undefined) return;
+                                const uploadId = row.file.upload.id;
                                 setSelected((current) => {
                                   const next = new Set(current);
-                                  for (const id of uploadedIds) {
-                                    if (checked === true) next.add(id);
-                                    else next.delete(id);
-                                  }
+                                  if (checked === true) next.add(uploadId);
+                                  else next.delete(uploadId);
                                   return next;
-                                })
-                              }
+                                });
+                              }}
                             />
-                          </TableHead>
-                          <TableHead>File</TableHead>
-                          {compact ? null : <TableHead>Session</TableHead>}
-                          {compact ? null : <TableHead>Speaker</TableHead>}
-                          <TableHead>Kind</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Status</TableHead>
-                          {compact ? null : <TableHead className="text-right">Versions</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pagination.pageItems.map((row) => (
-                          <TableRow
-                            key={row.id}
-                            ref={rowRef(row.id)}
-                            className={cn("h-9 cursor-pointer", rowClassName(row.id))}
-                            onClick={() => openSpotlight(row.id)}
-                          >
-                            <TableCell
-                              className="h-9 py-1"
-                              onClick={(event) => event.stopPropagation()}
+                          </TableCell>
+                          <TableCell className="h-9 max-w-60 truncate py-1 font-medium">
+                            {row.label}
+                          </TableCell>
+                          {compact ? null : (
+                            <TableCell className="h-9 max-w-52 truncate py-1">
+                              {row.submission === null ? (
+                                "—"
+                              ) : (
+                                <>
+                                  <span className="font-mono text-xs tabular-nums">
+                                    {row.submission.code}
+                                  </span>{" "}
+                                  · {row.submission.title}
+                                </>
+                              )}
+                            </TableCell>
+                          )}
+                          {compact ? null : (
+                            <TableCell className="h-9 max-w-44 py-1">
+                              {row.contacts.length === 0 ? (
+                                "—"
+                              ) : (
+                                <span className="flex flex-wrap gap-1">
+                                  {row.contacts.map((contact) => (
+                                    <SpeakerBadge
+                                      key={contact.id}
+                                      person={{
+                                        id: contact.id,
+                                        name: `${contact.firstName} ${contact.lastName}`,
+                                        image: contact.headshotUrl,
+                                      }}
+                                    />
+                                  ))}
+                                </span>
+                              )}
+                            </TableCell>
+                          )}
+                          <TableCell className="h-9 py-1">{row.kind}</TableCell>
+                          <TableCell className="h-9 py-1 text-xs text-muted-foreground tabular-nums">
+                            {row.date === null ? (
+                              "—"
+                            ) : (
+                              <Timestamp value={row.date} timezone={timezone} mode="date" />
+                            )}
+                          </TableCell>
+                          <TableCell className="h-9 py-1">
+                            <Badge
+                              className={
+                                row.status === "uploaded"
+                                  ? "bg-status-accepted text-status-accepted-foreground"
+                                  : "bg-status-pending text-status-pending-foreground"
+                              }
                             >
-                              <Checkbox
-                                aria-label={`Select ${row.label}`}
-                                disabled={row.file === undefined || row.latest === undefined}
-                                checked={row.file !== undefined && selected.has(row.file.upload.id)}
-                                onCheckedChange={(checked) => {
-                                  if (row.file === undefined) return;
-                                  const uploadId = row.file.upload.id;
-                                  setSelected((current) => {
-                                    const next = new Set(current);
-                                    if (checked === true) next.add(uploadId);
-                                    else next.delete(uploadId);
-                                    return next;
-                                  });
-                                }}
-                              />
+                              {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
+                            </Badge>
+                          </TableCell>
+                          {compact ? null : (
+                            <TableCell className="h-9 py-1 text-right tabular-nums">
+                              {row.versionCount}
                             </TableCell>
-                            <TableCell className="h-9 max-w-60 truncate py-1 font-medium">
-                              {row.label}
-                            </TableCell>
-                            {compact ? null : (
-                              <TableCell className="h-9 max-w-52 truncate py-1">
-                                {row.submission === null ? (
-                                  "—"
-                                ) : (
-                                  <>
-                                    <span className="font-mono text-xs tabular-nums">
-                                      {row.submission.code}
-                                    </span>{" "}
-                                    · {row.submission.title}
-                                  </>
-                                )}
-                              </TableCell>
-                            )}
-                            {compact ? null : (
-                              <TableCell className="h-9 max-w-44 py-1">
-                                {row.contacts.length === 0 ? (
-                                  "—"
-                                ) : (
-                                  <span className="flex flex-wrap gap-x-1.5 truncate">
-                                    {row.contacts.map((contact) => (
-                                      <PersonHoverCard
-                                        key={contact.id}
-                                        person={{
-                                          id: contact.id,
-                                          name: `${contact.firstName} ${contact.lastName}`,
-                                          image: contact.headshotUrl,
-                                        }}
-                                      >
-                                        <span>
-                                          {contact.firstName} {contact.lastName}
-                                        </span>
-                                      </PersonHoverCard>
-                                    ))}
-                                  </span>
-                                )}
-                              </TableCell>
-                            )}
-                            <TableCell className="h-9 py-1">{row.kind}</TableCell>
-                            <TableCell className="h-9 py-1 text-xs text-muted-foreground tabular-nums">
-                              {row.date === null ? "—" : day.format(row.date)}
-                            </TableCell>
-                            <TableCell className="h-9 py-1">
-                              <Badge
-                                className={
-                                  row.status === "uploaded"
-                                    ? "bg-status-accepted text-status-accepted-foreground"
-                                    : "bg-status-pending text-status-pending-foreground"
-                                }
-                              >
-                                {row.status === "uploaded" ? "Uploaded" : "Outstanding"}
-                              </Badge>
-                            </TableCell>
-                            {compact ? null : (
-                              <TableCell className="h-9 py-1 text-right tabular-nums">
-                                {row.versionCount}
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <PaginationFooter
-                    page={pagination.page}
-                    pageSize={pagination.pageSize}
-                    total={filtered.length}
-                    onPageChange={pagination.setPage}
-                  />
-                </div>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableShell>
               </>
             )}
           </div>
@@ -562,6 +566,7 @@ function FilesLibraryData({
         panel={
           <FileSpotlight
             eventId={eventId}
+            timezone={timezone}
             data={data}
             row={selectedRow}
             onClose={() => setSearch({ spotlight: undefined, deliverable: deliverableId })}
@@ -628,11 +633,13 @@ function FilesLibraryData({
 
 function FileSpotlight({
   eventId,
+  timezone,
   data,
   row,
   onClose,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: AdminData;
   readonly row: LibraryRow | undefined;
   readonly onClose: () => void;
@@ -717,7 +724,11 @@ function FileSpotlight({
               <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
                 <dt className="text-xs text-muted-foreground">Due</dt>
                 <dd className="text-sm">
-                  {dueAt === null ? "No due date" : day.format(new Date(dueAt))}
+                  {dueAt === null ? (
+                    "No due date"
+                  ) : (
+                    <Timestamp value={dueAt} timezone={timezone} mode="date" />
+                  )}
                 </dd>
               </div>
               {requirement === undefined ? (
@@ -773,27 +784,15 @@ function FileSpotlight({
                   </dt>
                   <dd className="flex min-w-0 flex-wrap gap-1.5">
                     {row.contacts.map((contact) => (
-                      <PersonHoverCard
+                      <SpeakerBadge
                         key={contact.id}
+                        linkToSpotlight
                         person={{
                           id: contact.id,
                           name: `${contact.firstName} ${contact.lastName}`,
                           image: contact.headshotUrl,
                         }}
-                      >
-                        <Link
-                          to="/admin/speakers"
-                          search={{ spotlight: contact.id }}
-                          className="pressable rounded-md"
-                        >
-                          <PersonTag
-                            person={{
-                              name: `${contact.firstName} ${contact.lastName}`,
-                              image: contact.headshotUrl,
-                            }}
-                          />
-                        </Link>
-                      </PersonHoverCard>
+                      />
                     ))}
                   </dd>
                 </div>
@@ -807,6 +806,7 @@ function FileSpotlight({
           ) : (
             <FileThread
               eventId={eventId}
+              timezone={timezone}
               authorName={data.currentUserName}
               upload={upload}
               versions={versions}

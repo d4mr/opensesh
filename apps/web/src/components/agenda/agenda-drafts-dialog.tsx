@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { Timestamp } from "@/components/app/timestamp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,22 +75,14 @@ function DraftStatus({ draft }: { readonly draft: AgendaDraft }) {
   );
 }
 
-const generatedLabel = (draft: AgendaDraft) => {
-  if (draft.generatedAt === null) return "Not generated";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(draft.generatedAt));
-};
-
 function DraftList({
   drafts,
+  timezone,
   compare,
   action,
 }: {
   readonly drafts: ReadonlyArray<AgendaDraft>;
+  readonly timezone: string;
   readonly compare: (draftId: string) => void;
   readonly action: (draft: AgendaDraft, action: AgendaDraftActionRequest["action"]) => void;
 }) {
@@ -123,7 +116,12 @@ function DraftList({
                 <DraftStatus draft={draft} />
               </div>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {generatedLabel(draft)} · {draft.proposal.placements.length} placements
+                {draft.generatedAt === null ? (
+                  "Not generated"
+                ) : (
+                  <Timestamp value={draft.generatedAt} timezone={timezone} />
+                )}{" "}
+                · {draft.proposal.placements.length} placements
               </p>
             </button>
             <DropdownMenu>
@@ -465,7 +463,12 @@ export function AgendaDraftsDialog({
           </div>
         </DialogHeader>
         {mode === "list" ? (
-          <DraftList drafts={drafts} compare={compare} action={action} />
+          <DraftList
+            drafts={drafts}
+            timezone={agenda.event.timezone}
+            compare={compare}
+            action={action}
+          />
         ) : (
           <CriteriaForm agenda={agenda} generate={generate} cancel={() => setMode("list")} />
         )}

@@ -94,4 +94,59 @@ function TableCaption({ className, ...props }: React.ComponentProps<"caption">) 
   );
 }
 
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+// The one way a table (or list) with chrome renders: bordered shell, content
+// scrolling in its own region, column headers stuck to the top of that region,
+// and the footer (paginator) pinned below it. Give the shell height with
+// flex-1/h-* from the caller; never put the footer inside the scroll area.
+function TableShell({
+  footer,
+  scrollRef,
+  className,
+  contentClassName,
+  children,
+}: {
+  readonly footer?: React.ReactNode;
+  readonly scrollRef?: React.Ref<HTMLDivElement>;
+  readonly className?: string;
+  readonly contentClassName?: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-slot="table-shell"
+      className={cn("flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border", className)}
+    >
+      <div
+        ref={scrollRef}
+        className={cn(
+          "min-h-0 flex-1 overflow-auto",
+          "[&_[data-slot=table-container]]:overflow-x-visible",
+          "[&_[data-slot=table-header]]:sticky [&_[data-slot=table-header]]:top-0 [&_[data-slot=table-header]]:z-10 [&_[data-slot=table-header]]:bg-background",
+          // Collapsed tr borders don't travel with a sticky thead; draw the
+          // hairline as an inset shadow on the cells instead.
+          "[&_[data-slot=table-header]_tr]:border-b-0",
+          "[&_[data-slot=table-header]_th]:shadow-[inset_0_-1px_0_0_var(--border)]",
+          // Overlay scrollbars float above content; give the last column a
+          // wider gutter so right-aligned values stay readable while scrolling.
+          "[&_[data-slot=table]_td:last-child]:pr-4 [&_[data-slot=table]_th:last-child]:pr-4",
+          contentClassName,
+        )}
+      >
+        {children}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+  TableShell,
+};

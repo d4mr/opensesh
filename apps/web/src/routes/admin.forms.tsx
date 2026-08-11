@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { StatusBadge } from "@/components/app/status-badge";
+import { Timestamp } from "@/components/app/timestamp";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -56,12 +57,6 @@ export const Route = createFileRoute("/admin/forms")({
   component: FormsList,
 });
 
-const dateFormat = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
-
 function FormsList() {
   const context = useAdminEvent();
   const eventId = context?.event.id;
@@ -83,8 +78,8 @@ function FormsList() {
     await navigate({ to: "/admin/forms/$formId", params: { formId: result.data.id } });
   };
   return (
-    <main className="flex-1 p-4 text-sm lg:p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden p-4 text-sm lg:p-6">
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold">Call for Papers</h1>
           <p className="text-sm text-muted-foreground">
@@ -95,9 +90,14 @@ function FormsList() {
           <PlusIcon /> {creating ? "Creating…" : "Create form"}
         </Button>
       </div>
-      <div className="grid max-w-5xl gap-2">
+      <div className="grid min-h-0 max-w-5xl flex-1 content-start gap-2 overflow-y-auto">
         {forms.data.data.map((form) => (
-          <FormCard key={form.id} form={form} eventSlug={context.event.slug} />
+          <FormCard
+            key={form.id}
+            form={form}
+            eventSlug={context.event.slug}
+            timezone={context.event.timezone}
+          />
         ))}
         {forms.data.data.length === 0 ? (
           <AdminEmptyState
@@ -121,7 +121,15 @@ function FormsList() {
   );
 }
 
-function FormCard({ form, eventSlug }: { readonly form: FormSummary; readonly eventSlug: string }) {
+function FormCard({
+  form,
+  eventSlug,
+  timezone,
+}: {
+  readonly form: FormSummary;
+  readonly eventSlug: string;
+  readonly timezone: string;
+}) {
   const queryClient = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const closed =
@@ -140,7 +148,7 @@ function FormCard({ form, eventSlug }: { readonly form: FormSummary; readonly ev
   };
   return (
     <>
-      <Card className="gap-0 py-0">
+      <Card className="min-w-0 gap-0 py-0">
         <CardContent className="flex items-center gap-3 p-3">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold tabular-nums">
             {form.submissions}
@@ -158,8 +166,14 @@ function FormCard({ form, eventSlug }: { readonly form: FormSummary; readonly ev
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {form.submissions} submissions · {form.drafts} drafts
-              {form.closeDate === null ? "" : ` · Closes ${dateFormat.format(form.closeDate)}`}
-              {` · Created ${dateFormat.format(form.createdAt)}`}
+              {form.closeDate === null ? null : (
+                <>
+                  {" · Closes "}
+                  <Timestamp value={form.closeDate} timezone={timezone} mode="date" />
+                </>
+              )}
+              {" · Created "}
+              <Timestamp value={form.createdAt} timezone={timezone} mode="date" />
             </p>
           </div>
           <Button size="sm" variant="outline" asChild>

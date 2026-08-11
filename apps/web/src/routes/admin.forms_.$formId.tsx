@@ -331,7 +331,7 @@ function FormEditor({
               type="button"
               aria-current={step === index ? "step" : undefined}
               className={cn(
-                "pressable flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors duration-200 [transition-timing-function:var(--ease-out)]",
+                "pressable flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors duration-200 [transition-timing-function:var(--ease-out)]",
                 step === index
                   ? "bg-muted font-medium"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -683,7 +683,7 @@ function FormEditor({
                             <label
                               key={admin.id}
                               className={cn(
-                                "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 transition-colors hover:bg-muted/60",
+                                "flex min-w-0 cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 transition-colors hover:bg-muted/60",
                                 checked && "bg-muted",
                               )}
                             >

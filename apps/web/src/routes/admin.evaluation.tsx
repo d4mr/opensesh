@@ -8,6 +8,7 @@ import { formatDateTime } from "@/components/forms/datetime-picker";
 import { ReviewerEvaluationWorkspace } from "@/components/evaluation/reviewer-workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TableShell } from "@/components/ui/table";
 import { adminEvaluationQuery, reviewerEvaluationQuery } from "@/lib/evaluation-queries";
 
 export const Route = createFileRoute("/admin/evaluation")({
@@ -44,8 +45,8 @@ function EvaluationRoute() {
 
   const rounds = admin.data.data.rounds;
   return (
-    <main className="flex-1 p-4 text-sm lg:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden p-4 text-sm lg:p-6">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Evaluation rounds</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -74,8 +75,8 @@ function EvaluationRoute() {
           }
         />
       ) : (
-        <div className="mt-4 overflow-hidden rounded-lg border">
-          <div className="grid h-8 grid-cols-[minmax(15rem,1.4fr)_minmax(14rem,1fr)_8rem_9rem_11rem_2rem] items-center gap-3 border-b bg-muted/40 px-3 text-[11px] font-medium text-muted-foreground">
+        <TableShell className="mt-4">
+          <div className="sticky top-0 z-10 grid h-8 shrink-0 grid-cols-[minmax(15rem,1.4fr)_minmax(14rem,1fr)_8rem_9rem_11rem_2rem] items-center gap-3 bg-background px-3 text-[11px] font-medium text-muted-foreground shadow-[inset_0_-1px_0_0_var(--border)]">
             <span>Round</span>
             <span>Window</span>
             <span>Review type</span>
@@ -138,7 +139,7 @@ function EvaluationRoute() {
               </Link>
             );
           })}
-        </div>
+        </TableShell>
       )}
     </main>
   );

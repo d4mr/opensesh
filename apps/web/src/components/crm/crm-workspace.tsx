@@ -12,9 +12,11 @@ import {
   FilterXIcon,
   FolderKanbanIcon,
   ListFilterIcon,
+  MailIcon,
   UserPlusIcon,
+  XIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ContactDetail } from "@/components/crm/contact-detail";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
@@ -26,7 +28,8 @@ import {
   SegmentDialog,
 } from "@/components/crm/dialogs";
 import { PipelineBoard } from "@/components/crm/pipeline-board";
-import { filtersFromJson, formatCrmDate } from "@/components/crm/shared";
+import { Timestamp } from "@/components/app/timestamp";
+import { filtersFromJson } from "@/components/crm/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -46,8 +49,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { rememberCrmDirectory, takeCrmDirectoryReturn } from "@/lib/crm-directory-return";
 import { crmContactQuery, crmWorkspaceQuery } from "@/lib/crm-queries";
 import { cn } from "@/lib/utils";
 
@@ -78,8 +83,8 @@ export function CrmWorkspacePage({
       />
     );
   return (
-    <main className="grid gap-4 p-4 text-sm lg:p-6">
-      <div>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 text-sm lg:p-6">
+      <div className="shrink-0">
         <h1 className="text-lg font-semibold tracking-tight">Speaker CRM</h1>
         <p className="text-xs text-muted-foreground">
           {workspace.organization.name} · source and reuse speakers across every event.
@@ -121,22 +126,28 @@ export function CrmWorkspacePage({
             navigate({ tab: "directory", contact: undefined, segment: undefined }, true)
           }
         />
-      ) : tab === "pipeline" ? (
-        <PipelineBoard
-          workspace={workspace}
-          openContact={(id) => navigate({ tab: "pipeline", contact: id, segment: undefined })}
-        />
-      ) : tab === "segments" ? (
-        <Segments
-          workspace={workspace}
-          open={(id) => navigate({ tab: "directory", contact: undefined, segment: id })}
-        />
       ) : (
-        <Overview workspace={workspace} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {tab === "pipeline" ? (
+            <PipelineBoard
+              workspace={workspace}
+              openContact={(id) => navigate({ tab: "pipeline", contact: id, segment: undefined })}
+            />
+          ) : tab === "segments" ? (
+            <Segments
+              workspace={workspace}
+              open={(id) => navigate({ tab: "directory", contact: undefined, segment: id })}
+            />
+          ) : (
+            <Overview workspace={workspace} />
+          )}
+        </div>
       )}
     </main>
   );
 }
+
+const directoryRowId = (row: { readonly contact: { readonly id: string } }) => row.contact.id;
 
 function Directory({
   workspace,
@@ -154,8 +165,21 @@ function Directory({
   // instead of paying a worker→database round trip after the click.
   const prefetchContact = (id: string) => void queryClient.prefetchQuery(crmContactQuery(id));
   const activeSegment = workspace.segments.find((item) => item.id === segmentId);
+  // Consume the return handoff exactly once per mount (client-only mounts —
+  // the return path is always an in-app navigation).
+  const [returned] = useState(() =>
+    typeof window === "undefined" ? null : takeCrmDirectoryReturn(),
+  );
+  const [flashId, setFlashId] = useState(returned?.contactId);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const restoredScroll = useRef(false);
+  const skipSegmentSync = useRef(returned !== null);
   const [filters, setFilters] = useState<CrmDirectoryFilters>(() =>
-    activeSegment === undefined ? emptyCrmFilters : filtersFromJson(activeSegment.filter),
+    returned !== null
+      ? returned.filters
+      : activeSegment === undefined
+        ? emptyCrmFilters
+        : filtersFromJson(activeSegment.filter),
   );
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
@@ -165,6 +189,10 @@ function Directory({
   const [mergeOpen, setMergeOpen] = useState(false);
 
   useEffect(() => {
+    if (skipSegmentSync.current) {
+      skipSegmentSync.current = false;
+      return;
+    }
     if (activeSegment !== undefined) setFilters(filtersFromJson(activeSegment.filter));
   }, [activeSegment]);
 
@@ -174,7 +202,21 @@ function Directory({
   );
   const pages = usePagination(rows, {
     resetKey: `${segmentId ?? "all"}:${filters.search}:${filters.company}:${filters.title}:${filters.tagIds.join(",")}`,
+    spotlightId: flashId,
+    getId: directoryRowId,
   });
+  // Restore the scroll position once pagination has landed on the remembered
+  // row's page, then let the row flash fade.
+  useEffect(() => {
+    if (returned === null || restoredScroll.current) return;
+    const index = rows.findIndex((row) => row.contact.id === returned.contactId);
+    const targetPage = index >= 0 ? Math.floor(index / pages.pageSize) : 0;
+    if (pages.page !== targetPage) return;
+    restoredScroll.current = true;
+    if (scrollRef.current !== null) scrollRef.current.scrollTop = returned.scrollTop;
+    const timer = window.setTimeout(() => setFlashId(undefined), 1600);
+    return () => window.clearTimeout(timer);
+  }, [returned, rows, pages.page, pages.pageSize]);
   const duplicates = useMemo(
     () => findCrmDuplicates(workspace.directory.map((row) => row.contact)),
     [workspace.directory],
@@ -232,8 +274,8 @@ function Directory({
   }
 
   return (
-    <section className="grid gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-medium">Organization directory</h2>
           <p className="text-xs text-muted-foreground">
@@ -331,6 +373,14 @@ function Directory({
         >
           <FilterXIcon /> Clear filters
         </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="pressable"
+          onClick={() => setSegmentOpen(true)}
+        >
+          Save current filters
+        </Button>
       </div>
       {workspace.tags.length === 0 ? null : (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -362,101 +412,118 @@ function Directory({
         </div>
       )}
 
-      <div className="flex min-h-8 items-center gap-2 border-y bg-muted/20 px-2">
-        <span className="text-xs tabular-nums">{selected.size} selected</span>
-        <Button
-          size="xs"
-          variant="outline"
-          className="pressable"
-          disabled={selected.size === 0}
-          onClick={() => setCampaignOpen(true)}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {selected.size === 0 ? null : (
+          <div className="absolute bottom-12 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-background py-1 pr-1 pl-3 shadow-md animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+            <span className="text-xs whitespace-nowrap tabular-nums">{selected.size} selected</span>
+            <Button
+              size="xs"
+              variant="outline"
+              className="pressable"
+              onClick={() => setCampaignOpen(true)}
+            >
+              <MailIcon /> Email selected
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              className="pressable text-muted-foreground"
+              aria-label="Clear selection"
+              onClick={() => setSelected(new Set())}
+            >
+              <XIcon />
+            </Button>
+          </div>
+        )}
+        <TableShell
+          scrollRef={scrollRef}
+          footer={
+            <PaginationFooter
+              page={pages.page}
+              pageSize={pages.pageSize}
+              total={rows.length}
+              onPageChange={pages.setPage}
+            />
+          }
         >
-          Email selected
-        </Button>
-        <Button
-          size="xs"
-          variant="outline"
-          className="pressable"
-          onClick={() => setSegmentOpen(true)}
-        >
-          Save current filters
-        </Button>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/40">
-            <TableRow>
-              <TableHead className="w-10">
-                <Checkbox
-                  aria-label="Select all visible contacts"
-                  checked={rows.length > 0 && rows.every((row) => selected.has(row.contact.id))}
-                  onCheckedChange={(checked) => toggleAll(checked === true)}
-                />
-              </TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead className="text-right">Events</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No contacts match these filters. Clear filters to see the directory.
-                </TableCell>
+                <TableHead className="w-10">
+                  <Checkbox
+                    aria-label="Select all visible contacts"
+                    checked={rows.length > 0 && rows.every((row) => selected.has(row.contact.id))}
+                    onCheckedChange={(checked) => toggleAll(checked === true)}
+                  />
+                </TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Tags</TableHead>
+                <TableHead className="text-right">Events</TableHead>
               </TableRow>
-            ) : (
-              pages.pageItems.map((row) => (
-                <TableRow
-                  key={row.contact.id}
-                  className="h-10 cursor-pointer"
-                  onMouseEnter={() => prefetchContact(row.contact.id)}
-                  onFocus={() => prefetchContact(row.contact.id)}
-                  onClick={() => openContact(row.contact.id)}
-                >
-                  <TableCell className="py-0" onClick={(event) => event.stopPropagation()}>
-                    <Checkbox
-                      aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
-                      checked={selected.has(row.contact.id)}
-                      onCheckedChange={(checked) => toggle(row.contact.id, checked === true)}
-                    />
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    No contacts match these filters. Clear filters to see the directory.
                   </TableCell>
-                  <TableCell className="py-1.5">
-                    <p className="font-medium">
-                      {row.contact.firstName} {row.contact.lastName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{row.contact.email}</p>
-                  </TableCell>
-                  <TableCell>{row.contact.title ?? "—"}</TableCell>
-                  <TableCell>{row.contact.company ?? "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {row.tags.length === 0 ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        row.tags.map((tag) => (
-                          <Badge key={tag.id} variant="secondary">
-                            {tag.name}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{row.events.length}</TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <PaginationFooter
-          page={pages.page}
-          pageSize={pages.pageSize}
-          total={rows.length}
-          onPageChange={pages.setPage}
-        />
+              ) : (
+                pages.pageItems.map((row) => (
+                  <TableRow
+                    key={row.contact.id}
+                    className={cn(
+                      "h-10 cursor-pointer",
+                      row.contact.id === flashId && "spotlight-row-highlight",
+                    )}
+                    onMouseEnter={() => prefetchContact(row.contact.id)}
+                    onFocus={() => prefetchContact(row.contact.id)}
+                    onClick={() => {
+                      rememberCrmDirectory({
+                        contactId: row.contact.id,
+                        scrollTop: scrollRef.current?.scrollTop ?? 0,
+                        filters,
+                      });
+                      openContact(row.contact.id);
+                    }}
+                  >
+                    <TableCell className="py-0" onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                        checked={selected.has(row.contact.id)}
+                        onCheckedChange={(checked) => toggle(row.contact.id, checked === true)}
+                      />
+                    </TableCell>
+                    <TableCell className="py-1.5">
+                      <p className="font-medium">
+                        {row.contact.firstName} {row.contact.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{row.contact.email}</p>
+                    </TableCell>
+                    <TableCell>{row.contact.title ?? "—"}</TableCell>
+                    <TableCell>{row.contact.company ?? "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {row.tags.length === 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          row.tags.map((tag) => (
+                            <Badge key={tag.id} variant="secondary">
+                              {tag.name}
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{row.events.length}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableShell>
       </div>
 
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} workspace={workspace} />
@@ -632,7 +699,7 @@ function Overview({ workspace }: { readonly workspace: CrmWorkspace }) {
           </div>
         </div>
       </div>
-      <div className="rounded-lg border">
+      <div className="min-w-0 rounded-lg border">
         <div className="flex h-10 items-center justify-between border-b bg-muted/40 px-3">
           <h2 className="text-[13px] font-medium">CRM campaign history</h2>
           <span className="text-[11px] text-muted-foreground">
@@ -651,7 +718,7 @@ function Overview({ workspace }: { readonly workspace: CrmWorkspace }) {
                   <span className="block truncate font-medium">{campaign.subject}</span>
                   <span className="block text-xs text-muted-foreground">
                     {campaign.eventName} · {campaign.recipients.length} recipients ·{" "}
-                    {campaign.sentAt === null ? "Draft" : formatCrmDate(campaign.sentAt)}
+                    {campaign.sentAt === null ? "Draft" : <Timestamp value={campaign.sentAt} />}
                   </span>
                 </span>
                 <Badge variant="outline" className="capitalize">

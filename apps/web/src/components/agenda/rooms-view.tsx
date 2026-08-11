@@ -11,7 +11,15 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { AlertTriangleIcon, GripVerticalIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  AlertTriangleIcon,
+  ExternalLinkIcon,
+  GripVerticalIcon,
+  PlusIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -22,7 +30,7 @@ import {
 } from "react";
 
 import { PersonHoverCard } from "@/components/app/person-popover";
-import { PersonTag } from "@/components/app/person-tag";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -77,16 +85,19 @@ function AgendaSpeakerNames({
       {speakers.map((speaker, index) => (
         <span key={speaker.id}>
           {index === 0 || tags ? null : ", "}
-          <PersonHoverCard
-            side="right"
-            person={{ id: speaker.id, name: speaker.name, image: null }}
-          >
-            {tags ? (
-              <PersonTag person={{ name: speaker.name, image: null }} />
-            ) : (
+          {tags ? (
+            <SpeakerBadge
+              side="right"
+              person={{ id: speaker.id, name: speaker.name, image: null }}
+            />
+          ) : (
+            <PersonHoverCard
+              side="right"
+              person={{ id: speaker.id, name: speaker.name, image: null }}
+            >
               <span>{speaker.name}</span>
-            )}
-          </PersonHoverCard>
+            </PersonHoverCard>
+          )}
         </span>
       ))}
     </>
@@ -127,6 +138,19 @@ function SessionBlock({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `session:${session.id}`,
   });
+  // A drop fires a click on the block; swallow that one so dragging never
+  // pops the peek dialog open.
+  const dragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) dragged.current = true;
+  }, [isDragging]);
+  const clickOpen = () => {
+    if (dragged.current) {
+      dragged.current = false;
+      return;
+    }
+    open();
+  };
   const originalDuration =
     session.startsAt === null || session.endsAt === null
       ? session.durationMinutes
@@ -162,24 +186,28 @@ function SessionBlock({
       {...listeners}
       {...attributes}
       data-agenda-session={session.id}
+      onClick={clickOpen}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        open();
+      }}
       className={cn(
-        "group absolute inset-x-1 z-10 touch-none overflow-hidden rounded-md border border-l-[3px] bg-card px-2 py-1 text-left transition-[opacity,box-shadow] duration-150",
+        "group absolute inset-x-1 z-10 cursor-pointer touch-none overflow-hidden rounded-md border border-l-[3px] bg-card px-2 py-1 text-left transition-[opacity,box-shadow,background-color] duration-150 hover:bg-muted/50",
         conflicted ? "ring-2 ring-destructive ring-inset" : "",
         highlighted ? "agenda-highlight" : "",
         isDragging ? "opacity-30" : "",
       )}
     >
-      <button type="button" className="block w-full text-left" onClick={open}>
-        <span className="flex items-start gap-1.5">
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{session.title}</span>
-          {conflicted ? (
-            <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-          ) : null}
-        </span>
-        <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground tabular-nums">
-          {session.code} · <AgendaSpeakerNames speakers={session.speakers} />
-        </span>
-      </button>
+      <span className="flex items-start gap-1.5">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{session.title}</span>
+        {conflicted ? (
+          <AlertTriangleIcon className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+        ) : null}
+      </span>
+      <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground tabular-nums">
+        {session.code} · <AgendaSpeakerNames speakers={session.speakers} />
+      </span>
       <button
         type="button"
         aria-label={`Remove ${session.title} from agenda`}
@@ -197,6 +225,7 @@ function SessionBlock({
         aria-label={`Resize ${session.title}`}
         tabIndex={0}
         className="agenda-resize-handle absolute inset-x-0 bottom-0 h-2 cursor-ns-resize touch-none"
+        onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => {
           event.stopPropagation();
           event.currentTarget.setPointerCapture(event.pointerId);
@@ -234,10 +263,20 @@ function SessionBlock({
   );
 }
 
-function PoolSession({ session }: { readonly session: AgendaSession }) {
+function PoolSession({
+  session,
+  open,
+}: {
+  readonly session: AgendaSession;
+  readonly open: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `session:${session.id}`,
   });
+  const dragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) dragged.current = true;
+  }, [isDragging]);
   const style: CSSProperties = {
     transform:
       transform === null
@@ -252,8 +291,15 @@ function PoolSession({ session }: { readonly session: AgendaSession }) {
       {...listeners}
       {...attributes}
       type="button"
+      onClick={() => {
+        if (dragged.current) {
+          dragged.current = false;
+          return;
+        }
+        open();
+      }}
       className={cn(
-        "flex w-full touch-none items-start gap-2 border-l-2 px-3 py-2.5 text-left transition-[background-color,opacity]",
+        "flex w-full cursor-pointer touch-none items-start gap-2 border-l-2 px-3 py-2.5 text-left transition-[background-color,opacity] hover:bg-muted/50",
         isDragging ? "opacity-30" : "",
       )}
     >
@@ -328,31 +374,52 @@ function SessionPeek({
         {session === null ? null : (
           <>
             <DialogHeader>
-              <p className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                {session.code}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {session.code}
+                </span>
+                {session.tracks.map((track) => (
+                  <span
+                    key={track.id}
+                    className="rounded-md border px-1.5 py-0.5 text-[11px] font-medium leading-none"
+                    style={{
+                      borderColor: track.color,
+                      color: track.color,
+                      backgroundColor: `color-mix(in srgb, ${track.color} 9%, transparent)`,
+                    }}
+                  >
+                    {track.name}
+                  </span>
+                ))}
+              </div>
               <DialogTitle className="text-base tracking-tight">{session.title}</DialogTitle>
               <DialogDescription>
-                {session.formatName ?? "Session"} · {session.durationMinutes} minutes
+                {session.formatName ?? "Session"} · {session.durationMinutes} minutes ·{" "}
+                {session.startsAt === null
+                  ? "Unscheduled"
+                  : formatTime(session.startsAt, agenda.event.timezone)}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid max-h-[50svh] gap-5 overflow-y-auto text-sm">
-              <div>
-                <p className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                  Speakers
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  <AgendaSpeakerNames speakers={session.speakers} tags />
-                </div>
+            <div className="grid max-h-[50svh] gap-3 overflow-y-auto text-sm">
+              <div className="flex flex-wrap items-center gap-1">
+                <AgendaSpeakerNames speakers={session.speakers} tags />
               </div>
-              <div>
-                <p className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                  Description
-                </p>
+              {session.description.trim().length === 0 ? null : (
                 <p className="leading-relaxed text-muted-foreground">{session.description}</p>
-              </div>
+              )}
             </div>
-            <DialogFooter className="border-t pt-4">
+            <DialogFooter className="border-t pt-4 sm:justify-between">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="pressable text-muted-foreground"
+                asChild
+              >
+                <Link to="/admin/sessions" search={{ status: "all", spotlight: session.id }}>
+                  <ExternalLinkIcon /> Open session
+                </Link>
+              </Button>
               <ScheduleEditor agenda={agenda} session={session} save={save} />
             </DialogFooter>
           </>
@@ -587,7 +654,13 @@ export function RoomsView({
                 No matching sessions.
               </p>
             ) : (
-              pool.map((session) => <PoolSession key={session.id} session={session} />)
+              pool.map((session) => (
+                <PoolSession
+                  key={session.id}
+                  session={session}
+                  open={() => setPeekSession(session)}
+                />
+              ))
             )}
           </div>
         </aside>

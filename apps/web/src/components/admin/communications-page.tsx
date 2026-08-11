@@ -20,12 +20,14 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { WorkflowBadge, workflowLabels } from "@/components/admin/speaker-admin-dialogs";
+import { workflowLabels } from "@/components/admin/speaker-admin-dialogs";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { SpeakerPickerDialog } from "@/components/admin/speaker-picker-dialog";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
+import { Timestamp } from "@/components/app/timestamp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +54,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { communicationCenterQuery } from "@/lib/communication-queries";
@@ -66,22 +69,30 @@ import {
 export function CommunicationsPage() {
   const context = useAdminEvent();
   if (context === null) return null;
-  return <CommunicationsData eventId={context.event.id} />;
+  return <CommunicationsData eventId={context.event.id} timezone={context.event.timezone} />;
 }
 
-function CommunicationsData({ eventId }: { readonly eventId: string }) {
+function CommunicationsData({
+  eventId,
+  timezone,
+}: {
+  readonly eventId: string;
+  readonly timezone: string;
+}) {
   const result = useSuspenseQuery(communicationCenterQuery(eventId));
   if (!result.data.ok) return <p className="p-6 text-sm">{result.data.error.message}</p>;
-  return <Communications eventId={eventId} data={result.data.data} />;
+  return <Communications eventId={eventId} timezone={timezone} data={result.data.data} />;
 }
 
 type CenterData = CommunicationCenter;
 
 function Communications({
   eventId,
+  timezone,
   data,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly data: CenterData;
 }) {
   const queryClient = useQueryClient();
@@ -98,6 +109,7 @@ function Communications({
   const [templateOpen, setTemplateOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate>();
   const [expandedCampaign, setExpandedCampaign] = useState<string>();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: communicationCenterQuery(eventId).queryKey });
   const recipients = useMemo(
@@ -151,8 +163,8 @@ function Communications({
   });
   if (data.contacts.length === 0) {
     return (
-      <main className="grid gap-5 p-4 text-sm lg:p-6">
-        <div>
+      <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-5 overflow-hidden p-4 text-sm lg:p-6">
+        <div className="shrink-0">
           <h1 className="text-lg font-semibold tracking-tight">Communications</h1>
           <p className="text-xs text-muted-foreground">
             Compose resolved speaker campaigns and automate due-task reminders.
@@ -174,8 +186,8 @@ function Communications({
     );
   }
   return (
-    <main className="grid gap-5 p-4 text-sm lg:p-6">
-      <div className="flex items-start justify-between gap-3">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-5 overflow-hidden p-4 text-sm lg:p-6">
+      <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Communications</h1>
           <p className="text-xs text-muted-foreground">
@@ -194,243 +206,267 @@ function Communications({
         </Button>
       </div>
 
-      <section className="grid gap-3 rounded-lg border p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="mr-auto text-sm font-medium">Campaign composer</h2>
-          <Badge variant="secondary" className="tabular-nums">
-            {recipients.length} recipients
-          </Badge>
-        </div>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.8fr)]">
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              <Select
-                value={recipientMode}
-                onValueChange={(value) =>
-                  setRecipientMode(
-                    value === "status" || value === "incomplete" || value === "selected"
-                      ? value
-                      : "all",
-                  )
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All speakers</SelectItem>
-                  <SelectItem value="status">By workflow status</SelectItem>
-                  <SelectItem value="incomplete">Tasks incomplete</SelectItem>
-                  <SelectItem value="selected">Explicit selection</SelectItem>
-                </SelectContent>
-              </Select>
-              {recipientMode !== "status" ? null : (
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+        <section className="grid shrink-0 gap-3 rounded-lg border p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="mr-auto text-sm font-medium">Campaign composer</h2>
+            <Badge variant="secondary" className="tabular-nums">
+              {recipients.length} recipients
+            </Badge>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.8fr)]">
+            <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <Select
-                  value={status}
-                  onValueChange={(value) => {
-                    if (
-                      value === "invited" ||
-                      value === "onboarding" ||
-                      value === "confirmed" ||
-                      value === "ready" ||
-                      value === "declined"
+                  value={recipientMode}
+                  onValueChange={(value) =>
+                    setRecipientMode(
+                      value === "status" || value === "incomplete" || value === "selected"
+                        ? value
+                        : "all",
                     )
-                      setStatus(value);
-                  }}
+                  }
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(workflowLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
+                    <SelectItem value="all">All speakers</SelectItem>
+                    <SelectItem value="status">By workflow status</SelectItem>
+                    <SelectItem value="incomplete">Tasks incomplete</SelectItem>
+                    <SelectItem value="selected">Explicit selection</SelectItem>
+                  </SelectContent>
+                </Select>
+                {recipientMode !== "status" ? null : (
+                  <Select
+                    value={status}
+                    onValueChange={(value) => {
+                      if (
+                        value === "invited" ||
+                        value === "onboarding" ||
+                        value === "confirmed" ||
+                        value === "ready" ||
+                        value === "declined"
+                      )
+                        setStatus(value);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(workflowLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Select
+                  value={templateId ?? "custom"}
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      setTemplateId(null);
+                      return;
+                    }
+                    const template = data.templates.find((item) => item.id === value);
+                    setTemplateId(value);
+                    if (template !== undefined) {
+                      setSubject(template.subjectTemplate);
+                      setBody(template.bodyTemplate);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">Custom message</SelectItem>
+                    {data.templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
-              <Select
-                value={templateId ?? "custom"}
-                onValueChange={(value) => {
-                  if (value === "custom") {
-                    setTemplateId(null);
-                    return;
-                  }
-                  const template = data.templates.find((item) => item.id === value);
-                  setTemplateId(value);
-                  if (template !== undefined) {
-                    setSubject(template.subjectTemplate);
-                    setBody(template.bodyTemplate);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose template" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="custom">Custom message</SelectItem>
-                  {data.templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {recipientMode !== "selected" ? null : (
-              <div className="grid max-h-36 gap-0.5 overflow-auto rounded-lg border p-1.5">
-                {data.contacts.map((contact) => (
-                  <label
-                    key={contact.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 ${selectedIds.has(contact.id) ? "bg-muted" : "hover:bg-muted/60"}`}
+              </div>
+              {recipientMode !== "selected" ? null : (
+                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
+                  {recipients.length === 0 ? (
+                    <span className="px-1.5 text-xs text-muted-foreground">
+                      No speakers selected yet.
+                    </span>
+                  ) : (
+                    <>
+                      {recipients.slice(0, 8).map((contact) => (
+                        <SpeakerBadge
+                          key={contact.id}
+                          person={{
+                            id: contact.id,
+                            name: `${contact.firstName} ${contact.lastName}`,
+                            image: contact.headshotUrl,
+                          }}
+                        />
+                      ))}
+                      {recipients.length > 8 ? (
+                        <span className="px-1 text-xs text-muted-foreground tabular-nums">
+                          +{recipients.length - 8} more
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    className="pressable ml-auto"
+                    onClick={() => setPickerOpen(true)}
                   >
-                    <Checkbox
-                      checked={selectedIds.has(contact.id)}
-                      onCheckedChange={(checked) =>
-                        setSelectedIds((current) => {
-                          const next = new Set(current);
-                          if (checked === true) next.add(contact.id);
-                          else next.delete(contact.id);
-                          return next;
-                        })
-                      }
-                    />
-                    <span className="min-w-0 flex-1 truncate">
-                      {contact.firstName} {contact.lastName}
-                    </span>
-                    <WorkflowBadge status={contact.workflowStatus} />
-                  </label>
-                ))}
-              </div>
-            )}
-            <div className="grid gap-1.5">
-              <Label>Subject</Label>
-              <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Message</Label>
-                <div className="flex flex-wrap justify-end gap-1">
-                  {campaignMergeTokens.map((token) => (
-                    <Button
-                      key={token}
-                      type="button"
-                      size="xs"
-                      variant="outline"
-                      onClick={() => setBody((current) => `${current}{${token}}`)}
-                    >{`{${token}}`}</Button>
-                  ))}
+                    <UsersIcon />
+                    {recipients.length === 0 ? "Choose speakers" : "Edit selection"}
+                  </Button>
                 </div>
+              )}
+              <div className="grid gap-1.5">
+                <Label>Subject</Label>
+                <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
               </div>
-              <Textarea
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                className="min-h-32"
-              />
+              <div className="grid gap-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Message</Label>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {campaignMergeTokens.map((token) => (
+                      <Button
+                        key={token}
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        onClick={() => setBody((current) => `${current}{${token}}`)}
+                      >{`{${token}}`}</Button>
+                    ))}
+                  </div>
+                </div>
+                <Textarea
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  className="min-h-32"
+                />
+              </div>
             </div>
-          </div>
-          <div className="grid content-start gap-2 rounded-lg border bg-muted/20 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Resolved preview
+            <div className="grid content-start gap-2 rounded-lg border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Resolved preview
+                </p>
+                <Select value={preview?.id ?? ""} onValueChange={setPreviewId}>
+                  <SelectTrigger className="h-7 w-44">
+                    <SelectValue placeholder="Recipient" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recipients.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.firstName} {contact.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="font-medium">{resolveMergeFields(subject, fields)}</p>
+              <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
+                {resolveMergeFields(body, fields)}
               </p>
-              <Select value={preview?.id ?? ""} onValueChange={setPreviewId}>
-                <SelectTrigger className="h-7 w-44">
-                  <SelectValue placeholder="Recipient" />
-                </SelectTrigger>
-                <SelectContent>
-                  {recipients.map((contact) => (
-                    <SelectItem key={contact.id} value={contact.id}>
-                      {contact.firstName} {contact.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-            <p className="font-medium">{resolveMergeFields(subject, fields)}</p>
-            <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-              {resolveMergeFields(body, fields)}
-            </p>
           </div>
-        </div>
-        <div className="flex justify-end border-t pt-3">
-          <Button
-            disabled={
-              send.isPending ||
-              recipients.length === 0 ||
-              subject.trim() === "" ||
-              body.trim() === ""
-            }
-            onClick={() => send.mutate()}
-          >
-            <SendIcon /> {send.isPending ? "Sending…" : `Send to ${recipients.length}`}
-          </Button>
-        </div>
-      </section>
+          <div className="flex justify-end border-t pt-3">
+            <Button
+              disabled={
+                send.isPending ||
+                recipients.length === 0 ||
+                subject.trim() === "" ||
+                body.trim() === ""
+              }
+              onClick={() => send.mutate()}
+            >
+              <SendIcon /> {send.isPending ? "Sending…" : `Send to ${recipients.length}`}
+            </Button>
+          </div>
+        </section>
 
-      <TemplateList
-        eventId={eventId}
-        templates={data.templates}
-        edit={(template) => {
-          setEditingTemplate(template);
-          setTemplateOpen(true);
-        }}
-        refresh={refresh}
-      />
-      <ReminderSettings eventId={eventId} rules={data.reminderRules} refresh={refresh} />
+        <TemplateList
+          eventId={eventId}
+          templates={data.templates}
+          edit={(template) => {
+            setEditingTemplate(template);
+            setTemplateOpen(true);
+          }}
+          refresh={refresh}
+        />
+        <ReminderSettings
+          eventId={eventId}
+          timezone={timezone}
+          rules={data.reminderRules}
+          refresh={refresh}
+        />
 
-      <section className="grid gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Campaign history</h2>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {data.campaigns.length} campaigns
-          </span>
-        </div>
-        <div className="divide-y rounded-lg border">
-          {data.campaigns.length === 0 ? (
-            <p className="px-3 py-8 text-center text-xs text-muted-foreground">
-              Send a campaign to create history.
-            </p>
-          ) : (
-            data.campaigns.map((entry) => (
-              <div key={entry.campaign.id}>
-                <button
-                  type="button"
-                  className="pressable flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
-                  onClick={() =>
-                    setExpandedCampaign((current) =>
-                      current === entry.campaign.id ? undefined : entry.campaign.id,
-                    )
-                  }
-                >
-                  <MailIcon className="size-4 text-muted-foreground" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {entry.campaign.subjectSnapshot}
+        <section className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Campaign history</h2>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {data.campaigns.length} campaigns
+            </span>
+          </div>
+          <div className="min-w-0 divide-y rounded-lg border">
+            {data.campaigns.length === 0 ? (
+              <p className="px-3 py-8 text-center text-xs text-muted-foreground">
+                Send a campaign to create history.
+              </p>
+            ) : (
+              data.campaigns.map((entry) => (
+                <div key={entry.campaign.id}>
+                  <button
+                    type="button"
+                    className="pressable flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
+                    onClick={() =>
+                      setExpandedCampaign((current) =>
+                        current === entry.campaign.id ? undefined : entry.campaign.id,
+                      )
+                    }
+                  >
+                    <MailIcon className="size-4 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {entry.campaign.subjectSnapshot}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {entry.templateName ?? "Custom message"}
+                      </span>
                     </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {entry.templateName ?? "Custom message"}
-                    </span>
-                  </span>
-                  <Badge variant="secondary" className="tabular-nums">
-                    {entry.recipients.length} recipients
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.campaign.sentAt === null ? "Draft" : formatDate(entry.campaign.sentAt)}
-                  </span>
-                  <ChevronDownIcon
-                    className={`size-4 ${expandedCampaign === entry.campaign.id ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {expandedCampaign !== entry.campaign.id ? null : (
-                  <CampaignRecipients recipients={entry.recipients} />
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+                    <Badge variant="secondary" className="tabular-nums">
+                      {entry.recipients.length} recipients
+                    </Badge>
+                    {entry.campaign.sentAt === null ? (
+                      <span className="text-xs text-muted-foreground">Draft</span>
+                    ) : (
+                      <Timestamp
+                        value={entry.campaign.sentAt}
+                        timezone={timezone}
+                        className="text-xs text-muted-foreground"
+                      />
+                    )}
+                    <ChevronDownIcon
+                      className={`size-4 ${expandedCampaign === entry.campaign.id ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {expandedCampaign !== entry.campaign.id ? null : (
+                    <CampaignRecipients recipients={entry.recipients} />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
       <TemplateDialog
         key={editingTemplate?.id ?? "new"}
         eventId={eventId}
@@ -438,6 +474,15 @@ function Communications({
         open={templateOpen}
         onOpenChange={setTemplateOpen}
         refresh={refresh}
+      />
+      <SpeakerPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        contacts={data.contacts}
+        value={selectedIds}
+        onChange={setSelectedIds}
+        title="Select recipients"
+        description="Search and filter the speaker directory, then pick who receives this campaign."
       />
     </main>
   );
@@ -451,7 +496,17 @@ function CampaignRecipients({
   const pages = usePagination(recipients);
   return (
     <div className="border-t bg-muted/20 p-2">
-      <div className="overflow-hidden rounded-md border bg-background">
+      <TableShell
+        className="max-h-80 bg-background"
+        footer={
+          <PaginationFooter
+            page={pages.page}
+            pageSize={pages.pageSize}
+            total={recipients.length}
+            onPageChange={pages.setPage}
+          />
+        }
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -477,13 +532,7 @@ function CampaignRecipients({
             ))}
           </TableBody>
         </Table>
-        <PaginationFooter
-          page={pages.page}
-          pageSize={pages.pageSize}
-          total={recipients.length}
-          onPageChange={pages.setPage}
-        />
-      </div>
+      </TableShell>
     </div>
   );
 }
@@ -517,7 +566,7 @@ function TemplateList({
           {templates.length} templates
         </span>
       </div>
-      <div className="divide-y rounded-lg border">
+      <div className="min-w-0 divide-y rounded-lg border">
         {templates.map((template) => (
           <div key={template.id} className="flex items-center gap-2 px-3 py-2">
             <div className="min-w-0 flex-1">
@@ -635,10 +684,12 @@ function TemplateDialog({
 
 function ReminderSettings({
   eventId,
+  timezone,
   rules,
   refresh,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly rules: CenterData["reminderRules"];
   readonly refresh: () => Promise<unknown>;
 }) {
@@ -692,7 +743,8 @@ function ReminderSettings({
           <span className="text-xs text-muted-foreground">Never run</span>
         ) : (
           <span className="text-xs text-muted-foreground">
-            Last run {formatDate(rule.lastRunAt)}
+            Last run{" "}
+            <Timestamp value={rule.lastRunAt} timezone={timezone} className="tabular-nums" />
           </span>
         )}
       </div>
@@ -729,11 +781,3 @@ function ReminderSettings({
     </section>
   );
 }
-
-const formatDate = (value: Date) =>
-  new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));

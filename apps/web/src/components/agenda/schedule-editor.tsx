@@ -122,7 +122,8 @@ export function ScheduleEditor({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-3">
         <div className="grid gap-3">
-          <div className="space-y-1">
+          {/* min-w-0 so the truncated title cannot inflate the popover's grid column */}
+          <div className="min-w-0 space-y-1">
             <h4 className="text-sm leading-none font-medium">Schedule session</h4>
             <p className="truncate text-xs text-muted-foreground">{session.title}</p>
           </div>

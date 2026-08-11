@@ -4,6 +4,7 @@ import { CalendarClockIcon, ExternalLinkIcon, FileInputIcon } from "lucide-react
 import { lazy, Suspense } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { Timestamp } from "@/components/app/timestamp";
 import { DashboardAttention } from "@/components/dashboard-attention";
 import { ProgramLifecycle } from "@/components/dashboard-lifecycle";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
@@ -27,11 +28,14 @@ export const Route = createFileRoute("/admin/")({
   component: Dashboard,
 });
 
-const closesIn = (closeDate: Date) => {
+// Pinned to the event timezone so SSR (UTC worker) and the client agree.
+const closesIn = (closeDate: Date, timezone: string) => {
   const days = Math.ceil((closeDate.getTime() - Date.now()) / 86_400_000);
-  const label = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
-    closeDate,
-  );
+  const label = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: timezone,
+  }).format(closeDate);
   return days > 0 ? `CFP closes ${label} · ${days}d` : `CFP closed ${label}`;
 };
 
@@ -49,10 +53,12 @@ function Dashboard() {
         <div className="flex flex-col gap-4 py-4 md:gap-6">
           <div className="flex items-center justify-between gap-3 px-4 lg:px-6">
             <div className="flex items-center gap-2">
-              {data.cfpCloseDate === null ? null : (
+              {data.cfpCloseDate === null || context === null ? null : (
                 <Badge variant="outline" className="gap-1.5">
                   <CalendarClockIcon className="size-3" />
-                  {closesIn(data.cfpCloseDate)}
+                  <Timestamp value={data.cfpCloseDate} timezone={context.event.timezone}>
+                    {closesIn(data.cfpCloseDate, context.event.timezone)}
+                  </Timestamp>
                 </Badge>
               )}
             </div>

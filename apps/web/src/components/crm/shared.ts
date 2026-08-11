@@ -9,15 +9,6 @@ export const filtersFromJson = (value: Readonly<Record<string, unknown>>): CrmDi
     : [],
 });
 
-export const formatCrmDate = (value: Date) =>
-  new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-
 export const parseCsv = (source: string): ReadonlyArray<ReadonlyArray<string>> => {
   const rows: Array<Array<string>> = [];
   let row: Array<string> = [];

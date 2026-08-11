@@ -9,6 +9,7 @@ import { Building2Icon, MailPlusIcon, Trash2Icon, UserPlusIcon, UsersIcon } from
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { Timestamp } from "@/components/app/timestamp";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -696,8 +697,7 @@ function InvitationRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{invitation.email}</p>
         <p className="text-xs text-muted-foreground">
-          Expires{" "}
-          {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(invitation.expiresAt)}
+          Expires <Timestamp value={invitation.expiresAt} mode="date" />
         </p>
       </div>
       <Badge variant="outline" className="text-muted-foreground">

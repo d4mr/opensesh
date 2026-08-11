@@ -64,14 +64,14 @@ function EventLibrary() {
   if (!library.data.ok) return <p className="p-6 text-sm">{library.data.error.message}</p>;
   const data = library.data.data;
   return (
-    <main className="flex-1 p-4 pb-14 text-sm lg:p-6 lg:pb-14">
-      <div className="mb-4">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden p-4 text-sm lg:p-6">
+      <div className="mb-4 shrink-0">
         <h1 className="text-lg font-semibold">Program library</h1>
         <p className="text-sm text-muted-foreground">
           Reusable values for forms, submissions, and agenda planning.
         </p>
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pb-14 xl:grid-cols-2">
         <LibrarySection eventId={eventId} kind="track" title="Tracks" rows={data.tracks} />
         <LibrarySection eventId={eventId} kind="format" title="Formats" rows={data.formats} />
         <LibrarySection eventId={eventId} kind="room" title="Rooms" rows={data.rooms} />

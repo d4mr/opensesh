@@ -322,7 +322,7 @@ function PipelineCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-md border bg-background p-2.5 transition-opacity",
+        "min-w-0 rounded-md border bg-background p-2.5 transition-opacity",
         isDragging ? "opacity-30" : "",
       )}
     >

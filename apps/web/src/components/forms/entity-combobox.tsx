@@ -181,16 +181,27 @@ export function EntityCombobox<T extends EntityItem>(props: EntityComboboxProps<
         collisionPadding={8}
         className={cn("w-[var(--radix-popover-trigger-width)] min-w-64 p-0", contentClassName)}
       >
-        <Command shouldFilter={loadItems === undefined}>
-          <CommandInput value={query} onValueChange={setQuery} placeholder={searchPlaceholder} />
+        <Command shouldFilter={loadItems === undefined} className="relative">
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder={searchPlaceholder}
+            className="pr-20"
+          />
+          {/* Whisper inside the fixed-height input row — results below never shift. */}
+          <span
+            role="status"
+            aria-live="polite"
+            className={cn(
+              "pointer-events-none absolute top-0 right-3 flex h-9 items-center text-xs text-muted-foreground transition-opacity duration-200",
+              searching ? "opacity-100" : "opacity-0",
+            )}
+          >
+            {searching ? "Searching…" : null}
+          </span>
           <CommandList>
-            {searching ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground" role="status">
-                Searching…
-              </div>
-            ) : null}
             <CommandEmpty>
-              {searching ? null : <span className="text-muted-foreground">{emptyText}</span>}
+              {searching ? " " : <span className="text-muted-foreground">{emptyText}</span>}
             </CommandEmpty>
             <CommandGroup>
               {visibleItems.map((item) => {

@@ -66,8 +66,10 @@ export const formatTime = (value: string, timezone: string) =>
     minute: "2-digit",
   }).format(new Date(value));
 
+// The dateKey is already a calendar date — format its noon-UTC instant in UTC
+// so every browser timezone (and the UTC SSR worker) shows the same day.
 export const formatDay = (dateKey: string) =>
-  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(
     new Date(`${dateKey}T12:00:00.000Z`),
   );
 
@@ -76,6 +78,7 @@ export const formatLongDay = (dateKey: string) =>
     weekday: "long",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   }).format(new Date(`${dateKey}T12:00:00.000Z`));
 
 export const timeInputValue = (value: string, timezone: string) => {

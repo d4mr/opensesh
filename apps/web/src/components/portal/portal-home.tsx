@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 
 const initials = (firstName: string, lastName: string) =>
@@ -37,102 +36,111 @@ export function PortalHome() {
     })[0];
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-3 px-4 py-5 md:grid-cols-2">
-      <Card className={enter ? "portal-home-card portal-home-card-1" : undefined}>
-        <CardHeader className="border-b py-3">
-          <CardTitle className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2">
+    <main className="h-[calc(100svh-3rem)] overflow-y-auto">
+      <div className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 py-8 md:grid-cols-2">
+        <section
+          className={`min-w-0 rounded-xl border bg-card ${enter ? "portal-home-card portal-home-card-1" : ""}`}
+        >
+          <header className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
+            <h2 className="flex items-center gap-2 text-sm font-medium">
               <CalendarDaysIcon className="size-4" /> My Submissions
-            </span>
+            </h2>
             <Link
               to="/portal/$section"
               params={{ section: "submissions" }}
               search={{ spotlight: undefined }}
-              className="text-xs text-primary"
+              className="text-xs font-medium text-primary"
             >
               View all
             </Link>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="divide-y p-0">
-          {data.submissions.map(({ submission, format }) => (
-            <div key={submission.id} className="flex items-center justify-between gap-4 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">
-                  <span className="font-mono tabular-nums">{submission.code}</span> —{" "}
-                  {submission.title}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {format?.name ?? "Format pending"}
-                </p>
-              </div>
-              <StatusBadge status={submission.status} className="shrink-0 px-2 py-1" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className={enter ? "portal-home-card portal-home-card-2" : undefined}>
-        <CardHeader className="border-b py-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <UserRoundIcon className="size-4" /> My Profile
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-3 py-4">
-          <Avatar className="size-12 rounded-md">
-            <AvatarImage src={data.contact.headshotUrl ?? undefined} alt="" />
-            <AvatarFallback className="rounded-md">
-              {initials(data.contact.firstName, data.contact.lastName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold">
-              {data.contact.firstName} {data.contact.lastName}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">{data.contact.email}</p>
-            {data.contact.bio === null ? (
+          </header>
+          <div className="divide-y">
+            {data.submissions.map(({ submission, format }) => (
               <Link
+                key={submission.id}
                 to="/portal/$section"
-                params={{ section: "profile" }}
-                search={{ spotlight: undefined }}
-                className="mt-1 inline-block text-xs font-medium text-primary"
+                params={{ section: "submissions" }}
+                search={{ spotlight: submission.id }}
+                className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/40"
               >
-                Add your bio
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    <span className="font-mono text-xs tabular-nums">{submission.code}</span>
+                    <span className="mx-1.5 text-muted-foreground">—</span>
+                    {submission.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {format?.name ?? "Format pending"}
+                  </p>
+                </div>
+                <StatusBadge status={submission.status} className="shrink-0" />
               </Link>
-            ) : (
-              <p className="mt-1 text-xs text-muted-foreground">Profile ready</p>
-            )}
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </section>
 
-      <Card className={`md:col-span-2 ${enter ? "portal-home-card portal-home-card-3" : ""}`}>
-        <CardHeader className="border-b py-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <CheckSquareIcon className="size-4" /> Tasks
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-between gap-4 py-4">
-          <div>
-            <p className="text-lg font-semibold tabular-nums">
-              {done} of {data.tasks.length} tasks done
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {next?.template.dueDate === null || next === undefined
-                ? "You are all caught up."
-                : `Next due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: data.event.timezone }).format(new Date(next.template.dueDate))}: ${next.template.title}`}
-            </p>
+        <section
+          className={`min-w-0 rounded-xl border bg-card ${enter ? "portal-home-card portal-home-card-2" : ""}`}
+        >
+          <header className="flex items-center gap-2 border-b px-4 py-2.5 text-sm font-medium">
+            <UserRoundIcon className="size-4" /> My Profile
+          </header>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <Avatar className="size-11 rounded-md">
+              <AvatarImage src={data.contact.headshotUrl ?? undefined} alt="" />
+              <AvatarFallback className="rounded-md">
+                {initials(data.contact.firstName, data.contact.lastName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="text-sm font-medium">
+                {data.contact.firstName} {data.contact.lastName}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{data.contact.email}</p>
+              {data.contact.bio === null ? (
+                <Link
+                  to="/portal/$section"
+                  params={{ section: "profile" }}
+                  search={{ spotlight: undefined }}
+                  className="mt-0.5 inline-block text-xs font-medium text-primary"
+                >
+                  Add your bio
+                </Link>
+              ) : (
+                <p className="mt-0.5 text-xs text-muted-foreground">Profile ready</p>
+              )}
+            </div>
           </div>
-          <Link
-            to="/portal/$section"
-            params={{ section: "tasks" }}
-            search={{ spotlight: undefined }}
-            className="pressable rounded-md border px-3 py-1.5 text-xs font-medium"
-          >
-            Open tasks
-          </Link>
-        </CardContent>
-      </Card>
+        </section>
+
+        <section
+          className={`md:col-span-2 min-w-0 rounded-xl border bg-card ${enter ? "portal-home-card portal-home-card-3" : ""}`}
+        >
+          <header className="flex items-center gap-2 border-b px-4 py-2.5 text-sm font-medium">
+            <CheckSquareIcon className="size-4" /> Tasks
+          </header>
+          <div className="flex items-center justify-between gap-4 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold tabular-nums">
+                {done} of {data.tasks.length} tasks done
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {next?.template.dueDate === null || next === undefined
+                  ? "You are all caught up."
+                  : `Next due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: data.event.timezone }).format(new Date(next.template.dueDate))}: ${next.template.title}`}
+              </p>
+            </div>
+            <Link
+              to="/portal/$section"
+              params={{ section: "tasks" }}
+              search={{ spotlight: undefined }}
+              className="pressable rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted/50"
+            >
+              Open tasks
+            </Link>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

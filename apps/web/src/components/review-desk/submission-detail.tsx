@@ -20,10 +20,10 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
-import { PersonTag } from "@/components/app/person-tag";
-import { PersonHoverCard } from "@/components/app/person-popover";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { SpeakerRow } from "@/components/app/speaker-row";
 import { SpotlightPanelHeader } from "@/components/app/spotlight";
+import { Timestamp } from "@/components/app/timestamp";
 import { StatusBadge } from "@/components/app/status-badge";
 import { formatDateTime } from "@/components/forms/datetime-picker";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
@@ -43,11 +43,6 @@ import { cn } from "@/lib/utils";
 import { changeSubmissionStatus, getReviewDeskDetail } from "@/server-fns/review-desk";
 
 type DetailResult = Awaited<ReturnType<typeof getReviewDeskDetail>>;
-
-const dateTime = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 function ReviewBadge({ review }: { readonly review: ReviewDeskReview }) {
   const className =
@@ -150,7 +145,9 @@ export function SubmissionDetail({
     <main
       className={cn(
         "text-sm",
-        variant === "page" ? "flex-1 p-4 lg:p-6" : "flex h-full min-h-0 flex-col",
+        variant === "page"
+          ? "flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden"
+          : "flex h-full min-h-0 flex-col",
       )}
     >
       {variant === "spotlight" ? (
@@ -177,7 +174,11 @@ export function SubmissionDetail({
         />
       ) : null}
       <div
-        className={variant === "spotlight" ? "min-h-0 flex-1 overflow-y-auto p-3 pb-16" : undefined}
+        className={
+          variant === "spotlight"
+            ? "min-h-0 flex-1 overflow-y-auto p-3 pb-16"
+            : "min-h-0 flex-1 overflow-y-auto p-4 lg:p-6"
+        }
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
@@ -218,10 +219,11 @@ export function SubmissionDetail({
             variant === "page" ? "grid xl:grid-cols-[minmax(0,1fr)_22rem]" : "space-y-3",
           )}
         >
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             {submission.kind !== "session" || contentSubmission === undefined ? null : (
               <SessionContentEditor
                 eventId={eventId}
+                timezone={context.event.timezone}
                 submission={contentSubmission}
                 history={contentHistory}
               />
@@ -270,7 +272,7 @@ export function SubmissionDetail({
             </DetailSection>
           </div>
 
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <DetailSection title="Decision" className="space-y-3 p-3">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Current status</span>
@@ -304,7 +306,7 @@ export function SubmissionDetail({
                 data.reviews.map((review) => (
                   <div key={review.id} className="space-y-2 px-3 py-2.5">
                     <div className="flex items-center gap-2">
-                      <PersonHoverCard
+                      <SpeakerBadge
                         person={{
                           name: review.reviewerName,
                           image: review.reviewerImage,
@@ -313,11 +315,7 @@ export function SubmissionDetail({
                           bio: null,
                           status: null,
                         }}
-                      >
-                        <PersonTag
-                          person={{ name: review.reviewerName, image: review.reviewerImage }}
-                        />
-                      </PersonHoverCard>
+                      />
                       <ReviewBadge review={review} />
                       <span className="ml-auto text-xs font-medium tabular-nums">
                         {review.score ?? "—"}/5
@@ -337,7 +335,9 @@ export function SubmissionDetail({
                   <CircleIcon className="mt-1 size-2.5 fill-muted-foreground text-muted-foreground" />
                   <div>
                     <p className="text-xs font-medium">{activity.label}</p>
-                    <p className="text-xs text-muted-foreground">{dateTime.format(activity.at)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <Timestamp value={activity.at} timezone={context.event.timezone} />
+                    </p>
                   </div>
                 </div>
               ))}

@@ -10,7 +10,7 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
       role="navigation"
       aria-label="pagination"
       data-slot="pagination"
-      className={cn("mx-auto flex w-full justify-center", className)}
+      className={cn("mx-auto flex w-full items-center justify-center", className)}
       {...props}
     />
   );
@@ -141,15 +141,15 @@ export function PaginationFooter({
   return (
     <div
       className={cn(
-        "flex h-9 items-center justify-between border-t px-2 text-xs text-muted-foreground",
+        "flex h-9 shrink-0 items-center justify-between border-t bg-background px-2 text-xs text-muted-foreground",
         className,
       )}
     >
       <span className="tabular-nums">
         Showing {first}–{last} of {total}
       </span>
-      <Pagination className="mx-0 w-auto justify-end">
-        <span className="mr-1 tabular-nums">
+      <Pagination className="mx-0 w-auto justify-end gap-1">
+        <span className="tabular-nums leading-none">
           Page {page + 1} of {pageCount}
         </span>
         <Button

@@ -18,9 +18,9 @@ import { toast } from "sonner";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { ChangeDiff } from "@/components/app/change-diff";
-import { PersonHoverCard } from "@/components/app/person-popover";
-import { PersonTag } from "@/components/app/person-tag";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { Timestamp } from "@/components/app/timestamp";
 import { TaskTemplateDialog } from "@/components/admin/portal-admin";
 import {
   CsvImportDialog,
@@ -58,6 +58,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { describeChangedFields, profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
@@ -103,14 +104,12 @@ const readinessToneClass: Readonly<Record<"accepted" | "pending" | "declined", s
   declined: "bg-[var(--status-declined)]",
 };
 
-const shortDate = (value: Date, timezone?: string) =>
+// Pinned to the event timezone so SSR (UTC worker) and the client render
+// identical text — an unpinned formatter hydration-mismatches.
+const shortDate = (value: Date, timezone: string) =>
   new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: timezone }).format(
     new Date(value),
   );
-const fullDateTime = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 const hasRichText = (value: string | null) =>
   value !== null && value.replace(/<[^>]*>/g, "").trim().length > 0;
@@ -550,122 +549,124 @@ function Directory({
                     {filtered.length} of {rows.length} speaker{rows.length === 1 ? "" : "s"}
                   </p>
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-                  <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                    <Table containerClassName="overflow-visible">
-                      <TableHeader className="sticky top-0 z-10 bg-background">
+                <TableShell
+                  scrollRef={scrollRef}
+                  footer={
+                    <PaginationFooter
+                      page={pages.page}
+                      pageSize={pages.pageSize}
+                      total={filtered.length}
+                      onPageChange={pages.setPage}
+                    />
+                  }
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-9">
+                          <Checkbox
+                            checked={allVisibleSelected}
+                            aria-label="Select all visible speakers"
+                            onCheckedChange={(checked) =>
+                              setSelectedIds(
+                                checked === true
+                                  ? new Set(filtered.map((row) => row.contact.id))
+                                  : new Set(),
+                              )
+                            }
+                          />
+                        </TableHead>
+                        <TableHead>Speaker</TableHead>
+                        {compact ? null : <TableHead>Role</TableHead>}
+                        {compact ? null : <TableHead>Profile readiness</TableHead>}
+                        {compact ? null : <TableHead>Workflow</TableHead>}
+                        {compact ? null : <TableHead>Task progress</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.length === 0 ? (
                         <TableRow>
-                          <TableHead className="w-9">
-                            <Checkbox
-                              checked={allVisibleSelected}
-                              aria-label="Select all visible speakers"
-                              onCheckedChange={(checked) =>
-                                setSelectedIds(
-                                  checked === true
-                                    ? new Set(filtered.map((row) => row.contact.id))
-                                    : new Set(),
-                                )
-                              }
-                            />
-                          </TableHead>
-                          <TableHead>Speaker</TableHead>
-                          {compact ? null : <TableHead>Role</TableHead>}
-                          {compact ? null : <TableHead>Profile readiness</TableHead>}
-                          {compact ? null : <TableHead>Workflow</TableHead>}
-                          {compact ? null : <TableHead>Task progress</TableHead>}
+                          <TableCell
+                            colSpan={compact ? 2 : 6}
+                            className="py-10 text-center text-sm text-muted-foreground"
+                          >
+                            No speakers match.
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filtered.length === 0 ? (
-                          <TableRow>
+                      ) : (
+                        pages.pageItems.map((row) => (
+                          <TableRow
+                            key={row.contact.id}
+                            ref={rowRef(row.contact.id)}
+                            className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
+                            onClick={() => openSpotlight(row.contact.id)}
+                          >
                             <TableCell
-                              colSpan={compact ? 2 : 6}
-                              className="py-10 text-center text-sm text-muted-foreground"
+                              className="h-9 py-0"
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              No speakers match.
+                              <Checkbox
+                                checked={selectedIds.has(row.contact.id)}
+                                aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                                onCheckedChange={(checked) =>
+                                  setSelectedIds((current) => {
+                                    const next = new Set(current);
+                                    if (checked === true) next.add(row.contact.id);
+                                    else next.delete(row.contact.id);
+                                    return next;
+                                  })
+                                }
+                              />
                             </TableCell>
-                          </TableRow>
-                        ) : (
-                          pages.pageItems.map((row) => (
-                            <TableRow
-                              key={row.contact.id}
-                              ref={rowRef(row.contact.id)}
-                              className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
-                              onClick={() => openSpotlight(row.contact.id)}
-                            >
-                              <TableCell
-                                className="h-9 py-0"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                <Checkbox
-                                  checked={selectedIds.has(row.contact.id)}
-                                  aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
-                                  onCheckedChange={(checked) =>
-                                    setSelectedIds((current) => {
-                                      const next = new Set(current);
-                                      if (checked === true) next.add(row.contact.id);
-                                      else next.delete(row.contact.id);
-                                      return next;
-                                    })
+                            <TableCell className="h-9 py-0">
+                              <div className="flex items-center gap-2.5">
+                                <Headshot row={row} />
+                                <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+                                  {row.contact.firstName} {row.contact.lastName}
+                                  {row.contact.profileReviewStatus === "pending_review" ? (
+                                    <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                                      Profile pending
+                                    </span>
+                                  ) : null}
+                                </p>
+                              </div>
+                            </TableCell>
+                            {compact ? null : (
+                              <TableCell className="h-9 max-w-52 py-0">
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {[row.contact.title, row.contact.company]
+                                    .filter(Boolean)
+                                    .join(" · ") || row.contact.email}
+                                </p>
+                              </TableCell>
+                            )}
+                            {compact ? null : (
+                              <TableCell className="h-9 py-0 text-xs">
+                                <ProfileReadiness row={row} />
+                              </TableCell>
+                            )}
+                            {compact ? null : (
+                              <TableCell className="h-9 py-0 text-xs">
+                                <WorkflowBadge
+                                  status={
+                                    statusOverrides.get(row.contact.id) ??
+                                    row.contact.workflowStatus
                                   }
                                 />
                               </TableCell>
-                              <TableCell className="h-9 py-0">
-                                <div className="flex items-center gap-2.5">
-                                  <Headshot row={row} />
-                                  <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
-                                    {row.contact.firstName} {row.contact.lastName}
-                                    {row.contact.profileReviewStatus === "pending_review" ? (
-                                      <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
-                                        Profile pending
-                                      </span>
-                                    ) : null}
-                                  </p>
-                                </div>
+                            )}
+                            {compact ? null : (
+                              <TableCell className="h-9 py-0 text-xs tabular-nums text-muted-foreground">
+                                {row.tasks.filter((task) => task.status !== "todo").length}/
+                                {row.tasks.length} done
                               </TableCell>
-                              {compact ? null : (
-                                <TableCell className="h-9 max-w-52 py-0">
-                                  <p className="truncate text-xs text-muted-foreground">
-                                    {[row.contact.title, row.contact.company]
-                                      .filter(Boolean)
-                                      .join(" · ") || row.contact.email}
-                                  </p>
-                                </TableCell>
-                              )}
-                              {compact ? null : (
-                                <TableCell className="h-9 py-0 text-xs">
-                                  <ProfileReadiness row={row} />
-                                </TableCell>
-                              )}
-                              {compact ? null : (
-                                <TableCell className="h-9 py-0 text-xs">
-                                  <WorkflowBadge
-                                    status={
-                                      statusOverrides.get(row.contact.id) ??
-                                      row.contact.workflowStatus
-                                    }
-                                  />
-                                </TableCell>
-                              )}
-                              {compact ? null : (
-                                <TableCell className="h-9 py-0 text-xs tabular-nums text-muted-foreground">
-                                  {row.tasks.filter((task) => task.status !== "todo").length}/
-                                  {row.tasks.length} done
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <PaginationFooter
-                    page={pages.page}
-                    pageSize={pages.pageSize}
-                    total={filtered.length}
-                    onPageChange={pages.setPage}
-                  />
-                </div>
+                            )}
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableShell>
               </>
             )}
           </div>
@@ -738,9 +739,13 @@ function Directory({
                     <section>
                       <div className="flex items-center justify-between gap-2">
                         <SectionLabel>Awaiting your review</SectionLabel>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
-                          {shortDate(pendingProfile.createdAt)}
-                        </span>
+                        <Timestamp
+                          value={pendingProfile.createdAt}
+                          timezone={timezone}
+                          className="text-[11px] text-muted-foreground tabular-nums"
+                        >
+                          {shortDate(pendingProfile.createdAt, timezone)}
+                        </Timestamp>
                       </div>
                       <p className="mt-1 text-muted-foreground">
                         {selected.contact.firstName} changed{" "}
@@ -787,6 +792,7 @@ function Directory({
                   <SpeakerProfileEditor
                     key={selected.contact.id}
                     eventId={eventId}
+                    timezone={timezone}
                     row={selected}
                     refresh={refresh}
                   />
@@ -999,7 +1005,9 @@ function Directory({
                             </div>
                             <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                               {formatBytes(file.size)} · {file.uploaderName} ·{" "}
-                              {shortDate(file.uploadedAt)}
+                              <Timestamp value={file.uploadedAt} timezone={timezone}>
+                                {shortDate(file.uploadedAt, timezone)}
+                              </Timestamp>
                             </span>
                             <Button
                               type="button"
@@ -1052,7 +1060,13 @@ function Directory({
                               {email.status}
                             </span>
                             <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
-                              {email.sentAt === null ? "—" : shortDate(email.sentAt)}
+                              {email.sentAt === null ? (
+                                "—"
+                              ) : (
+                                <Timestamp value={email.sentAt} timezone={timezone}>
+                                  {shortDate(email.sentAt, timezone)}
+                                </Timestamp>
+                              )}
                             </span>
                           </Link>
                         ))
@@ -1101,7 +1115,7 @@ function Directory({
                   }).format(peekTask.dueDate)}`}
             </SheetDescription>
           </SheetHeader>
-          <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto p-4 text-sm">
+          <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto p-4 text-sm [&>section]:min-w-0">
             <section>
               <SectionLabel>Instructions</SectionLabel>
               {hasRichText(peekAssignment?.template.instructions ?? null) ? (
@@ -1119,7 +1133,7 @@ function Directory({
               <section>
                 <SectionLabel>Speaker</SectionLabel>
                 <div className="mt-1">
-                  <PersonHoverCard
+                  <SpeakerBadge
                     person={{
                       id: selected.contact.id,
                       name: `${selected.contact.firstName} ${selected.contact.lastName}`,
@@ -1131,14 +1145,7 @@ function Directory({
                         statusOverrides.get(selected.contact.id) ?? selected.contact.workflowStatus,
                       sessionsCount: selected.sessions.length,
                     }}
-                  >
-                    <PersonTag
-                      person={{
-                        name: `${selected.contact.firstName} ${selected.contact.lastName}`,
-                        image: selected.contact.headshotUrl,
-                      }}
-                    />
-                  </PersonHoverCard>
+                  />
                 </div>
               </section>
             )}
@@ -1238,10 +1245,12 @@ const formatBytes = (size: number) =>
 
 function SpeakerProfileEditor({
   eventId,
+  timezone,
   row,
   refresh,
 }: {
   readonly eventId: string;
+  readonly timezone: string;
   readonly row: SpeakerDirectoryRow;
   readonly refresh: () => Promise<unknown>;
 }) {
@@ -1395,9 +1404,11 @@ function SpeakerProfileEditor({
                 <HistoryIcon className="size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{entry.authorName}</span>
-                  <span className="block text-[10px] text-muted-foreground tabular-nums">
-                    {fullDateTime.format(new Date(entry.createdAt))}
-                  </span>
+                  <Timestamp
+                    value={entry.createdAt}
+                    timezone={timezone}
+                    className="block w-fit text-[10px] text-muted-foreground tabular-nums"
+                  />
                 </span>
                 <span className="capitalize text-muted-foreground">
                   {entry.approvalStatus.replace("_", " ")}

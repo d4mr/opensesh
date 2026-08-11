@@ -57,6 +57,7 @@ export const CommunicationContact = Schema.Struct({
   email: Schema.String,
   firstName: Schema.String,
   lastName: Schema.String,
+  headshotUrl: NullableString,
   title: NullableString,
   company: NullableString,
   workflowStatus: SpeakerWorkflowStatus,

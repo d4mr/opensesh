@@ -117,12 +117,12 @@ export function PortalShell({
           <DesktopPillNav pathname={pathname} />
           <UserMenu user={user} />
         </div>
-        <nav className="mx-auto flex max-w-5xl items-center justify-center gap-1 px-4 pb-2 text-sm sm:hidden">
+        <nav className="mx-auto flex max-w-5xl items-center justify-center-safe gap-1 overflow-x-auto px-4 pb-2 text-sm [scrollbar-width:none] sm:hidden">
           {nav.map((item, index) => (
             <NavLink
               key={item.title}
               item={item}
-              className={`portal-nav-link pressable ${index === activeIndex ? "portal-nav-link-active" : ""}`}
+              className={`portal-nav-link pressable whitespace-nowrap ${index === activeIndex ? "portal-nav-link-active" : ""}`}
             />
           ))}
         </nav>

@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { CalendarDaysIcon } from "lucide-react";
+import { CalendarDaysIcon, ChevronRightIcon } from "lucide-react";
 
 import { speakerPortalQuery } from "@/lib/portal-queries";
 
@@ -27,45 +27,51 @@ export function PortalSessions() {
   const sessions = data.submissions.filter(({ submission }) => submission.status === "accepted");
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-5">
-      <div className="mb-4">
-        <h1 className="text-lg font-semibold">My Sessions</h1>
-        <p className="text-sm text-muted-foreground">
-          Your accepted sessions at {data.event.name} · {sessions.length}{" "}
-          {sessions.length === 1 ? "session" : "sessions"}
+    <main className="h-[calc(100svh-3rem)] overflow-y-auto">
+      <div className="mx-auto w-full max-w-3xl px-4 py-10">
+        <h1 className="text-xl font-semibold tracking-tight">My sessions</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {sessions.length === 0
+            ? `Accepted sessions at ${data.event.name} appear here automatically.`
+            : `Your ${sessions.length === 1 ? "accepted session" : `${sessions.length} accepted sessions`} at ${data.event.name}.`}
         </p>
+        {sessions.length === 0 ? (
+          <p className="mt-6 rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+            No accepted sessions yet.
+          </p>
+        ) : (
+          <div className="mt-6 grid gap-3 pb-10">
+            {sessions.map(({ submission, format }) => (
+              <Link
+                key={submission.id}
+                to="/portal/$section"
+                params={{ section: "submissions" }}
+                search={{ spotlight: submission.id }}
+                className="pressable group block rounded-xl border bg-card p-5 transition-colors hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    {submission.code}
+                  </span>
+                  {format === null ? null : (
+                    <span className="text-xs text-muted-foreground">{format.name}</span>
+                  )}
+                  <ChevronRightIcon className="ml-auto size-4 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover:opacity-100" />
+                </div>
+                <h2 className="mt-2.5 text-base font-semibold tracking-tight">
+                  {submission.title}
+                </h2>
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <CalendarDaysIcon className="size-4" />
+                  {submission.startsAt === null || submission.endsAt === null
+                    ? "Not scheduled yet"
+                    : sessionSlot(submission.startsAt, submission.endsAt, data.event.timezone)}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
-      {sessions.length === 0 ? (
-        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          No accepted sessions yet — accepted submissions appear here automatically.
-        </p>
-      ) : (
-        <div className="divide-y rounded-lg border">
-          {sessions.map(({ submission, format }) => (
-            <Link
-              key={submission.id}
-              to="/portal/$section"
-              params={{ section: "submissions" }}
-              search={{ spotlight: submission.id }}
-              className="pressable flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
-            >
-              <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                {submission.code}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-medium">{submission.title}</span>
-              {format === null ? null : (
-                <span className="shrink-0 text-xs text-muted-foreground">{format.name}</span>
-              )}
-              <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <CalendarDaysIcon className="size-3.5" />
-                {submission.startsAt === null || submission.endsAt === null
-                  ? "Not scheduled yet"
-                  : sessionSlot(submission.startsAt, submission.endsAt, data.event.timezone)}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
     </main>
   );
 }

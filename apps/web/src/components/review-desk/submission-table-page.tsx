@@ -37,9 +37,9 @@ import { toast } from "sonner";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
-import { PersonHoverCard } from "@/components/app/person-popover";
-import { PersonTag } from "@/components/app/person-tag";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { StatusBadge, statusIcon, statusTextClass } from "@/components/app/status-badge";
+import { relativeLabel, Timestamp } from "@/components/app/timestamp";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { SubmissionDetail } from "@/components/review-desk/submission-detail";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { reviewDeskListQuery } from "@/lib/review-desk-queries";
@@ -130,27 +131,6 @@ const columnLabels: Readonly<Record<string, string>> = {
   source: "Source",
   submitted: "Submitted",
   notified: "Notified",
-};
-
-// Pinned to the event timezone so SSR (UTC worker) and the client render
-// identical title text — an unpinned formatter hydration-mismatches.
-const absoluteDate = (timezone: string) =>
-  new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: timezone,
-  });
-
-const relativeDate = (date: Date | null) => {
-  if (date === null) return "—";
-  const seconds = Math.round((date.getTime() - Date.now()) / 1000);
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (Math.abs(seconds) < 60) return formatter.format(seconds, "second");
-  const minutes = Math.round(seconds / 60);
-  if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute");
-  const hours = Math.round(minutes / 60);
-  if (Math.abs(hours) < 24) return formatter.format(hours, "hour");
-  return formatter.format(Math.round(hours / 24), "day");
 };
 
 const features = tableFeatures({
@@ -456,14 +436,10 @@ export function SubmissionTablePage({
             cell: ({ row }) => (
               <div className="flex gap-2">
                 {row.original.speakers.map((speaker) => (
-                  <PersonHoverCard
+                  <SpeakerBadge
                     key={speaker.id}
-                    person={{ id: speaker.id, name: speaker.name, image: null }}
-                  >
-                    <span>
-                      <PersonTag person={{ name: speaker.name, image: null }} />
-                    </span>
-                  </PersonHoverCard>
+                    person={{ id: speaker.id, name: speaker.name, image: speaker.headshotUrl }}
+                  />
                 ))}
               </div>
             ),
@@ -488,18 +464,18 @@ export function SubmissionTablePage({
           id: "submitted",
           header: "Submitted",
           sortDescFirst: true,
-          cell: ({ row }) => (
-            <span
-              className="text-xs text-muted-foreground"
-              title={
-                row.original.submittedAt === null
-                  ? undefined
-                  : absoluteDate(eventTimezone).format(row.original.submittedAt)
-              }
-            >
-              {relativeDate(row.original.submittedAt)}
-            </span>
-          ),
+          cell: ({ row }) =>
+            row.original.submittedAt === null ? (
+              <span className="text-xs text-muted-foreground">—</span>
+            ) : (
+              <Timestamp
+                value={row.original.submittedAt}
+                timezone={eventTimezone}
+                className="text-xs text-muted-foreground"
+              >
+                {relativeLabel(row.original.submittedAt)}
+              </Timestamp>
+            ),
         }),
       ]),
     [directStatusChange, openDecision, eventTimezone],
@@ -823,9 +799,19 @@ export function SubmissionTablePage({
                   </div>
                 ) : null}
 
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-lg border">
+                <TableShell
+                  scrollRef={scrollRef}
+                  footer={
+                    <PaginationFooter
+                      page={pages.page}
+                      pageSize={pages.pageSize}
+                      total={tableRows.length}
+                      onPageChange={pages.setPage}
+                    />
+                  }
+                >
                   <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-muted">
+                    <TableHeader>
                       {compact ? (
                         <TableRow className="h-8 hover:bg-transparent">
                           <TableHead className="h-8 w-28 text-xs">Status</TableHead>
@@ -910,13 +896,7 @@ export function SubmissionTablePage({
                       )}
                     </TableBody>
                   </Table>
-                  <PaginationFooter
-                    page={pages.page}
-                    pageSize={pages.pageSize}
-                    total={tableRows.length}
-                    onPageChange={pages.setPage}
-                  />
-                </div>
+                </TableShell>
               </TabsContent>
             </Tabs>
           </div>

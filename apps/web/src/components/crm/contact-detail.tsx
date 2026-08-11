@@ -16,7 +16,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { formatCrmDate } from "@/components/crm/shared";
+import { Timestamp } from "@/components/app/timestamp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -151,8 +151,8 @@ function ContactDetailContent({
       .map((recipient) => ({ campaign, recipient })),
   );
   return (
-    <main className="grid gap-4 p-4 text-sm lg:p-6">
-      <div className="flex items-start justify-between gap-3">
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 text-sm lg:p-6">
+      <div className="flex shrink-0 items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           {detail.contact.headshotUrl === null ? (
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
@@ -183,7 +183,7 @@ function ContactDetailContent({
         </Button>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto xl:grid-cols-[1.15fr_0.85fr]">
         <div className="grid content-start gap-4">
           <section className="rounded-lg border">
             <SectionHeader title="Identity" detail="Canonical across every event" />
@@ -331,7 +331,7 @@ function ContactDetailContent({
                       <p className="font-medium">{event.name}</p>
                       <Badge variant="outline">{event.link.status}</Badge>
                       <span className="ml-auto text-xs text-muted-foreground">
-                        Added {formatCrmDate(event.link.createdAt)}
+                        Added <Timestamp value={event.link.createdAt} />
                       </span>
                     </div>
                     {event.sessions.length === 0 ? (
@@ -387,7 +387,7 @@ function ContactDetailContent({
                   <article key={item.note.id} className="px-3 py-2.5">
                     <p className="whitespace-pre-wrap">{item.note.body}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {item.authorName} · {formatCrmDate(item.note.createdAt)}
+                      {item.authorName} · <Timestamp value={item.note.createdAt} />
                     </p>
                   </article>
                 ))
@@ -422,7 +422,7 @@ function ContactDetailContent({
                       {item.fromStageName ?? "Not in pipeline"} → {item.toStageName}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {formatCrmDate(item.history.createdAt)}
+                      <Timestamp value={item.history.createdAt} />
                     </p>
                   </div>
                 ))
@@ -452,7 +452,7 @@ function ContactDetailContent({
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {campaign.eventName} ·{" "}
-                      {campaign.sentAt === null ? "Draft" : formatCrmDate(campaign.sentAt)}
+                      {campaign.sentAt === null ? "Draft" : <Timestamp value={campaign.sentAt} />}
                     </p>
                   </div>
                 ))
@@ -470,7 +470,7 @@ function ContactDetailContent({
                     <p className="text-xs font-medium">{item.title}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatCrmDate(item.date)}
+                      <Timestamp value={item.date} />
                     </p>
                   </div>
                 </div>

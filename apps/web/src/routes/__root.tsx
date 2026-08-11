@@ -4,6 +4,7 @@ import { ThemeProvider } from "next-themes";
 
 import { DemoRoleSwitcher } from "@/components/app/demo-role-switcher";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -56,9 +57,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <DemoRoleSwitcher />
-          <Toaster />
+          {/* Context only, no DOM — lets Tooltip (Timestamp, table chrome)
+              work on every surface, not just under the admin sidebar. */}
+          <TooltipProvider>
+            {children}
+            <DemoRoleSwitcher />
+            <Toaster />
+          </TooltipProvider>
         </ThemeProvider>
 
         <Scripts />

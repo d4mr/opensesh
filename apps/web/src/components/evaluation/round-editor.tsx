@@ -61,6 +61,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableShell,
 } from "@/components/ui/table";
 import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -278,7 +279,7 @@ export function EvaluationRoundEditor({
           <TabsContent value="reviewers" className="mt-0 min-h-0 overflow-y-auto">
             <ReviewersPane eventId={eventId} view={view} refresh={refresh} />
           </TabsContent>
-          <TabsContent value="assignments" className="mt-0 min-h-0 overflow-y-auto">
+          <TabsContent value="assignments" className="mt-0 flex min-h-0 flex-1 flex-col">
             <AssignmentsPane
               eventId={eventId}
               workspace={workspace}
@@ -289,7 +290,7 @@ export function EvaluationRoundEditor({
           <TabsContent value="progress" className="mt-0 min-h-0 overflow-y-auto">
             <ProgressPane eventId={eventId} view={view} refresh={refresh} />
           </TabsContent>
-          <TabsContent value="results" className="mt-0 min-h-0 overflow-y-auto">
+          <TabsContent value="results" className="mt-0 flex min-h-0 flex-1 flex-col">
             <ResultsPane eventId={eventId} view={view} refresh={refresh} />
           </TabsContent>
         </Tabs>
@@ -891,8 +892,8 @@ function AssignmentsPane({
     toast.success("Unassigned 1 submission");
   };
   return (
-    <div className="p-4 lg:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex min-h-0 flex-1 flex-col p-4 lg:p-6">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-semibold">Assignments</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -977,9 +978,19 @@ function AssignmentsPane({
           Assign selected ({selected.size})
         </Button>
       </div>
-      <div className="mt-3 overflow-hidden rounded-lg border">
+      <TableShell
+        className="mt-3"
+        footer={
+          <PaginationFooter
+            page={pages.page}
+            pageSize={pages.pageSize}
+            total={filtered.length}
+            onPageChange={pages.setPage}
+          />
+        }
+      >
         <Table>
-          <TableHeader className="bg-muted/40">
+          <TableHeader>
             <TableRow className="h-8">
               <TableHead className="h-8 w-10">
                 <Checkbox
@@ -1068,13 +1079,7 @@ function AssignmentsPane({
             })}
           </TableBody>
         </Table>
-        <PaginationFooter
-          page={pages.page}
-          pageSize={pages.pageSize}
-          total={filtered.length}
-          onPageChange={pages.setPage}
-        />
-      </div>
+      </TableShell>
       <Dialog
         open={confirmAssignment !== undefined}
         onOpenChange={(open) => {
@@ -1268,8 +1273,8 @@ function ResultsPane({
     toast.success("Generated AI first-pass review");
   };
   return (
-    <div className="p-4 lg:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex min-h-0 flex-1 flex-col p-4 lg:p-6">
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-semibold">Round results</h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -1292,9 +1297,19 @@ function ResultsPane({
           </Button>
         </div>
       </div>
-      <div className="mt-3 overflow-x-auto rounded-lg border">
+      <TableShell
+        className="mt-3"
+        footer={
+          <PaginationFooter
+            page={pages.page}
+            pageSize={pages.pageSize}
+            total={ordered.length}
+            onPageChange={pages.setPage}
+          />
+        }
+      >
         <Table>
-          <TableHeader className="bg-muted/40">
+          <TableHeader>
             <TableRow className="h-8">
               <TableHead className="h-8 min-w-72 text-xs">Submission</TableHead>
               {view.configuration.criteria.map((criterion) => (
@@ -1324,13 +1339,7 @@ function ResultsPane({
             ))}
           </TableBody>
         </Table>
-        <PaginationFooter
-          page={pages.page}
-          pageSize={pages.pageSize}
-          total={ordered.length}
-          onPageChange={pages.setPage}
-        />
-      </div>
+      </TableShell>
     </div>
   );
 }

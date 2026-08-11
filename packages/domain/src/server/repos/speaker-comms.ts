@@ -397,6 +397,7 @@ export const SpeakerCommsLive = Layer.effect(
                 email: contact.email,
                 firstName: contact.firstName,
                 lastName: contact.lastName,
+                headshotUrl: contact.headshotUrl,
                 title: contact.title,
                 company: contact.company,
                 workflowStatus: contact.workflowStatus,
