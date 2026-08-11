@@ -76,7 +76,7 @@ const expectedTables: ReadonlyArray<{
   { name: "levels", table: levels, expected: 6 },
   { name: "rooms", table: rooms, expected: 8 },
   { name: "forms", table: forms, expected: 2 },
-  { name: "form_fields", table: formFields, expected: 17 },
+  { name: "form_fields", table: formFields, expected: 20 },
   { name: "contacts", table: contacts, expected: 28 },
   { name: "submissions", table: submissions, expected: 36 },
   { name: "submission_tracks", table: submissionTracks, expected: 36 },

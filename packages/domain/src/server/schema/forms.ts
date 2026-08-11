@@ -229,7 +229,15 @@ export const makeFormAnswersSchema = (fields: ReadonlyArray<FormFieldDefinition>
           issues.push({ path: [field.id], issue: `${field.label} is required` });
           continue;
         }
-        if (field.maxChars !== null && typeof value === "string" && value.length > field.maxChars) {
+        const measuredValue =
+          typeof value === "string" && field.fieldType === "richtext"
+            ? value.replace(/<[^>]*>/g, "")
+            : value;
+        if (
+          field.maxChars !== null &&
+          typeof measuredValue === "string" &&
+          measuredValue.length > field.maxChars
+        ) {
           issues.push({
             path: [field.id],
             issue: `${field.label} must be ${field.maxChars} characters or fewer`,

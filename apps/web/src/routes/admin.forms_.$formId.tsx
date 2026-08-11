@@ -6,7 +6,7 @@ import type {
   FormSectionSettings as FormSectionSettingsValue,
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BellIcon,
@@ -28,7 +28,7 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { EditorHeader } from "@/components/app/editor-header";
-import { FormFieldBuilder } from "@/components/forms/form-field-builder";
+import { type EditorFormField, FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { FormPreviewSheet } from "@/components/forms/form-preview";
 import type { FormRendererLibrary } from "@/components/forms/form-renderer";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
@@ -93,9 +93,11 @@ const dateInput = (date: Date | null) => {
   return date.toISOString();
 };
 
-const editorFields = (fields: ReadonlyArray<FormField>): ReadonlyArray<FormFieldReplacement> =>
+const editorFields = (
+  fields: ReadonlyArray<FormFieldReplacement>,
+): ReadonlyArray<EditorFormField> =>
   fields.map((field) => ({
-    id: field.id,
+    id: field.id ?? crypto.randomUUID(),
     section: field.section,
     label: field.label,
     fieldType: field.fieldType,
@@ -142,11 +144,13 @@ function FormEditor({
   readonly eventTimezone: string;
   readonly eventLimit: number;
 }) {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
-  const [fields, setFields] = useState<ReadonlyArray<FormFieldReplacement>>(() =>
+  const [fields, setFields] = useState<ReadonlyArray<EditorFormField>>(() =>
     editorFields(data.fields),
   );
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
+  const [saveError, setSaveError] = useState<string>();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const publicPath = `/submit/${eventSlug}/${data.form.id}`;
@@ -227,13 +231,19 @@ function FormEditor({
     }
     inFlightRef.current = true;
     setSaveState("saving");
+    setSaveError(undefined);
     const result = await saveForm({ data: payload });
     inFlightRef.current = false;
     if (!result.ok) {
       setSaveState("error");
+      setSaveError(result.error.message);
       toast.error(result.error.message);
       return;
     }
+    await queryClient.invalidateQueries({
+      queryKey: formEditorQuery(data.form.eventId, data.form.id).queryKey,
+      exact: true,
+    });
     lastSavedRef.current = json;
     if (queuedRef.current) {
       queuedRef.current = false;
@@ -348,6 +358,11 @@ function FormEditor({
             <h2 className="text-base font-semibold tracking-tight">{active?.title}</h2>
             <p className="mt-0.5 text-[13px] text-muted-foreground">{active?.description}</p>
           </header>
+          {saveError === undefined ? null : (
+            <p role="alert" className="mb-4 text-[13px] text-destructive">
+              {saveError}
+            </p>
+          )}
           <div className="grid gap-5">
             {step === 0 ? (
               <>

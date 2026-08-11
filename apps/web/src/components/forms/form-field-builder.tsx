@@ -103,7 +103,9 @@ const parseBinding = (value: string): FormLibraryBinding => {
   }
 };
 
-const fieldId = (field: FormFieldReplacement) => field.id ?? `${field.section}-${field.position}`;
+export type EditorFormField = FormFieldReplacement & { readonly id: string };
+
+const fieldId = (field: EditorFormField) => field.id;
 
 // Borderless select trigger so condition clauses read as an editable sentence.
 const clauseTrigger =
@@ -113,7 +115,7 @@ const clauseTrigger =
 // values must be picked from the source field's options — typed labels like
 // "Workshop" would never match the stored "fmt_…" id.
 const conditionValueOptions = (
-  field: FormFieldReplacement | undefined,
+  field: EditorFormField | undefined,
   library: FormRendererLibrary,
 ): ReadonlyArray<{ id: string; name: string }> => {
   if (field === undefined || field.options === null) return [];
@@ -133,8 +135,8 @@ export function FormFieldBuilder({
   library,
 }: {
   readonly section: FormSection;
-  readonly fields: ReadonlyArray<FormFieldReplacement>;
-  readonly onChange: (fields: ReadonlyArray<FormFieldReplacement>) => void;
+  readonly fields: ReadonlyArray<EditorFormField>;
+  readonly onChange: (fields: ReadonlyArray<EditorFormField>) => void;
   readonly timezone: string;
   readonly library: FormRendererLibrary;
 }) {
@@ -143,7 +145,7 @@ export function FormFieldBuilder({
   const reduceMotion =
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const update = (id: string, next: FormFieldReplacement) =>
+  const update = (id: string, next: EditorFormField) =>
     onChange(fields.map((field) => (fieldId(field) === id ? next : field)));
   const move = (from: number, to: number) => {
     if (to < 0 || to >= sectionFields.length) return;
@@ -165,7 +167,7 @@ export function FormFieldBuilder({
     window.setTimeout(() => setDragMotion(false), 150);
   };
   const add = () => {
-    const next: FormFieldReplacement = {
+    const next: EditorFormField = {
       id: crypto.randomUUID(),
       section,
       label: "New question",
@@ -249,10 +251,10 @@ function SortableField({
   timezone,
   library,
 }: {
-  readonly field: FormFieldReplacement;
+  readonly field: EditorFormField;
   readonly animate: boolean;
-  readonly candidates: ReadonlyArray<FormFieldReplacement>;
-  readonly onChange: (field: FormFieldReplacement) => void;
+  readonly candidates: ReadonlyArray<EditorFormField>;
+  readonly onChange: (field: EditorFormField) => void;
   readonly onRemove: () => void;
   readonly moveUp: () => void;
   readonly moveDown: () => void;
@@ -415,14 +417,17 @@ function SortableField({
               </Select>
             </div>
           ) : null}
-          <label className="ml-auto flex h-8 items-center gap-2 text-[13px] text-muted-foreground">
-            Required
+          <div className="ml-auto flex h-8 items-center gap-2">
+            <Label htmlFor={`${id}-required`} className="text-[13px] text-muted-foreground">
+              Required
+            </Label>
             <Switch
+              id={`${id}-required`}
               checked={field.required}
               disabled={field.locked}
               onCheckedChange={(required) => onChange({ ...field, required })}
             />
-          </label>
+          </div>
         </div>
         {(field.fieldType === "dropdown" || field.fieldType === "checkbox") && binding === null ? (
           <div className="grid gap-1">

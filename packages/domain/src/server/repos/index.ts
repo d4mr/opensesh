@@ -78,19 +78,20 @@ export type RepositoryServices =
   | Tasks
   | Widgets;
 
+const EventsAndReadModelsLive = ReadModelsLive.pipe(Layer.provideMerge(EventsLive));
+
 const RepositoriesLive = Layer.mergeAll(
   AgendaLive,
   ContactsLive,
   CrmLive,
   EmailLogLive,
-  EventsLive,
+  EventsAndReadModelsLive,
   FilesLive,
   FormsLive,
   MailAdminLive,
   OrganizationLive,
   PortalFormsLive,
   PortalLive,
-  ReadModelsLive,
   ReviewsLive,
   ReviewDeskLive,
   SubmissionsLive,

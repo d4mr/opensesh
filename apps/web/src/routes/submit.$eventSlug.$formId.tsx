@@ -53,11 +53,12 @@ const emptyAnswers = (fields: ReadonlyArray<FormField>): FormAnswers => {
 const participantForEmail = (
   fields: ReadonlyArray<FormField>,
   email: string,
+  role: string,
 ): ParticipantAnswers => {
   const answers = emptyAnswers(fields);
   const emailField = fields.find((field) => field.mapsTo === "email");
   return {
-    role: "speaker",
+    role,
     answers: emailField === undefined ? answers : { ...answers, [emailField.id]: email },
   };
 };
@@ -130,9 +131,16 @@ function Wizard({
   );
   const abstractFields = fields.filter((field) => field.section === "abstract");
   const participantFields = fields.filter((field) => field.section === "participant");
+  const enabledRoles = form.participantRoles.filter((role) => role.enabled);
+  const roleForPosition = (position: number) =>
+    enabledRoles[Math.min(position, enabledRoles.length - 1)]?.role ?? "speaker";
+  const minimumParticipants = enabledRoles.reduce((total, role) => total + role.min, 0);
+  const maximumParticipants = enabledRoles.reduce((total, role) => total + role.max, 0);
   const [answers, setAnswers] = useState<FormAnswers>(() => emptyAnswers(abstractFields));
   const [participants, setParticipants] = useState<ReadonlyArray<ParticipantAnswers>>(() =>
-    account.email === null ? [] : [participantForEmail(participantFields, account.email)],
+    account.email === null
+      ? []
+      : [participantForEmail(participantFields, account.email, roleForPosition(0))],
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState<string>();
@@ -164,7 +172,7 @@ function Wizard({
       setParticipants(
         result.data.participants.length > 0
           ? result.data.participants
-          : [participantForEmail(participantFields, account.email ?? "")],
+          : [participantForEmail(participantFields, account.email ?? "", roleForPosition(0))],
       );
     });
   }, [account.email, eventSlug, formId, participantFields, submissionId]);
@@ -409,12 +417,12 @@ function Wizard({
               {participants.map((participant, index) => (
                 <section key={index} className="overflow-hidden rounded-lg border">
                   <div className="flex h-10 items-center justify-between border-b bg-muted/40 pr-1.5 pl-3">
-                    <span className="text-[13px] font-medium">Speaker {index + 1}</span>
+                    <span className="text-[13px] font-medium">{participant.role}</span>
                     <Button
                       size="icon-sm"
                       variant="ghost"
                       className="text-muted-foreground"
-                      disabled={participants.length <= (form.participantRoles[0]?.min ?? 1)}
+                      disabled={participants.length <= minimumParticipants}
                       onClick={() =>
                         setParticipants(participants.filter((_, itemIndex) => itemIndex !== index))
                       }
@@ -447,9 +455,12 @@ function Wizard({
               variant="ghost"
               size="sm"
               className="pressable mt-3 text-muted-foreground"
-              disabled={participants.length >= (form.participantRoles[0]?.max ?? 3)}
+              disabled={participants.length >= maximumParticipants}
               onClick={() =>
-                setParticipants([...participants, participantForEmail(participantFields, "")])
+                setParticipants([
+                  ...participants,
+                  participantForEmail(participantFields, "", roleForPosition(participants.length)),
+                ])
               }
             >
               <PlusIcon /> Add speaker
@@ -484,7 +495,7 @@ function Wizard({
               ? participants.map((participant, index) => (
                   <ReviewSection
                     key={index}
-                    title={`Speaker ${index + 1}`}
+                    title={participant.role}
                     fields={participantFields}
                     answers={participant.answers}
                     library={library}
