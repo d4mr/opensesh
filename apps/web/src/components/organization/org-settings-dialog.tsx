@@ -5,18 +5,10 @@ import type {
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import {
-  Building2Icon,
-  ImageUpIcon,
-  MailPlusIcon,
-  Trash2Icon,
-  UsersIcon,
-  XIcon,
-} from "lucide-react";
+import { Building2Icon, MailPlusIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { EventIcon } from "@/components/app/event-icon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,7 +21,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -43,6 +34,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -103,7 +95,7 @@ export function OrgSettingsDialog({
   const [section, setSection] = useState<SectionName>("Profile");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 md:max-h-[500px] md:max-w-[700px] lg:max-w-[800px]">
+      <DialogContent className="overflow-hidden p-0 md:max-h-[620px] md:max-w-[820px] lg:max-w-[960px]">
         <DialogTitle className="sr-only">Organization settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your organization profile, members, and invitations.
@@ -112,6 +104,7 @@ export function OrgSettingsDialog({
           <Sidebar collapsible="none" className="hidden md:flex">
             <SidebarContent>
               <SidebarGroup>
+                <SidebarGroupLabel>Organization</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {nav.map((item) => (
@@ -130,9 +123,9 @@ export function OrgSettingsDialog({
               </SidebarGroup>
             </SidebarContent>
           </Sidebar>
-          <main className="flex h-[480px] flex-1 flex-col overflow-hidden">
-            <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear">
-              <div className="flex items-center gap-2 px-4">
+          <main className="flex h-[600px] flex-1 flex-col overflow-hidden">
+            <header className="flex h-12 shrink-0 items-center gap-2 border-b">
+              <div className="flex items-center gap-2 px-6">
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem className="hidden md:block">
@@ -151,7 +144,7 @@ export function OrgSettingsDialog({
                 </Breadcrumb>
               </div>
             </header>
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4 pt-0 text-sm">
+            <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6 text-sm">
               {open ? (
                 <Suspense fallback={<SectionSkeleton />}>
                   <SectionContent section={section} />
@@ -167,10 +160,46 @@ export function OrgSettingsDialog({
 
 function SectionSkeleton() {
   return (
-    <div className="space-y-3">
-      <Skeleton className="h-9 w-2/3" />
-      <Skeleton className="h-9 w-full" />
-      <Skeleton className="h-28 w-full" />
+    <div className="w-full max-w-xl space-y-4">
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="h-4 w-64" />
+      <Skeleton className="mt-6 h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  readonly title: string;
+  readonly description: string;
+}) {
+  return (
+    <header className="mb-2 border-b pb-4">
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>
+    </header>
+  );
+}
+
+function SettingRow({
+  label,
+  hint,
+  children,
+}: {
+  readonly label: string;
+  readonly hint?: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-14 items-center justify-between gap-6 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        {hint === undefined ? null : <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <div className="flex shrink-0 items-center">{children}</div>
     </div>
   );
 }
@@ -239,7 +268,7 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
         return;
       }
       setLogoFile(null);
-      form.setFieldValue("logo", result.data.logo ?? "");
+      form.reset({ name: result.data.name, logo: result.data.logo ?? "" });
       queryClient.setQueryData<OrganizationSettingsResult>(
         organizationSettingsQuery.queryKey,
         (current) =>
@@ -254,141 +283,103 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
 
   return (
     <form
-      className="grid gap-4"
+      className="w-full max-w-xl"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
       }}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <form.Field name="name">
-          {(field) => (
-            <Field>
-              <FieldLabel htmlFor="org-dialog-name">Organization name</FieldLabel>
+      <SectionHeader
+        title="Profile"
+        description={
+          editable
+            ? "Your organization's identity across every event."
+            : "Your organization's identity across every event. Only an owner can edit it."
+        }
+      />
+      <div className="divide-y">
+        <SettingRow label="Logo" hint="PNG, JPG, or SVG · 2 MB max · drop a file on the tile">
+          <label
+            aria-label="Upload organization logo"
+            className={cn(
+              "pressable flex size-12 cursor-pointer items-center justify-center overflow-hidden rounded-lg border bg-background transition-colors hover:border-primary/40",
+              dragging && "border-primary bg-primary/5",
+              !editable && "pointer-events-none opacity-60",
+            )}
+            onDragEnter={(dragEvent) => {
+              dragEvent.preventDefault();
+              setDragging(true);
+            }}
+            onDragOver={(dragEvent) => dragEvent.preventDefault()}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(dragEvent) => {
+              dragEvent.preventDefault();
+              setDragging(false);
+              chooseLogo(dragEvent.dataTransfer.files[0]);
+            }}
+          >
+            {previewUrl === null ? (
+              <Building2Icon className="size-5 text-muted-foreground" />
+            ) : (
+              <img src={previewUrl} alt="" className="size-full object-cover" />
+            )}
+            <input
+              type="file"
+              className="sr-only"
+              disabled={!editable}
+              accept="image/png,image/jpeg,image/svg+xml"
+              onChange={(inputEvent) => chooseLogo(inputEvent.target.files?.[0])}
+            />
+          </label>
+        </SettingRow>
+        <SettingRow label="Name">
+          <form.Field name="name">
+            {(field) => (
               <Input
-                id="org-dialog-name"
-                className="h-9"
+                aria-label="Organization name"
+                className="h-8 w-64"
                 required
                 disabled={!editable}
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
               />
-            </Field>
-          )}
-        </form.Field>
-        <Field>
-          <FieldLabel htmlFor="org-dialog-slug">Slug</FieldLabel>
-          <Input
-            id="org-dialog-slug"
-            className="h-9 font-mono text-xs"
-            readOnly
-            value={settings.organization.slug}
-          />
-        </Field>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
-        <div className="grid content-start gap-4">
-          <Field>
-            <FieldLabel>Organization logo</FieldLabel>
-            <label
-              className={cn(
-                "pressable flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed px-4 text-center transition-colors",
-                dragging && "border-primary bg-primary/5",
-                !editable && "pointer-events-none opacity-60",
-              )}
-              onDragEnter={(dragEvent) => {
-                dragEvent.preventDefault();
-                setDragging(true);
-              }}
-              onDragOver={(dragEvent) => dragEvent.preventDefault()}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(dragEvent) => {
-                dragEvent.preventDefault();
-                setDragging(false);
-                chooseLogo(dragEvent.dataTransfer.files[0]);
-              }}
-            >
-              <ImageUpIcon className="mb-1.5 size-5 text-muted-foreground" />
-              <span className="text-xs font-medium">Drop a logo or click to browse</span>
-              <span className="mt-1 text-[11px] text-muted-foreground">
-                PNG, JPG, or SVG · 2 MB max
-              </span>
-              <input
-                type="file"
-                className="sr-only"
-                disabled={!editable}
-                accept="image/png,image/jpeg,image/svg+xml"
-                onChange={(inputEvent) => chooseLogo(inputEvent.target.files?.[0])}
-              />
-            </label>
-            {logoFile === null ? null : <FieldDescription>{logoFile.name}</FieldDescription>}
-          </Field>
-          <form.Field name="logo">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor="org-dialog-logo-url">Remote logo URL</FieldLabel>
-                <Input
-                  id="org-dialog-logo-url"
-                  className="h-9"
-                  type="url"
-                  placeholder="https://example.com/logo.png"
-                  disabled={!editable}
-                  value={field.state.value}
-                  onChange={(event) => {
-                    field.handleChange(event.target.value);
-                    if (logoFile === null) setPreviewUrl(event.target.value || null);
-                  }}
-                />
-                <FieldDescription>Used when no uploaded logo is selected.</FieldDescription>
-              </Field>
             )}
           </form.Field>
-        </div>
-        <div className="h-fit overflow-hidden rounded-md border">
-          <div className="flex h-8 items-center border-b bg-muted/30 px-3 text-[11px] font-medium">
-            True-size previews
-          </div>
-          <div className="divide-y">
-            <div className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-              <span className="text-[11px] text-muted-foreground">Org switcher</span>
-              <EventIcon src={previewUrl} size={32} />
-            </div>
-            <div className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-              <span className="text-[11px] text-muted-foreground">Context header</span>
-              <EventIcon src={previewUrl} size={24} />
-            </div>
-            <div className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-              <span className="text-[11px] text-muted-foreground">Favicon</span>
-              <EventIcon src={previewUrl} size={16} />
-            </div>
-          </div>
-        </div>
+        </SettingRow>
+        <SettingRow label="Slug" hint="Fixed identifier used in URLs and integrations">
+          <span className="font-mono text-xs text-muted-foreground">
+            {settings.organization.slug}
+          </span>
+        </SettingRow>
       </div>
       {editable ? (
-        <div className="flex justify-end border-t pt-3">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(submitting) => (
-              <Button type="submit" size="sm" className="pressable" disabled={submitting}>
-                {submitting ? "Saving…" : "Save profile"}
-              </Button>
-            )}
-          </form.Subscribe>
-        </div>
-      ) : (
-        <FieldDescription>Only an owner can edit this profile.</FieldDescription>
-      )}
+        <form.Subscribe selector={(state) => [state.isSubmitting, state.isDirty] as const}>
+          {([submitting, dirty]) =>
+            dirty || logoFile !== null ? (
+              <div className="flex items-center justify-end gap-2 border-t pt-4">
+                {logoFile === null ? null : (
+                  <span className="truncate text-xs text-muted-foreground">{logoFile.name}</span>
+                )}
+                <Button type="submit" size="sm" className="pressable" disabled={submitting}>
+                  {submitting ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            ) : null
+          }
+        </form.Subscribe>
+      ) : null}
     </form>
   );
 }
 
 function MembersSection({ settings }: { readonly settings: OrganizationSettings }) {
   return (
-    <div>
-      <p className="mb-2 text-xs text-muted-foreground">
-        {settings.members.length} {settings.members.length === 1 ? "member" : "members"} · Owners
-        control the organization; admins manage non-owner members.
-      </p>
-      <div className="divide-y overflow-hidden rounded-lg border">
+    <div className="w-full max-w-xl">
+      <SectionHeader
+        title="Members"
+        description={`${settings.members.length} ${settings.members.length === 1 ? "person" : "people"} in ${settings.organization.name}. Owners control the organization; admins manage non-owner members.`}
+      />
+      <div className="divide-y">
         {settings.members.map((member) => (
           <MemberRow key={member.id} member={member} settings={settings} />
         ))}
@@ -398,27 +389,29 @@ function MembersSection({ settings }: { readonly settings: OrganizationSettings 
 }
 
 function InvitationsSection({ settings }: { readonly settings: OrganizationSettings }) {
-  if (settings.invitations.length === 0) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10 text-center">
-        <MailPlusIcon className="size-5 text-muted-foreground" />
-        <p className="text-sm font-medium">No pending invitations</p>
-        <p className="text-xs text-muted-foreground">
-          Invitations disappear after they are accepted, canceled, or expire.
-        </p>
-      </div>
-    );
-  }
   return (
-    <div>
-      <p className="mb-2 text-xs text-muted-foreground">
-        Invitations disappear after they are accepted, canceled, or expire.
-      </p>
-      <div className="divide-y overflow-hidden rounded-lg border">
-        {settings.invitations.map((invitation) => (
-          <InvitationRow key={invitation.id} invitation={invitation} settings={settings} />
-        ))}
-      </div>
+    <div className="flex w-full max-w-xl flex-1 flex-col">
+      <SectionHeader
+        title="Invitations"
+        description="Pending invitations disappear after they are accepted, canceled, or expire."
+      />
+      {settings.invitations.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-12 text-center">
+          <div className="flex size-9 items-center justify-center rounded-full bg-muted">
+            <MailPlusIcon className="size-4 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium">No pending invitations</p>
+          <p className="text-xs text-muted-foreground">
+            Invite teammates from the members list to see them here.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y">
+          {settings.invitations.map((invitation) => (
+            <InvitationRow key={invitation.id} invitation={invitation} settings={settings} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -520,13 +513,13 @@ function MemberRow({
   });
 
   return (
-    <div className="flex min-h-13 items-center gap-3 px-3 py-2">
-      <Avatar className="size-8">
+    <div className="group/member flex min-h-12 items-center gap-3 py-2">
+      <Avatar className="size-7">
         {member.image === null ? null : <AvatarImage src={member.image} alt="" />}
-        <AvatarFallback className="text-xs">{initials(member.name)}</AvatarFallback>
+        <AvatarFallback className="text-[11px]">{initials(member.name)}</AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">
+        <p className="truncate text-sm font-medium">
           {member.name}
           {member.userId === settings.viewer.userId ? (
             <span className="ml-1.5 font-normal text-muted-foreground">You</span>
@@ -545,11 +538,11 @@ function MemberRow({
               <SelectTrigger
                 size="sm"
                 aria-label={`Role for ${member.name}`}
-                className="w-26 capitalize"
+                className="h-7 w-fit gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-muted/60 hover:text-foreground data-[state=open]:bg-muted/60"
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent align="end">
                 {availableRoles.map((item) => (
                   <SelectItem key={item} value={item}>
                     {roleLabel[item]}
@@ -568,7 +561,7 @@ function MemberRow({
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="pressable text-muted-foreground"
+              className="pressable text-muted-foreground opacity-0 group-hover/member:opacity-100 focus-visible:opacity-100"
               aria-label={`Remove ${member.name}`}
               disabled={disabled || remove.isPending}
               onClick={() => remove.mutate()}
@@ -630,25 +623,26 @@ function InvitationRow({
   });
 
   return (
-    <div className="flex min-h-12 items-center gap-3 px-3 py-2">
+    <div className="group/invitation flex min-h-12 items-center gap-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{invitation.email}</p>
+        <p className="truncate text-sm font-medium">{invitation.email}</p>
         <p className="text-xs text-muted-foreground">
           Expires{" "}
           {new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(invitation.expiresAt)}
         </p>
       </div>
-      <Badge variant="outline">{roleLabel[invitation.role]}</Badge>
+      <Badge variant="outline" className="text-muted-foreground">
+        {roleLabel[invitation.role]}
+      </Badge>
       <Button
         type="button"
-        size="icon-xs"
+        size="xs"
         variant="ghost"
-        className="pressable text-muted-foreground"
-        aria-label={`Revoke invitation for ${invitation.email}`}
+        className="pressable text-muted-foreground opacity-0 group-hover/invitation:opacity-100 focus-visible:opacity-100"
         disabled={disabled || revoke.isPending}
         onClick={() => revoke.mutate()}
       >
-        <XIcon />
+        Revoke
       </Button>
     </div>
   );
