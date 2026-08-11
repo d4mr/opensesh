@@ -37,15 +37,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { EntityCombobox } from "@/components/forms/entity-combobox";
 import { Input } from "@/components/ui/input";
 import { PaginationFooter, usePagination } from "@/components/ui/pagination";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -159,6 +153,16 @@ export function CrmWorkspacePage({
 
 const directoryRowId = (row: { readonly contact: { readonly id: string } }) => row.contact.id;
 
+const searchFilterValues = (values: ReadonlyArray<string>) => {
+  const items = values.map((value) => ({ id: value }));
+  return (query: string) => {
+    const needle = query.trim().toLowerCase();
+    const matches =
+      needle === "" ? items : items.filter((item) => item.id.toLowerCase().includes(needle));
+    return Promise.resolve(matches.slice(0, 50));
+  };
+};
+
 function Directory({
   workspace,
   segmentId,
@@ -230,12 +234,20 @@ function Directory({
     () => findCrmDuplicates(workspace.directory.map((row) => row.contact)),
     [workspace.directory],
   );
-  const companies = Array.from(
-    new Set(workspace.directory.flatMap((row) => row.contact.company ?? [])),
-  ).sort();
-  const titles = Array.from(
-    new Set(workspace.directory.flatMap((row) => row.contact.title ?? [])),
-  ).sort();
+  const companies = useMemo(
+    () =>
+      Array.from(new Set(workspace.directory.flatMap((row) => row.contact.company ?? []))).sort(),
+    [workspace.directory],
+  );
+  const titles = useMemo(
+    () => Array.from(new Set(workspace.directory.flatMap((row) => row.contact.title ?? []))).sort(),
+    [workspace.directory],
+  );
+  // Async-search contract from day one: the resolver runs over the loaded
+  // workspace today and swaps to a server search when the directory grows
+  // past what one query ships to the client.
+  const loadCompanies = useMemo(() => searchFilterValues(companies), [companies]);
+  const loadTitles = useMemo(() => searchFilterValues(titles), [titles]);
   const hasFilters =
     filters.search !== "" ||
     filters.company !== "" ||
@@ -337,42 +349,35 @@ function Directory({
           }
           className="h-8 min-w-48 flex-1 sm:max-w-72"
         />
-        <Select
-          value={filters.company || "all"}
-          onValueChange={(company) =>
-            setFilters((current) => ({ ...current, company: company === "all" ? "" : company }))
+        <EntityCombobox
+          value={filters.company}
+          onChange={(company) =>
+            setFilters((current) => ({
+              ...current,
+              company: company === current.company ? "" : company,
+            }))
           }
-        >
-          <SelectTrigger size="sm" aria-label="Filter by company">
-            <SelectValue placeholder="Company" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All companies</SelectItem>
-            {companies.map((company) => (
-              <SelectItem key={company} value={company}>
-                {company}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={filters.title || "all"}
-          onValueChange={(title) =>
-            setFilters((current) => ({ ...current, title: title === "all" ? "" : title }))
+          loadItems={loadCompanies}
+          getItemText={(item) => item.id}
+          renderItem={(item) => <span className="truncate text-sm">{item.id}</span>}
+          placeholder="All companies"
+          searchPlaceholder="Search companies…"
+          className="h-8 min-h-8 w-auto min-w-40 text-sm"
+          contentClassName="w-64"
+        />
+        <EntityCombobox
+          value={filters.title}
+          onChange={(title) =>
+            setFilters((current) => ({ ...current, title: title === current.title ? "" : title }))
           }
-        >
-          <SelectTrigger size="sm" aria-label="Filter by title">
-            <SelectValue placeholder="Title" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All titles</SelectItem>
-            {titles.map((title) => (
-              <SelectItem key={title} value={title}>
-                {title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          loadItems={loadTitles}
+          getItemText={(item) => item.id}
+          renderItem={(item) => <span className="truncate text-sm">{item.id}</span>}
+          placeholder="All titles"
+          searchPlaceholder="Search titles…"
+          className="h-8 min-h-8 w-auto min-w-40 text-sm"
+          contentClassName="w-64"
+        />
         <Button
           size="sm"
           variant="ghost"
