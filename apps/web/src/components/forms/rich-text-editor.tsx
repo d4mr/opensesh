@@ -13,9 +13,11 @@ import {
   StrikethroughIcon,
   TextQuoteIcon,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 function ToolbarButton({
@@ -106,16 +108,55 @@ export function RichTextEditor({
     if (value !== current) editor.commands.setContent(value);
   }, [editor, value]);
 
-  const toggleLink = () => {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
+  // Radix's open-autofocus event is unreliable here and the editor can win
+  // the DOM focus race back after open — typing would then land in the
+  // document. Claim focus for the URL input until it sticks (bounded).
+  useEffect(() => {
+    if (!linkOpen) return;
+    let tries = 0;
+    const claim = () => {
+      const input = linkInputRef.current;
+      tries += 1;
+      if (input !== null && document.activeElement !== input) {
+        input.focus();
+        input.select();
+      }
+      if ((input !== null && document.activeElement === input) || tries >= 8) {
+        clearInterval(id);
+      }
+    };
+    const id = setInterval(claim, 40);
+    claim();
+    return () => clearInterval(id);
+  }, [linkOpen]);
+
+  const onLinkOpenChange = (open: boolean) => {
+    if (open) {
+      const href: unknown = editor?.getAttributes("link").href;
+      setLinkUrl(typeof href === "string" ? href : "");
+    }
+    setLinkOpen(open);
+  };
+
+  const applyLink = () => {
     if (editor === null) return;
-    if (editor.isActive("link")) {
-      editor.chain().focus().unsetLink().run();
-      return;
+    const url = linkUrl.trim();
+    if (url.length === 0) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      const href = /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+      editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
     }
-    const url = window.prompt("Link URL");
-    if (url !== null && url.length > 0) {
-      editor.chain().focus().setLink({ href: url }).run();
-    }
+    setLinkOpen(false);
+  };
+
+  const removeLink = () => {
+    editor?.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkOpen(false);
   };
 
   return (
@@ -187,9 +228,64 @@ export function RichTextEditor({
           <TextQuoteIcon />
         </ToolbarButton>
         <ToolbarDivider />
-        <ToolbarButton label="Link" active={state?.link} onClick={toggleLink}>
-          <LinkIcon />
-        </ToolbarButton>
+        <Popover open={linkOpen} onOpenChange={onLinkOpenChange}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Link"
+              aria-pressed={state?.link}
+              className={cn(
+                "size-6",
+                (state?.link === true || linkOpen) && "bg-muted text-foreground",
+              )}
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              <LinkIcon />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            collisionPadding={8}
+            className="w-72 p-1.5"
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              linkInputRef.current?.focus();
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <Input
+                ref={linkInputRef}
+                value={linkUrl}
+                placeholder="https://example.com"
+                aria-label="Link URL"
+                className="h-7 flex-1 text-xs"
+                onChange={(event) => setLinkUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    applyLink();
+                  }
+                }}
+              />
+              <Button type="button" size="sm" className="h-7 px-2 text-xs" onClick={applyLink}>
+                Set
+              </Button>
+              {state?.link === true ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-muted-foreground"
+                  onClick={removeLink}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
       <EditorContent editor={editor} />
     </div>
