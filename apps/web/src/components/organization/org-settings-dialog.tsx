@@ -171,7 +171,7 @@ export function OrgSettingsDialog({
 
 function SectionSkeleton() {
   return (
-    <div className="w-full max-w-xl space-y-4">
+    <div className="mx-auto w-full max-w-xl space-y-4">
       <Skeleton className="h-5 w-32" />
       <Skeleton className="h-4 w-64" />
       <Skeleton className="mt-6 h-10 w-full" />
@@ -294,7 +294,7 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
 
   return (
     <form
-      className="w-full max-w-xl"
+      className="mx-auto w-full max-w-xl"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
@@ -398,7 +398,7 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
 
 function MembersSection({ settings }: { readonly settings: OrganizationSettings }) {
   return (
-    <div className="w-full max-w-xl">
+    <div className="mx-auto w-full max-w-xl">
       <SectionHeader
         title="Members"
         description={`${settings.members.length} ${settings.members.length === 1 ? "person" : "people"} in ${settings.organization.name}. Owners control the organization; admins manage non-owner members.`}
@@ -414,7 +414,7 @@ function MembersSection({ settings }: { readonly settings: OrganizationSettings 
 
 function InvitationsSection({ settings }: { readonly settings: OrganizationSettings }) {
   return (
-    <div className="flex w-full max-w-xl flex-1 flex-col">
+    <div className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <SectionHeader
         title="Invitations"
         description="Pending invitations disappear after they are accepted, canceled, or expire."
