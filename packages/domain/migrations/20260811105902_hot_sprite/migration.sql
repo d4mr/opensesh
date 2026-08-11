@@ -2,6 +2,7 @@ CREATE TYPE "agenda_draft_status" AS ENUM('draft', 'generated', 'committed', 'di
 CREATE TYPE "campaign_delivery_status" AS ENUM('pending', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rejected');--> statement-breakpoint
 CREATE TYPE "crm_semantic_status" AS ENUM('open', 'won', 'lost');--> statement-breakpoint
+CREATE TYPE "deliverable_status" AS ENUM('outstanding', 'uploaded');--> statement-breakpoint
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_campaign_status" AS ENUM('draft', 'sending', 'sent');--> statement-breakpoint
 CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
@@ -461,14 +462,14 @@ CREATE TABLE "file_uploads" (
 	"id" text PRIMARY KEY,
 	"file_request_id" text,
 	"requirement_id" text,
+	"assignment_id" text CONSTRAINT "file_uploads_assignment_unique" UNIQUE,
 	"kind" "file_kind" NOT NULL,
 	"contact_id" text NOT NULL,
 	"submission_id" text,
 	"speaker_last_read_at" timestamp with time zone,
 	"admin_last_read_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "file_uploads_submission_requirement_unique" UNIQUE("submission_id","requirement_id")
+	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "file_versions" (
@@ -510,6 +511,17 @@ CREATE TABLE "portal_forms" (
 	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "session_file_requirement_assignments" (
+	"id" text PRIMARY KEY,
+	"requirement_id" text NOT NULL,
+	"submission_id" text NOT NULL,
+	"contact_id" text,
+	"status" "deliverable_status" DEFAULT 'outstanding'::"deliverable_status" NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "session_file_requirement_assignments_target_unique" UNIQUE NULLS NOT DISTINCT("requirement_id","submission_id","contact_id")
+);
+--> statement-breakpoint
 CREATE TABLE "session_file_requirements" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
@@ -518,6 +530,7 @@ CREATE TABLE "session_file_requirements" (
 	"due_at" timestamp with time zone,
 	"accept_types" text,
 	"max_size_mb" integer,
+	"scope" "target_type" DEFAULT 'contact'::"target_type" NOT NULL,
 	"position" integer NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
@@ -806,10 +819,14 @@ CREATE INDEX "file_comments_upload_idx" ON "file_comments" ("file_upload_id","cr
 CREATE INDEX "file_requests_event_idx" ON "file_requests" ("event_id");--> statement-breakpoint
 CREATE INDEX "file_uploads_request_idx" ON "file_uploads" ("file_request_id");--> statement-breakpoint
 CREATE INDEX "file_uploads_requirement_idx" ON "file_uploads" ("requirement_id");--> statement-breakpoint
+CREATE INDEX "file_uploads_assignment_idx" ON "file_uploads" ("assignment_id");--> statement-breakpoint
 CREATE INDEX "file_uploads_contact_idx" ON "file_uploads" ("contact_id");--> statement-breakpoint
 CREATE INDEX "file_versions_upload_idx" ON "file_versions" ("file_upload_id","uploaded_at");--> statement-breakpoint
 CREATE INDEX "portal_form_responses_form_idx" ON "portal_form_responses" ("form_id");--> statement-breakpoint
 CREATE INDEX "portal_forms_event_idx" ON "portal_forms" ("event_id");--> statement-breakpoint
+CREATE INDEX "session_file_requirement_assignments_requirement_idx" ON "session_file_requirement_assignments" ("requirement_id");--> statement-breakpoint
+CREATE INDEX "session_file_requirement_assignments_submission_idx" ON "session_file_requirement_assignments" ("submission_id");--> statement-breakpoint
+CREATE INDEX "session_file_requirement_assignments_contact_idx" ON "session_file_requirement_assignments" ("contact_id");--> statement-breakpoint
 CREATE INDEX "session_file_requirements_event_idx" ON "session_file_requirements" ("event_id","position");--> statement-breakpoint
 CREATE INDEX "task_assignments_contact_idx" ON "task_assignments" ("contact_id");--> statement-breakpoint
 CREATE INDEX "task_assignments_submission_idx" ON "task_assignments" ("submission_id");--> statement-breakpoint
@@ -886,6 +903,7 @@ ALTER TABLE "file_comments" ADD CONSTRAINT "file_comments_author_event_member_id
 ALTER TABLE "file_requests" ADD CONSTRAINT "file_requests_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_file_request_id_file_requests_id_fkey" FOREIGN KEY ("file_request_id") REFERENCES "file_requests"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_requirement_id_session_file_requirements_id_fkey" FOREIGN KEY ("requirement_id") REFERENCES "session_file_requirements"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_IdAQNr7QodZY_fkey" FOREIGN KEY ("assignment_id") REFERENCES "session_file_requirement_assignments"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_uploads" ADD CONSTRAINT "file_uploads_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "file_versions" ADD CONSTRAINT "file_versions_file_upload_id_file_uploads_id_fkey" FOREIGN KEY ("file_upload_id") REFERENCES "file_uploads"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -895,6 +913,9 @@ ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_form_i
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "portal_forms" ADD CONSTRAINT "portal_forms_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "session_file_requirement_assignments" ADD CONSTRAINT "session_file_requirement_assignments_gctPIkl4DsG1_fkey" FOREIGN KEY ("requirement_id") REFERENCES "session_file_requirements"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "session_file_requirement_assignments" ADD CONSTRAINT "session_file_requirement_assignments_feYhHZFTGxZT_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "session_file_requirement_assignments" ADD CONSTRAINT "session_file_requirement_assignments_HMVRn6Rwc7eB_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session_file_requirements" ADD CONSTRAINT "session_file_requirements_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "task_assignments" ADD CONSTRAINT "task_assignments_task_template_id_task_templates_id_fkey" FOREIGN KEY ("task_template_id") REFERENCES "task_templates"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "task_assignments" ADD CONSTRAINT "task_assignments_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint

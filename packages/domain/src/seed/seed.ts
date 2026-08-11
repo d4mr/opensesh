@@ -34,6 +34,7 @@ import {
   reviewRounds,
   reviews,
   rooms,
+  sessionFileRequirementAssignments,
   sessionFileRequirements,
   submissionParticipants,
   submissions,
@@ -52,6 +53,11 @@ import { seedData } from "./data";
 
 const seededAt = new Date(1785585600000);
 const DEMO_PASSWORD = "demo-pass-2027";
+const sessionFileAssignmentId = (
+  requirementId: string,
+  submissionId: string,
+  contactId: string | null,
+) => `sfra_${requirementId}_${submissionId}_${contactId ?? "shared"}`;
 const devflowUsers = [
   {
     id: "usr_jordan",
@@ -1171,7 +1177,6 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(taskAssignments).values(rows(seedData.taskAssignments)),
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
       transaction.insert(emailLog).values(rows(emailLogRows)),
-      transaction.insert(fileUploads).values(rows(seedData.fileUploads)),
       transaction.insert(crmStageHistory).values(crmStageHistoryRows),
       transaction.insert(contactEditHistory).values({
         id: "che_maya_bio",
@@ -1189,6 +1194,40 @@ export const seedDatabase = async (database: Database) => {
         updatedAt: new Date(1785672000000),
       }),
     ]);
+
+    const acceptedSubmissionIds = new Set<string>(
+      seedData.submissions.flatMap((submission) =>
+        submission.status === "accepted" ? [submission.id] : [],
+      ),
+    );
+    const acceptedParticipants = seedData.submissionParticipants.filter((participant) =>
+      acceptedSubmissionIds.has(participant.submissionId),
+    );
+    const fileAssignmentRows = seedData.sessionFileRequirements.flatMap((requirement) => {
+      const targets =
+        requirement.scope === "submission"
+          ? Array.from(acceptedSubmissionIds, (submissionId) => ({ submissionId, contactId: null }))
+          : acceptedParticipants.map((participant) => ({
+              submissionId: participant.submissionId,
+              contactId: participant.contactId,
+            }));
+      return targets.map((target) => {
+        const id = sessionFileAssignmentId(requirement.id, target.submissionId, target.contactId);
+        return {
+          id,
+          requirementId: requirement.id,
+          submissionId: target.submissionId,
+          contactId: target.contactId,
+          status: seedData.fileUploads.some((upload) => upload.assignmentId === id)
+            ? ("uploaded" as const)
+            : ("outstanding" as const),
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        };
+      });
+    });
+    await transaction.insert(sessionFileRequirementAssignments).values(fileAssignmentRows);
+    await transaction.insert(fileUploads).values(rows(seedData.fileUploads));
 
     await Promise.all([
       transaction.insert(fileVersions).values(rows(seedData.fileVersions)),

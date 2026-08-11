@@ -21,6 +21,7 @@ import {
   PortalSubmissionRequest,
   RestoreHistoryRequest,
   SessionFileRequirementMutationRequest,
+  SessionFileRequirementDeleteRequest,
   TaskAssignmentRequest,
   TaskTemplateMutationRequest,
 } from "@opensesh/domain";
@@ -669,6 +670,19 @@ export const saveAdminSessionFileRequirement = createServerFn({ method: "POST" }
         }
         const portal = yield* Portal;
         return yield* portal.saveSessionFileRequirement(data);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const deleteAdminSessionFileRequirement = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(SessionFileRequirementDeleteRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        const portal = yield* Portal;
+        return yield* portal.deleteSessionFileRequirement(data.eventId, data.requirementId);
       }),
       { require: "admin" },
     ),

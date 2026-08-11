@@ -7,11 +7,14 @@ import {
   embeds,
   eventMembers,
   events,
+  fileUploads,
   formats,
   forms,
   organizationMembers,
   reviewRounds,
   reviews,
+  sessionFileRequirementAssignments,
+  sessionFileRequirements,
   rooms,
   submissionParticipants,
   submissions,
@@ -817,23 +820,87 @@ export const SubmissionsLive = Layer.effect(
         }),
       replaceParticipants: (submissionId, participants) =>
         Effect.gen(function* () {
-          yield* query(database, "Could not replace submission participants", (db) =>
-            db
-              .delete(submissionParticipants)
-              .where(eq(submissionParticipants.submissionId, submissionId))
-              .execute(),
-          );
-
-          if (participants.length === 0) {
-            return [];
-          }
-
           const rows = yield* query(database, "Could not replace submission participants", (db) =>
-            db
-              .insert(submissionParticipants)
-              .values(participants.map((participant) => ({ ...participant, submissionId })))
-              .returning()
-              .execute(),
+            db.transaction(async (transaction) => {
+              const submissionRows = await transaction
+                .select({ eventId: submissions.eventId, status: submissions.status })
+                .from(submissions)
+                .where(eq(submissions.id, submissionId))
+                .limit(1);
+              await transaction
+                .delete(submissionParticipants)
+                .where(eq(submissionParticipants.submissionId, submissionId));
+              const inserted =
+                participants.length === 0
+                  ? []
+                  : await transaction
+                      .insert(submissionParticipants)
+                      .values(participants.map((participant) => ({ ...participant, submissionId })))
+                      .returning();
+              const submission = submissionRows[0];
+              if (submission?.status !== "accepted") return inserted;
+
+              const [requirements, existing, uploaded] = await Promise.all([
+                transaction
+                  .select()
+                  .from(sessionFileRequirements)
+                  .where(eq(sessionFileRequirements.eventId, submission.eventId)),
+                transaction
+                  .select()
+                  .from(sessionFileRequirementAssignments)
+                  .where(eq(sessionFileRequirementAssignments.submissionId, submissionId)),
+                transaction
+                  .select({ assignmentId: fileUploads.assignmentId })
+                  .from(fileUploads)
+                  .innerJoin(
+                    sessionFileRequirementAssignments,
+                    eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+                  )
+                  .where(eq(sessionFileRequirementAssignments.submissionId, submissionId)),
+              ]);
+              const contactIds = new Set(participants.map((participant) => participant.contactId));
+              const uploadedIds = new Set(uploaded.map((upload) => upload.assignmentId));
+              const removableIds = existing.flatMap((assignment) =>
+                assignment.contactId !== null &&
+                !contactIds.has(assignment.contactId) &&
+                !uploadedIds.has(assignment.id)
+                  ? [assignment.id]
+                  : [],
+              );
+              if (removableIds.length > 0) {
+                await transaction
+                  .delete(sessionFileRequirementAssignments)
+                  .where(inArray(sessionFileRequirementAssignments.id, removableIds));
+              }
+              const fileAssignments: Array<typeof sessionFileRequirementAssignments.$inferInsert> =
+                [];
+              for (const requirement of requirements) {
+                if (requirement.scope === "submission") {
+                  fileAssignments.push({
+                    requirementId: requirement.id,
+                    submissionId,
+                    contactId: null,
+                    status: "outstanding",
+                  });
+                  continue;
+                }
+                for (const contactId of contactIds) {
+                  fileAssignments.push({
+                    requirementId: requirement.id,
+                    submissionId,
+                    contactId,
+                    status: "outstanding",
+                  });
+                }
+              }
+              if (fileAssignments.length > 0) {
+                await transaction
+                  .insert(sessionFileRequirementAssignments)
+                  .values(fileAssignments)
+                  .onConflictDoNothing();
+              }
+              return inserted;
+            }),
           );
           return yield* decodeMany(SubmissionParticipant, "submission participant", rows);
         }),

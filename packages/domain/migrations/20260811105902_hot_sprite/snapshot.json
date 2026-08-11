@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6807c3ff-bc0a-456d-8f1b-f6bf2aa67744",
+  "id": "283fd742-2d93-4a17-be19-aee87b2f7018",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -44,6 +44,15 @@
         "lost"
       ],
       "name": "crm_semantic_status",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "outstanding",
+        "uploaded"
+      ],
+      "name": "deliverable_status",
       "entityType": "enums",
       "schema": "public"
     },
@@ -507,6 +516,12 @@
     {
       "isRlsEnabled": false,
       "name": "portal_forms",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "session_file_requirement_assignments",
       "entityType": "tables",
       "schema": "public"
     },
@@ -4708,6 +4723,19 @@
       "table": "file_uploads"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "assignment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "file_uploads"
+    },
+    {
       "type": "file_kind",
       "typeSchema": "public",
       "notNull": true,
@@ -5199,6 +5227,97 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "requirement_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "submission_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contact_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "deliverable_status",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'outstanding'",
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "session_file_requirements"
     },
     {
@@ -5275,6 +5394,19 @@
       "generated": null,
       "identity": null,
       "name": "max_size_mb",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "session_file_requirements"
+    },
+    {
+      "type": "target_type",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'contact'",
+      "generated": null,
+      "identity": null,
+      "name": "scope",
       "entityType": "columns",
       "schema": "public",
       "table": "session_file_requirements"
@@ -8531,6 +8663,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "assignment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "file_uploads_assignment_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "file_uploads"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "contact_id",
           "isExpression": false,
           "asc": true,
@@ -8617,6 +8770,69 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "portal_forms"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "requirement_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "session_file_requirement_assignments_requirement_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "submission_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "session_file_requirement_assignments_submission_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "contact_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "session_file_requirement_assignments_contact_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
     },
     {
       "nameExplicit": true,
@@ -10042,6 +10258,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "assignment_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "session_file_requirement_assignments",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "file_uploads_IdAQNr7QodZY_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "file_uploads"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "contact_id"
       ],
       "schemaTo": "public",
@@ -10191,6 +10424,57 @@
       "entityType": "fks",
       "schema": "public",
       "table": "portal_forms"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "requirement_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "session_file_requirements",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "session_file_requirement_assignments_gctPIkl4DsG1_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "submission_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "submissions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "session_file_requirement_assignments_feYhHZFTGxZT_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "contact_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "contacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "session_file_requirement_assignments_HMVRn6Rwc7eB_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
     },
     {
       "nameExplicit": false,
@@ -11301,6 +11585,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "session_file_requirement_assignments_pkey",
+      "schema": "public",
+      "table": "session_file_requirement_assignments",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "session_file_requirements_pkey",
       "schema": "public",
       "table": "session_file_requirements",
@@ -11696,11 +11990,10 @@
     {
       "nameExplicit": true,
       "columns": [
-        "submission_id",
-        "requirement_id"
+        "assignment_id"
       ],
       "nullsNotDistinct": false,
-      "name": "file_uploads_submission_requirement_unique",
+      "name": "file_uploads_assignment_unique",
       "entityType": "uniques",
       "schema": "public",
       "table": "file_uploads"
@@ -11715,6 +12008,19 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "file_versions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "requirement_id",
+        "submission_id",
+        "contact_id"
+      ],
+      "nullsNotDistinct": true,
+      "name": "session_file_requirement_assignments_target_unique",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "session_file_requirement_assignments"
     },
     {
       "nameExplicit": true,

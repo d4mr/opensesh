@@ -1,6 +1,6 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { DownloadIcon, FileArchiveIcon } from "lucide-react";
+import { DownloadIcon, FileArchiveIcon, SendIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -42,6 +42,7 @@ import { adminPortalQuery } from "@/lib/portal-queries";
 import { downloadVersion } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { exportAdminFilesZip, getPortalAdmin } from "@/server-fns/portal";
+import { sendDeliverableReminders } from "@/server-fns/mail";
 
 type AdminData = Extract<Awaited<ReturnType<typeof getPortalAdmin>>, { readonly ok: true }>["data"];
 type AdminFile = AdminData["files"][number];
@@ -55,6 +56,7 @@ interface LibraryRow {
   readonly kind: string;
   readonly status: "uploaded" | "outstanding";
   readonly deliverableId: string | null;
+  readonly requirementAssignmentId: string | null;
   readonly file: AdminFile | undefined;
   readonly submission: AdminSubmission | null;
   readonly contacts: ReadonlyArray<AdminContact>;
@@ -79,43 +81,42 @@ const uniqueContacts = (contacts: ReadonlyArray<AdminContact>) =>
 const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
   const rows: Array<LibraryRow> = [];
   const usedUploads = new Set<string>();
-  const accepted = data.submissions.filter((submission) => submission.status === "accepted");
 
-  for (const submission of accepted) {
-    const speakers = uniqueContacts(
-      data.participants
-        .filter((participant) => participant.submission.id === submission.id)
-        .map((participant) => participant.contact),
+  for (const assignment of data.requirementAssignments) {
+    const file = data.files.find(
+      (candidate) => candidate.upload.assignmentId === assignment.assignment.id,
     );
-    for (const requirement of data.requirements) {
-      const file = data.files.find(
-        (candidate) =>
-          candidate.upload.submissionId === submission.id &&
-          candidate.upload.requirementId === requirement.id,
-      );
-      if (file !== undefined) usedUploads.add(file.upload.id);
-      const latest = latestVersion(data, file?.upload.id);
-      rows.push({
-        id: `requirement:${submission.id}:${requirement.id}`,
-        label: latest?.filename ?? requirement.title,
-        kind: requirement.title,
-        status: latest === undefined ? "outstanding" : "uploaded",
-        deliverableId: `requirement:${requirement.id}`,
-        file,
-        submission,
-        contacts: file === undefined ? speakers : [file.contact],
-        latest,
-        versionCount: data.versions.filter(
-          (version) => version.version.fileUploadId === file?.upload.id,
-        ).length,
-        date:
-          latest === undefined
-            ? requirement.dueAt === null
-              ? null
-              : new Date(requirement.dueAt)
-            : new Date(latest.uploadedAt),
-      });
-    }
+    if (file !== undefined) usedUploads.add(file.upload.id);
+    const latest = latestVersion(data, file?.upload.id);
+    const speakers =
+      assignment.contact === null
+        ? uniqueContacts(
+            data.participants
+              .filter((participant) => participant.submission.id === assignment.submission.id)
+              .map((participant) => participant.contact),
+          )
+        : [assignment.contact];
+    rows.push({
+      id: `requirement-assignment:${assignment.assignment.id}`,
+      label: latest?.filename ?? assignment.requirement.title,
+      kind: assignment.requirement.title,
+      status: assignment.assignment.status,
+      deliverableId: `requirement:${assignment.requirement.id}`,
+      requirementAssignmentId: assignment.assignment.id,
+      file,
+      submission: assignment.submission,
+      contacts: speakers,
+      latest,
+      versionCount: data.versions.filter(
+        (version) => version.version.fileUploadId === file?.upload.id,
+      ).length,
+      date:
+        latest === undefined
+          ? assignment.requirement.dueAt === null
+            ? null
+            : new Date(assignment.requirement.dueAt)
+          : new Date(latest.uploadedAt),
+    });
   }
 
   for (const assignment of data.assignments) {
@@ -149,6 +150,7 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
         kind: request.title,
         status: latest === undefined ? "outstanding" : "uploaded",
         deliverableId: `request:${request.id}`,
+        requirementAssignmentId: null,
         file,
         submission: assignment.submission,
         contacts: [contact],
@@ -186,6 +188,7 @@ const buildRows = (data: AdminData): ReadonlyArray<LibraryRow> => {
             ? null
             : `request:${file.upload.fileRequestId}`
           : `requirement:${file.upload.requirementId}`,
+      requirementAssignmentId: file.upload.assignmentId,
       file,
       submission: file.submission,
       contacts: [file.contact],
@@ -272,6 +275,17 @@ function FilesLibraryData({
   const uploadedIds = filtered.flatMap((row) =>
     row.file === undefined || row.latest === undefined ? [] : [row.file.upload.id],
   );
+  const reminderRecipientIds = filtered.flatMap((row) =>
+    row.status !== "outstanding" || row.requirementAssignmentId === null
+      ? []
+      : row.contacts.flatMap((contact) =>
+          contactId === "all" || contact.id === contactId ? [contact.id] : [],
+        ),
+  );
+  const reminderContactIds = Array.from(new Set(reminderRecipientIds));
+  const filteredRequirementId = deliverableId?.startsWith("requirement:")
+    ? deliverableId.slice("requirement:".length)
+    : undefined;
   const allUploadedSelected = uploadedIds.length > 0 && uploadedIds.every((id) => selected.has(id));
   const selectedRow = rows.find((row) => row.id === spotlightId);
   const sessions = Array.from(
@@ -309,6 +323,23 @@ function FilesLibraryData({
       }
       setReady(result.data);
       setExportError(undefined);
+    },
+  });
+  const remind = useMutation({
+    mutationFn: () =>
+      sendDeliverableReminders({
+        data: {
+          eventId,
+          contactIds: reminderContactIds,
+          ...(filteredRequirementId === undefined ? {} : { requirementId: filteredRequirementId }),
+        },
+      }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success(`Queued ${result.data.attempted} reminders`);
     },
   });
   const downloadReady = () => {
@@ -416,6 +447,17 @@ function FilesLibraryData({
                       Clear filters
                     </Button>
                   )}
+                  {status === "outstanding" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="pressable"
+                      disabled={reminderRecipientIds.length === 0 || remind.isPending}
+                      onClick={() => remind.mutate()}
+                    >
+                      <SendIcon /> Remind outstanding ({reminderRecipientIds.length})
+                    </Button>
+                  ) : null}
                   <p className="ml-auto text-xs text-muted-foreground tabular-nums">
                     {filtered.length} record{filtered.length === 1 ? "" : "s"}
                   </p>

@@ -179,7 +179,6 @@ function SubmissionContent({
   // list is a set of rich cards; opening one takes over the page with a
   // breadcrumb back, the same shape as the CRM contact detail.
   if (selected === undefined) {
-    const fileTotal = data.requirements.length;
     return (
       <main className="h-[calc(100svh-3rem)] overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 py-10">
@@ -192,15 +191,13 @@ function SubmissionContent({
           </p>
           <div className="mt-6 grid gap-3 pb-10">
             {data.submissions.map(({ submission, format }) => {
+              const assignments = data.requirementAssignments.filter(
+                (assignment) => assignment.submissionId === submission.id,
+              );
+              const fileTotal = assignments.length;
               const uploaded =
                 submission.status === "accepted" && fileTotal > 0
-                  ? data.requirements.filter((requirement) =>
-                      data.files.some(
-                        (item) =>
-                          item.upload.submissionId === submission.id &&
-                          item.upload.requirementId === requirement.id,
-                      ),
-                    ).length
+                  ? assignments.filter((assignment) => assignment.status === "uploaded").length
                   : null;
               return (
                 <button
@@ -421,21 +418,23 @@ function SessionFiles({
         </p>
       </div>
       <div className="divide-y overflow-hidden rounded-lg border">
-        {data.requirements.map((requirement) => {
-          const file = data.files.find(
-            (item) =>
-              item.upload.submissionId === submissionId &&
-              item.upload.requirementId === requirement.id,
+        {data.requirements.flatMap((requirement) => {
+          const assignment = data.requirementAssignments.find(
+            (candidate) =>
+              candidate.submissionId === submissionId && candidate.requirementId === requirement.id,
           );
-          return (
+          if (assignment === undefined) return [];
+          const file = data.files.find((item) => item.upload.assignmentId === assignment.id);
+          return [
             <SessionFileRow
-              key={requirement.id}
+              key={assignment.id}
               data={data}
               submissionId={submissionId}
               requirement={requirement}
+              assignment={assignment}
               upload={file?.upload}
-            />
-          );
+            />,
+          ];
         })}
       </div>
     </section>
@@ -446,11 +445,13 @@ function SessionFileRow({
   data,
   submissionId,
   requirement,
+  assignment,
   upload,
 }: {
   readonly data: SpeakerData;
   readonly submissionId: string;
   readonly requirement: SpeakerData["requirements"][number];
+  readonly assignment: SpeakerData["requirementAssignments"][number];
   readonly upload: SpeakerData["files"][number]["upload"] | undefined;
 }) {
   const due = requirement.dueAt === null ? null : new Date(requirement.dueAt);
@@ -483,7 +484,7 @@ function SessionFileRow({
         <SessionFileUploadAction
           requirement={requirement}
           submissionId={submissionId}
-          uploaded={upload !== undefined}
+          uploaded={assignment.status !== "outstanding"}
         />
       </div>
       {upload === undefined ? null : (

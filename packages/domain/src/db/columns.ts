@@ -29,6 +29,7 @@ export const formFieldType = pgEnum("form_field_type", [
 ]);
 export const targetType = pgEnum("target_type", ["contact", "submission"]);
 export const taskStatus = pgEnum("task_status", ["todo", "done", "waived"]);
+export const deliverableStatus = pgEnum("deliverable_status", ["outstanding", "uploaded"]);
 export const fileKind = pgEnum("file_kind", ["request", "headshot", "slides"]);
 export const contentApprovalStatus = pgEnum("content_approval_status", [
   "approved",

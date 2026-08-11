@@ -82,6 +82,7 @@ import {
   acceptPortalSubmission,
   approveContentChange,
   createAdminFileRequest,
+  deleteAdminSessionFileRequirement,
   getPortalAdmin,
   manualAssignAdminTask,
   rejectContentChange,
@@ -89,7 +90,7 @@ import {
   saveAdminTaskTemplate,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
-import { sendTaskReminders } from "@/server-fns/mail";
+import { sendDeliverableReminders, sendTaskReminders } from "@/server-fns/mail";
 
 export type AdminData = Extract<
   Awaited<ReturnType<typeof getPortalAdmin>>,
@@ -1015,9 +1016,6 @@ function DeliverablesAdmin({
   const queryClient = useQueryClient();
   const requirements = usePagination(data.requirements);
   const requests = usePagination(data.fileRequests);
-  const acceptedSessions = data.submissions.filter(
-    (submission) => submission.status === "accepted",
-  );
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
   const saveRequest = useMutation({
     mutationFn: () =>
@@ -1055,6 +1053,7 @@ function DeliverablesAdmin({
             requirementForm.acceptTypes.trim().length === 0 ? null : requirementForm.acceptTypes,
           maxSizeMb:
             requirementForm.maxSizeMb.length === 0 ? null : Number(requirementForm.maxSizeMb),
+          scope: requirementForm.scope,
         },
       }),
     onSuccess: async (result) => {
@@ -1066,6 +1065,40 @@ function DeliverablesAdmin({
       setRequirementForm(emptyRequirementForm);
       toast.success(requirementForm.id === null ? "Requirement added" : "Requirement saved");
       await refresh();
+    },
+  });
+  const deleteRequirement = useMutation({
+    mutationFn: (requirementId: string) =>
+      deleteAdminSessionFileRequirement({ data: { eventId, requirementId } }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      setRequirementOpen(false);
+      setRequirementForm(emptyRequirementForm);
+      toast.success("Requirement deleted");
+      await refresh();
+    },
+  });
+  const remindRequirement = useMutation({
+    mutationFn: (input: {
+      readonly requirementId: string;
+      readonly contactIds: ReadonlyArray<string>;
+    }) =>
+      sendDeliverableReminders({
+        data: {
+          eventId,
+          requirementId: input.requirementId,
+          contactIds: [...input.contactIds],
+        },
+      }),
+    onSuccess: (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success(`Queued ${result.data.attempted} reminders`);
     },
   });
   const openRequirement = (requirement?: AdminData["requirements"][number]) => {
@@ -1135,20 +1168,20 @@ function DeliverablesAdmin({
             <div className="overflow-hidden rounded-lg border">
               <div className="divide-y">
                 {requirements.pageItems.map((requirement) => {
-                  const uploadedSessionIds = new Set(
-                    data.files.flatMap((file) =>
-                      file.upload.requirementId === requirement.id &&
-                      file.upload.submissionId !== null &&
-                      data.versions.some(
-                        (version) => version.version.fileUploadId === file.upload.id,
-                      )
-                        ? [file.upload.submissionId]
-                        : [],
-                    ),
+                  const assignments = data.requirementAssignments.filter(
+                    (row) => row.requirement.id === requirement.id,
                   );
-                  const uploaded = acceptedSessions.filter((session) =>
-                    uploadedSessionIds.has(session.id),
+                  const uploaded = assignments.filter(
+                    (row) => row.assignment.status === "uploaded",
                   ).length;
+                  const reminderContactIds = assignments.flatMap((row) => {
+                    if (row.assignment.status !== "outstanding") return [];
+                    if (row.contact !== null) return [row.contact.id];
+                    return data.participants
+                      .filter((participant) => participant.submission.id === row.submission.id)
+                      .map((participant) => participant.contact.id);
+                  });
+                  const noun = requirement.scope === "contact" ? "speakers" : "sessions";
                   return (
                     <div key={requirement.id} className="flex items-center gap-2">
                       <Link
@@ -1173,10 +1206,25 @@ function DeliverablesAdmin({
                             </span>
                           </span>
                           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                            {uploaded} of {acceptedSessions.length} sessions uploaded
+                            {uploaded} of {assignments.length} {noun} uploaded
                           </span>
                         </span>
                       </Link>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        className="pressable shrink-0"
+                        disabled={reminderContactIds.length === 0 || remindRequirement.isPending}
+                        onClick={() =>
+                          remindRequirement.mutate({
+                            requirementId: requirement.id,
+                            contactIds: Array.from(new Set(reminderContactIds)),
+                          })
+                        }
+                      >
+                        <SendIcon /> Remind outstanding ({reminderContactIds.length})
+                      </Button>
                       <Button
                         type="button"
                         size="icon-sm"
@@ -1324,6 +1372,26 @@ function DeliverablesAdmin({
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label>Upload scope</Label>
+                <Select
+                  value={requirementForm.scope}
+                  onValueChange={(scope) =>
+                    setRequirementForm({
+                      ...requirementForm,
+                      scope: scope === "submission" ? "submission" : "contact",
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contact">Each speaker uploads their own</SelectItem>
+                    <SelectItem value="submission">One upload per session</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="requirement-due">Due</Label>
                 <DateTimePicker
@@ -1360,6 +1428,19 @@ function DeliverablesAdmin({
             </div>
           </div>
           <DialogFooter>
+            {requirementForm.id === null ? null : (
+              <Button
+                variant="destructive"
+                className="mr-auto"
+                disabled={deleteRequirement.isPending}
+                onClick={() => {
+                  const requirementId = requirementForm.id;
+                  if (requirementId !== null) deleteRequirement.mutate(requirementId);
+                }}
+              >
+                {deleteRequirement.isPending ? "Deleting…" : "Delete requirement"}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setRequirementOpen(false)}>
               Cancel
             </Button>
@@ -1455,6 +1536,7 @@ type RequirementForm = {
   readonly dueAt: string;
   readonly acceptTypes: string;
   readonly maxSizeMb: string;
+  readonly scope: "contact" | "submission";
 };
 
 const emptyRequirementForm: RequirementForm = {
@@ -1464,6 +1546,7 @@ const emptyRequirementForm: RequirementForm = {
   dueAt: "",
   acceptTypes: "",
   maxSizeMb: "",
+  scope: "contact",
 };
 
 const requirementFormFor = (requirement: AdminData["requirements"][number]): RequirementForm => ({
@@ -1473,6 +1556,7 @@ const requirementFormFor = (requirement: AdminData["requirements"][number]): Req
   dueAt: requirement.dueAt === null ? "" : new Date(requirement.dueAt).toISOString(),
   acceptTypes: requirement.acceptTypes ?? "",
   maxSizeMb: requirement.maxSizeMb?.toString() ?? "",
+  scope: requirement.scope,
 });
 
 function AdminSessions({
@@ -1779,13 +1863,14 @@ function SessionPeek({
   const history = data.history
     .map((item) => item.history)
     .filter((item) => item.submissionId === submissionId);
-  const assets = data.requirements.map((requirement) => ({
-    requirement,
-    file: data.files.find(
-      (item) =>
-        item.upload.submissionId === submissionId && item.upload.requirementId === requirement.id,
-    ),
-  }));
+  const assets = data.requirementAssignments
+    .filter((row) => row.submission.id === submissionId)
+    .map((row) => ({
+      assignment: row.assignment,
+      requirement: row.requirement,
+      contact: row.contact,
+      file: data.files.find((item) => item.upload.assignmentId === row.assignment.id),
+    }));
   const uploadedAssets = assets.filter((asset) => asset.file !== undefined);
   const downloadAll = async () => {
     if (submission === undefined) return;
@@ -1867,7 +1952,7 @@ function SessionPeek({
               )}
             </div>
             <div className="divide-y overflow-hidden rounded-lg border">
-              {assets.map(({ requirement, file }) => {
+              {assets.map(({ assignment, requirement, contact, file }) => {
                 const versions = data.versions
                   .map((item) => item.version)
                   .filter((version) => version.fileUploadId === file?.upload.id);
@@ -1875,12 +1960,15 @@ function SessionPeek({
                   .map((item) => item.comment)
                   .filter((comment) => comment.fileUploadId === file?.upload.id);
                 return (
-                  <div key={requirement.id}>
+                  <div key={assignment.id}>
                     <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                       <div className="min-w-0">
                         <p className="text-sm font-medium">{requirement.title}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {requirement.acceptTypes ?? "Any file type"}
+                          {contact === null
+                            ? "Shared by session"
+                            : `${contact.firstName} ${contact.lastName}`}{" "}
+                          · {requirement.acceptTypes ?? "Any file type"}
                           {requirement.maxSizeMb === null
                             ? ""
                             : ` · ${requirement.maxSizeMb} MB max`}
