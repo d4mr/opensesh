@@ -9,6 +9,7 @@ import {
   reviewDeskDetailQuery,
   reviewDeskListQuery,
 } from "@/lib/review-desk-queries";
+import { adminPortalQuery } from "@/lib/portal-queries";
 
 const parseStatus = (value: unknown): SubmissionStatusFilter => {
   if (
@@ -34,7 +35,10 @@ export const Route = createFileRoute("/admin/sessions")({
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
     const eventId = events.ok ? events.data[0]?.id : undefined;
     if (eventId !== undefined) {
-      await context.queryClient.ensureQueryData(reviewDeskListQuery(eventId, "session"));
+      await Promise.all([
+        context.queryClient.ensureQueryData(reviewDeskListQuery(eventId, "session")),
+        context.queryClient.ensureQueryData(adminPortalQuery(eventId)),
+      ]);
       if (deps.spotlight !== undefined) {
         void context.queryClient.prefetchQuery(reviewDeskDetailQuery(eventId, deps.spotlight));
       }

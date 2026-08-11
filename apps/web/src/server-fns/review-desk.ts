@@ -1,6 +1,7 @@
 import {
   CsvExportRequest,
   DecisionRequest,
+  ManualSessionCreateRequest,
   ReviewDeskDetailRequest,
   ReviewDeskListRequest,
   ReviewUpsertRequest,
@@ -9,9 +10,9 @@ import {
   type ReviewDeskListItem,
 } from "@opensesh/domain";
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
-import { Forbidden } from "@opensesh/domain/server/errors";
+import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Events, ReviewDesk } from "@opensesh/domain/server/repos";
+import { Contacts, Events, Portal, ReviewDesk, Submissions } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
@@ -86,6 +87,82 @@ export const changeSubmissionStatus = createServerFn({ method: "POST" })
           data.submissionId,
           data.status,
         );
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const createManualSession = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(ManualSessionCreateRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireManagedEvent(data.eventId);
+        const title = data.title.trim();
+        const speakerIds = Array.from(new Set(data.speakerIds));
+        if (title.length === 0) {
+          return yield* Effect.fail(new InvalidInput({ message: "Enter a session title" }));
+        }
+        if (speakerIds.length === 0) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Every session must have a speaker" }),
+          );
+        }
+
+        const contacts = yield* Contacts;
+        const events = yield* Events;
+        const [eventContacts, eventFormats] = yield* Effect.all([
+          contacts.listByEvent(data.eventId),
+          events.listFormats(data.eventId),
+        ]);
+        const availableContactIds = new Set(eventContacts.map((contact) => contact.id));
+        if (speakerIds.some((id) => !availableContactIds.has(id))) {
+          return yield* Effect.fail(
+            new Forbidden({ message: "One or more speakers do not belong to this event" }),
+          );
+        }
+        if (data.formatId !== null && !eventFormats.some((format) => format.id === data.formatId)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Choose a format from this event" }),
+          );
+        }
+
+        const submissions = yield* Submissions;
+        const created = yield* submissions.create({
+          eventId: data.eventId,
+          kind: "session",
+          status: "accepted",
+          sourceFormId: null,
+          submitterContactId: null,
+          title,
+          description: data.description,
+          formatId: data.formatId,
+          levelId: null,
+          language: "en",
+          startsAt: null,
+          endsAt: null,
+          roomId: null,
+          icsSequence: 0,
+          scheduleDirty: false,
+          capacity: null,
+          ceuCredits: null,
+          clientSessionId: null,
+          notifiedAt: null,
+          submittedAt: new Date(),
+          answers: {},
+          approvedSnapshot: {},
+          contentReviewStatus: "approved",
+        });
+        yield* submissions.replaceParticipants(
+          created.id,
+          speakerIds.map((contactId, position) => ({ contactId, role: "speaker", position })),
+        );
+
+        // Directly-created accepted sessions skip the review decision transaction.
+        // Reuse the portal acceptance path to snapshot public content and create
+        // every auto-on-accept contact and submission task assignment.
+        const portal = yield* Portal;
+        return yield* portal.acceptSubmission(data.eventId, created.id);
       }),
       { require: "admin" },
     ),

@@ -6,15 +6,15 @@ import {
   Clock3Icon,
   HistoryIcon,
   RotateCcwIcon,
-  UploadIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { Timestamp } from "@/components/app/timestamp";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { FileThread } from "@/components/portal/file-thread";
+import { SessionFileUploadAction } from "@/components/portal/session-file-upload-action";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,12 +28,10 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
-import { fileAsBase64 } from "@/lib/files";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import {
   editPortalSubmission,
   restorePortalHistory,
-  uploadPortalFile,
   withdrawPortalSubmission,
 } from "@/server-fns/portal";
 
@@ -455,34 +453,6 @@ function SessionFileRow({
   readonly requirement: SpeakerData["requirements"][number];
   readonly upload: SpeakerData["files"][number]["upload"] | undefined;
 }) {
-  const input = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
-  const [uploadError, setUploadError] = useState<string>();
-  const mutation = useMutation({
-    mutationFn: async (file: File) =>
-      uploadPortalFile({
-        data: {
-          assignmentId: null,
-          fileRequestId: null,
-          requirementId: requirement.id,
-          submissionId,
-          kind: "slides",
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-          base64: await fileAsBase64(file),
-        },
-      }),
-    onSuccess: async (result) => {
-      if (!result.ok) {
-        setUploadError(result.error.message);
-        return;
-      }
-      setUploadError(undefined);
-      toast.success(upload === undefined ? "File uploaded" : "New version uploaded");
-      await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
-    },
-  });
   const due = requirement.dueAt === null ? null : new Date(requirement.dueAt);
   const overdue = due !== null && due.getTime() < Date.now();
   const versions = data.versions
@@ -501,11 +471,6 @@ function SessionFileRow({
             Accepted: {requirement.acceptTypes ?? "any file type"} · Maximum:{" "}
             {requirement.maxSizeMb ?? 8} MB
           </p>
-          {uploadError === undefined ? null : (
-            <p className="mt-1 text-xs text-destructive" role="alert">
-              {uploadError}
-            </p>
-          )}
         </div>
         {due === null ? null : (
           <p
@@ -515,29 +480,11 @@ function SessionFileRow({
             <Timestamp value={due} timezone={data.event.timezone} mode="date" />
           </p>
         )}
-        <input
-          ref={input}
-          type="file"
-          accept={requirement.acceptTypes ?? undefined}
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file !== undefined) {
-              setUploadError(undefined);
-              mutation.mutate(file);
-            }
-            event.target.value = "";
-          }}
+        <SessionFileUploadAction
+          requirement={requirement}
+          submissionId={submissionId}
+          uploaded={upload !== undefined}
         />
-        <Button
-          size="sm"
-          variant={upload === undefined ? "default" : "outline"}
-          disabled={mutation.isPending}
-          onClick={() => input.current?.click()}
-        >
-          <UploadIcon />
-          {mutation.isPending ? "Uploading…" : upload === undefined ? "Upload" : "Replace"}
-        </Button>
       </div>
       {upload === undefined ? null : (
         <div className="border-t px-3 py-3">

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Timestamp } from "@/components/app/timestamp";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { FileThread } from "@/components/portal/file-thread";
+import { SessionFileUploadAction } from "@/components/portal/session-file-upload-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fileAsBase64 } from "@/lib/files";
@@ -152,6 +153,21 @@ function TaskContent({
   const done = data.tasks.filter((item) => item.assignment.status !== "todo");
   const contactTasks = todo.filter((item) => item.template.scope === "contact");
   const submissionTasks = todo.filter((item) => item.template.scope === "submission");
+  const sessionFiles = data.submissions
+    .filter((item) => item.submission.status === "accepted")
+    .flatMap((item) =>
+      data.requirements.map((requirement) => ({
+        id: `${item.submission.id}:${requirement.id}`,
+        submission: item.submission,
+        requirement,
+        upload: data.files.find(
+          (file) =>
+            file.upload.submissionId === item.submission.id &&
+            file.upload.requirementId === requirement.id,
+        )?.upload,
+      })),
+    );
+  const completedSessionFiles = sessionFiles.filter((item) => item.upload !== undefined).length;
 
   const renderTask = (item: (typeof data.tasks)[number], complete: boolean) => {
     const upload = data.files.find(
@@ -348,18 +364,112 @@ function TaskContent({
     );
   };
 
+  const renderSessionFile = (item: (typeof sessionFiles)[number]) => {
+    const complete = item.upload !== undefined;
+    const expanded = openId === item.id;
+    const versions = data.versions
+      .map((entry) => entry.version)
+      .filter((version) => version.fileUploadId === item.upload?.id);
+    const comments = data.comments
+      .map((entry) => entry.comment)
+      .filter((comment) => comment.fileUploadId === item.upload?.id);
+    const unread =
+      item.upload !== undefined &&
+      comments.some(
+        (comment) =>
+          comment.authorEventMemberId !== null &&
+          (item.upload?.speakerLastReadAt === null ||
+            new Date(comment.createdAt) > new Date(item.upload?.speakerLastReadAt ?? 0)),
+      );
+    return (
+      <div
+        key={item.id}
+        className={`overflow-hidden rounded-xl border ${complete ? "bg-muted/30" : "bg-card"}`}
+      >
+        <div className="flex items-start gap-3 px-4 py-3.5">
+          <div className="flex size-8 shrink-0 items-center justify-center" aria-hidden="true">
+            {complete ? (
+              <CheckIcon className="size-4 text-primary" />
+            ) : (
+              <CircleIcon className="size-4" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold">{item.requirement.title}</p>
+              <Badge variant="outline" className="text-[10px]">
+                {complete ? "Uploaded" : "Outstanding"}
+              </Badge>
+              {unread ? (
+                <Badge className="gap-1 text-[10px]">
+                  <MessageCircleMoreIcon /> Unread comment
+                </Badge>
+              ) : null}
+            </div>
+            {item.requirement.description.length === 0 ? null : (
+              <p className="mt-1 text-xs text-muted-foreground">{item.requirement.description}</p>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              <span className="font-mono tabular-nums">{item.submission.code}</span>
+              {item.requirement.dueAt === null ? (
+                " · No due date"
+              ) : (
+                <>
+                  {" · Due "}
+                  <Timestamp
+                    value={item.requirement.dueAt}
+                    timezone={data.event.timezone}
+                    mode="date"
+                  />
+                </>
+              )}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setOpenId(expanded ? null : item.id)}>
+            {expanded ? "Close" : complete ? "View file" : "Upload"}
+          </Button>
+        </div>
+        {!expanded ? null : (
+          <div className="grid gap-3 border-t p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Accepted: {item.requirement.acceptTypes ?? "any file type"} · Maximum:{" "}
+                {item.requirement.maxSizeMb ?? 8} MB
+              </p>
+              <SessionFileUploadAction
+                requirement={item.requirement}
+                submissionId={item.submission.id}
+                uploaded={complete}
+              />
+            </div>
+            {item.upload === undefined ? null : (
+              <FileThread
+                timezone={data.event.timezone}
+                authorName={`${data.contact.firstName} ${data.contact.lastName}`}
+                upload={item.upload}
+                versions={versions}
+                comments={comments}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <main className="h-[calc(100svh-3rem)] overflow-y-auto">
       <div className="mx-auto w-full max-w-3xl px-4 py-10">
         <h1 className="text-xl font-semibold tracking-tight">Tasks</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {done.length} of {data.tasks.length} complete
+          {done.length + completedSessionFiles} of {data.tasks.length + sessionFiles.length}{" "}
+          complete
         </p>
         <div className="mt-6 grid gap-6 pb-10">
-          <TaskGroup title="My Tasks" empty="No contact tasks outstanding.">
+          <TaskGroup title="My tasks" empty="No contact tasks outstanding.">
             {contactTasks.map((item) => renderTask(item, false))}
           </TaskGroup>
-          <TaskGroup title="Submission Tasks" empty="No submission tasks outstanding.">
+          <TaskGroup title="Submission tasks" empty="No submission tasks outstanding.">
             {submissionTasks.map((item) => renderTask(item, false))}
           </TaskGroup>
           {done.length === 0 ? null : (
@@ -367,6 +477,9 @@ function TaskContent({
               {done.map((item) => renderTask(item, true))}
             </TaskGroup>
           )}
+          <TaskGroup title="Session files" empty="No session files required.">
+            {sessionFiles.map(renderSessionFile)}
+          </TaskGroup>
         </div>
       </div>
     </main>

@@ -35,6 +35,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AddSessionDialog } from "@/components/admin/add-session-dialog";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
@@ -515,6 +516,13 @@ export function SubmissionTablePage({
   }
   const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
   const orderedIds = tableRows.map((row) => row.original.id);
+  const addSessionAction =
+    kind === "session" ? (
+      <AddSessionDialog
+        eventId={eventId}
+        onCreated={(id) => onSpotlightChange(id, { replace: false, keyboard: false })}
+      />
+    ) : null;
   const exportRows = async (rows: ReadonlyArray<ReviewDeskListItem>) => {
     const columns = table
       .getVisibleLeafColumns()
@@ -577,12 +585,17 @@ export function SubmissionTablePage({
   if (readyData.submissions.length === 0) {
     return (
       <main className="p-4 text-sm lg:p-6">
-        <h1 className="text-lg font-semibold">
-          {kind === "abstract" ? "Submissions" : "Sessions"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Review and manage {kind} submissions for {context.event.name}.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold">
+              {kind === "abstract" ? "Submissions" : "Sessions"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Review and manage {kind} submissions for {context.event.name}.
+            </p>
+          </div>
+          {addSessionAction}
+        </div>
         <AdminEmptyState
           icon={FileInputIcon}
           title={
@@ -599,7 +612,7 @@ export function SubmissionTablePage({
                 <Link to="/admin/forms">Create call for papers</Link>
               </Button>
             ) : (
-              <Button asChild size="sm" className="pressable">
+              <Button asChild size="sm" variant="outline" className="pressable">
                 <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
                   Review submissions
                 </Link>
@@ -626,13 +639,16 @@ export function SubmissionTablePage({
         }}
         list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
           <div className="flex h-full min-h-0 flex-col p-4 lg:p-6">
-            <div className="mb-4">
-              <h1 className="text-lg font-semibold">
-                {kind === "abstract" ? "Submissions" : "Sessions"}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Review and manage {kind} submissions for {context.event.name}.
-              </p>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-lg font-semibold">
+                  {kind === "abstract" ? "Submissions" : "Sessions"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Review and manage {kind} submissions for {context.event.name}.
+                </p>
+              </div>
+              {addSessionAction}
             </div>
 
             <Tabs

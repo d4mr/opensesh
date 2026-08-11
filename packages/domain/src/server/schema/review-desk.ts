@@ -1,7 +1,14 @@
 import { Schema } from "effect";
 
 import { FormFieldType, FormSection } from "./forms";
-import { NullableDate, NullableNumber, NullableString, Score } from "./common";
+import {
+  NullableDate,
+  NullableNumber,
+  NullableString,
+  RichText5000,
+  Score,
+  Text255,
+} from "./common";
 import { ReviewDecision, SubmissionKind, SubmissionStatus } from "./submissions";
 import { accepted, declined } from "../mail/templates";
 
@@ -145,6 +152,14 @@ export const StatusChangeRequest = Schema.Struct({
   eventId: Schema.String,
   submissionId: Schema.String,
   status: SubmissionStatus,
+});
+
+export const ManualSessionCreateRequest = Schema.Struct({
+  eventId: Schema.String,
+  title: Text255,
+  description: RichText5000,
+  formatId: NullableString,
+  speakerIds: Schema.Array(Schema.String),
 });
 
 export const StatusChangeResult = Schema.Struct({
