@@ -24,6 +24,15 @@ import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
 
+const requireCrm = Effect.fn("requireCrm")(function* () {
+  const user = yield* getCurrentUser;
+  const crm = yield* Crm;
+  return { user, crm };
+});
+
+// Only surfaces that render org identity or write stage history need the
+// organization row (one extra database round trip) — everything else
+// authorizes on user.orgId alone.
 const requireWorkspace = Effect.fn("requireCrmWorkspace")(function* () {
   const user = yield* getCurrentUser;
   const crm = yield* Crm;
@@ -80,7 +89,7 @@ export const getCrmContact = createServerFn({ method: "GET" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         return yield* crm.contactDetailView(user.orgId, data.id);
       }),
       { require: "admin" },
@@ -92,7 +101,7 @@ export const saveCrmContact = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         const [firstName, lastName, email] = yield* Effect.all([
           requiredText(data.firstName, "First name is required"),
           requiredText(data.lastName, "Last name is required"),
@@ -127,7 +136,7 @@ export const addCrmTag = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         yield* crm.contactDetailView(user.orgId, data.organizationContactId);
         const name = yield* requiredText(data.name, "Tag name is required");
         return yield* crm.saveTag(user.orgId, data.organizationContactId, name);
@@ -141,7 +150,7 @@ export const removeCrmTag = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         yield* crm.contactDetailView(user.orgId, data.organizationContactId);
         return yield* crm.removeTag(data.organizationContactId, data.tagId);
       }),
@@ -154,7 +163,7 @@ export const importCrmContacts = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         if (data.rows.length === 0)
           return yield* Effect.fail(
             new InvalidInput({ message: "Map and preview at least one row" }),
@@ -175,7 +184,7 @@ export const saveCrmSegment = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         const name = yield* requiredText(data.name, "Segment name is required");
         return yield* crm.saveSegment(user.orgId, name, data.filter);
       }),
@@ -188,7 +197,7 @@ export const saveCrmStage = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         const name = yield* requiredText(data.name, "Stage name is required");
         return yield* crm.saveStage({ ...data, organizationId: user.orgId, name });
       }),
@@ -201,7 +210,7 @@ export const deleteCrmStage = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         return yield* crm.deleteStage(user.orgId, data.id);
       }),
       { require: "admin" },
@@ -213,7 +222,7 @@ export const reorderCrmStages = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         return yield* crm.reorderStages(user.orgId, data.stageIds);
       }),
       { require: "admin" },
@@ -260,7 +269,7 @@ export const mergeCrmContacts = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         return yield* crm.merge(user.orgId, data.primaryId, data.duplicateId);
       }),
       { require: "admin" },
@@ -272,7 +281,7 @@ export const addCrmContactToEvent = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         yield* crm.contactDetailView(user.orgId, data.organizationContactId);
         const events = yield* Events;
         const event = yield* events.get(data.eventId);

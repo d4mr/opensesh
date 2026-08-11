@@ -5,7 +5,7 @@ import {
   type CrmDirectoryFilters,
   type CrmWorkspace,
 } from "@opensesh/domain";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
   BarChart3Icon,
   ContactRoundIcon,
@@ -48,7 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { crmWorkspaceQuery } from "@/lib/crm-queries";
+import { crmContactQuery, crmWorkspaceQuery } from "@/lib/crm-queries";
 import { cn } from "@/lib/utils";
 
 type CrmTab = "directory" | "pipeline" | "segments" | "overview";
@@ -149,6 +149,10 @@ function Directory({
   readonly openContact: (id: string) => void;
   readonly clearSegment: () => void;
 }) {
+  const queryClient = useQueryClient();
+  // Warm the detail cache on hover so opening a contact renders from cache
+  // instead of paying a worker→database round trip after the click.
+  const prefetchContact = (id: string) => void queryClient.prefetchQuery(crmContactQuery(id));
   const activeSegment = workspace.segments.find((item) => item.id === segmentId);
   const [filters, setFilters] = useState<CrmDirectoryFilters>(() =>
     activeSegment === undefined ? emptyCrmFilters : filtersFromJson(activeSegment.filter),
@@ -409,6 +413,8 @@ function Directory({
                 <TableRow
                   key={row.contact.id}
                   className="h-10 cursor-pointer"
+                  onMouseEnter={() => prefetchContact(row.contact.id)}
+                  onFocus={() => prefetchContact(row.contact.id)}
                   onClick={() => openContact(row.contact.id)}
                 >
                   <TableCell className="py-0" onClick={(event) => event.stopPropagation()}>

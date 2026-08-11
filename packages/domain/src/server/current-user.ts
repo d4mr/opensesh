@@ -58,25 +58,43 @@ const makeCurrentUserLayer = (
           if (session === null) {
             return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
           }
-          const membershipRows = yield* query(
-            database,
-            "Could not load organization membership",
-            (db) =>
-              db
-                .select({
-                  organizationMember: organizationMembers,
-                  organization: organizations,
-                })
-                .from(organizationMembers)
-                .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
-                .where(eq(organizationMembers.userId, session.userId))
-                .orderBy(asc(organizationMembers.createdAt), asc(organizationMembers.id))
-                .execute(),
+          // One round trip: memberships × their org's events × this user's
+          // event roles/contact, selected in JS. The previous three dependent
+          // queries cost three sequential worker→database round trips on every
+          // server-function call, which dominates latency when the worker runs
+          // far from Postgres.
+          const allRows = yield* query(database, "Could not load organization membership", (db) =>
+            db
+              .select({
+                organizationMember: organizationMembers,
+                organization: organizations,
+                event: events,
+                eventMember: eventMembers,
+                contact: contacts,
+              })
+              .from(organizationMembers)
+              .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
+              .leftJoin(events, eq(events.organizationId, organizationMembers.organizationId))
+              .leftJoin(
+                eventMembers,
+                and(eq(eventMembers.eventId, events.id), eq(eventMembers.userId, session.userId)),
+              )
+              .leftJoin(
+                contacts,
+                and(eq(contacts.eventId, events.id), eq(contacts.email, session.email)),
+              )
+              .where(eq(organizationMembers.userId, session.userId))
+              .orderBy(
+                asc(organizationMembers.createdAt),
+                asc(organizationMembers.id),
+                asc(events.startsAt),
+              )
+              .execute(),
           );
           const selectedMembership =
-            membershipRows.find(
+            allRows.find(
               (row) => row.organizationMember.organizationId === session.activeOrganizationId,
-            ) ?? membershipRows[0];
+            ) ?? allRows[0];
           if (selectedMembership === undefined) {
             return yield* Effect.fail(
               new NeedsOrganization({ message: "Create an organization to continue" }),
@@ -90,17 +108,25 @@ const makeCurrentUserLayer = (
                 new DbError({ message: "Could not decode organization membership", cause }),
             ),
           );
-          const organizationEvents = yield* query(
-            database,
-            "Could not load organization events",
-            (db) =>
-              db
-                .select()
-                .from(events)
-                .where(eq(events.organizationId, organizationMember.organizationId))
-                .orderBy(asc(events.startsAt))
-                .execute(),
-          ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows)));
+          const membershipRows = allRows.filter(
+            (row) => row.organizationMember.organizationId === organizationMember.organizationId,
+          );
+          const eventRowsById = new Map(
+            membershipRows.flatMap((row) =>
+              row.event === null ? [] : [[row.event.id, row.event]],
+            ),
+          );
+          const organizationEvents = yield* decodeMany(
+            Event,
+            "event",
+            Array.from(eventRowsById.values()),
+          ).pipe(
+            Effect.map((decoded) =>
+              decoded
+                .slice()
+                .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime()),
+            ),
+          );
           const preferredSlug =
             typeof preferredEventSlug === "function"
               ? preferredEventSlug(session)
@@ -115,24 +141,7 @@ const makeCurrentUserLayer = (
           const rows =
             event === undefined
               ? []
-              : yield* query(database, "Could not load current event membership", (db) =>
-                  db
-                    .select({ eventMember: eventMembers, contact: contacts })
-                    .from(events)
-                    .leftJoin(
-                      eventMembers,
-                      and(
-                        eq(eventMembers.eventId, events.id),
-                        eq(eventMembers.userId, session.userId),
-                      ),
-                    )
-                    .leftJoin(
-                      contacts,
-                      and(eq(contacts.eventId, events.id), eq(contacts.email, session.email)),
-                    )
-                    .where(eq(events.id, event.id))
-                    .execute(),
-                );
+              : membershipRows.filter((row) => row.event !== null && row.event.id === event.id);
 
           const memberRows = yield* decodeMany(
             EventMember,
