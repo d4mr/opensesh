@@ -17,7 +17,7 @@ import {
   EyeOffIcon,
   SparklesIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CalendarInviteAction } from "@/components/agenda/calendar-invite-action";
@@ -51,6 +51,32 @@ import { RoomsView } from "./rooms-view";
 
 type AgendaResult = Awaited<ReturnType<typeof getAgenda>>;
 type AgendaDraftsResult = Awaited<ReturnType<typeof listAgendaDrafts>>;
+type AgendaSession = AgendaAdminData["sessions"][number];
+
+// Schedule saves are concurrent: each drag fires its own request, and responses
+// can land out of order. All cache writes are therefore scoped to the one
+// session being moved — never a whole-snapshot overwrite, which is what used to
+// revert earlier drags when a slower response arrived after a newer one.
+const applyChangeToSession = (data: AgendaAdminData, change: ScheduleChange): AgendaAdminData => ({
+  ...data,
+  event: { ...data.event, agendaDirty: true },
+  sessions: data.sessions.map((session) =>
+    session.id === change.submissionId
+      ? {
+          ...session,
+          roomId: change.roomId,
+          startsAt: change.startsAt,
+          endsAt: change.endsAt,
+          scheduleDirty: true,
+        }
+      : session,
+  ),
+});
+
+const replaceSession = (data: AgendaAdminData, next: AgendaSession): AgendaAdminData => ({
+  ...data,
+  sessions: data.sessions.map((session) => (session.id === next.id ? next : session)),
+});
 
 export function AgendaPage({
   view,
@@ -71,6 +97,11 @@ export function AgendaPage({
   const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string>>(new Set());
   const [draftsOpen, setDraftsOpen] = useState(false);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Concurrency bookkeeping for schedule saves: how many are in flight, and
+  // which save (by monotonic sequence) last wrote each session.
+  const pendingSaves = useRef(0);
+  const saveSeq = useRef(0);
+  const sessionWriteSeq = useRef(new Map<string, number>());
 
   useEffect(
     () => () => {
@@ -105,85 +136,98 @@ export function AgendaPage({
   const draftRows = drafts.data.ok ? drafts.data.data : [];
   const selectedDraft = draftRows.find((draft) => draft.id === draftId);
 
-  const save = useCallback(
-    async (change: ScheduleChange, announce = true) => {
-      const previous = queryClient.getQueryData<AgendaResult>(queryKey);
-      if (previous?.ok !== true) return false;
-      const previousSession = previous.data.sessions.find(
+  const save = async (change: ScheduleChange, announce = true): Promise<boolean> => {
+    const current = queryClient.getQueryData<AgendaResult>(queryKey);
+    if (current?.ok !== true) return false;
+    const previousSession = current.data.sessions.find(
+      (session) => session.id === change.submissionId,
+    );
+    if (previousSession === undefined) return false;
+    const validation = validateScheduleChange(change, {
+      timezone: current.data.event.timezone,
+      startsAt: current.data.event.startsAt,
+      endsAt: current.data.event.endsAt,
+      roomIds: current.data.rooms.map((room) => room.id),
+    });
+    if (validation !== null) {
+      toast.error(validation);
+      return false;
+    }
+
+    const seq = ++saveSeq.current;
+    sessionWriteSeq.current.set(change.submissionId, seq);
+    pendingSaves.current += 1;
+    // Drop any in-flight refetch so its (pre-save) payload can't land on top
+    // of the optimistic state.
+    await queryClient.cancelQueries({ queryKey });
+    queryClient.setQueryData<AgendaResult>(queryKey, (cache) =>
+      cache?.ok ? { ...cache, data: applyChangeToSession(cache.data, change) } : cache,
+    );
+
+    let result: Awaited<ReturnType<typeof saveAgendaSchedule>> | null;
+    try {
+      result = await saveAgendaSchedule({ data: change });
+    } catch {
+      result = null;
+    }
+    pendingSaves.current -= 1;
+    // A later save may have re-moved this session while we were in flight; if
+    // so, its write owns the session now and we must not touch it.
+    const ownsSession = sessionWriteSeq.current.get(change.submissionId) === seq;
+
+    if (result === null || !result.ok) {
+      if (ownsSession) {
+        queryClient.setQueryData<AgendaResult>(queryKey, (cache) =>
+          cache?.ok ? { ...cache, data: replaceSession(cache.data, previousSession) } : cache,
+        );
+        sessionWriteSeq.current.delete(change.submissionId);
+      }
+      toast.error(result === null ? "Could not update the schedule" : result.error.message);
+      return false;
+    }
+
+    if (ownsSession) {
+      const serverSession = result.data.sessions.find(
         (session) => session.id === change.submissionId,
       );
-      if (previousSession === undefined) return false;
-      const validation = validateScheduleChange(change, {
-        timezone: previous.data.event.timezone,
-        startsAt: previous.data.event.startsAt,
-        endsAt: previous.data.event.endsAt,
-        roomIds: previous.data.rooms.map((room) => room.id),
-      });
-      if (validation !== null) {
-        toast.error(validation);
-        return false;
+      if (serverSession !== undefined) {
+        queryClient.setQueryData<AgendaResult>(queryKey, (cache) =>
+          cache?.ok ? { ...cache, data: replaceSession(cache.data, serverSession) } : cache,
+        );
       }
-      const optimistic: AgendaAdminData = {
-        ...previous.data,
-        event: { ...previous.data.event, agendaDirty: true },
-        sessions: previous.data.sessions.map((session) =>
-          session.id === change.submissionId
-            ? {
-                ...session,
-                roomId: change.roomId,
-                startsAt: change.startsAt,
-                endsAt: change.endsAt,
-                scheduleDirty: true,
-              }
-            : session,
-        ),
-      };
-      queryClient.setQueryData<AgendaResult>(queryKey, (current) =>
-        current?.ok ? { ...current, data: optimistic } : current,
-      );
+    }
+    // Once the last in-flight save settles, true-up against the server; any
+    // save started during this refetch cancels it (see cancelQueries above).
+    if (pendingSaves.current === 0) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
 
-      let result: Awaited<ReturnType<typeof saveAgendaSchedule>>;
-      try {
-        result = await saveAgendaSchedule({ data: change });
-      } catch {
-        queryClient.setQueryData(queryKey, previous);
-        toast.error("Could not update the schedule");
-        return false;
-      }
-      if (!result.ok) {
-        queryClient.setQueryData(queryKey, previous);
-        toast.error(result.error.message);
-        return false;
-      }
-      setAgenda(result.data);
-      if (announce) {
-        const message =
-          change.startsAt === null
-            ? "Session returned to the pool"
-            : previousSession.startsAt === null
-              ? "Session scheduled"
-              : "Schedule updated";
-        toast.success(message, {
-          action: {
-            label: "Undo",
-            onClick: () =>
-              void save(
-                {
-                  eventId,
-                  submissionId: previousSession.id,
-                  roomId: previousSession.roomId,
-                  startsAt: previousSession.startsAt,
-                  endsAt: previousSession.endsAt,
-                },
-                false,
-              ),
-          },
-        });
-      }
-      return true;
-    },
-    [eventId, queryClient, queryKey],
-  );
+    if (announce) {
+      const message =
+        change.startsAt === null
+          ? "Session returned to the pool"
+          : previousSession.startsAt === null
+            ? "Session scheduled"
+            : "Schedule updated";
+      toast.success(message, {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void save(
+              {
+                eventId,
+                submissionId: previousSession.id,
+                roomId: previousSession.roomId,
+                startsAt: previousSession.startsAt,
+                endsAt: previousSession.endsAt,
+              },
+              false,
+            ),
+        },
+      });
+    }
+    return true;
+  };
 
   const addRoom = async (name: string) => {
     const result = await saveLibraryItem({
