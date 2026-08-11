@@ -229,3 +229,22 @@ morning deploy — everything here ships in the next deploy.
   Format=Workshop condition ({fieldId, operator, values:[format id]} confirmed in DB) and the
   public renderer hides/reveals Workshop prerequisites correctly for none/Talk/Panel/Workshop;
   no stray text renders on any valid step. Both ride the pending deploy.
+- Aug 11 late night — V2-005/006/022/026 identity enrichment (Fable consult + screenshot-verified):
+  root cause was three independent clobbering writers of event contacts. Landed the consult's
+  B-lite design: one pure two-mode policy, enrichContact(existing, incoming, mode) in
+  packages/domain/src/server/contact-enrichment.ts — empty (null/""/[]) incoming values never
+  write; fillBlanks (CFP updates, CRM copy-on-link) only fills empty existing fields; 
+  preferIncoming (CSV update rows) overwrites with non-empty values only; custom jsonb always
+  merges per key so one form can never wholesale-replace another's answers. Wired into: CFP
+  upsertContact (participation stays an explicit workflow write), CRM addToEvent (clobbering
+  onConflictDoUpdate replaced by read-merge-write in the same transaction = copy-on-link
+  hydration, so CRM edits after linking never silently rewrite event pages), and CSV
+  importSpeakers (blank cells ≡ absent columns via present()). Portal/admin editors keep full
+  overwrite — the only places deliberate clearing belongs. V2-006: Biography (textarea, maps_to
+  bio, optional) added to default participant questions and the seeded DevFlow CFP; the wizard
+  prefills it from the contact. Verified in browser: Priya submitted a new proposal with
+  Biography cleared → portal still "Profile ready", bio intact in DB; sparse co-speaker Casey
+  created via CFP (bio null) → CRM contact added with rich bio → "Add to event" hydrated
+  title/company/bio onto the existing sparse event contact. V2-026 needs no further product
+  change: sparse CSV now provably cannot erase, and low readiness from truly-absent data is the
+  rubric's own expectation.

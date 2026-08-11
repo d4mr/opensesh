@@ -121,6 +121,18 @@ export const createForm = createServerFn({ method: "POST" })
             mapsTo: "email",
             condition: null,
           },
+          {
+            section: "participant",
+            label: "Biography",
+            fieldType: "textarea",
+            maxChars: 2000,
+            required: false,
+            locked: false,
+            position: 4,
+            options: null,
+            mapsTo: "bio",
+            condition: null,
+          },
         ]);
         return form;
       }),

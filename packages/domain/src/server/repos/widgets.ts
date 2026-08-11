@@ -21,6 +21,7 @@ import {
   taskAssignments,
   taskTemplates,
 } from "../../db/schema";
+import { enrichContact } from "../contact-enrichment";
 import { Db } from "../db";
 import { NotFound, type DbError } from "../errors";
 import {
@@ -228,20 +229,25 @@ const tshirt = (value: string | null): "XS" | "S" | "M" | "L" | "XL" | "XXL" | n
     : null;
 };
 
+// An absent column and an empty cell both mean "no information" — a sparse
+// CSV can add data but can never erase it (see contact-enrichment.ts).
+const present = (value: string | null | undefined): value is string =>
+  typeof value === "string" && value.trim().length > 0;
+
 export const speakerCsvUpdateValues = (row: SpeakerCsvRow) => ({
   firstName: row.firstName.trim(),
   lastName: row.lastName.trim(),
   participation: "speaker" as const,
-  ...(row.title === undefined ? {} : { title: row.title }),
-  ...(row.company === undefined ? {} : { company: row.company }),
-  ...(row.bio === undefined ? {} : { bio: row.bio }),
-  ...(row.dietary === undefined ? {} : { dietaryRequirements: dietary(row.dietary) }),
-  ...(row.tshirt === undefined ? {} : { tshirtSize: tshirt(row.tshirt) }),
-  ...(row.linkedin === undefined ? {} : { linkedinUrl: row.linkedin }),
-  ...(row.twitter === undefined ? {} : { twitterUrl: row.twitter }),
-  ...(row.facebook === undefined ? {} : { facebookUrl: row.facebook }),
-  ...(row.website === undefined ? {} : { websiteUrl: row.website }),
-  ...(row.phone === undefined ? {} : { phone: row.phone }),
+  ...(present(row.title) ? { title: row.title } : {}),
+  ...(present(row.company) ? { company: row.company } : {}),
+  ...(present(row.bio) ? { bio: row.bio } : {}),
+  ...(present(row.dietary) ? { dietaryRequirements: dietary(row.dietary) } : {}),
+  ...(present(row.tshirt) ? { tshirtSize: tshirt(row.tshirt) } : {}),
+  ...(present(row.linkedin) ? { linkedinUrl: row.linkedin } : {}),
+  ...(present(row.twitter) ? { twitterUrl: row.twitter } : {}),
+  ...(present(row.facebook) ? { facebookUrl: row.facebook } : {}),
+  ...(present(row.website) ? { websiteUrl: row.website } : {}),
+  ...(present(row.phone) ? { phone: row.phone } : {}),
 });
 
 interface WidgetsService {
@@ -634,7 +640,7 @@ export const WidgetsLive = Layer.effect(
                 continue;
               }
               const existing = await transaction
-                .select({ id: contacts.id })
+                .select()
                 .from(contacts)
                 .where(
                   and(
@@ -652,36 +658,42 @@ export const WidgetsLive = Layer.effect(
                 skipped += 1;
                 continue;
               }
-              await transaction
-                .insert(contacts)
-                .values({
-                  eventId,
-                  email: row.email.trim().toLowerCase(),
-                  firstName: row.firstName.trim(),
-                  lastName: row.lastName.trim(),
-                  participation: "speaker",
-                  title: row.title ?? null,
-                  company: row.company ?? null,
-                  bio: row.bio ?? null,
-                  dietaryRequirements: dietary(row.dietary ?? "none"),
-                  tshirtSize: tshirt(row.tshirt ?? null),
-                  linkedinUrl: row.linkedin ?? null,
-                  twitterUrl: row.twitter ?? null,
-                  facebookUrl: row.facebook ?? null,
-                  websiteUrl: row.website ?? null,
-                  phone: row.phone ?? null,
-                  custom: {},
-                })
-                .onConflictDoUpdate({
-                  target: [contacts.eventId, contacts.email],
-                  set: {
-                    ...speakerCsvUpdateValues(row),
+              if (existing[0] === undefined) {
+                await transaction
+                  .insert(contacts)
+                  .values({
+                    eventId,
+                    email: row.email.trim().toLowerCase(),
+                    firstName: row.firstName.trim(),
+                    lastName: row.lastName.trim(),
+                    participation: "speaker",
+                    title: row.title ?? null,
+                    company: row.company ?? null,
+                    bio: row.bio ?? null,
+                    dietaryRequirements: dietary(row.dietary ?? "none"),
+                    tshirtSize: tshirt(row.tshirt ?? null),
+                    linkedinUrl: row.linkedin ?? null,
+                    twitterUrl: row.twitter ?? null,
+                    facebookUrl: row.facebook ?? null,
+                    websiteUrl: row.website ?? null,
+                    phone: row.phone ?? null,
+                    custom: {},
+                  })
+                  .execute();
+                created += 1;
+              } else {
+                // A CSV update overwrites with the values it carries but an
+                // empty cell never blanks richer existing profile data.
+                await transaction
+                  .update(contacts)
+                  .set({
+                    ...enrichContact(existing[0], speakerCsvUpdateValues(row), "preferIncoming"),
                     updatedAt: new Date(),
-                  },
-                })
-                .execute();
-              if (existing[0] === undefined) created += 1;
-              else updated += 1;
+                  })
+                  .where(eq(contacts.id, existing[0].id))
+                  .execute();
+                updated += 1;
+              }
             }
             return { created, updated, skipped };
           }),

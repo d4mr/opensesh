@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 
+import { enrichContact } from "./contact-enrichment";
 import { InvalidInput } from "./errors";
 import { confirmation } from "./mail/templates";
 import { Contacts } from "./repos/contacts";
@@ -129,7 +130,6 @@ const contactInput = (
 const contactUpdate = (input: ContactCreate): ContactUpdate => ({
   firstName: input.firstName,
   lastName: input.lastName,
-  participation: "speaker",
   bio: input.bio,
   phone: input.phone,
   custom: input.custom,
@@ -143,7 +143,17 @@ export const loadCfpForm = Effect.fn("loadCfpForm")(function* (eventSlug: string
 const upsertContact = Effect.fn("upsertCfpContact")(function* (input: ContactCreate) {
   const contacts = yield* Contacts;
   return yield* contacts.findByEmail(input.eventId, input.email).pipe(
-    Effect.flatMap((contact) => contacts.update(contact.id, contactUpdate(input))),
+    // CFP answers only fill blanks: a form that never asked for (or round-
+    // tripped an older copy of) a field must not erase richer profile data
+    // the speaker or an organizer already provided. Participation is workflow
+    // state, not identity — submitting a CFP always marks the person a
+    // speaker.
+    Effect.flatMap((contact) =>
+      contacts.update(contact.id, {
+        ...enrichContact(contact, contactUpdate(input), "fillBlanks"),
+        participation: "speaker",
+      }),
+    ),
     Effect.catchTag("NotFound", () => contacts.create(input)),
   );
 });

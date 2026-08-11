@@ -23,6 +23,7 @@ import {
   submissions,
   users,
 } from "../../db/schema";
+import { enrichContact } from "../contact-enrichment";
 import { Db } from "../db";
 import { normalizeCrmEmail } from "../../crm/operations";
 import {
@@ -1118,44 +1119,51 @@ export const CrmLive = Layer.effect(
               return { kind: "notFound" as const };
             if (canonical.organizationId !== event.organizationId)
               return { kind: "forbidden" as const };
-            const [contact] = await transaction
-              .insert(contacts)
-              .values({
-                eventId,
-                email: canonical.email,
-                firstName: canonical.firstName,
-                lastName: canonical.lastName,
-                participation: role === "organizer" ? "organizer" : "speaker",
-                title: canonical.title,
-                company: canonical.company,
-                bio: canonical.bio,
-                headshotUrl: canonical.headshotUrl,
-                linkedinUrl: canonical.linkedinUrl,
-                twitterUrl: canonical.twitterUrl,
-                facebookUrl: canonical.facebookUrl,
-                websiteUrl: canonical.websiteUrl,
-                custom: canonical.custom,
-              })
-              .onConflictDoUpdate({
-                target: [contacts.eventId, contacts.email],
-                set: {
-                  firstName: canonical.firstName,
-                  lastName: canonical.lastName,
-                  participation: role === "organizer" ? "organizer" : "speaker",
-                  title: canonical.title,
-                  company: canonical.company,
-                  bio: canonical.bio,
-                  headshotUrl: canonical.headshotUrl,
-                  linkedinUrl: canonical.linkedinUrl,
-                  twitterUrl: canonical.twitterUrl,
-                  facebookUrl: canonical.facebookUrl,
-                  websiteUrl: canonical.websiteUrl,
-                  custom: canonical.custom,
-                  updatedAt: new Date(),
-                },
-              })
-              .returning()
+            const canonicalIdentity = {
+              firstName: canonical.firstName,
+              lastName: canonical.lastName,
+              title: canonical.title,
+              company: canonical.company,
+              bio: canonical.bio,
+              headshotUrl: canonical.headshotUrl,
+              linkedinUrl: canonical.linkedinUrl,
+              twitterUrl: canonical.twitterUrl,
+              facebookUrl: canonical.facebookUrl,
+              websiteUrl: canonical.websiteUrl,
+              custom: canonical.custom,
+            };
+            const [existingContact] = await transaction
+              .select()
+              .from(contacts)
+              .where(and(eq(contacts.eventId, eventId), eq(contacts.email, canonical.email)))
+              .limit(1)
               .execute();
+            // Copy-on-link hydration: CRM identity fills blanks in the event
+            // profile once, then the event contact owns its data — later CRM
+            // edits must not silently rewrite event pages, and event-side
+            // edits (which flow through profile approval) always win.
+            const [contact] =
+              existingContact === undefined
+                ? await transaction
+                    .insert(contacts)
+                    .values({
+                      eventId,
+                      email: canonical.email,
+                      participation: role === "organizer" ? "organizer" : "speaker",
+                      ...canonicalIdentity,
+                    })
+                    .returning()
+                    .execute()
+                : await transaction
+                    .update(contacts)
+                    .set({
+                      ...enrichContact(existingContact, canonicalIdentity, "fillBlanks"),
+                      participation: role === "organizer" ? "organizer" : "speaker",
+                      updatedAt: new Date(),
+                    })
+                    .where(eq(contacts.id, existingContact.id))
+                    .returning()
+                    .execute();
             if (contact === undefined) return { kind: "notFound" as const };
             const [link] = await transaction
               .insert(organizationContactEvents)

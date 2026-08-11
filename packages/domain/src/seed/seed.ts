@@ -308,6 +308,24 @@ const devflowFormFields = [
     createdAt: seededAt,
     updatedAt: seededAt,
   })),
+  // Speaker bios drive the portal readiness check and public speaker pages, so
+  // the canonical CFP collects one per participant.
+  {
+    id: "fld_devflow_bio",
+    label: "Biography",
+    fieldType: "textarea" as const,
+    mapsTo: "bio",
+    position: 4,
+    formId: devflowForm.id,
+    section: "participant" as const,
+    maxChars: 2000,
+    required: false,
+    locked: false,
+    options: null,
+    condition: null,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
 ];
 const devflowContacts = [
   {
