@@ -264,7 +264,11 @@ export const CrmCampaignView = Schema.Struct({
 export type CrmCampaignView = typeof CrmCampaignView.Type;
 
 export const CrmWorkspace = Schema.Struct({
-  organization: Schema.Struct({ id: Schema.String, name: Schema.String }),
+  organization: Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    logo: Schema.NullOr(Schema.String),
+  }),
   actorEventMemberId: Schema.String,
   events: Schema.Array(CrmEventSummary),
   directory: Schema.Array(CrmDirectoryRow),

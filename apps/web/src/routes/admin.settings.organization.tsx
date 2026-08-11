@@ -6,9 +6,11 @@ import type {
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Trash2Icon, XIcon } from "lucide-react";
+import { ImageUpIcon, Trash2Icon, XIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { EventIcon } from "@/components/app/event-icon";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { fileAsBase64 } from "@/lib/files";
 import { organizationSettingsQuery } from "@/lib/organization-queries";
+import { cn } from "@/lib/utils";
 import {
   getOrganizationSettings,
   removeOrganizationMember,
@@ -66,6 +70,30 @@ function OrganizationSettingsPage() {
   return <OrganizationSettingsContent settings={result.data.data} />;
 }
 
+function SettingsSection({
+  title,
+  meta,
+  className,
+  children,
+}: {
+  readonly title: string;
+  readonly meta?: React.ReactNode;
+  readonly className?: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex h-9 items-center justify-between gap-3 border-b bg-muted/30 px-3">
+        <h2 className="text-xs font-medium">{title}</h2>
+        {meta === undefined ? null : (
+          <span className="truncate text-xs text-muted-foreground">{meta}</span>
+        )}
+      </div>
+      <div className={className ?? "p-4"}>{children}</div>
+    </section>
+  );
+}
+
 function OrganizationSettingsContent({ settings }: { readonly settings: OrganizationSettings }) {
   return (
     <main className="flex-1 p-4 pb-14 text-sm lg:p-6 lg:pb-14">
@@ -75,26 +103,17 @@ function OrganizationSettingsContent({ settings }: { readonly settings: Organiza
           Organization identity, members, and access roles.
         </p>
       </div>
-      <div className="grid max-w-4xl gap-6">
+      <div className="grid max-w-4xl gap-3">
         <ProfileForm settings={settings} />
-        <section>
-          <div className="mb-2 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="font-medium">Members</h2>
-              <p className="text-xs text-muted-foreground">
-                Owners control the organization. Admins can manage non-owner members.
-              </p>
-            </div>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {settings.members.length}
-            </span>
-          </div>
-          <div className="divide-y overflow-hidden rounded-lg border">
-            {settings.members.map((member) => (
-              <MemberRow key={member.id} member={member} settings={settings} />
-            ))}
-          </div>
-        </section>
+        <SettingsSection
+          title="Members"
+          meta={`${settings.members.length} · Owners control the organization; admins manage non-owner members`}
+          className="divide-y"
+        >
+          {settings.members.map((member) => (
+            <MemberRow key={member.id} member={member} settings={settings} />
+          ))}
+        </SettingsSection>
         {settings.invitations.length === 0 ? null : <Invitations settings={settings} />}
       </div>
     </main>
@@ -104,19 +123,57 @@ function OrganizationSettingsContent({ settings }: { readonly settings: Organiza
 function ProfileForm({ settings }: { readonly settings: OrganizationSettings }) {
   const queryClient = useQueryClient();
   const editable = settings.viewer.role === "owner";
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(settings.organization.logo);
+
+  useEffect(() => {
+    if (logoFile === null) {
+      setPreviewUrl(settings.organization.logo);
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [settings.organization.logo, logoFile]);
+
+  const chooseLogo = (file: File | undefined) => {
+    if (file === undefined || !editable) return;
+    if (!["image/png", "image/jpeg", "image/svg+xml"].includes(file.type)) {
+      toast.error("Use a PNG, JPG, or SVG organization logo");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Organization logos must be 2 MB or smaller");
+      return;
+    }
+    setLogoFile(file);
+  };
+
   const form = useForm({
     defaultValues: {
       name: settings.organization.name,
       logo: settings.organization.logo ?? "",
     },
     onSubmit: async ({ value }) => {
+      const logoUpload =
+        logoFile === null
+          ? null
+          : {
+              filename: logoFile.name,
+              contentType: logoFile.type,
+              size: logoFile.size,
+              base64: await fileAsBase64(logoFile),
+            };
       const result = await updateOrganizationProfile({
-        data: { name: value.name, logo: value.logo.trim() || null },
+        data: { name: value.name, logo: value.logo.trim() || null, logoUpload },
       });
       if (!result.ok) {
         toast.error(result.error.message);
         return;
       }
+      setLogoFile(null);
+      form.setFieldValue("logo", result.data.logo ?? "");
       queryClient.setQueryData<OrganizationSettingsResult>(
         organizationSettingsQuery.queryKey,
         (current) =>
@@ -130,21 +187,17 @@ function ProfileForm({ settings }: { readonly settings: OrganizationSettings }) 
   });
 
   return (
-    <section>
-      <div className="mb-2">
-        <h2 className="font-medium">Profile</h2>
-        <p className="text-xs text-muted-foreground">
-          Used across shared event administration surfaces.
-        </p>
-      </div>
-      <form
-        className="rounded-lg border p-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.handleSubmit();
-        }}
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <SettingsSection
+        title="Profile"
+        meta={editable ? "Used across shared event administration surfaces" : "Owner-only editing"}
       >
-        <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <div className="grid gap-4 sm:grid-cols-2">
           <form.Field name="name">
             {(field) => (
               <Field>
@@ -160,34 +213,107 @@ function ProfileForm({ settings }: { readonly settings: OrganizationSettings }) 
               </Field>
             )}
           </form.Field>
-          <form.Field name="logo">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Logo URL</FieldLabel>
-                <Input
-                  id={field.name}
-                  className="h-9"
-                  type="url"
-                  placeholder="https://example.com/logo.png"
+          <Field>
+            <FieldLabel htmlFor="organization-slug">Slug</FieldLabel>
+            <Input
+              id="organization-slug"
+              className="h-9 font-mono text-xs"
+              readOnly
+              value={settings.organization.slug}
+            />
+          </Field>
+          <div className="grid content-start gap-4">
+            <Field>
+              <FieldLabel>Organization logo</FieldLabel>
+              <label
+                className={cn(
+                  "pressable flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed px-4 text-center transition-colors",
+                  dragging && "border-primary bg-primary/5",
+                  !editable && "pointer-events-none opacity-60",
+                )}
+                onDragEnter={(dragEvent) => {
+                  dragEvent.preventDefault();
+                  setDragging(true);
+                }}
+                onDragOver={(dragEvent) => dragEvent.preventDefault()}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(dragEvent) => {
+                  dragEvent.preventDefault();
+                  setDragging(false);
+                  chooseLogo(dragEvent.dataTransfer.files[0]);
+                }}
+              >
+                <ImageUpIcon className="mb-2 size-5 text-muted-foreground" />
+                <span className="text-xs font-medium">Drop a logo or click to browse</span>
+                <span className="mt-1 text-[11px] text-muted-foreground">
+                  PNG, JPG, or SVG · 2 MB max
+                </span>
+                <input
+                  type="file"
+                  className="sr-only"
                   disabled={!editable}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  onChange={(inputEvent) => chooseLogo(inputEvent.target.files?.[0])}
                 />
-              </Field>
-            )}
-          </form.Field>
-          {editable ? (
-            <Button type="submit" size="sm" className="pressable">
-              Save profile
-            </Button>
-          ) : null}
+              </label>
+              {logoFile === null ? null : <FieldDescription>{logoFile.name}</FieldDescription>}
+            </Field>
+            <form.Field name="logo">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>Remote logo URL</FieldLabel>
+                  <Input
+                    id={field.name}
+                    className="h-9"
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    disabled={!editable}
+                    value={field.state.value}
+                    onChange={(event) => {
+                      field.handleChange(event.target.value);
+                      if (logoFile === null) setPreviewUrl(event.target.value || null);
+                    }}
+                  />
+                  <FieldDescription>Used when no uploaded logo is selected.</FieldDescription>
+                </Field>
+              )}
+            </form.Field>
+          </div>
+          <div className="overflow-hidden rounded-md border">
+            <div className="flex h-9 items-center border-b bg-muted/30 px-3 text-xs font-medium">
+              True-size previews
+            </div>
+            <div className="divide-y">
+              <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">Sidebar switcher</span>
+                <EventIcon src={previewUrl} size={32} />
+              </div>
+              <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">Org context header</span>
+                <EventIcon src={previewUrl} size={24} />
+              </div>
+              <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">Favicon</span>
+                <EventIcon src={previewUrl} size={16} />
+              </div>
+            </div>
+          </div>
         </div>
-        <FieldDescription className="mt-2">
-          Organization slug: {settings.organization.slug}
-          {editable ? "" : " · Only an owner can edit this profile."}
-        </FieldDescription>
-      </form>
-    </section>
+        {editable ? (
+          <div className="mt-4 flex justify-end border-t pt-3">
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(submitting) => (
+                <Button type="submit" size="sm" className="pressable" disabled={submitting}>
+                  {submitting ? "Saving…" : "Save profile"}
+                </Button>
+              )}
+            </form.Subscribe>
+          </div>
+        ) : (
+          <FieldDescription className="mt-3">Only an owner can edit this profile.</FieldDescription>
+        )}
+      </SettingsSection>
+    </form>
   );
 }
 
@@ -358,19 +484,15 @@ function MemberRow({
 
 function Invitations({ settings }: { readonly settings: OrganizationSettings }) {
   return (
-    <section>
-      <div className="mb-2">
-        <h2 className="font-medium">Pending invitations</h2>
-        <p className="text-xs text-muted-foreground">
-          Invitations disappear after they are accepted, canceled, or expire.
-        </p>
-      </div>
-      <div className="divide-y overflow-hidden rounded-lg border">
-        {settings.invitations.map((invitation) => (
-          <InvitationRow key={invitation.id} invitation={invitation} settings={settings} />
-        ))}
-      </div>
-    </section>
+    <SettingsSection
+      title="Pending invitations"
+      meta="Invitations disappear after they are accepted, canceled, or expire"
+      className="divide-y"
+    >
+      {settings.invitations.map((invitation) => (
+        <InvitationRow key={invitation.id} invitation={invitation} settings={settings} />
+      ))}
+    </SettingsSection>
   );
 }
 

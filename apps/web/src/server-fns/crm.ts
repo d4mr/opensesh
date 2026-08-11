@@ -61,7 +61,7 @@ export const getCrmWorkspace = createServerFn({ method: "GET" }).handler(async (
         { concurrency: 6 },
       );
       return {
-        organization: { id: organization.id, name: organization.name },
+        organization: { id: organization.id, name: organization.name, logo: organization.logo },
         actorEventMemberId: organization.actorEventMemberId,
         events,
         directory,

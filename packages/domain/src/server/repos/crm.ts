@@ -72,7 +72,12 @@ interface CrmService {
     organizationId: string,
     userId: string,
   ) => Effect.Effect<
-    { readonly id: string; readonly name: string; readonly actorEventMemberId: string },
+    {
+      readonly id: string;
+      readonly name: string;
+      readonly logo: string | null;
+      readonly actorEventMemberId: string;
+    },
     DbError | NotFound
   >;
   readonly listEvents: (
@@ -225,6 +230,7 @@ export const CrmLive = Layer.effect(
             .select({
               id: organizations.id,
               name: organizations.name,
+              logo: organizations.logo,
               actorEventMemberId: eventMembers.id,
             })
             .from(organizations)
@@ -241,7 +247,7 @@ export const CrmLive = Layer.effect(
           Effect.flatMap((rows) =>
             rows[0] === undefined
               ? decodeFound(OrganizationContact, "CRM organization", undefined).pipe(
-                  Effect.map(() => ({ id: "", name: "", actorEventMemberId: "" })),
+                  Effect.map(() => ({ id: "", name: "", logo: null, actorEventMemberId: "" })),
                 )
               : Effect.succeed(rows[0]),
           ),

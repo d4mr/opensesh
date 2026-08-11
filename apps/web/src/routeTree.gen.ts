@@ -48,6 +48,7 @@ import { Route as EEventSlugItineraryRouteImport } from './routes/e.$eventSlug.i
 import { Route as EEventSlugSessionsRouteImport } from './routes/e.$eventSlug.sessions'
 import { Route as EEventSlugSpeakersRouteImport } from './routes/e.$eventSlug.speakers'
 import { Route as EventAssetsEventIdIconRouteImport } from './routes/event-assets.$eventId.icon'
+import { Route as OrgAssetsOrgIdIconRouteImport } from './routes/org-assets.$orgId.icon'
 import { Route as SpeakerAssetsContactIdHeadshotRouteImport } from './routes/speaker-assets.$contactId.headshot'
 import { Route as SubmitEventSlugFormIdRouteImport } from './routes/submit.$eventSlug.$formId'
 import { Route as EEventSlugSessionsCodeRouteImport } from './routes/e.$eventSlug.sessions_.$code'
@@ -249,6 +250,11 @@ const EventAssetsEventIdIconRoute = EventAssetsEventIdIconRouteImport.update({
   path: '/event-assets/$eventId/icon',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrgAssetsOrgIdIconRoute = OrgAssetsOrgIdIconRouteImport.update({
+  id: '/org-assets/$orgId/icon',
+  path: '/org-assets/$orgId/icon',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SpeakerAssetsContactIdHeadshotRoute =
   SpeakerAssetsContactIdHeadshotRouteImport.update({
     id: '/speaker-assets/$contactId/headshot',
@@ -311,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
+  '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug/': typeof EEventSlugIndexRoute
@@ -353,6 +360,7 @@ export interface FileRoutesByTo {
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
+  '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug': typeof EEventSlugIndexRoute
@@ -399,6 +407,7 @@ export interface FileRoutesById {
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
+  '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug/': typeof EEventSlugIndexRoute
@@ -446,6 +455,7 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/event-assets/$eventId/icon'
+    | '/org-assets/$orgId/icon'
     | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug/'
@@ -488,6 +498,7 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/event-assets/$eventId/icon'
+    | '/org-assets/$orgId/icon'
     | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug'
@@ -533,6 +544,7 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/event-assets/$eventId/icon'
+    | '/org-assets/$orgId/icon'
     | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug/'
@@ -550,6 +562,7 @@ export interface RootRouteChildren {
   EmbedEmbedIdRoute: typeof EmbedEmbedIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
+  OrgAssetsOrgIdIconRoute: typeof OrgAssetsOrgIdIconRoute
   SpeakerAssetsContactIdHeadshotRoute: typeof SpeakerAssetsContactIdHeadshotRoute
 }
 
@@ -828,6 +841,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventAssetsEventIdIconRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/org-assets/$orgId/icon': {
+      id: '/org-assets/$orgId/icon'
+      path: '/org-assets/$orgId/icon'
+      fullPath: '/org-assets/$orgId/icon'
+      preLoaderRoute: typeof OrgAssetsOrgIdIconRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/speaker-assets/$contactId/headshot': {
       id: '/speaker-assets/$contactId/headshot'
       path: '/speaker-assets/$contactId/headshot'
@@ -979,6 +999,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmbedEmbedIdRoute: EmbedEmbedIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,
+  OrgAssetsOrgIdIconRoute: OrgAssetsOrgIdIconRoute,
   SpeakerAssetsContactIdHeadshotRoute: SpeakerAssetsContactIdHeadshotRoute,
 }
 export const routeTree = rootRouteImport

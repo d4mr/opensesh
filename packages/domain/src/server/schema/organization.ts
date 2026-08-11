@@ -56,4 +56,12 @@ export const OrganizationInvitationRevokeRequest = Schema.Struct({ invitationId:
 export const OrganizationProfileRequest = Schema.Struct({
   name: Schema.String,
   logo: NullableString,
+  logoUpload: Schema.NullOr(
+    Schema.Struct({
+      filename: Schema.String,
+      contentType: Schema.String,
+      size: Schema.Number,
+      base64: Schema.String,
+    }),
+  ),
 });

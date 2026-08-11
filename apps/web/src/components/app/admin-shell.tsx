@@ -117,6 +117,12 @@ export function AdminShell({
       : orgSettings.data?.ok === true
         ? orgSettings.data.data.organization.name
         : undefined;
+  const organizationLogo =
+    crm.data?.ok === true
+      ? crm.data.data.organization.logo
+      : orgSettings.data?.ok === true
+        ? orgSettings.data.data.organization.logo
+        : null;
   const pendingContentChanges =
     portal.data?.ok === true
       ? portal.data.data.history.filter(
@@ -211,6 +217,7 @@ export function AdminShell({
           pendingContentChanges={pendingContentChanges}
           organizationMode={organizationMode}
           organizationName={organizationName}
+          organizationLogo={organizationLogo}
         />
         <SidebarInset className="min-w-0">
           <SiteHeader title={headerTitle} user={user} />
