@@ -282,3 +282,40 @@ morning deploy — everything here ships in the next deploy.
   saves invalidate the round query (wp29). Verified: DevFlow Sessions → Export CSV →
   "Exported 1 row to sessions.csv"; AIE public itinerary → star SESS-16 → Export ICS →
   "Downloaded ai-engineer-nyc-2026-my-schedule.ics".
+- Aug 12 — Rich text is now stored as markdown (owner decision, structural): TipTap keeps the
+  editing UX but persists editor.getMarkdown() via the first-party @tiptap/markdown extension;
+  the only render path is <RichText markdown=…> → packages/domain/src/rich-text.ts →
+  markdown-it with html:false (author HTML renders as literal text, so stored XSS is
+  inexpressible), images disabled, javascript: links dropped by the default validateLink, and
+  links forced to target=_blank rel=noopener noreferrer nofollow. No hand-rolled sanitizer
+  anywhere, per owner directive. plainTextFromRichText/hasRichText replaced every ad-hoc
+  tag-strip regex (person-popover, content-diff, embeds ICS/JSON, widgets ICS, submit review
+  step, forms maxChars). rich-text-guard.test.ts pins dangerouslySetInnerHTML to 4 sanctioned
+  files; 10 unit tests cover rendering, escaping, and projection. Seed rich-text values are now
+  markdown; Biography participant field is fieldType richtext (seed + live DB). Mail
+  confirmation() customBody renders through markdownToHtml (it previously escaped the
+  organizer's formatting into visible tags). API docs note bio/description fields are
+  CommonMark.
+- Aug 12 — V2-009 (screenshot-verified): reviewer workspace and admin desk detail rendered
+  stored rich text as literal markup. Both now render through RichText — blind reviewer detail
+  (Sam, SESS-1/SESS-2) shows clean prose inside .rte-content with real <p> DOM, and the desk
+  detail renders Description + Biography with formatting. displayAnswer routes richtext-type
+  fields (including per-speaker array answers, which previously short-circuited to join) to
+  RichText.
+- Aug 12 — V2-014 (screenshot-verified): portal profile save state is now three-valued —
+  pending review saves show "Saved — sent for organizer approval" (2.6s) instead of a bare
+  "Saved" that looked like a silent success while the public profile stayed unchanged. Verified
+  end-to-end: confirmed speaker's bio edit → banner + pending indicator → value survives hard
+  reload; organizer comparison view → Approve applies the snapshot (V2-015 verified in the same
+  pass: both diff columns render plain text via plainTextFromRichText, not raw markup).
+- Aug 12 — V2-017 (screenshot-verified): "Add request" no longer creates orphan file requests.
+  TaskTemplateMutationRequest.completion is a tagged union (manual | form:id | file:id |
+  file:new) so a form link and file link can never both be set; saveTaskTemplate runs in one
+  db.transaction and, for file:new, creates the fileRequests row (title/instructions/scope/due
+  copied) and links it to the task atomically — a task edit no longer recomputes position
+  (templates stayed put). Deliverables "Add request" (section header AND the previously
+  requirement-only empty state) opens the Create task dialog preset to "File · New request";
+  the raw request dialog remains for pencil-edit. Toast is honest: "Task and file request
+  created — assigned to 2 speakers". Verified: DevFlow → Add request → task saved → request row
+  shows its linked task (no "Not assigned to any task yet"), DB shows request + linked template
+  + 2 todo assignments, and Priya's portal lists "Final slide deck" with Upload.

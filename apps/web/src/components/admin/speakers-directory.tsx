@@ -1222,7 +1222,7 @@ function Directory({
           timezone={timezone}
           data={portalData}
           templateId={editingTaskTemplateId}
-          initialFileRequestId={undefined}
+          initialLink={undefined}
           open
           onOpenChange={(open) => {
             if (!open) setEditingTaskTemplateId(undefined);

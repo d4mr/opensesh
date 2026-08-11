@@ -22,6 +22,7 @@ import {
 import { Fragment, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { RichText } from "@/components/forms/rich-text";
 import { StatusBadge } from "@/components/app/status-badge";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
@@ -603,7 +604,7 @@ function AdminTasks({
         timezone={timezone}
         data={data}
         templateId={editingId}
-        initialFileRequestId={fileRequestId}
+        initialLink={fileRequestId === undefined ? undefined : `file:${fileRequestId}`}
         open={drawer}
         onOpenChange={setDrawer}
       />
@@ -616,7 +617,7 @@ export function TaskTemplateDialog({
   timezone,
   data,
   templateId,
-  initialFileRequestId,
+  initialLink,
   open,
   onOpenChange,
 }: {
@@ -624,7 +625,7 @@ export function TaskTemplateDialog({
   readonly timezone: string;
   readonly data: AdminData;
   readonly templateId: string | null;
-  readonly initialFileRequestId: string | undefined;
+  readonly initialLink: string | undefined;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
@@ -649,9 +650,7 @@ export function TaskTemplateDialog({
     link:
       existing?.portalFormId === null || existing?.portalFormId === undefined
         ? existing?.fileRequestId === null || existing?.fileRequestId === undefined
-          ? initialFileRequestId === undefined
-            ? "manual"
-            : `file:${initialFileRequestId}`
+          ? (initialLink ?? "manual")
           : `file:${existing.fileRequestId}`
         : `form:${existing.portalFormId}`,
     auto: initialContactIds.size < speakers.length ? false : (existing?.autoAssignOnAccept ?? true),
@@ -671,8 +670,14 @@ export function TaskTemplateDialog({
           title: form.title,
           instructions: form.instructions,
           scope: form.scope === "submission" ? "submission" : "contact",
-          portalFormId: form.link.startsWith("form:") ? form.link.slice(5) : null,
-          fileRequestId: form.link.startsWith("file:") ? form.link.slice(5) : null,
+          completion:
+            form.link === "file:new"
+              ? { kind: "file:new" as const }
+              : form.link.startsWith("form:")
+                ? { kind: "form" as const, portalFormId: form.link.slice(5) }
+                : form.link.startsWith("file:")
+                  ? { kind: "file" as const, fileRequestId: form.link.slice(5) }
+                  : { kind: "manual" as const },
           autoAssignOnAccept:
             form.scope === "contact" && form.contactIds.size < speakers.length ? false : form.auto,
           dueDate:
@@ -685,7 +690,14 @@ export function TaskTemplateDialog({
         toast.error(result.error.message);
         return;
       }
-      toast.success("Task template saved");
+      const assigned = form.scope === "contact" ? form.contactIds.size : 0;
+      toast.success(
+        templateId !== null
+          ? "Task saved"
+          : `${form.link === "file:new" ? "Task and file request created" : "Task created"}${
+              assigned === 0 ? "" : ` — assigned to ${assigned} speaker${assigned === 1 ? "" : "s"}`
+            }`,
+      );
       onOpenChange(false);
       await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
     },
@@ -756,6 +768,7 @@ export function TaskTemplateDialog({
                     File · {item.title}
                   </SelectItem>
                 ))}
+                <SelectItem value="file:new">File · New request</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1062,6 +1075,7 @@ function DeliverablesAdmin({
   readonly data: AdminData;
 }) {
   const [requestOpen, setRequestOpen] = useState(false);
+  const [newRequestTaskOpen, setNewRequestTaskOpen] = useState(false);
   const [requirementOpen, setRequirementOpen] = useState(false);
   const [requirementForm, setRequirementForm] = useState(emptyRequirementForm);
   const [requestForm, setRequestForm] = useState<RequestForm>(emptyRequestForm);
@@ -1191,9 +1205,19 @@ function DeliverablesAdmin({
           title="Create your first deliverable"
           description="Request one file from every accepted session or from selected speakers."
           action={
-            <Button size="sm" className="pressable" onClick={() => openRequirement()}>
-              <PlusIcon /> Add requirement
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" className="pressable" onClick={() => openRequirement()}>
+                <PlusIcon /> Add requirement
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable"
+                onClick={() => setNewRequestTaskOpen(true)}
+              >
+                <PlusIcon /> Add request
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -1314,7 +1338,7 @@ function DeliverablesAdmin({
                 size="sm"
                 variant="outline"
                 className="pressable"
-                onClick={() => openRequest()}
+                onClick={() => setNewRequestTaskOpen(true)}
               >
                 <PlusIcon /> Add request
               </Button>
@@ -1577,6 +1601,20 @@ function DeliverablesAdmin({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {newRequestTaskOpen ? (
+        <TaskTemplateDialog
+          eventId={eventId}
+          timezone={timezone}
+          data={data}
+          templateId={null}
+          initialLink="file:new"
+          open
+          onOpenChange={(open) => {
+            if (!open) setNewRequestTaskOpen(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 }
@@ -2241,14 +2279,11 @@ function SpeakerCard({
           image={image.data ?? contact.headshotUrl}
           meta={meta.length === 0 ? undefined : meta}
         />
-        {contact.bio === null || contact.bio.length === 0 ? (
-          <p className="mt-2 text-xs italic text-muted-foreground/70">No bio yet.</p>
-        ) : (
-          <div
-            className="mt-2 text-xs leading-relaxed text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: contact.bio }}
-          />
-        )}
+        <RichText
+          markdown={contact.bio}
+          className="mt-2 text-xs leading-relaxed text-muted-foreground"
+          fallback={<p className="mt-2 text-xs italic text-muted-foreground/70">No bio yet.</p>}
+        />
       </div>
       {headshot === undefined ? null : (
         <div className="border-t p-3">

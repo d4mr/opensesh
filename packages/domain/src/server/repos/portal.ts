@@ -1998,41 +1998,62 @@ export const PortalLive = Layer.effect(
           return row.version;
         }),
       saveTaskTemplate: (input) =>
-        Effect.gen(function* () {
-          const positionRows = yield* query(database, "Could not count task templates", (db) =>
-            db
-              .select({ id: taskTemplates.id })
-              .from(taskTemplates)
-              .where(eq(taskTemplates.eventId, input.eventId))
-              .execute(),
-          );
-          const values = {
-            eventId: input.eventId,
-            title: input.title,
-            instructions: input.instructions,
-            scope: input.scope,
-            portalFormId: input.portalFormId,
-            fileRequestId: input.fileRequestId,
-            autoAssignOnAccept: input.autoAssignOnAccept,
-            dueDate: input.dueDate === null ? null : new Date(input.dueDate),
-            position: positionRows.length + 1,
-          };
-          const rows = yield* query(database, "Could not save task template", (db) =>
-            input.id === null
-              ? db.insert(taskTemplates).values(values).returning().execute()
-              : db
-                  .update(taskTemplates)
-                  .set({ ...values, updatedAt: new Date() })
-                  .where(eq(taskTemplates.id, input.id))
-                  .returning()
-                  .execute(),
-          );
-          const saved = rows[0];
-          const selectedContacts =
-            saved === undefined || input.scope !== "contact" || input.contactIds.length === 0
-              ? []
-              : yield* query(database, "Could not verify selected speakers", (db) =>
-                  db
+        query(database, "Could not save task template", (db) =>
+          db.transaction(async (transaction) => {
+            const dueDate = input.dueDate === null ? null : new Date(input.dueDate);
+            const createdRequests =
+              input.completion.kind !== "file:new"
+                ? []
+                : await transaction
+                    .insert(fileRequests)
+                    .values({
+                      eventId: input.eventId,
+                      title: input.title,
+                      targetType: input.scope,
+                      instructions: input.instructions,
+                      dueAt: dueDate,
+                    })
+                    .returning({ id: fileRequests.id })
+                    .execute();
+            const values = {
+              eventId: input.eventId,
+              title: input.title,
+              instructions: input.instructions,
+              scope: input.scope,
+              portalFormId: input.completion.kind === "form" ? input.completion.portalFormId : null,
+              fileRequestId:
+                input.completion.kind === "file"
+                  ? input.completion.fileRequestId
+                  : (createdRequests[0]?.id ?? null),
+              autoAssignOnAccept: input.autoAssignOnAccept,
+              dueDate,
+            };
+            const positionRows =
+              input.id !== null
+                ? []
+                : await transaction
+                    .select({ id: taskTemplates.id })
+                    .from(taskTemplates)
+                    .where(eq(taskTemplates.eventId, input.eventId))
+                    .execute();
+            const rows =
+              input.id === null
+                ? await transaction
+                    .insert(taskTemplates)
+                    .values({ ...values, position: positionRows.length + 1 })
+                    .returning()
+                    .execute()
+                : await transaction
+                    .update(taskTemplates)
+                    .set({ ...values, updatedAt: new Date() })
+                    .where(eq(taskTemplates.id, input.id))
+                    .returning()
+                    .execute();
+            const saved = rows[0];
+            const selectedContacts =
+              saved === undefined || input.scope !== "contact" || input.contactIds.length === 0
+                ? []
+                : await transaction
                     .select({ id: contacts.id })
                     .from(contacts)
                     .where(
@@ -2042,12 +2063,10 @@ export const PortalLive = Layer.effect(
                         inArray(contacts.id, input.contactIds),
                       ),
                     )
-                    .execute(),
-                );
-          const selectedIds = selectedContacts.map((contact) => contact.id);
-          if (saved !== undefined && input.id !== null)
-            yield* query(database, "Could not update selected task speakers", (db) =>
-              db
+                    .execute();
+            const selectedIds = selectedContacts.map((contact) => contact.id);
+            if (saved !== undefined && input.id !== null)
+              await transaction
                 .delete(taskAssignments)
                 .where(
                   and(
@@ -2058,11 +2077,9 @@ export const PortalLive = Layer.effect(
                       : [notInArray(taskAssignments.contactId, selectedIds)]),
                   ),
                 )
-                .execute(),
-            );
-          if (saved !== undefined && selectedIds.length > 0)
-            yield* query(database, "Could not assign task to selected speakers", (db) =>
-              db
+                .execute();
+            if (saved !== undefined && selectedIds.length > 0)
+              await transaction
                 .insert(taskAssignments)
                 .values(
                   selectedIds.map((contactId) => ({
@@ -2074,10 +2091,10 @@ export const PortalLive = Layer.effect(
                   })),
                 )
                 .onConflictDoNothing()
-                .execute(),
-            );
-          return saved;
-        }),
+                .execute();
+            return saved;
+          }),
+        ),
       waiveAssignment: (eventId, assignmentId) =>
         Effect.gen(function* () {
           const owned = yield* query(database, "Could not verify task assignment", (db) =>

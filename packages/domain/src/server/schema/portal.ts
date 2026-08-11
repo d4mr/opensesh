@@ -252,14 +252,24 @@ export const FileCommentRequest = Schema.Struct({
   body: Schema.String,
 });
 
+// How a task gets completed. A tagged union keeps illegal combinations
+// (a form link and a file link at once) unrepresentable; "file:new" asks the
+// server to create the file request alongside the task in one transaction.
+export const TaskCompletion = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("manual") }),
+  Schema.Struct({ kind: Schema.Literal("form"), portalFormId: Schema.String }),
+  Schema.Struct({ kind: Schema.Literal("file"), fileRequestId: Schema.String }),
+  Schema.Struct({ kind: Schema.Literal("file:new") }),
+]);
+export type TaskCompletion = typeof TaskCompletion.Type;
+
 export const TaskTemplateMutationRequest = Schema.Struct({
   eventId: Schema.String,
   id: Schema.NullOr(Schema.String),
   title: Schema.String,
   instructions: Schema.String,
   scope: TargetType,
-  portalFormId: NullableString,
-  fileRequestId: NullableString,
+  completion: TaskCompletion,
   autoAssignOnAccept: Schema.Boolean,
   dueDate: NullableString,
   contactIds: Schema.Array(Schema.String),
