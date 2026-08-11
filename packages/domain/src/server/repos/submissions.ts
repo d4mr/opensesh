@@ -1,4 +1,4 @@
-import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
@@ -186,7 +186,6 @@ export const SubmissionsLive = Layer.effect(
       .from(contacts)
       .groupBy(contacts.eventId)
       .as("dashboard_contact_counts");
-    const staffMember = alias(eventMembers, "dashboard_staff_member");
     const reviewerMember = alias(eventMembers, "dashboard_reviewer_member");
 
     return {
@@ -292,14 +291,6 @@ export const SubmissionsLive = Layer.effect(
                   and(
                     eq(organizationMembers.organizationId, events.organizationId),
                     eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  staffMember,
-                  and(
-                    eq(staffMember.eventId, events.id),
-                    eq(staffMember.userId, session.userId),
-                    inArray(staffMember.role, ["admin", "reviewer"]),
                   ),
                 )
                 .leftJoin(dashboardContactCounts, eq(dashboardContactCounts.eventId, events.id))

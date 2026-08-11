@@ -39,8 +39,11 @@ export const Route = createFileRoute("/portal")({
 function PortalLayout() {
   const { user } = Route.useRouteContext();
   const event = useSuspenseQuery(portalEventQuery);
+  const portal = useSuspenseQuery(speakerPortalQuery);
 
   if (!event.data.ok) return <p className="p-6">{event.data.error.message}</p>;
+  if (!portal.data.ok) return <p className="p-6">{portal.data.error.message}</p>;
+  const preview = "preview" in portal.data.data ? portal.data.data.preview : undefined;
 
-  return <PortalShell event={event.data.data} user={user} />;
+  return <PortalShell event={event.data.data} user={user} preview={preview} />;
 }

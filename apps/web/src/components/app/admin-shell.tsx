@@ -122,7 +122,10 @@ export function AdminShell({
       : 0;
   const navigationItems = user.roles.admin
     ? allItems
-    : [{ title: "My Reviews", section: "evaluation", icon: ClipboardCheckIcon }];
+    : [
+        { title: "Overview", icon: GaugeIcon },
+        { title: "My Reviews", section: "evaluation", icon: ClipboardCheckIcon },
+      ];
   const activeTitle =
     navigationItems.find((item) =>
       item.section === undefined

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRightIcon, EyeOffIcon, PlusIcon } from "lucide-react";
+import { ArrowRightIcon, ClipboardCheckIcon, EyeOffIcon, PlusIcon } from "lucide-react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
@@ -30,6 +30,16 @@ function EvaluationRoute() {
 
   if (context === null) return null;
   if (!user.roles.admin) {
+    if (!user.roles.reviewer) {
+      return (
+        <AdminEmptyState
+          icon={ClipboardCheckIcon}
+          title="No reviews assigned"
+          description="Sessions assigned to you will appear here."
+          action={null}
+        />
+      );
+    }
     if (reviewer.data === undefined) {
       return <p className="p-6 text-sm text-muted-foreground">Loading your assigned reviews…</p>;
     }

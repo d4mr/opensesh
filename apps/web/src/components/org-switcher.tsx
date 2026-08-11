@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Building2Icon,
   CheckIcon,
@@ -51,6 +52,7 @@ function OrgLogo({
 
 export function OrgSwitcher({ user }: { readonly user: CurrentUserValue }) {
   const { isMobile } = useSidebar();
+  const navigate = useNavigate();
   const organizations = authClient.useListOrganizations();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const list = organizations.data ?? [];
@@ -102,7 +104,7 @@ export function OrgSwitcher({ user }: { readonly user: CurrentUserValue }) {
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            {user.roles.admin ? (
+            {user.roles.member ? (
               <DropdownMenuItem
                 className="text-[13px] text-muted-foreground"
                 onClick={() => setSettingsOpen(true)}
@@ -113,7 +115,7 @@ export function OrgSwitcher({ user }: { readonly user: CurrentUserValue }) {
             ) : null}
             <DropdownMenuItem
               className="text-[13px] text-muted-foreground"
-              onClick={() => window.location.assign("/onboarding")}
+              onClick={() => void navigate({ to: "/onboarding", search: { new: 1 } })}
             >
               <PlusIcon />
               Create organization

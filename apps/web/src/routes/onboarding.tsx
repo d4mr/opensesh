@@ -30,14 +30,21 @@ const onboardingQuery = {
 } as const;
 
 export const Route = createFileRoute("/onboarding")({
-  beforeLoad: async ({ context }) => {
+  validateSearch: (search: Record<string, unknown>) => ({
+    new:
+      search.new === true || search.new === 1 || search.new === "1" || search.new === "true"
+        ? 1
+        : undefined,
+  }),
+  beforeLoad: async ({ context, search }) => {
     const state = await context.queryClient.ensureQueryData(onboardingQuery);
     if (!state.ok) throw redirect({ to: state.error.status === 401 ? "/signup" : "/login" });
+    if (search.new) return { existingOrganization: undefined };
+    const events = await getAdminBootstrap();
     if (state.data.organizations.length > 0) {
-      const events = await getAdminBootstrap();
       if (events.ok && events.data.length > 0) throw redirect({ to: "/admin" });
-      if (!events.ok && events.error.status === 403) throw redirect({ to: "/portal" });
     }
+    if (!events.ok && events.error.status === 403) throw redirect({ to: "/portal" });
     return { existingOrganization: state.data.organizations[0] };
   },
   component: Onboarding,
@@ -339,8 +346,22 @@ function InviteRow({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member" textValue="Member">
+                    <span className="flex flex-col items-start">
+                      <span>Member</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        Sees events and assigned reviews.
+                      </span>
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="admin" textValue="Admin">
+                    <span className="flex flex-col items-start">
+                      <span>Admin</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        Runs events, speakers, and reviews.
+                      </span>
+                    </span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </Field>

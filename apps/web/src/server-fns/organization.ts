@@ -92,6 +92,14 @@ export const createOrganization = createServerFn({ method: "POST" })
         catch: () =>
           new InvalidInput({ message: "That organization slug is unavailable. Try another one." }),
       });
+      yield* Effect.tryPromise({
+        try: () =>
+          auth.api.setActiveOrganization({
+            body: { organizationId: organization.id },
+            headers: request.headers,
+          }),
+        catch: authFailure("Could not activate the new organization"),
+      });
       if (upload === null) return organization;
       yield* Effect.tryPromise({
         try: () =>
@@ -205,7 +213,7 @@ export const getOrganizationSettings = createServerFn({ method: "GET" }).handler
         viewer: { userId: user.userId, role: profile.viewerRole },
       };
     }),
-    { require: "admin" },
+    { require: "staff" },
   ),
 );
 

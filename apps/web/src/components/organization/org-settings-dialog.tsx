@@ -383,6 +383,20 @@ function MembersSection({ settings }: { readonly settings: OrganizationSettings 
           <MemberRow key={member.id} member={member} settings={settings} />
         ))}
       </div>
+      <div className="mt-5 space-y-1.5 border-t pt-4 text-xs text-muted-foreground">
+        <p>
+          <span className="font-medium text-foreground">Owner</span> — everything, including the
+          organization profile and other owners.
+        </p>
+        <p>
+          <span className="font-medium text-foreground">Admin</span> — runs events, speakers,
+          reviews, and members.
+        </p>
+        <p>
+          <span className="font-medium text-foreground">Member</span> — sees events and reviews
+          sessions they&apos;re assigned.
+        </p>
+      </div>
     </div>
   );
 }
@@ -441,8 +455,22 @@ function InviteMemberForm({ settings }: { readonly settings: OrganizationSetting
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
-              <SelectItem value="member">Member</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="member" textValue="Member">
+                <span className="flex flex-col items-start">
+                  <span>Member</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Sees events and assigned reviews.
+                  </span>
+                </span>
+              </SelectItem>
+              <SelectItem value="admin" textValue="Admin">
+                <span className="flex flex-col items-start">
+                  <span>Admin</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Runs events, speakers, and reviews.
+                  </span>
+                </span>
+              </SelectItem>
             </SelectContent>
           </Select>
         )}

@@ -25,6 +25,7 @@ export const CurrentUserValue = Schema.Struct({
   roles: Schema.Struct({
     admin: Schema.Boolean,
     reviewer: Schema.Boolean,
+    member: Schema.Boolean,
     contactId: Schema.optionalKey(Schema.String),
   }),
 });
@@ -96,9 +97,58 @@ const makeCurrentUserLayer = (
               (row) => row.organizationMember.organizationId === session.activeOrganizationId,
             ) ?? allRows[0];
           if (selectedMembership === undefined) {
-            return yield* Effect.fail(
-              new NeedsOrganization({ message: "Create an organization to continue" }),
+            const contactRows = yield* query(database, "Could not load speaker contact", (db) =>
+              db
+                .select({ contact: contacts, event: events, organization: organizations })
+                .from(contacts)
+                .innerJoin(events, eq(events.id, contacts.eventId))
+                .innerJoin(organizations, eq(organizations.id, events.organizationId))
+                .where(eq(contacts.email, session.email))
+                .orderBy(asc(events.startsAt))
+                .execute(),
             );
+            const preferredSlug =
+              typeof preferredEventSlug === "function"
+                ? preferredEventSlug(session)
+                : preferredEventSlug;
+            const now = new Date();
+            const selectedContact =
+              (preferredSlug === undefined
+                ? undefined
+                : contactRows.find((row) => row.event.slug === preferredSlug)) ??
+              contactRows.find((row) => row.event.startsAt >= now) ??
+              contactRows.at(-1);
+            if (selectedContact === undefined) {
+              return yield* Effect.fail(
+                new NeedsOrganization({ message: "Create an organization to continue" }),
+              );
+            }
+            const contact = yield* Schema.decodeUnknownEffect(Contact)(
+              selectedContact.contact,
+            ).pipe(
+              Effect.mapError(
+                (cause) => new DbError({ message: "Could not decode speaker contact", cause }),
+              ),
+            );
+            const event = yield* Schema.decodeUnknownEffect(Event)(selectedContact.event).pipe(
+              Effect.mapError(
+                (cause) => new DbError({ message: "Could not decode speaker event", cause }),
+              ),
+            );
+            return {
+              userId: session.userId,
+              email: session.email,
+              orgId: event.organizationId,
+              organizationName: selectedContact.organization.name,
+              organizationLogo: selectedContact.organization.logo,
+              eventSlug: event.slug,
+              roles: {
+                admin: false,
+                reviewer: false,
+                member: false,
+                contactId: contact.id,
+              },
+            };
           }
           const organizationMember = yield* Schema.decodeUnknownEffect(OrganizationMember)(
             selectedMembership.organizationMember,
@@ -168,6 +218,7 @@ const makeCurrentUserLayer = (
                 organizationMember.role === "admin" ||
                 memberRows.some((member) => member.role === "admin"),
               reviewer: memberRows.some((member) => member.role === "reviewer"),
+              member: true,
               ...(contact === undefined ? {} : { contactId: contact.id }),
             },
           };
@@ -204,7 +255,7 @@ export const requireCurrentUser = (required: RequiredRole) =>
     const user = yield* getCurrentUser;
     const allowed =
       required === "session" ||
-      (required === "staff" && (user.roles.admin || user.roles.reviewer)) ||
+      (required === "staff" && (user.roles.admin || user.roles.reviewer || user.roles.member)) ||
       (required === "admin" && user.roles.admin) ||
       (required === "reviewer" && (user.roles.admin || user.roles.reviewer)) ||
       (required === "speaker" && user.roles.contactId !== undefined);

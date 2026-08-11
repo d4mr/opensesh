@@ -63,7 +63,7 @@ const expectedTables: ReadonlyArray<{
   readonly expected: number;
 }> = [
   { name: "organizations", table: organizations, expected: 1 },
-  { name: "organization_members", table: organizationMembers, expected: 9 },
+  { name: "organization_members", table: organizationMembers, expected: 4 },
   { name: "events", table: events, expected: 2 },
   { name: "agenda_drafts", table: agendaDrafts, expected: 0 },
   { name: "users", table: users, expected: 9 },
@@ -198,9 +198,19 @@ export const verifySeed = async (database: Database) => {
   console.table(summary);
 
   const statusMatches = statusRows.every(({ status, total }) => expectedStatuses[status] === total);
+  const expectedMemberships = new Map([
+    ["demo@opensesh.io", "owner"],
+    ["jordan.organizer@sbek-test.example.com", "owner"],
+    ["reviewer@opensesh.io", "member"],
+    ["sam.reviewer@sbek-test.example.com", "member"],
+  ]);
   const membershipsMatch =
-    memberships.length === 9 &&
-    memberships.every((membership) => membership.organization === "ai-engineer");
+    memberships.length === expectedMemberships.size &&
+    memberships.every(
+      (membership) =>
+        membership.organization === "ai-engineer" &&
+        expectedMemberships.get(membership.email) === membership.role,
+    );
   const devflowEvent = devflow[0];
   const personasMatch =
     personas.length === 4 && personas.every((persona) => persona.providerId === "credential");
