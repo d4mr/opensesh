@@ -121,19 +121,10 @@ function Wizard({
   };
 }) {
   const storageKey = `opensesh-cfp-${formId}`;
-  const [step, setStepState] = useState(() => {
-    if (typeof window === "undefined") return 0;
-    const value = Number.parseInt(window.localStorage.getItem(`${storageKey}-step`) ?? "0", 10);
-    const restored = Number.isNaN(value) ? 0 : Math.min(4, Math.max(0, value));
-    // A step beyond Account is only meaningful while a draft exists; without
-    // one a stale key would open a blank Review over an empty form.
-    return window.localStorage.getItem(`${storageKey}-draft`) === null
-      ? Math.min(restored, 1)
-      : restored;
-  });
-  const [submissionId, setSubmissionId] = useState<string | null>(() =>
-    typeof window === "undefined" ? null : window.localStorage.getItem(`${storageKey}-draft`),
-  );
+  // Server HTML and the hydration render must be identical, so persisted
+  // wizard position is restored in an effect below — never in an initializer.
+  const [step, setStepState] = useState(0);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
   const abstractFields = fields.filter((field) => field.section === "abstract");
   const participantFields = fields.filter((field) => field.section === "participant");
   const enabledRoles = form.participantRoles.filter((role) => role.enabled);
@@ -152,7 +143,7 @@ function Wizard({
   const [notice, setNotice] = useState<string>();
   const [success, setSuccess] = useState(false);
   const [redirectCancelled, setRedirectCancelled] = useState(false);
-  const [maxStep, setMaxStep] = useState(() => step);
+  const [maxStep, setMaxStep] = useState(0);
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
   // Remembers the last hovered segment so the tooltip keeps its text and
   // position while fading out.
@@ -164,6 +155,25 @@ function Wizard({
     setMaxStep((current) => Math.max(current, next));
     setStepState(next);
   };
+
+  // Restore the persisted wizard position once the client owns the DOM.
+  // A step beyond Account is only meaningful with a draft and a signed-in
+  // account; otherwise a stale key would open a blank Review over an empty
+  // form.
+  useEffect(() => {
+    const draft = window.localStorage.getItem(`${storageKey}-draft`);
+    const value = Number.parseInt(window.localStorage.getItem(`${storageKey}-step`) ?? "0", 10);
+    const stored = Number.isNaN(value) ? 0 : Math.min(4, Math.max(0, value));
+    const restored = draft === null || account.email === null ? Math.min(stored, 1) : stored;
+    if (draft !== null && account.email !== null) setSubmissionId(draft);
+    if (restored > 0) {
+      setStepState(restored);
+      setMaxStep((current) => Math.max(current, restored));
+    }
+    // Runs once per form: restoring again on account changes would yank the
+    // wizard out from wherever the user has navigated since.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
   // The stored draft id is a cache hint, not truth — the row can be gone
   // (database reseed) or owned by someone else after an account switch. When

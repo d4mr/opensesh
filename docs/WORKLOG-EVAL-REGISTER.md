@@ -217,3 +217,15 @@ morning deploy — everything here ships in the next deploy.
   Verified end-to-end on AIE: accept w/o checkbox → pending_review; scheduled + republished
   agenda still hides it publicly (8 of 8); Content approve → toast → public 9 of 9 with the
   session card rendered; accept with checkbox → approved immediately with snapshot.
+- Aug 11 late night — V2-002/003/007 CFP runtime (screenshot-verified): V2-002's React #418
+  was the wizard's useState initializers reading localStorage during the hydration render —
+  SSR said Welcome, the client's first render said whatever step was stored, and React's
+  recovery left a blank Review. Structural fix: step/submissionId/maxStep now start
+  deterministic (0/null/0) and a mount effect restores the persisted position, clamped to the
+  Account step when there is no draft or no signed-in account. Verified: reload with draft+step
+  stored restores Proposal with saved answers and adds zero hydration errors; logged-out with a
+  stale step=4 key lands on Account, not a blank Review. V2-003 (conditional fields) and V2-007
+  (stray "Event not found") reproduce only against stale prod: locally the builder saves the
+  Format=Workshop condition ({fieldId, operator, values:[format id]} confirmed in DB) and the
+  public renderer hides/reveals Workshop prerequisites correctly for none/Talk/Panel/Workshop;
+  no stray text renders on any valid step. Both ride the pending deploy.
