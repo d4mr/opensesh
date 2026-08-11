@@ -319,3 +319,15 @@ morning deploy — everything here ships in the next deploy.
   created — assigned to 2 speakers". Verified: DevFlow → Add request → task saved → request row
   shows its linked task (no "Not assigned to any task yet"), DB shows request + linked template
   + 2 todo assignments, and Priya's portal lists "Final slide deck" with Upload.
+- Aug 12 — Deploy + prod verification (screenshot-verified): app.opensesh.io, opensesh.io, and
+  docs.opensesh.io deployed; prod DB reseeded (seed verification passed). Re-verified against
+  prod with screenshots: desk detail and blind reviewer workspace render rich text through
+  .rte-content (V2-009), Deliverables "Add request" creates task + file request atomically with
+  the honest toast and the linked row (V2-017), Priya's portal lists the file-request task with
+  Upload, profile bio edit saves and survives reload (server response confirms auto-approve for
+  the unconfirmed speaker), public event page and landing render cleanly. Prod DB reseeded
+  again after verification so the eval starts from pristine fixtures (53300 too-many-
+  connections is transient — retry loop succeeded on attempt 3). Standing issues: docs site
+  SSRs full content but the vocs/waku client bundle crashes on hydration and blanks the page
+  (paused per owner instruction; flagged as a spawn-task chip), and the prod ANTHROPIC_API_KEY
+  must be set by the owner (`pnpm exec wrangler secret put ANTHROPIC_API_KEY` in apps/web).
