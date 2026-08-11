@@ -1651,14 +1651,18 @@ function AdminSessions({
       await refresh();
     },
   });
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted">("all");
   const pendingHistory = data.history
     .map((item) => item.history)
     .filter((item) => item.approvalStatus === "pending_review");
   const pendingProfiles = data.profileHistory.filter(
     (item) => item.history.approvalStatus === "pending_review",
   );
-  const visibleSubmissions = data.submissions.filter(
+  const contentSubmissions = data.submissions.filter(
     (item) => item.status === "accepted" || item.status === "pending",
+  );
+  const visibleSubmissions = contentSubmissions.filter(
+    (item) => statusFilter === "all" || item.status === statusFilter,
   );
   const submissionPages = usePagination(visibleSubmissions, {
     spotlightId,
@@ -1672,13 +1676,37 @@ function AdminSessions({
         onSpotlightChange={onSpotlightChange}
         list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
           <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
-            <div>
-              <h1 className="text-lg font-semibold">Content</h1>
-              <p className="text-xs text-muted-foreground">
-                Accepted session content, speakers, and approval history.
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h1 className="text-lg font-semibold">Content</h1>
+                <p className="text-xs text-muted-foreground">
+                  Accepted session content, speakers, and approval history.
+                </p>
+              </div>
+              {contentSubmissions.length === 0 ? null : (
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    if (value === "all" || value === "pending" || value === "accepted")
+                      setStatusFilter(value);
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    aria-label="Filter by status"
+                    className="h-8 w-fit gap-1.5 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            {visibleSubmissions.length === 0 ? (
+            {contentSubmissions.length === 0 ? (
               <AdminEmptyState
                 icon={FileCheckIcon}
                 title="No session content yet"
@@ -1807,6 +1835,16 @@ function AdminSessions({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      {visibleSubmissions.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={compact ? 2 : 4}
+                            className="h-12 text-center text-xs text-muted-foreground"
+                          >
+                            No {statusFilter} sessions.
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
                       {submissionPages.pageItems.map((submission) => {
                         const speakers = data.participants.filter(
                           (row) => row.submission.id === submission.id,
@@ -1819,18 +1857,16 @@ function AdminSessions({
                             onClick={() => openSpotlight(submission.id)}
                           >
                             <TableCell className="h-9 py-1.5">
-                              <span className="font-mono text-xs tabular-nums">
-                                {submission.code}
-                              </span>{" "}
-                              —{" "}
-                              <span className="font-medium">
-                                {compact ? (
-                                  <span className="inline-block max-w-52 truncate align-bottom">
-                                    {submission.title}
-                                  </span>
-                                ) : (
-                                  submission.title
-                                )}
+                              <span className="flex min-w-0 items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="h-5 shrink-0 rounded-sm px-1.5 font-mono text-[10px] font-normal tabular-nums"
+                                >
+                                  {submission.code}
+                                </Badge>
+                                <span className={cn("truncate font-medium", compact && "max-w-52")}>
+                                  {submission.title}
+                                </span>
                               </span>
                             </TableCell>
                             <TableCell className="h-9 py-1.5">

@@ -154,3 +154,8 @@ morning deploy — everything here ships in the next deploy.
   (readiness, sessions, tasks, files, emails, profile history) moved from edge-to-edge border-y
   hairlines into rounded bordered cards with px-3 rows + hover states; contact/bio hairlines
   removed; "Edit speaker/Edit speaker" label-button dedup → "Profile [Edit]".
+- Aug 11 night — Content table: code em-dash pattern replaced with an outline code badge +
+  regular space (the table keeps its single Session column; desk tables keep their separate
+  font-mono Code column); status filter added to the header (All/Pending/Accepted, hidden when
+  there is no content), filtered-empty table row, pagination follows the filter. Verified:
+  Pending shows 11/11 on the sandbox event.
