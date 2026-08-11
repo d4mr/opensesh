@@ -92,16 +92,17 @@ const toServerError = Match.type<AppError>().pipe(
   }),
 );
 
+// Folds an app program into the wire-format ServerResult; exported so hosts
+// that keep a per-request runtime can run programs without rebuilding layers.
+export const toServerResult = <A, R>(program: Effect.Effect<A, AppError, R>) =>
+  program.pipe(
+    Effect.match({
+      onFailure: (error): ServerResult<A> => ({ ok: false, error: toServerError(error) }),
+      onSuccess: (data): ServerResult<A> => ({ ok: true, data }),
+    }),
+  );
+
 export const run = <A, R>(
   program: Effect.Effect<A, AppError, R>,
   services: Layer.Layer<R, never, never>,
-) =>
-  Effect.runPromise(
-    program.pipe(
-      Effect.provide(services),
-      Effect.match({
-        onFailure: (error): ServerResult<A> => ({ ok: false, error: toServerError(error) }),
-        onSuccess: (data): ServerResult<A> => ({ ok: true, data }),
-      }),
-    ),
-  );
+) => Effect.runPromise(toServerResult(program).pipe(Effect.provide(services)));

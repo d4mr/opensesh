@@ -186,6 +186,14 @@ export const makeCurrentUserLive = (
     Layer.provide(makeDbLive(connectionString)),
   );
 
+// Accepts a shared Db layer so CurrentUser rides the same Postgres client
+// as the repositories instead of paying its own connection setup.
+export const makeCurrentUserLiveWith = (
+  dbLive: Layer.Layer<Db>,
+  loadSession: Effect.Effect<SessionIdentity | null, DbError>,
+  preferredEventSlug?: string | ((session: SessionIdentity) => string | undefined),
+) => makeCurrentUserLayer(loadSession, preferredEventSlug).pipe(Layer.provide(dbLive));
+
 export const getCurrentUser = Effect.gen(function* () {
   const service = yield* CurrentUser;
   return yield* service.get;

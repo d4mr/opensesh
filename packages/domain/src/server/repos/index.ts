@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { makeDbLive } from "../db";
+import { type Db, makeDbLive } from "../db";
 import { ContactsLive } from "./contacts";
 import { CrmLive } from "./crm";
 import { AgendaLive } from "./agenda";
@@ -101,6 +101,11 @@ const RepositoriesLive = Layer.mergeAll(
 
 export const makeRepositoriesLive = (connectionString: string) =>
   RepositoriesLive.pipe(Layer.provide(makeDbLive(connectionString)));
+
+// Accepts a shared Db layer so one Postgres client (one connection setup)
+// serves repositories and CurrentUser alike within a request.
+export const makeRepositoriesLiveWith = (dbLive: Layer.Layer<Db>) =>
+  RepositoriesLive.pipe(Layer.provide(dbLive));
 
 export const makeEventsLive = (connectionString: string) =>
   EventsLive.pipe(Layer.provide(makeDbLive(connectionString)));

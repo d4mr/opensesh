@@ -3,15 +3,16 @@ import {
   type SessionIdentity,
   type CurrentUser,
   getCurrentUser,
-  makeCurrentUserLive,
+  makeCurrentUserLiveWith,
   requireCurrentUser,
   type RequiredRole,
 } from "@opensesh/domain/server/current-user";
-import { makeRepositoriesLive, type RepositoryServices } from "@opensesh/domain/server/repos";
-import { type AppError, run } from "@opensesh/domain/server/runtime";
+import { Db, makeDatabase } from "@opensesh/domain/server/db";
+import { makeRepositoriesLiveWith, type RepositoryServices } from "@opensesh/domain/server/repos";
+import { type AppError, toServerResult } from "@opensesh/domain/server/runtime";
 import { Mail } from "@opensesh/domain/server/mail";
 import { getRequest } from "@tanstack/react-start/server";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, Effect, Layer, ManagedRuntime } from "effect";
 
 import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
@@ -57,18 +58,42 @@ const sessionIdentity = (headers: Headers, origin: string) =>
         };
   });
 
+type AppServices = RepositoryServices | CurrentUser | Mail;
+type AppRuntime = ManagedRuntime.ManagedRuntime<AppServices, never>;
+
+// One runtime — one Postgres client, one auth-session load, one cached
+// membership lookup — per Worker request. Server functions invoked during a
+// single SSR pass all resolve the same Request from async context, so they
+// share it; a fresh request gets a fresh entry, which keeps Workers'
+// per-request I/O isolation intact. Building a runtime per server-function
+// call instead cost two extra connection setups (~230ms RTT each to the
+// database region) on every call — the dominant term in page latency.
+const runtimes = new WeakMap<Request, AppRuntime>();
+
+const requestRuntime = async (): Promise<AppRuntime> => {
+  const { env } = await import("cloudflare:workers");
+  const request = getRequest();
+  const cached = runtimes.get(request);
+  if (cached !== undefined) return cached;
+  const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
+  const dbLive = Layer.succeed(Db, { database: makeDatabase(env.HYPERDRIVE.connectionString) });
+  const services = Layer.mergeAll(
+    makeRepositoriesLiveWith(dbLive),
+    makeCurrentUserLiveWith(dbLive, loadSession, preferredEventSlugForSession),
+    mailLayerFromEnv(env),
+    ConfigProvider.layer(
+      ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
+    ),
+  );
+  const runtime = ManagedRuntime.make(services);
+  runtimes.set(request, runtime);
+  return runtime;
+};
+
 export const runSessionServer = async <A, E extends AppError>(
   program: (session: SessionIdentity, eventSlug: string) => Effect.Effect<A, E, RepositoryServices>,
 ) => {
-  const { env } = await import("cloudflare:workers");
-  const request = getRequest();
-  const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
-  const connectionString = env.HYPERDRIVE.connectionString;
-  const currentUserLive = makeCurrentUserLive(
-    connectionString,
-    loadSession,
-    preferredEventSlugForSession,
-  );
+  const runtime = await requestRuntime();
   const secured = Effect.gen(function* () {
     const user = yield* getCurrentUser;
     if (user.eventSlug === null) {
@@ -85,35 +110,18 @@ export const runSessionServer = async <A, E extends AppError>(
       user.eventSlug,
     );
   });
-  return await run(secured, Layer.merge(makeRepositoriesLive(connectionString), currentUserLive));
+  return await runtime.runPromise(toServerResult(secured));
 };
 
 export const runServer = async <A, E extends AppError>(
   program: Effect.Effect<A, E, RepositoryServices | CurrentUser | Mail>,
   options?: { readonly require?: RequiredRole },
 ) => {
-  const { env } = await import("cloudflare:workers");
-  const request = getRequest();
-  const loadSession = sessionIdentity(request.headers, new URL(request.url).origin);
-  const connectionString = env.HYPERDRIVE.connectionString;
-  const currentUserLive = makeCurrentUserLive(
-    connectionString,
-    loadSession,
-    preferredEventSlugForSession,
-  );
-  const mailLive = mailLayerFromEnv(env);
-  const services = Layer.mergeAll(
-    makeRepositoriesLive(connectionString),
-    currentUserLive,
-    mailLive,
-    ConfigProvider.layer(
-      ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
-    ),
-  );
+  const runtime = await requestRuntime();
   const secured =
     options?.require === undefined
       ? program
       : requireCurrentUser(options.require).pipe(Effect.andThen(program));
 
-  return await run(secured, services);
+  return await runtime.runPromise(toServerResult(secured));
 };
