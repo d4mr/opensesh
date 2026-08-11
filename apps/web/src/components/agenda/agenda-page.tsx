@@ -10,8 +10,10 @@ import {
   validateScheduleChange,
 } from "@opensesh/domain";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   CalendarCheckIcon,
+  CalendarPlusIcon,
   ChevronDownIcon,
   CircleDotIcon,
   EyeOffIcon,
@@ -21,6 +23,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CalendarInviteAction } from "@/components/agenda/calendar-invite-action";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -435,6 +438,29 @@ export function AgendaPage({
         accept={acceptDraftChanges}
         discard={discardComparedDraft}
       />
+    );
+  }
+
+  if (data.sessions.length === 0) {
+    return (
+      <main className="p-4 text-sm lg:p-6">
+        <h1 className="text-lg font-semibold tracking-tight">Agenda builder</h1>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Place accepted sessions, resolve conflicts, then publish a public snapshot.
+        </p>
+        <AdminEmptyState
+          icon={CalendarPlusIcon}
+          title="Build your session lineup first"
+          description="Accepted sessions appear here ready to place into rooms and time slots."
+          action={
+            <Button asChild size="sm" className="pressable">
+              <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
+                Review submissions
+              </Link>
+            </Button>
+          }
+        />
+      </main>
     );
   }
 

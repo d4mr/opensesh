@@ -6,6 +6,7 @@ import type {
 } from "@opensesh/domain";
 import { campaignMergeTokens, resolveMergeFields } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   ChevronDownIcon,
   Clock3Icon,
@@ -14,11 +15,13 @@ import {
   PlusIcon,
   SendIcon,
   Trash2Icon,
+  UsersIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { WorkflowBadge, workflowLabels } from "@/components/admin/speaker-admin-dialogs";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -146,6 +149,30 @@ function Communications({
       await queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] });
     },
   });
+  if (data.contacts.length === 0) {
+    return (
+      <main className="grid gap-5 p-4 text-sm lg:p-6">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Communications</h1>
+          <p className="text-xs text-muted-foreground">
+            Compose resolved speaker campaigns and automate due-task reminders.
+          </p>
+        </div>
+        <AdminEmptyState
+          icon={UsersIcon}
+          title="Add speakers before sending a campaign"
+          description="Communications become available as soon as your speaker directory has recipients."
+          action={
+            <Button asChild size="sm" className="pressable">
+              <Link to="/admin/speakers" search={{ spotlight: undefined }}>
+                Add speakers
+              </Link>
+            </Button>
+          }
+        />
+      </main>
+    );
+  }
   return (
     <main className="grid gap-5 p-4 text-sm lg:p-6">
       <div className="flex items-start justify-between gap-3">

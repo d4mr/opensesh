@@ -1,6 +1,7 @@
 import type { AdminEmail, EmailStatus } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import {
   CalendarDaysIcon,
@@ -14,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -207,31 +209,33 @@ function EmailViewerData({
           Every transactional message, including demo sends and calendar attachments.
         </p>
       </div>
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader className="bg-muted/50">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
-                    {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  No email has been recorded for this event.
-                </TableCell>
-              </TableRow>
-            ) : (
-              pages.pageItems.map((row) => (
+      {rows.length === 0 ? (
+        <AdminEmptyState
+          icon={MailWarningIcon}
+          title="No messages have been sent"
+          description="Compose a speaker campaign when your recipients are ready."
+          action={
+            <Button asChild size="sm" className="pressable">
+              <Link to="/admin/communications">Open communications</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id} colSpan={header.colSpan}>
+                      {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {pages.pageItems.map((row) => (
                 <TableRow
                   key={row.id}
                   tabIndex={0}
@@ -247,17 +251,17 @@ function EmailViewerData({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <PaginationFooter
-          page={pages.page}
-          pageSize={pages.pageSize}
-          total={rows.length}
-          onPageChange={pages.setPage}
-        />
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+          <PaginationFooter
+            page={pages.page}
+            pageSize={pages.pageSize}
+            total={rows.length}
+            onPageChange={pages.setPage}
+          />
+        </div>
+      )}
 
       <Dialog open={selected !== null} onOpenChange={(open) => !open && select(undefined)}>
         {selected === null ? null : (

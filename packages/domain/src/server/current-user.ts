@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { contacts, eventMembers, events, organizationMembers } from "../db/schema";
+import { contacts, eventMembers, events, organizationMembers, organizations } from "../db/schema";
 import { Db, makeDbLive } from "./db";
-import { DbError, Forbidden, Unauthenticated } from "./errors";
+import { DbError, Forbidden, NeedsOrganization, Unauthenticated } from "./errors";
 import { Event, EventMember, OrganizationMember } from "./schema/core";
 import { Contact } from "./schema/submissions";
 import { decodeMany, query } from "./repos/shared";
@@ -19,7 +19,9 @@ export const CurrentUserValue = Schema.Struct({
   userId: Schema.String,
   email: Schema.String,
   orgId: Schema.String,
-  eventSlug: Schema.String,
+  organizationName: Schema.String,
+  organizationLogo: Schema.NullOr(Schema.String),
+  eventSlug: Schema.NullOr(Schema.String),
   roles: Schema.Struct({
     admin: Schema.Boolean,
     reviewer: Schema.Boolean,
@@ -31,7 +33,10 @@ export type CurrentUserValue = typeof CurrentUserValue.Type;
 export type RequiredRole = "session" | "staff" | "admin" | "reviewer" | "speaker";
 
 interface CurrentUserService {
-  readonly get: Effect.Effect<CurrentUserValue, DbError | Forbidden | Unauthenticated>;
+  readonly get: Effect.Effect<
+    CurrentUserValue,
+    DbError | Forbidden | NeedsOrganization | Unauthenticated
+  >;
 }
 
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserService>()(
@@ -40,7 +45,7 @@ export class CurrentUser extends Context.Service<CurrentUser, CurrentUserService
 
 const makeCurrentUserLayer = (
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  eventSlug: string | ((session: SessionIdentity) => string),
+  preferredEventSlug: string | ((session: SessionIdentity) => string | undefined) | undefined,
 ) =>
   Layer.effect(
     CurrentUser,
@@ -53,63 +58,81 @@ const makeCurrentUserLayer = (
           if (session === null) {
             return yield* Effect.fail(new Unauthenticated({ message: "Sign in to continue" }));
           }
-          const scopedEventSlug = typeof eventSlug === "string" ? eventSlug : eventSlug(session);
-
-          const rows = yield* query(database, "Could not load current user", (db) =>
-            db
-              .select({
-                event: events,
-                organizationMember: organizationMembers,
-                eventMember: eventMembers,
-                contact: contacts,
-              })
-              .from(events)
-              .leftJoin(
-                organizationMembers,
-                and(
-                  eq(organizationMembers.organizationId, events.organizationId),
-                  eq(organizationMembers.userId, session.userId),
-                ),
-              )
-              .leftJoin(
-                eventMembers,
-                and(eq(eventMembers.eventId, events.id), eq(eventMembers.userId, session.userId)),
-              )
-              .leftJoin(
-                contacts,
-                and(eq(contacts.eventId, events.id), eq(contacts.email, session.email)),
-              )
-              .where(eq(events.slug, scopedEventSlug))
-              .execute(),
+          const membershipRows = yield* query(
+            database,
+            "Could not load organization membership",
+            (db) =>
+              db
+                .select({
+                  organizationMember: organizationMembers,
+                  organization: organizations,
+                })
+                .from(organizationMembers)
+                .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
+                .where(eq(organizationMembers.userId, session.userId))
+                .orderBy(asc(organizationMembers.createdAt), asc(organizationMembers.id))
+                .execute(),
           );
-          const first = rows[0];
-          const event = yield* decodeMany(
-            Event,
-            "event",
-            first === undefined ? [] : [first.event],
-          ).pipe(Effect.map((decoded) => decoded[0]));
-          if (event === undefined) {
+          const selectedMembership =
+            membershipRows.find(
+              (row) => row.organizationMember.organizationId === session.activeOrganizationId,
+            ) ?? membershipRows[0];
+          if (selectedMembership === undefined) {
             return yield* Effect.fail(
-              new DbError({ message: "Current event is missing", cause: rows }),
+              new NeedsOrganization({ message: "Create an organization to continue" }),
             );
           }
-          const organizationMember = yield* decodeMany(
-            OrganizationMember,
-            "organization membership",
-            first?.organizationMember === null || first?.organizationMember === undefined
+          const organizationMember = yield* Schema.decodeUnknownEffect(OrganizationMember)(
+            selectedMembership.organizationMember,
+          ).pipe(
+            Effect.mapError(
+              (cause) =>
+                new DbError({ message: "Could not decode organization membership", cause }),
+            ),
+          );
+          const organizationEvents = yield* query(
+            database,
+            "Could not load organization events",
+            (db) =>
+              db
+                .select()
+                .from(events)
+                .where(eq(events.organizationId, organizationMember.organizationId))
+                .orderBy(asc(events.startsAt))
+                .execute(),
+          ).pipe(Effect.flatMap((rows) => decodeMany(Event, "event", rows)));
+          const preferredSlug =
+            typeof preferredEventSlug === "function"
+              ? preferredEventSlug(session)
+              : preferredEventSlug;
+          const now = new Date();
+          const event =
+            (preferredSlug === undefined
+              ? undefined
+              : organizationEvents.find((candidate) => candidate.slug === preferredSlug)) ??
+            organizationEvents.find((candidate) => candidate.startsAt >= now) ??
+            organizationEvents.at(-1);
+          const rows =
+            event === undefined
               ? []
-              : [first.organizationMember],
-          ).pipe(Effect.map((decoded) => decoded[0]));
-          if (
-            organizationMember === undefined ||
-            organizationMember.organizationId !== event.organizationId ||
-            (session.activeOrganizationId !== undefined &&
-              session.activeOrganizationId !== event.organizationId)
-          ) {
-            return yield* Effect.fail(
-              new Forbidden({ message: "You do not have access to this organization" }),
-            );
-          }
+              : yield* query(database, "Could not load current event membership", (db) =>
+                  db
+                    .select({ eventMember: eventMembers, contact: contacts })
+                    .from(events)
+                    .leftJoin(
+                      eventMembers,
+                      and(
+                        eq(eventMembers.eventId, events.id),
+                        eq(eventMembers.userId, session.userId),
+                      ),
+                    )
+                    .leftJoin(
+                      contacts,
+                      and(eq(contacts.eventId, events.id), eq(contacts.email, session.email)),
+                    )
+                    .where(eq(events.id, event.id))
+                    .execute(),
+                );
 
           const memberRows = yield* decodeMany(
             EventMember,
@@ -119,7 +142,7 @@ const makeCurrentUserLayer = (
           const contactRows = yield* decodeMany(
             Contact,
             "contact",
-            first.contact === null ? [] : [first.contact],
+            rows.flatMap((row) => (row.contact === null ? [] : [row.contact])),
           );
 
           const contact = contactRows[0];
@@ -127,9 +150,14 @@ const makeCurrentUserLayer = (
             userId: session.userId,
             email: session.email,
             orgId: organizationMember.organizationId,
-            eventSlug: scopedEventSlug,
+            organizationName: selectedMembership.organization.name,
+            organizationLogo: selectedMembership.organization.logo,
+            eventSlug: event?.slug ?? null,
             roles: {
-              admin: memberRows.some((member) => member.role === "admin"),
+              admin:
+                organizationMember.role === "owner" ||
+                organizationMember.role === "admin" ||
+                memberRows.some((member) => member.role === "admin"),
               reviewer: memberRows.some((member) => member.role === "reviewer"),
               ...(contact === undefined ? {} : { contactId: contact.id }),
             },
@@ -143,8 +171,11 @@ const makeCurrentUserLayer = (
 export const makeCurrentUserLive = (
   connectionString: string,
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  eventSlug: string | ((session: SessionIdentity) => string),
-) => makeCurrentUserLayer(loadSession, eventSlug).pipe(Layer.provide(makeDbLive(connectionString)));
+  preferredEventSlug?: string | ((session: SessionIdentity) => string | undefined),
+) =>
+  makeCurrentUserLayer(loadSession, preferredEventSlug).pipe(
+    Layer.provide(makeDbLive(connectionString)),
+  );
 
 export const getCurrentUser = Effect.gen(function* () {
   const service = yield* CurrentUser;

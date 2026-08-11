@@ -7,6 +7,7 @@ import {
   type SubmissionStatus,
 } from "@opensesh/domain";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   columnVisibilityFeature,
   createColumnHelper,
@@ -28,11 +29,13 @@ import {
   Columns3Icon,
   DownloadIcon,
   SearchIcon,
+  FileInputIcon,
 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { PersonHoverCard } from "@/components/app/person-popover";
 import { PersonTag } from "@/components/app/person-tag";
@@ -594,6 +597,43 @@ export function SubmissionTablePage({
       queryKey: reviewDeskListQuery(eventId, kind === "abstract" ? "session" : "abstract").queryKey,
     });
   };
+
+  if (readyData.submissions.length === 0) {
+    return (
+      <main className="p-4 text-sm lg:p-6">
+        <h1 className="text-lg font-semibold">
+          {kind === "abstract" ? "Submissions" : "Sessions"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Review and manage {kind} submissions for {context.event.name}.
+        </p>
+        <AdminEmptyState
+          icon={FileInputIcon}
+          title={
+            kind === "abstract" ? "Collect your first submission" : "No sessions are ready yet"
+          }
+          description={
+            kind === "abstract"
+              ? "Publish a call for papers before proposals can arrive here."
+              : "Accept a submission to graduate it into the session workspace."
+          }
+          action={
+            kind === "abstract" ? (
+              <Button asChild size="sm" className="pressable">
+                <Link to="/admin/forms">Create call for papers</Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" className="pressable">
+                <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
+                  Review submissions
+                </Link>
+              </Button>
+            )
+          }
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">

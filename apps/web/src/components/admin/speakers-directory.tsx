@@ -16,6 +16,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonHoverCard } from "@/components/app/person-popover";
 import { PersonTag } from "@/components/app/person-tag";
@@ -464,181 +465,209 @@ function Directory({
                 </Button>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-56 flex-1 sm:max-w-sm">
-                <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search speakers…"
-                  className="h-8 pl-8"
-                />
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) =>
-                  setStatusFilter(
-                    value === "invited" ||
-                      value === "onboarding" ||
-                      value === "confirmed" ||
-                      value === "ready" ||
-                      value === "declined"
-                      ? value
-                      : "all",
-                  )
+            {rows.length === 0 ? (
+              <AdminEmptyState
+                icon={PlusIcon}
+                title="Add your first speaker"
+                description="Create a speaker profile now, or import a CSV when your roster is ready."
+                action={
+                  <Button
+                    size="sm"
+                    className="pressable"
+                    onClick={() => {
+                      setEditing(undefined);
+                      setFormOpen(true);
+                    }}
+                  >
+                    <PlusIcon /> Add speaker
+                  </Button>
                 }
-              >
-                <SelectTrigger className="h-8 w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {Object.entries(workflowLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={taskFilter}
-                onValueChange={(value) =>
-                  setTaskFilter(value === "complete" || value === "incomplete" ? value : "all")
-                }
-              >
-                <SelectTrigger className="h-8 w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All tasks</SelectItem>
-                  <SelectItem value="complete">Tasks complete</SelectItem>
-                  <SelectItem value="incomplete">Tasks incomplete</SelectItem>
-                </SelectContent>
-              </Select>
-              {activeFilters ? (
-                <Button size="sm" variant="ghost" className="pressable h-8" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-              <p className="ml-auto text-xs text-muted-foreground tabular-nums">
-                {filtered.length} of {rows.length} speaker{rows.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-              <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                <Table containerClassName="overflow-visible">
-                  <TableHeader className="sticky top-0 z-10 bg-background">
-                    <TableRow>
-                      <TableHead className="w-9">
-                        <Checkbox
-                          checked={allVisibleSelected}
-                          aria-label="Select all visible speakers"
-                          onCheckedChange={(checked) =>
-                            setSelectedIds(
-                              checked === true
-                                ? new Set(filtered.map((row) => row.contact.id))
-                                : new Set(),
-                            )
-                          }
-                        />
-                      </TableHead>
-                      <TableHead>Speaker</TableHead>
-                      {compact ? null : <TableHead>Role</TableHead>}
-                      {compact ? null : <TableHead>Profile readiness</TableHead>}
-                      {compact ? null : <TableHead>Workflow</TableHead>}
-                      {compact ? null : <TableHead>Task progress</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={compact ? 2 : 6}
-                          className="py-10 text-center text-sm text-muted-foreground"
-                        >
-                          No speakers match.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      pages.pageItems.map((row) => (
-                        <TableRow
-                          key={row.contact.id}
-                          ref={rowRef(row.contact.id)}
-                          className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
-                          onClick={() => openSpotlight(row.contact.id)}
-                        >
-                          <TableCell
-                            className="h-9 py-0"
-                            onClick={(event) => event.stopPropagation()}
-                          >
+              />
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative min-w-56 flex-1 sm:max-w-sm">
+                    <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search speakers…"
+                      className="h-8 pl-8"
+                    />
+                  </div>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) =>
+                      setStatusFilter(
+                        value === "invited" ||
+                          value === "onboarding" ||
+                          value === "confirmed" ||
+                          value === "ready" ||
+                          value === "declined"
+                          ? value
+                          : "all",
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      {Object.entries(workflowLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={taskFilter}
+                    onValueChange={(value) =>
+                      setTaskFilter(value === "complete" || value === "incomplete" ? value : "all")
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tasks</SelectItem>
+                      <SelectItem value="complete">Tasks complete</SelectItem>
+                      <SelectItem value="incomplete">Tasks incomplete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {activeFilters ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="pressable h-8"
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null}
+                  <p className="ml-auto text-xs text-muted-foreground tabular-nums">
+                    {filtered.length} of {rows.length} speaker{rows.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+                  <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+                    <Table containerClassName="overflow-visible">
+                      <TableHeader className="sticky top-0 z-10 bg-background">
+                        <TableRow>
+                          <TableHead className="w-9">
                             <Checkbox
-                              checked={selectedIds.has(row.contact.id)}
-                              aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                              checked={allVisibleSelected}
+                              aria-label="Select all visible speakers"
                               onCheckedChange={(checked) =>
-                                setSelectedIds((current) => {
-                                  const next = new Set(current);
-                                  if (checked === true) next.add(row.contact.id);
-                                  else next.delete(row.contact.id);
-                                  return next;
-                                })
+                                setSelectedIds(
+                                  checked === true
+                                    ? new Set(filtered.map((row) => row.contact.id))
+                                    : new Set(),
+                                )
                               }
                             />
-                          </TableCell>
-                          <TableCell className="h-9 py-0">
-                            <div className="flex items-center gap-2.5">
-                              <Headshot row={row} />
-                              <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
-                                {row.contact.firstName} {row.contact.lastName}
-                                {row.contact.profileReviewStatus === "pending_review" ? (
-                                  <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
-                                    Profile pending
-                                  </span>
-                                ) : null}
-                              </p>
-                            </div>
-                          </TableCell>
-                          {compact ? null : (
-                            <TableCell className="h-9 max-w-52 py-0">
-                              <p className="truncate text-xs text-muted-foreground">
-                                {[row.contact.title, row.contact.company]
-                                  .filter(Boolean)
-                                  .join(" · ") || row.contact.email}
-                              </p>
-                            </TableCell>
-                          )}
-                          {compact ? null : (
-                            <TableCell className="h-9 py-0 text-xs">
-                              <ProfileReadiness row={row} />
-                            </TableCell>
-                          )}
-                          {compact ? null : (
-                            <TableCell className="h-9 py-0 text-xs">
-                              <WorkflowBadge
-                                status={
-                                  statusOverrides.get(row.contact.id) ?? row.contact.workflowStatus
-                                }
-                              />
-                            </TableCell>
-                          )}
-                          {compact ? null : (
-                            <TableCell className="h-9 py-0 text-xs tabular-nums text-muted-foreground">
-                              {row.tasks.filter((task) => task.status !== "todo").length}/
-                              {row.tasks.length} done
-                            </TableCell>
-                          )}
+                          </TableHead>
+                          <TableHead>Speaker</TableHead>
+                          {compact ? null : <TableHead>Role</TableHead>}
+                          {compact ? null : <TableHead>Profile readiness</TableHead>}
+                          {compact ? null : <TableHead>Workflow</TableHead>}
+                          {compact ? null : <TableHead>Task progress</TableHead>}
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-              <PaginationFooter
-                page={pages.page}
-                pageSize={pages.pageSize}
-                total={filtered.length}
-                onPageChange={pages.setPage}
-              />
-            </div>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={compact ? 2 : 6}
+                              className="py-10 text-center text-sm text-muted-foreground"
+                            >
+                              No speakers match.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          pages.pageItems.map((row) => (
+                            <TableRow
+                              key={row.contact.id}
+                              ref={rowRef(row.contact.id)}
+                              className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
+                              onClick={() => openSpotlight(row.contact.id)}
+                            >
+                              <TableCell
+                                className="h-9 py-0"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Checkbox
+                                  checked={selectedIds.has(row.contact.id)}
+                                  aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                                  onCheckedChange={(checked) =>
+                                    setSelectedIds((current) => {
+                                      const next = new Set(current);
+                                      if (checked === true) next.add(row.contact.id);
+                                      else next.delete(row.contact.id);
+                                      return next;
+                                    })
+                                  }
+                                />
+                              </TableCell>
+                              <TableCell className="h-9 py-0">
+                                <div className="flex items-center gap-2.5">
+                                  <Headshot row={row} />
+                                  <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
+                                    {row.contact.firstName} {row.contact.lastName}
+                                    {row.contact.profileReviewStatus === "pending_review" ? (
+                                      <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-pending)]">
+                                        Profile pending
+                                      </span>
+                                    ) : null}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              {compact ? null : (
+                                <TableCell className="h-9 max-w-52 py-0">
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {[row.contact.title, row.contact.company]
+                                      .filter(Boolean)
+                                      .join(" · ") || row.contact.email}
+                                  </p>
+                                </TableCell>
+                              )}
+                              {compact ? null : (
+                                <TableCell className="h-9 py-0 text-xs">
+                                  <ProfileReadiness row={row} />
+                                </TableCell>
+                              )}
+                              {compact ? null : (
+                                <TableCell className="h-9 py-0 text-xs">
+                                  <WorkflowBadge
+                                    status={
+                                      statusOverrides.get(row.contact.id) ??
+                                      row.contact.workflowStatus
+                                    }
+                                  />
+                                </TableCell>
+                              )}
+                              {compact ? null : (
+                                <TableCell className="h-9 py-0 text-xs tabular-nums text-muted-foreground">
+                                  {row.tasks.filter((task) => task.status !== "todo").length}/
+                                  {row.tasks.length} done
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <PaginationFooter
+                    page={pages.page}
+                    pageSize={pages.pageSize}
+                    total={filtered.length}
+                    onPageChange={pages.setPage}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
         panel={

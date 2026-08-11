@@ -6,7 +6,7 @@ import type {
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ImageUpIcon, Trash2Icon, XIcon } from "lucide-react";
+import { ImageUpIcon, Trash2Icon, UserPlusIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ import { organizationSettingsQuery } from "@/lib/organization-queries";
 import { cn } from "@/lib/utils";
 import {
   getOrganizationSettings,
+  inviteOrganizationMember,
   removeOrganizationMember,
   revokeOrganizationInvitation,
   updateOrganizationMemberRole,
@@ -105,6 +106,7 @@ function OrganizationSettingsContent({ settings }: { readonly settings: Organiza
       </div>
       <div className="grid max-w-4xl gap-3">
         <ProfileForm settings={settings} />
+        <InviteMember settings={settings} />
         <SettingsSection
           title="Members"
           meta={`${settings.members.length} · Owners control the organization; admins manage non-owner members`}
@@ -117,6 +119,81 @@ function OrganizationSettingsContent({ settings }: { readonly settings: Organiza
         {settings.invitations.length === 0 ? null : <Invitations settings={settings} />}
       </div>
     </main>
+  );
+}
+
+function InviteMember({ settings }: { readonly settings: OrganizationSettings }) {
+  const queryClient = useQueryClient();
+  const canInvite = settings.viewer.role !== "member";
+  const form = useForm({
+    defaultValues: { email: "", role: "member" as "admin" | "member" },
+    onSubmit: async ({ value }) => {
+      const result = await inviteOrganizationMember({ data: value });
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      form.reset();
+      toast.success("Invitation sent");
+      await queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey });
+    },
+  });
+  if (!canInvite) return null;
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <SettingsSection title="Invite member" meta="Invitations expire after 48 hours">
+        <div className="flex flex-wrap items-end gap-2">
+          <form.Field name="email">
+            {(field) => (
+              <Field className="min-w-60 flex-1">
+                <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+                <Input
+                  id={field.name}
+                  type="email"
+                  required
+                  placeholder="teammate@company.com"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                />
+              </Field>
+            )}
+          </form.Field>
+          <form.Field name="role">
+            {(field) => (
+              <Field className="w-36">
+                <FieldLabel>Role</FieldLabel>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(value) => {
+                    if (value === "admin" || value === "member") field.handleChange(value);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          </form.Field>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(submitting) => (
+              <Button className="pressable" size="sm" disabled={submitting}>
+                <UserPlusIcon /> {submitting ? "Sending…" : "Send invite"}
+              </Button>
+            )}
+          </form.Subscribe>
+        </div>
+      </SettingsSection>
+    </form>
   );
 }
 

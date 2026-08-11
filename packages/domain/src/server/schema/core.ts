@@ -146,6 +146,7 @@ export type LibraryKind = typeof LibraryKind.Type;
 
 export const NewEventRequest = Schema.Struct({
   name: Schema.String,
+  type: EventType,
   startsAt: Schema.String,
   endsAt: Schema.String,
   timezone: Schema.String,

@@ -1,5 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { MailCheckIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { BrandMark } from "@/components/app/brand-mark";
@@ -140,6 +141,12 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
                     {magicSending ? "Sending…" : "Email me a magic link"}
                   </Button>
                 </Field>
+                <p className="text-center text-xs text-muted-foreground">
+                  New to opensesh?{" "}
+                  <Link to="/signup" className="font-medium text-foreground hover:underline">
+                    Create a workspace
+                  </Link>
+                </p>
               </FieldGroup>
             ) : (
               <div className="flex min-h-72 flex-col items-center justify-center text-center">

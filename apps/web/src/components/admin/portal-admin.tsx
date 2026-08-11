@@ -7,8 +7,11 @@ import {
   DownloadIcon,
   ExternalLinkIcon,
   FileArchiveIcon,
+  FileCheckIcon,
+  FileUpIcon,
   FilterIcon,
   PlusIcon,
+  ListTodoIcon,
   PencilIcon,
   SendIcon,
   UserRoundCheckIcon,
@@ -17,6 +20,7 @@ import { Fragment, useCallback, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { ChangeDiff } from "@/components/app/change-diff";
 import { PersonHoverCard } from "@/components/app/person-popover";
@@ -325,34 +329,47 @@ function AdminTasks({
           <TabsTrigger value="assignments">Assignments board</TabsTrigger>
         </TabsList>
         <TabsContent value="templates" className="pt-3">
-          <div className="max-w-4xl divide-y overflow-hidden rounded-lg border">
-            {templateRows.map((row) => (
-              <button
-                key={row.template.id}
-                type="button"
-                className="pressable flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
-                onClick={() => open(row.template.id)}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{row.template.title}</span>
-                    <Badge variant="outline" className="capitalize">
-                      {row.template.scope}
-                    </Badge>
-                    {row.template.autoAssignOnAccept ? (
-                      <Badge variant="secondary">Auto-assign</Badge>
-                    ) : null}
+          {templateRows.length === 0 ? (
+            <AdminEmptyState
+              icon={ListTodoIcon}
+              title="Create your first speaker task"
+              description="Define one reusable onboarding step, then assign it to speakers."
+              action={
+                <Button size="sm" className="pressable" onClick={() => open(null)}>
+                  <PlusIcon /> Add task
+                </Button>
+              }
+            />
+          ) : (
+            <div className="max-w-4xl divide-y overflow-hidden rounded-lg border">
+              {templateRows.map((row) => (
+                <button
+                  key={row.template.id}
+                  type="button"
+                  className="pressable flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
+                  onClick={() => open(row.template.id)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{row.template.title}</span>
+                      <Badge variant="outline" className="capitalize">
+                        {row.template.scope}
+                      </Badge>
+                      {row.template.autoAssignOnAccept ? (
+                        <Badge variant="secondary">Auto-assign</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {row.form?.name ?? row.fileRequest?.title ?? "Manual completion"}
+                    </p>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {row.form?.name ?? row.fileRequest?.title ?? "Manual completion"}
-                  </p>
-                </div>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {row.done.length}/{row.assigned.length} done
-                </span>
-              </button>
-            ))}
-          </div>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {row.done.length}/{row.assigned.length} done
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="assignments" className="pt-3">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -892,28 +909,47 @@ function AdminPortalForms({
           <TabsTrigger value="responses">Responses ({data.responses.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="forms" className="pt-3">
-          <div className="divide-y overflow-hidden rounded-lg border">
-            {data.forms.map((form) => (
-              <Link
-                key={form.id}
-                to="/admin/portal-forms/$formId"
-                params={{ formId: form.id }}
-                className={cn(
-                  "spotlight-row pressable relative flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
-                  highlightedId === form.id && "spotlight-row-highlight",
-                )}
-                onClick={() => rememberPortalFormList(eventId, form.id)}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{form.name}</p>
-                  <p className="text-xs text-muted-foreground">{form.title}</p>
-                </div>
-                <Badge variant="outline" className="capitalize">
-                  {form.targetType}
-                </Badge>
-              </Link>
-            ))}
-          </div>
+          {data.forms.length === 0 ? (
+            <AdminEmptyState
+              icon={FileCheckIcon}
+              title="Create your first portal form"
+              description="Collect structured onboarding details from speakers in their portal."
+              action={
+                <Button size="sm" asChild className="pressable">
+                  <Link
+                    to="/admin/portal-forms/$formId"
+                    params={{ formId: "new" }}
+                    onClick={() => rememberPortalFormList(eventId, "new")}
+                  >
+                    <PlusIcon /> New portal form
+                  </Link>
+                </Button>
+              }
+            />
+          ) : (
+            <div className="divide-y overflow-hidden rounded-lg border">
+              {data.forms.map((form) => (
+                <Link
+                  key={form.id}
+                  to="/admin/portal-forms/$formId"
+                  params={{ formId: form.id }}
+                  className={cn(
+                    "spotlight-row pressable relative flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
+                    highlightedId === form.id && "spotlight-row-highlight",
+                  )}
+                  onClick={() => rememberPortalFormList(eventId, form.id)}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{form.name}</p>
+                    <p className="text-xs text-muted-foreground">{form.title}</p>
+                  </div>
+                  <Badge variant="outline" className="capitalize">
+                    {form.targetType}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="responses" className="pt-3">
           <div className="mb-2 flex justify-end">
@@ -1118,170 +1154,199 @@ function DeliverablesAdmin({
         </p>
       </div>
 
-      <section>
-        <div className="mb-2 flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Session requirements
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Applies to every accepted session.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="pressable"
-            onClick={() => openRequirement()}
-          >
-            <PlusIcon /> Add requirement
-          </Button>
-        </div>
-        <div className="overflow-hidden rounded-lg border">
-          <div className="divide-y">
-            {requirements.pageItems.map((requirement) => {
-              const uploadedSessionIds = new Set(
-                data.files.flatMap((file) =>
-                  file.upload.requirementId === requirement.id &&
-                  file.upload.submissionId !== null &&
-                  data.versions.some((version) => version.version.fileUploadId === file.upload.id)
-                    ? [file.upload.submissionId]
-                    : [],
-                ),
-              );
-              const uploaded = acceptedSessions.filter((session) =>
-                uploadedSessionIds.has(session.id),
-              ).length;
-              return (
-                <div key={requirement.id} className="flex items-center gap-2">
-                  <Link
-                    to="/admin/files"
-                    search={{
-                      deliverable: `requirement:${requirement.id}`,
-                      spotlight: undefined,
-                    }}
-                    className="pressable min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
-                          {requirement.title}
+      {data.requirements.length === 0 && data.fileRequests.length === 0 ? (
+        <AdminEmptyState
+          icon={FileUpIcon}
+          title="Create your first deliverable"
+          description="Request one file from every accepted session or from selected speakers."
+          action={
+            <Button size="sm" className="pressable" onClick={() => openRequirement()}>
+              <PlusIcon /> Add requirement
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <section>
+            <div className="mb-2 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Session requirements
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Applies to every accepted session.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable"
+                onClick={() => openRequirement()}
+              >
+                <PlusIcon /> Add requirement
+              </Button>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <div className="divide-y">
+                {requirements.pageItems.map((requirement) => {
+                  const uploadedSessionIds = new Set(
+                    data.files.flatMap((file) =>
+                      file.upload.requirementId === requirement.id &&
+                      file.upload.submissionId !== null &&
+                      data.versions.some(
+                        (version) => version.version.fileUploadId === file.upload.id,
+                      )
+                        ? [file.upload.submissionId]
+                        : [],
+                    ),
+                  );
+                  const uploaded = acceptedSessions.filter((session) =>
+                    uploadedSessionIds.has(session.id),
+                  ).length;
+                  return (
+                    <div key={requirement.id} className="flex items-center gap-2">
+                      <Link
+                        to="/admin/files"
+                        search={{
+                          deliverable: `requirement:${requirement.id}`,
+                          spotlight: undefined,
+                        }}
+                        className="pressable min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">
+                              {requirement.title}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {dueLabel(requirement.dueAt)} ·{" "}
+                              {requirement.acceptTypes ?? "Any type"} ·{" "}
+                              {requirement.maxSizeMb === null
+                                ? "Any size"
+                                : `${requirement.maxSizeMb} MB max`}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                            {uploaded} of {acceptedSessions.length} sessions uploaded
+                          </span>
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {dueLabel(requirement.dueAt)} · {requirement.acceptTypes ?? "Any type"} ·{" "}
-                          {requirement.maxSizeMb === null
-                            ? "Any size"
-                            : `${requirement.maxSizeMb} MB max`}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                        {uploaded} of {acceptedSessions.length} sessions uploaded
-                      </span>
-                    </span>
-                  </Link>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="pressable mr-2"
-                    aria-label={`Edit ${requirement.title}`}
-                    onClick={() => openRequirement(requirement)}
-                  >
-                    <PencilIcon />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-          <PaginationFooter
-            page={requirements.page}
-            pageSize={requirements.pageSize}
-            total={data.requirements.length}
-            onPageChange={requirements.setPage}
-          />
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-2 flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Requested files
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Ask specific people for a file, delivered as a task.
-            </p>
-          </div>
-          <Button size="sm" variant="outline" className="pressable" onClick={() => openRequest()}>
-            <PlusIcon /> Add request
-          </Button>
-        </div>
-        <div className="overflow-hidden rounded-lg border">
-          <div className="divide-y">
-            {requests.pageItems.map((request) => {
-              const uploads = data.files.filter((file) => file.upload.fileRequestId === request.id);
-              const linkedTemplates = data.templates.filter(
-                (template) => template.template.fileRequestId === request.id,
-              );
-              return (
-                <div key={request.id} className="flex items-center gap-2">
-                  <Link
-                    to="/admin/files"
-                    search={{ deliverable: `request:${request.id}`, spotlight: undefined }}
-                    className="pressable min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">{request.title}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {request.targetType === "submission" ? "Per session" : "Per speaker"} ·{" "}
-                          {dueLabel(request.dueAt)} · {uploads.length} upload
-                          {uploads.length === 1 ? "" : "s"}
-                        </span>
-                      </span>
-                      {linkedTemplates.length === 0 ? null : (
-                        <span className="max-w-48 truncate text-xs text-muted-foreground">
-                          {linkedTemplates.map((template) => template.template.title).join(", ")}
-                        </span>
-                      )}
-                    </span>
-                  </Link>
-                  {linkedTemplates.length === 0 ? (
-                    <div className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                      <span>Not assigned to any task yet</span>
-                      <Button size="xs" variant="ghost" className="pressable" asChild>
-                        <Link
-                          to="/admin/$section"
-                          params={{ section: "tasks" }}
-                          search={{ fileRequest: request.id, spotlight: undefined }}
-                        >
-                          Create task
-                        </Link>
+                      </Link>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        className="pressable mr-2"
+                        aria-label={`Edit ${requirement.title}`}
+                        onClick={() => openRequirement(requirement)}
+                      >
+                        <PencilIcon />
                       </Button>
                     </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="pressable mr-2"
-                    aria-label={`Edit ${request.title}`}
-                    onClick={() => openRequest(request)}
-                  >
-                    <PencilIcon />
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-          <PaginationFooter
-            page={requests.page}
-            pageSize={requests.pageSize}
-            total={data.fileRequests.length}
-            onPageChange={requests.setPage}
-          />
-        </div>
-      </section>
+                  );
+                })}
+              </div>
+              <PaginationFooter
+                page={requirements.page}
+                pageSize={requirements.pageSize}
+                total={data.requirements.length}
+                onPageChange={requirements.setPage}
+              />
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-2 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Requested files
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Ask specific people for a file, delivered as a task.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable"
+                onClick={() => openRequest()}
+              >
+                <PlusIcon /> Add request
+              </Button>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <div className="divide-y">
+                {requests.pageItems.map((request) => {
+                  const uploads = data.files.filter(
+                    (file) => file.upload.fileRequestId === request.id,
+                  );
+                  const linkedTemplates = data.templates.filter(
+                    (template) => template.template.fileRequestId === request.id,
+                  );
+                  return (
+                    <div key={request.id} className="flex items-center gap-2">
+                      <Link
+                        to="/admin/files"
+                        search={{ deliverable: `request:${request.id}`, spotlight: undefined }}
+                        className="pressable min-w-0 flex-1 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">
+                              {request.title}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {request.targetType === "submission" ? "Per session" : "Per speaker"}{" "}
+                              · {dueLabel(request.dueAt)} · {uploads.length} upload
+                              {uploads.length === 1 ? "" : "s"}
+                            </span>
+                          </span>
+                          {linkedTemplates.length === 0 ? null : (
+                            <span className="max-w-48 truncate text-xs text-muted-foreground">
+                              {linkedTemplates
+                                .map((template) => template.template.title)
+                                .join(", ")}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                      {linkedTemplates.length === 0 ? (
+                        <div className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                          <span>Not assigned to any task yet</span>
+                          <Button size="xs" variant="ghost" className="pressable" asChild>
+                            <Link
+                              to="/admin/$section"
+                              params={{ section: "tasks" }}
+                              search={{ fileRequest: request.id, spotlight: undefined }}
+                            >
+                              Create task
+                            </Link>
+                          </Button>
+                        </div>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        className="pressable mr-2"
+                        aria-label={`Edit ${request.title}`}
+                        onClick={() => openRequest(request)}
+                      >
+                        <PencilIcon />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <PaginationFooter
+                page={requests.page}
+                pageSize={requests.pageSize}
+                total={data.fileRequests.length}
+                onPageChange={requests.setPage}
+              />
+            </div>
+          </section>
+        </>
+      )}
 
       <Dialog open={requirementOpen} onOpenChange={setRequirementOpen}>
         <DialogContent>
@@ -1533,185 +1598,210 @@ function AdminSessions({
                 Accepted session content, speakers, and approval history.
               </p>
             </div>
-            {pendingHistory.length + pendingProfiles.length === 0 ? null : (
-              <div className="overflow-hidden rounded-md border">
-                <div className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
-                  <span className="text-xs font-medium">Awaiting approval</span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">
-                    {pendingHistory.length + pendingProfiles.length}
-                  </span>
-                </div>
-                <div className="divide-y">
-                  {pendingHistory.map((entry) => {
-                    const submission = data.submissions.find(
-                      (item) => item.id === entry.submissionId,
-                    );
-                    return (
-                      <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
-                        <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
-                          Session
-                        </span>
-                        <span className="min-w-0 truncate">
-                          <span className="font-mono tabular-nums">{submission?.code}</span>{" "}
-                          <span className="font-medium">{submission?.title}</span>
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                          {entry.authorName} changed {describeChangedFields(entry.changedFields)}
-                        </span>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                              Review
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Review content changes</DialogTitle>
-                              <DialogDescription>
-                                {submission?.code} · {entry.authorName}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <ChangeDiff rows={contentDiffRows(entry)} />
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                onClick={() => review.mutate({ id: entry.id, decision: "reject" })}
-                              >
-                                Reject
-                              </Button>
-                              <Button
-                                onClick={() => review.mutate({ id: entry.id, decision: "approve" })}
-                              >
-                                Approve
-                              </Button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    );
-                  })}
-                  {pendingProfiles.map(({ history: entry, contact }) => (
-                    <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
-                      <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
-                        Profile
-                      </span>
-                      <PersonHoverCard person={personFor(data, contact)}>
-                        <span className="min-w-0 truncate font-medium">
-                          {contact.firstName} {contact.lastName}
-                        </span>
-                      </PersonHoverCard>
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        changed {describeChangedFields(entry.changedFields)}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="pressable h-7 px-2 text-xs"
-                        asChild
-                      >
-                        <Link to="/admin/speakers" search={{ spotlight: contact.id }}>
-                          Review
-                        </Link>
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
-              <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Session</TableHead>
-                      <TableHead>Status</TableHead>
-                      {compact ? null : <TableHead>Speakers</TableHead>}
-                      {compact ? null : <TableHead className="text-right">Action</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {submissionPages.pageItems.map((submission) => {
-                      const speakers = data.participants.filter(
-                        (row) => row.submission.id === submission.id,
-                      );
-                      return (
-                        <TableRow
-                          key={submission.id}
-                          ref={rowRef(submission.id)}
-                          className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
-                          onClick={() => openSpotlight(submission.id)}
-                        >
-                          <TableCell className="h-9 py-1.5">
-                            <span className="font-mono text-xs tabular-nums">
-                              {submission.code}
-                            </span>{" "}
-                            —{" "}
-                            <span className="font-medium">
-                              {compact ? (
-                                <span className="inline-block max-w-52 truncate align-bottom">
-                                  {submission.title}
-                                </span>
-                              ) : (
-                                submission.title
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="h-9 py-1.5">
-                            <StatusBadge status={submission.status} />
-                          </TableCell>
-                          {compact ? null : (
-                            <TableCell className="h-9 py-1.5">
-                              {speakers.length === 0 ? (
-                                "—"
-                              ) : (
-                                <div className="flex flex-wrap gap-1">
-                                  {speakers.map((row) => (
-                                    <PersonHoverCard
-                                      key={row.contact.id}
-                                      person={personFor(data, row.contact)}
-                                    >
-                                      <PersonTag
-                                        person={{
-                                          name: `${row.contact.firstName} ${row.contact.lastName}`,
-                                          image: row.contact.headshotUrl,
-                                        }}
-                                      />
-                                    </PersonHoverCard>
-                                  ))}
-                                </div>
-                              )}
-                            </TableCell>
-                          )}
-                          {compact ? null : (
-                            <TableCell className="h-9 py-1.5 text-right">
-                              {submission.status === "pending" ? (
-                                <Button
-                                  size="sm"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    accept.mutate(submission.id);
-                                  }}
-                                >
-                                  <UserRoundCheckIcon /> Accept
-                                </Button>
-                              ) : (
-                                <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
-                              )}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-              <PaginationFooter
-                page={submissionPages.page}
-                pageSize={submissionPages.pageSize}
-                total={visibleSubmissions.length}
-                onPageChange={submissionPages.setPage}
+            {visibleSubmissions.length === 0 ? (
+              <AdminEmptyState
+                icon={FileCheckIcon}
+                title="No session content yet"
+                description="Accept a submission before speaker content and approvals can appear here."
+                action={
+                  <Button asChild size="sm" className="pressable">
+                    <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
+                      Review submissions
+                    </Link>
+                  </Button>
+                }
               />
-            </div>
+            ) : (
+              <>
+                {pendingHistory.length + pendingProfiles.length === 0 ? null : (
+                  <div className="overflow-hidden rounded-md border">
+                    <div className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
+                      <span className="text-xs font-medium">Awaiting approval</span>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        {pendingHistory.length + pendingProfiles.length}
+                      </span>
+                    </div>
+                    <div className="divide-y">
+                      {pendingHistory.map((entry) => {
+                        const submission = data.submissions.find(
+                          (item) => item.id === entry.submissionId,
+                        );
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex h-10 items-center gap-2.5 px-3 text-xs"
+                          >
+                            <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
+                              Session
+                            </span>
+                            <span className="min-w-0 truncate">
+                              <span className="font-mono tabular-nums">{submission?.code}</span>{" "}
+                              <span className="font-medium">{submission?.title}</span>
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              {entry.authorName} changed{" "}
+                              {describeChangedFields(entry.changedFields)}
+                            </span>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                                  Review
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Review content changes</DialogTitle>
+                                  <DialogDescription>
+                                    {submission?.code} · {entry.authorName}
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <ChangeDiff rows={contentDiffRows(entry)} />
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() =>
+                                      review.mutate({ id: entry.id, decision: "reject" })
+                                    }
+                                  >
+                                    Reject
+                                  </Button>
+                                  <Button
+                                    onClick={() =>
+                                      review.mutate({ id: entry.id, decision: "approve" })
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        );
+                      })}
+                      {pendingProfiles.map(({ history: entry, contact }) => (
+                        <div key={entry.id} className="flex h-10 items-center gap-2.5 px-3 text-xs">
+                          <span className="w-14 shrink-0 rounded-sm border px-1.5 py-px text-center text-[10px] text-muted-foreground">
+                            Profile
+                          </span>
+                          <PersonHoverCard person={personFor(data, contact)}>
+                            <span className="min-w-0 truncate font-medium">
+                              {contact.firstName} {contact.lastName}
+                            </span>
+                          </PersonHoverCard>
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                            changed {describeChangedFields(entry.changedFields)}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="pressable h-7 px-2 text-xs"
+                            asChild
+                          >
+                            <Link to="/admin/speakers" search={{ spotlight: contact.id }}>
+                              Review
+                            </Link>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
+                  <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Session</TableHead>
+                          <TableHead>Status</TableHead>
+                          {compact ? null : <TableHead>Speakers</TableHead>}
+                          {compact ? null : <TableHead className="text-right">Action</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {submissionPages.pageItems.map((submission) => {
+                          const speakers = data.participants.filter(
+                            (row) => row.submission.id === submission.id,
+                          );
+                          return (
+                            <TableRow
+                              key={submission.id}
+                              ref={rowRef(submission.id)}
+                              className={cn("h-9 cursor-pointer", rowClassName(submission.id))}
+                              onClick={() => openSpotlight(submission.id)}
+                            >
+                              <TableCell className="h-9 py-1.5">
+                                <span className="font-mono text-xs tabular-nums">
+                                  {submission.code}
+                                </span>{" "}
+                                —{" "}
+                                <span className="font-medium">
+                                  {compact ? (
+                                    <span className="inline-block max-w-52 truncate align-bottom">
+                                      {submission.title}
+                                    </span>
+                                  ) : (
+                                    submission.title
+                                  )}
+                                </span>
+                              </TableCell>
+                              <TableCell className="h-9 py-1.5">
+                                <StatusBadge status={submission.status} />
+                              </TableCell>
+                              {compact ? null : (
+                                <TableCell className="h-9 py-1.5">
+                                  {speakers.length === 0 ? (
+                                    "—"
+                                  ) : (
+                                    <div className="flex flex-wrap gap-1">
+                                      {speakers.map((row) => (
+                                        <PersonHoverCard
+                                          key={row.contact.id}
+                                          person={personFor(data, row.contact)}
+                                        >
+                                          <PersonTag
+                                            person={{
+                                              name: `${row.contact.firstName} ${row.contact.lastName}`,
+                                              image: row.contact.headshotUrl,
+                                            }}
+                                          />
+                                        </PersonHoverCard>
+                                      ))}
+                                    </div>
+                                  )}
+                                </TableCell>
+                              )}
+                              {compact ? null : (
+                                <TableCell className="h-9 py-1.5 text-right">
+                                  {submission.status === "pending" ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        accept.mutate(submission.id);
+                                      }}
+                                    >
+                                      <UserRoundCheckIcon /> Accept
+                                    </Button>
+                                  ) : (
+                                    <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />
+                                  )}
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <PaginationFooter
+                    page={submissionPages.page}
+                    pageSize={submissionPages.pageSize}
+                    total={visibleSubmissions.length}
+                    onPageChange={submissionPages.setPage}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
         panel={

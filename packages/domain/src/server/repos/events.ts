@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
@@ -122,7 +122,11 @@ export const EventsLive = Layer.effect(
       listForAdmin: (session, eventSlug) =>
         query(database, "Could not load admin events", (db) =>
           db
-            .select({ event: organizationEvent, role: eventMembers.role })
+            .select({
+              event: organizationEvent,
+              eventRole: eventMembers.role,
+              organizationRole: organizationMembers.role,
+            })
             .from(currentEvent)
             .innerJoin(
               organizationMembers,
@@ -131,26 +135,24 @@ export const EventsLive = Layer.effect(
                 eq(organizationMembers.userId, session.userId),
               ),
             )
-            .innerJoin(
+            .leftJoin(
               eventMembers,
               and(
                 eq(eventMembers.eventId, currentEvent.id),
                 eq(eventMembers.userId, session.userId),
-                inArray(eventMembers.role, ["admin", "reviewer"]),
               ),
             )
             .innerJoin(
               organizationEvent,
               eq(organizationEvent.organizationId, currentEvent.organizationId),
             )
-            // Only events the user actually belongs to — listing every org
-            // event desyncs the switcher from membership-scoped reads.
-            .innerJoin(
+            // Organization owners/admins manage every event; event-scoped
+            // staff only see the events where they have an explicit role.
+            .leftJoin(
               organizationEventMember,
               and(
                 eq(organizationEventMember.eventId, organizationEvent.id),
                 eq(organizationEventMember.userId, session.userId),
-                inArray(organizationEventMember.role, ["admin", "reviewer"]),
               ),
             )
             .where(
@@ -159,6 +161,14 @@ export const EventsLive = Layer.effect(
                 session.activeOrganizationId === undefined
                   ? undefined
                   : eq(currentEvent.organizationId, session.activeOrganizationId),
+                or(
+                  inArray(organizationMembers.role, ["owner", "admin"]),
+                  inArray(eventMembers.role, ["admin", "reviewer"]),
+                ),
+                or(
+                  inArray(organizationMembers.role, ["owner", "admin"]),
+                  inArray(organizationEventMember.role, ["admin", "reviewer"]),
+                ),
               ),
             )
             .orderBy(asc(organizationEvent.startsAt))
@@ -175,7 +185,7 @@ export const EventsLive = Layer.effect(
               rows.map((row) => row.event),
             ).pipe(
               Effect.map((decoded) =>
-                rows[0]?.role === "reviewer"
+                rows[0]?.organizationRole === "member" && rows[0]?.eventRole === "reviewer"
                   ? decoded.filter((event) => event.slug === eventSlug)
                   : [
                       ...decoded.filter((event) => event.slug === eventSlug),
@@ -197,9 +207,30 @@ export const EventsLive = Layer.effect(
             const rows = await transaction.insert(events).values(input).returning().execute();
             const event = rows[0];
             if (event !== undefined) {
+              const organizationAdmins = await transaction
+                .select({ userId: organizationMembers.userId })
+                .from(organizationMembers)
+                .where(
+                  and(
+                    eq(organizationMembers.organizationId, input.organizationId),
+                    inArray(organizationMembers.role, ["owner", "admin"]),
+                  ),
+                )
+                .execute();
+              const adminIds = new Set([
+                userId,
+                ...organizationAdmins.map((member) => member.userId),
+              ]);
               await transaction
                 .insert(eventMembers)
-                .values({ eventId: event.id, userId, role: "admin" })
+                .values(
+                  [...adminIds].map((adminUserId) => ({
+                    eventId: event.id,
+                    userId: adminUserId,
+                    role: "admin" as const,
+                  })),
+                )
+                .onConflictDoNothing()
                 .execute();
             }
             return event;

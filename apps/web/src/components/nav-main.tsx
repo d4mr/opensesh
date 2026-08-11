@@ -74,6 +74,12 @@ function NavItemLink({
         {content}
       </Link>
     );
+  if (item.section === "files")
+    return (
+      <Link to="/admin/files" search={{ deliverable: undefined, spotlight: undefined }} {...props}>
+        {content}
+      </Link>
+    );
   if (item.section === "crm")
     return (
       <Link

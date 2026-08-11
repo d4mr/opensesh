@@ -1,36 +1,26 @@
 import type { Event } from "@opensesh/domain";
-import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { CalendarPlusIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { EventIcon } from "@/components/app/event-icon";
-import { DateTimePicker } from "@/components/forms/datetime-picker";
+import { CreateEventForm } from "@/components/events/create-event-form";
 import { EntityCombobox } from "@/components/forms/entity-combobox";
-import { TimezoneCombobox } from "@/components/forms/timezone-combobox";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CommandItem } from "@/components/ui/command";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { createEvent, searchAdminEvents } from "@/server-fns/admin";
-
-const dateInput = (date: Date) => {
-  return date.toISOString();
-};
+import { searchAdminEvents } from "@/server-fns/admin";
 
 // Event-timezone formatting keeps SSR and browser output identical.
 const formatDates = (event: Event) => {
@@ -60,7 +50,6 @@ export function EventSwitcher({
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [error, setError] = useState<string>();
   const loadEvents = useCallback(
     async (query: string) => {
       const result = await searchAdminEvents({ data: { eventId: event.id, query } });
@@ -68,26 +57,6 @@ export function EventSwitcher({
     },
     [event.id],
   );
-  const tomorrow = new Date(Date.now() + 86_400_000);
-  const form = useForm({
-    defaultValues: {
-      name: "",
-      startsAt: dateInput(tomorrow),
-      endsAt: dateInput(new Date(tomorrow.getTime() + 86_400_000)),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    },
-    onSubmit: async ({ value }) => {
-      setError(undefined);
-      const result = await createEvent({ data: value });
-      if (!result.ok) {
-        setError(result.error.message);
-        return;
-      }
-      await onCreated(result.data.id);
-      setDialogOpen(false);
-      await navigate({ to: "/admin/settings/event" });
-    },
-  });
 
   return (
     <>
@@ -146,96 +115,22 @@ export function EventSwitcher({
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <form
-            onSubmit={(submitEvent) => {
-              submitEvent.preventDefault();
-              void form.handleSubmit();
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarPlusIcon className="size-4" /> New event
+            </DialogTitle>
+            <DialogDescription>
+              Create the event now; add its program library next.
+            </DialogDescription>
+          </DialogHeader>
+          <CreateEventForm
+            onCancel={() => setDialogOpen(false)}
+            onCreated={async (eventId) => {
+              await onCreated(eventId);
+              setDialogOpen(false);
+              await navigate({ to: "/admin/settings/event" });
             }}
-          >
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <CalendarPlusIcon className="size-4" /> New event
-              </DialogTitle>
-              <DialogDescription>
-                Create the event now; add its program library next.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-5 sm:grid-cols-2">
-              <form.Field name="name">
-                {(field) => (
-                  <Field className="sm:col-span-2">
-                    <FieldLabel htmlFor={field.name}>Name</FieldLabel>
-                    <Input
-                      id={field.name}
-                      required
-                      autoFocus
-                      value={field.state.value}
-                      onChange={(inputEvent) => field.handleChange(inputEvent.target.value)}
-                    />
-                  </Field>
-                )}
-              </form.Field>
-              <form.Subscribe selector={(state) => state.values.timezone}>
-                {(timezone) => (
-                  <>
-                    <form.Field name="startsAt">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Starts</FieldLabel>
-                          <DateTimePicker
-                            value={field.state.value}
-                            timezone={timezone}
-                            onChange={field.handleChange}
-                          />
-                        </Field>
-                      )}
-                    </form.Field>
-                    <form.Field name="endsAt">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Ends</FieldLabel>
-                          <DateTimePicker
-                            value={field.state.value}
-                            timezone={timezone}
-                            onChange={field.handleChange}
-                          />
-                        </Field>
-                      )}
-                    </form.Field>
-                  </>
-                )}
-              </form.Subscribe>
-              <form.Field name="timezone">
-                {(field) => (
-                  <Field className="sm:col-span-2">
-                    <FieldLabel htmlFor={field.name}>Timezone</FieldLabel>
-                    <TimezoneCombobox
-                      id={field.name}
-                      value={field.state.value}
-                      onChange={field.handleChange}
-                    />
-                  </Field>
-                )}
-              </form.Field>
-              {error === undefined ? null : (
-                <FieldDescription className="sm:col-span-2 text-destructive">
-                  {error}
-                </FieldDescription>
-              )}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <form.Subscribe selector={(state) => state.isSubmitting}>
-                {(submitting) => (
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Creating…" : "Create event"}
-                  </Button>
-                )}
-              </form.Subscribe>
-            </DialogFooter>
-          </form>
+          />
         </DialogContent>
       </Dialog>
     </>

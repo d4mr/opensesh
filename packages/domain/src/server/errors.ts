@@ -47,6 +47,14 @@ export class Unauthenticated extends Data.TaggedError("Unauthenticated")<{
   readonly message: string;
 }> {}
 
+export class NeedsOrganization extends Data.TaggedError("NeedsOrganization")<{
+  readonly message: string;
+}> {}
+
+export class NeedsFirstEvent extends Data.TaggedError("NeedsFirstEvent")<{
+  readonly message: string;
+}> {}
+
 export class Forbidden extends Data.TaggedError("Forbidden")<{
   readonly message: string;
 }> {}
