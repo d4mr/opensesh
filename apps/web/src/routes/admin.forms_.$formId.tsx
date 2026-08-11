@@ -10,10 +10,18 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
+  BellIcon,
   CheckIcon,
+  CircleCheckIcon,
+  CircleDashedIcon,
   ClipboardIcon,
   ExternalLinkIcon,
+  EyeIcon,
+  ListChecksIcon,
   LoaderCircleIcon,
+  PanelTopIcon,
+  Settings2Icon,
+  SlidersHorizontalIcon,
   UsersIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -21,12 +29,11 @@ import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
+import { FormPreviewSheet } from "@/components/forms/form-preview";
 import type { FormRendererLibrary } from "@/components/forms/form-renderer";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -61,12 +68,24 @@ export const Route = createFileRoute("/admin/forms_/$formId")({
 });
 
 const steps = [
-  ["Setup", "Submission type and participants"],
-  ["Welcome", "Public title and introduction"],
-  ["Submission questions", "Session or abstract fields"],
-  ["Participant questions", "Speaker roles and contact fields"],
-  ["Settings", "Deadline, limit, and success page"],
-  ["Notifications", "Confirmation and admin alerts"],
+  { title: "Setup", description: "Submission type and participants", icon: Settings2Icon },
+  { title: "Welcome", description: "Public title and introduction", icon: PanelTopIcon },
+  {
+    title: "Submission questions",
+    description: "Session or abstract fields",
+    icon: ListChecksIcon,
+  },
+  {
+    title: "Participant questions",
+    description: "Speaker roles and contact fields",
+    icon: UsersIcon,
+  },
+  {
+    title: "Settings",
+    description: "Deadline, limit, and success page",
+    icon: SlidersHorizontalIcon,
+  },
+  { title: "Notifications", description: "Confirmation and admin alerts", icon: BellIcon },
 ] as const;
 
 const dateInput = (date: Date | null) => {
@@ -128,6 +147,8 @@ function FormEditor({
     editorFields(data.fields),
   );
   const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const publicPath = `/submit/${eventSlug}/${data.form.id}`;
   const form = useForm({
     defaultValues: {
@@ -262,75 +283,80 @@ function FormEditor({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
+  const copyLink = () => {
+    void navigator.clipboard.writeText(`${window.location.origin}${publicPath}`);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
+  const active = steps[step];
 
   return (
     <main className="flex-1 p-4 text-sm lg:p-6">
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="-ml-1.5 text-muted-foreground"
-          aria-label="Back to forms"
-          asChild
-        >
-          <Link to="/admin/forms">
-            <ArrowLeftIcon />
-          </Link>
-        </Button>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold">{form.state.values.internalName}</h1>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <SaveStatus state={saveState} retry={() => void persist()} />
-          <Button size="sm" variant="outline" asChild>
-            <a href={publicPath} target="_blank" rel="noreferrer">
-              <ExternalLinkIcon /> View form
-            </a>
+          <Button variant="link" className="h-auto p-0 text-muted-foreground" asChild>
+            <Link to="/admin/forms">
+              <ArrowLeftIcon /> Back to forms
+            </Link>
           </Button>
+          <form.Subscribe selector={(state) => state.values.internalName}>
+            {(internalName) => (
+              <h1 className="mt-1.5 truncate text-lg font-semibold tracking-tight">
+                {internalName}
+              </h1>
+            )}
+          </form.Subscribe>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">Submission form</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <SaveStatus state={saveState} retry={() => void persist()} />
           <Button
             size="sm"
-            variant="outline"
-            onClick={() =>
-              void navigator.clipboard.writeText(`${window.location.origin}${publicPath}`)
-            }
+            variant="ghost"
+            className="pressable text-muted-foreground"
+            onClick={copyLink}
           >
-            <ClipboardIcon /> Copy link
+            {copied ? <CheckIcon /> : <ClipboardIcon />} {copied ? "Copied" : "Copy link"}
+          </Button>
+          <Button size="sm" variant="ghost" className="pressable text-muted-foreground" asChild>
+            <a href={publicPath} target="_blank" rel="noreferrer">
+              <ExternalLinkIcon /> Open
+            </a>
+          </Button>
+          <Button size="sm" className="pressable" onClick={() => setPreviewOpen(true)}>
+            <EyeIcon /> Preview
           </Button>
         </div>
       </div>
-      <div className="grid items-start gap-4 lg:grid-cols-[220px_minmax(0,760px)]">
-        <nav className="grid gap-1 lg:sticky lg:top-16">
-          <p className="mb-1 px-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+      <div className="grid items-start gap-6 lg:grid-cols-[200px_minmax(0,720px)]">
+        <nav className="grid gap-0.5 lg:sticky lg:top-16">
+          <p className="mb-1.5 px-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
             Form setup
           </p>
-          {steps.map(([title, description], index) => (
+          {steps.map((item, index) => (
             <button
-              key={title}
+              key={item.title}
               type="button"
+              aria-current={step === index ? "step" : undefined}
               className={cn(
-                "flex min-h-12 w-full items-center gap-2 rounded-md px-2.5 text-left",
+                "pressable flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors duration-200 [transition-timing-function:var(--ease-out)]",
                 step === index
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted",
+                  ? "bg-muted font-medium"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
               onClick={() => changeStep(index)}
             >
-              <span className="flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px]">
-                {index < step ? <CheckIcon className="size-3" /> : index + 1}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-xs font-medium">{title}</span>
-                <span className="block truncate text-[11px] opacity-70">{description}</span>
-              </span>
+              <item.icon className="size-4 shrink-0 opacity-70" />
+              <span className="truncate">{item.title}</span>
             </button>
           ))}
         </nav>
-        <Card className="gap-0 py-0">
-          <CardHeader className="border-b py-4">
-            <CardTitle className="text-sm">{steps[step]?.[0]}</CardTitle>
-            <p className="text-xs text-muted-foreground">{steps[step]?.[1]}</p>
-          </CardHeader>
-          <CardContent className="grid gap-5 p-4">
+        <section key={step} className="wizard-step min-w-0">
+          <header className="mb-5">
+            <h2 className="text-base font-semibold tracking-tight">{active?.title}</h2>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">{active?.description}</p>
+          </header>
+          <div className="grid gap-5">
             {step === 0 ? (
               <>
                 <form.Field name="kind">
@@ -338,41 +364,53 @@ function FormEditor({
                     <Field>
                       <FieldLabel>What do you want to collect?</FieldLabel>
                       <div className="grid gap-2 sm:grid-cols-2">
-                        {(["abstract", "session"] as const).map((kind) => (
-                          <button
-                            key={kind}
-                            type="button"
-                            className={cn(
-                              "rounded-md border p-4 text-left",
-                              field.state.value === kind && "border-primary ring-1 ring-primary",
-                            )}
-                            onClick={() => field.handleChange(kind)}
-                          >
-                            <span className="font-medium capitalize">{kind}s</span>
-                            <span className="mt-1 block text-xs text-muted-foreground">
-                              {kind === "abstract"
-                                ? "Collect proposals for review."
-                                : "Collect complete session details."}
-                            </span>
-                          </button>
-                        ))}
+                        {(["abstract", "session"] as const).map((kind) => {
+                          const selected = field.state.value === kind;
+                          return (
+                            <button
+                              key={kind}
+                              type="button"
+                              aria-pressed={selected}
+                              className={cn(
+                                "pressable flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors duration-200 [transition-timing-function:var(--ease-out)]",
+                                selected ? "border-primary/40 bg-muted/50" : "hover:bg-muted/40",
+                              )}
+                              onClick={() => field.handleChange(kind)}
+                            >
+                              {selected ? (
+                                <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                              ) : (
+                                <CircleDashedIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground/50" />
+                              )}
+                              <span className="min-w-0">
+                                <span className="block text-sm font-medium capitalize">
+                                  {kind}s
+                                </span>
+                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                  {kind === "abstract"
+                                    ? "Collect proposals for review."
+                                    : "Collect complete session details."}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </Field>
                   )}
                 </form.Field>
-                <form.Field name="collectParticipants">
-                  {(field) => (
-                    <label className="flex items-center justify-between rounded-md border p-3">
-                      <span>
-                        <span className="block font-medium">Collect participants</span>
-                        <span className="text-xs text-muted-foreground">
-                          Add a participant step to the public form.
-                        </span>
-                      </span>
-                      <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
-                    </label>
-                  )}
-                </form.Field>
+                <SettingPanel>
+                  <form.Field name="collectParticipants">
+                    {(field) => (
+                      <SettingRow
+                        label="Collect participants"
+                        hint="Add a speaker step to the public form"
+                      >
+                        <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
+                      </SettingRow>
+                    )}
+                  </form.Field>
+                </SettingPanel>
               </>
             ) : null}
 
@@ -385,6 +423,7 @@ function FormEditor({
                         <FieldLabel>Internal name</FieldLabel>
                         <Input
                           required
+                          className="h-8"
                           value={field.state.value}
                           onChange={(event) => field.handleChange(event.target.value)}
                         />
@@ -397,6 +436,7 @@ function FormEditor({
                         <FieldLabel>External title</FieldLabel>
                         <Input
                           required
+                          className="h-8"
                           value={field.state.value}
                           onChange={(event) => field.handleChange(event.target.value)}
                         />
@@ -414,6 +454,7 @@ function FormEditor({
                         </div>
                         <Input
                           required
+                          className="h-8"
                           maxLength={15}
                           value={field.state.value}
                           onChange={(event) => field.handleChange(event.target.value)}
@@ -422,19 +463,18 @@ function FormEditor({
                     )}
                   </form.Field>
                 </div>
-                <form.Field name="showWelcome">
-                  {(field) => (
-                    <label className="flex items-center justify-between rounded-md border p-3">
-                      <span>
-                        <span className="block font-medium">Show welcome message</span>
-                        <span className="text-xs text-muted-foreground">
-                          Display the introduction before account sign-in.
-                        </span>
-                      </span>
-                      <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
-                    </label>
-                  )}
-                </form.Field>
+                <SettingPanel>
+                  <form.Field name="showWelcome">
+                    {(field) => (
+                      <SettingRow
+                        label="Show welcome message"
+                        hint="Display the introduction before account sign-in"
+                      >
+                        <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
+                      </SettingRow>
+                    )}
+                  </form.Field>
+                </SettingPanel>
                 <form.Field name="welcomeMessage">
                   {(field) => (
                     <Field>
@@ -470,50 +510,54 @@ function FormEditor({
                     <SectionSettings value={field.state.value} onChange={field.handleChange} />
                   )}
                 </form.Field>
-                <div className="rounded-md border p-3">
-                  <div className="mb-3 flex items-center gap-2">
-                    <UsersIcon className="size-4" />
-                    <span className="font-medium">Participant roles</span>
-                  </div>
-                  <div className="grid items-end gap-3 sm:grid-cols-[1fr_90px_90px]">
+                <div>
+                  <p className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                    Speakers
+                  </p>
+                  <SettingPanel>
                     <form.Field name="participantRoles[0].enabled">
                       {(field) => (
-                        <label className="flex h-9 items-center justify-between rounded-md border px-3">
-                          <span>Speaker</span>
+                        <SettingRow
+                          label="Speaker role"
+                          hint="Collect speaker details with each submission"
+                        >
                           <Switch
                             checked={field.state.value}
                             onCheckedChange={field.handleChange}
                           />
-                        </label>
+                        </SettingRow>
                       )}
                     </form.Field>
-                    <form.Field name="participantRoles[0].min">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Min</FieldLabel>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={field.state.value}
-                            onChange={(event) => field.handleChange(event.target.valueAsNumber)}
-                          />
-                        </Field>
-                      )}
-                    </form.Field>
-                    <form.Field name="participantRoles[0].max">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Max</FieldLabel>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={field.state.value}
-                            onChange={(event) => field.handleChange(event.target.valueAsNumber)}
-                          />
-                        </Field>
-                      )}
-                    </form.Field>
-                  </div>
+                    <SettingRow label="Speakers per submission" hint="Minimum and maximum">
+                      <div className="flex items-center gap-1.5">
+                        <form.Field name="participantRoles[0].min">
+                          {(field) => (
+                            <Input
+                              aria-label="Minimum speakers"
+                              type="number"
+                              min={1}
+                              className="h-8 w-14 bg-background text-center"
+                              value={field.state.value}
+                              onChange={(event) => field.handleChange(event.target.valueAsNumber)}
+                            />
+                          )}
+                        </form.Field>
+                        <span className="text-muted-foreground">–</span>
+                        <form.Field name="participantRoles[0].max">
+                          {(field) => (
+                            <Input
+                              aria-label="Maximum speakers"
+                              type="number"
+                              min={1}
+                              className="h-8 w-14 bg-background text-center"
+                              value={field.state.value}
+                              onChange={(event) => field.handleChange(event.target.valueAsNumber)}
+                            />
+                          )}
+                        </form.Field>
+                      </div>
+                    </SettingRow>
+                  </SettingPanel>
                 </div>
                 <FormFieldBuilder
                   section="participant"
@@ -544,52 +588,56 @@ function FormEditor({
                   <form.Field name="submissionLimit">
                     {(field) => (
                       <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel>Submission limit override</FieldLabel>
-                          <Badge variant="secondary">Event default: {eventLimit}</Badge>
-                        </div>
+                        <FieldLabel>Submission limit</FieldLabel>
                         <Input
                           type="number"
                           min={1}
+                          className="h-8"
                           placeholder={String(eventLimit)}
                           value={field.state.value ?? ""}
                           onChange={(event) =>
                             field.handleChange(event.target.valueAsNumber || null)
                           }
                         />
+                        <FieldDescription>
+                          Overrides the event default of {eventLimit} per person.
+                        </FieldDescription>
                       </Field>
                     )}
                   </form.Field>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <SettingPanel>
+                  <form.Field name="status">
+                    {(field) => (
+                      <SettingRow label="Form open" hint="Accepting new submissions">
+                        <Switch
+                          checked={field.state.value === "open"}
+                          onCheckedChange={(open) => field.handleChange(open ? "open" : "closed")}
+                        />
+                      </SettingRow>
+                    )}
+                  </form.Field>
                   <form.Field name="allowMultipleDrafts">
                     {(field) => (
-                      <ToggleRow
+                      <SettingRow
                         label="Allow multiple drafts"
-                        checked={field.state.value}
-                        onChange={field.handleChange}
-                      />
+                        hint="Speakers can keep several drafts in progress"
+                      >
+                        <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
+                      </SettingRow>
                     )}
                   </form.Field>
                   <form.Field name="autoRedirectPortal">
                     {(field) => (
-                      <ToggleRow
-                        label="Auto-redirect to portal after 10s"
-                        checked={field.state.value}
-                        onChange={field.handleChange}
-                      />
+                      <SettingRow
+                        label="Auto-redirect to portal"
+                        hint="Send speakers to their portal 10 seconds after submitting"
+                      >
+                        <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
+                      </SettingRow>
                     )}
                   </form.Field>
-                  <form.Field name="status">
-                    {(field) => (
-                      <ToggleRow
-                        label="Form open"
-                        checked={field.state.value === "open"}
-                        onChange={(open) => field.handleChange(open ? "open" : "closed")}
-                      />
-                    )}
-                  </form.Field>
-                </div>
+                </SettingPanel>
                 <form.Field name="successMessage">
                   {(field) => (
                     <Field>
@@ -606,15 +654,18 @@ function FormEditor({
 
             {step === 5 ? (
               <>
-                <form.Field name="confirmationEmailEnabled">
-                  {(field) => (
-                    <ToggleRow
-                      label="Send submitter confirmation"
-                      checked={field.state.value}
-                      onChange={field.handleChange}
-                    />
-                  )}
-                </form.Field>
+                <SettingPanel>
+                  <form.Field name="confirmationEmailEnabled">
+                    {(field) => (
+                      <SettingRow
+                        label="Send submitter confirmation"
+                        hint="Email speakers a receipt after they submit"
+                      >
+                        <Switch checked={field.state.value} onCheckedChange={field.handleChange} />
+                      </SettingRow>
+                    )}
+                  </form.Field>
+                </SettingPanel>
                 <form.Field name="confirmationEmailBody">
                   {(field) => (
                     <Field>
@@ -630,14 +681,19 @@ function FormEditor({
                   {(field) => (
                     <Field>
                       <FieldLabel>Admin-alert recipients</FieldLabel>
-                      <FieldDescription>Recorded now; delivery lands in WP7.</FieldDescription>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <FieldDescription>
+                        Choose who hears about each new submission.
+                      </FieldDescription>
+                      <div className="grid gap-0.5 rounded-lg border p-1.5">
                         {data.admins.map((admin) => {
                           const checked = field.state.value.includes(admin.id);
                           return (
                             <label
                               key={admin.id}
-                              className="flex items-center gap-2 rounded-md border p-2.5"
+                              className={cn(
+                                "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 transition-colors hover:bg-muted/60",
+                                checked && "bg-muted",
+                              )}
                             >
                               <Checkbox
                                 checked={checked}
@@ -649,9 +705,9 @@ function FormEditor({
                                   )
                                 }
                               />
-                              <span>
-                                <span className="block text-xs font-medium">{admin.name}</span>
-                                <span className="block text-[11px] text-muted-foreground">
+                              <span className="min-w-0">
+                                <span className="block text-[13px] font-medium">{admin.name}</span>
+                                <span className="block truncate text-xs text-muted-foreground">
                                   {admin.email}
                                 </span>
                               </span>
@@ -664,20 +720,42 @@ function FormEditor({
                 </form.Field>
               </>
             ) : null}
+          </div>
 
-            <div className="flex items-center justify-between border-t pt-4">
-              <Button variant="outline" disabled={step === 0} onClick={() => changeStep(step - 1)}>
-                Back
+          <div className="mt-6 flex items-center justify-between border-t pt-4">
+            <Button
+              variant="ghost"
+              className="pressable"
+              disabled={step === 0}
+              onClick={() => changeStep(step - 1)}
+            >
+              Back
+            </Button>
+            {step === steps.length - 1 ? (
+              <Button variant="outline" className="pressable" onClick={() => setPreviewOpen(true)}>
+                <EyeIcon /> Preview the form
               </Button>
-              {step === steps.length - 1 ? (
-                <Button onClick={() => void persist()}>Save form</Button>
-              ) : (
-                <Button onClick={() => changeStep(step + 1)}>Next</Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <Button variant="outline" className="pressable" onClick={() => changeStep(step + 1)}>
+                Next
+              </Button>
+            )}
+          </div>
+        </section>
       </div>
+      <form.Subscribe selector={(state) => state.values}>
+        {(values) => (
+          <FormPreviewSheet
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+            values={values}
+            fields={fields}
+            library={data.library}
+            timezone={eventTimezone}
+            eventLimit={eventLimit}
+          />
+        )}
+      </form.Subscribe>
     </main>
   );
 }
@@ -722,20 +800,27 @@ function SaveStatus({
   );
 }
 
-function ToggleRow({
+function SettingPanel({ children }: { readonly children: React.ReactNode }) {
+  return <div className="rounded-xl bg-muted/40 px-4 py-1">{children}</div>;
+}
+
+function SettingRow({
   label,
-  checked,
-  onChange,
+  hint,
+  children,
 }: {
   readonly label: string;
-  readonly checked: boolean;
-  readonly onChange: (checked: boolean) => void;
+  readonly hint?: string;
+  readonly children: React.ReactNode;
 }) {
   return (
-    <label className="flex min-h-10 items-center justify-between rounded-md border px-3">
-      <span className="text-xs font-medium">{label}</span>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </label>
+    <div className="flex min-h-11 items-center justify-between gap-6 py-2">
+      <div className="min-w-0">
+        <p className="text-[13px] font-medium">{label}</p>
+        {hint === undefined ? null : <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <div className="flex shrink-0 items-center">{children}</div>
+    </div>
   );
 }
 
@@ -747,35 +832,42 @@ function SectionSettings({
   readonly onChange: (value: FormSectionSettingsValue) => void;
 }) {
   return (
-    <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-      <Field>
-        <FieldLabel>Section title</FieldLabel>
-        <Input
-          value={value.title}
-          onChange={(event) => onChange({ ...value, title: event.target.value })}
-        />
-      </Field>
-      <Field>
-        <div className="flex justify-between">
-          <FieldLabel>Page heading</FieldLabel>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {value.heading.length}/15
-          </span>
-        </div>
-        <Input
-          maxLength={15}
-          value={value.heading}
-          onChange={(event) => onChange({ ...value, heading: event.target.value })}
-        />
-      </Field>
-      <Field className="sm:col-span-2">
-        <FieldLabel>Instructions</FieldLabel>
-        <Textarea
-          rows={3}
-          value={value.instructions}
-          onChange={(event) => onChange({ ...value, instructions: event.target.value })}
-        />
-      </Field>
+    <div>
+      <p className="mb-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+        Page copy
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field>
+          <FieldLabel>Section title</FieldLabel>
+          <Input
+            className="h-8"
+            value={value.title}
+            onChange={(event) => onChange({ ...value, title: event.target.value })}
+          />
+        </Field>
+        <Field>
+          <div className="flex justify-between">
+            <FieldLabel>Page heading</FieldLabel>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {value.heading.length}/15
+            </span>
+          </div>
+          <Input
+            className="h-8"
+            maxLength={15}
+            value={value.heading}
+            onChange={(event) => onChange({ ...value, heading: event.target.value })}
+          />
+        </Field>
+        <Field className="sm:col-span-2">
+          <FieldLabel>Instructions</FieldLabel>
+          <Textarea
+            rows={3}
+            value={value.instructions}
+            onChange={(event) => onChange({ ...value, instructions: event.target.value })}
+          />
+        </Field>
+      </div>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  EyeIcon,
   GripVerticalIcon,
   LockIcon,
   PlusIcon,
@@ -43,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 const fieldTypes: ReadonlyArray<FormFieldType> = [
   "text",
@@ -54,6 +56,18 @@ const fieldTypes: ReadonlyArray<FormFieldType> = [
   "checkbox",
   "datetime",
 ];
+
+const fieldTypeLabels: Readonly<Record<FormFieldType, string>> = {
+  text: "Short text",
+  textarea: "Long text",
+  richtext: "Rich text",
+  email: "Email",
+  phone: "Phone",
+  dropdown: "Dropdown",
+  checkbox: "Checkboxes",
+  datetime: "Date and time",
+  file: "File upload",
+};
 
 const bindingMapsTo: Readonly<Record<FormLibraryBinding, string>> = {
   format: "format_id",
@@ -90,6 +104,10 @@ const parseBinding = (value: string): FormLibraryBinding => {
 };
 
 const fieldId = (field: FormFieldReplacement) => field.id ?? `${field.section}-${field.position}`;
+
+// Borderless select trigger so condition clauses read as an editable sentence.
+const clauseTrigger =
+  "h-7 w-fit min-w-0 max-w-52 gap-1 truncate rounded-md border-0 bg-transparent px-1.5 text-[13px] font-medium shadow-none transition-colors hover:bg-muted/60 data-[state=open]:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60";
 
 // Answers store option ids (library ids or custom labels), so condition
 // values must be picked from the source field's options — typed labels like
@@ -164,11 +182,13 @@ export function FormFieldBuilder({
   };
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-medium">Form questions</p>
-        <Button size="sm" variant="outline" onClick={add}>
-          <PlusIcon /> Add field
-        </Button>
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+          Questions
+        </p>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {sectionFields.length} {sectionFields.length === 1 ? "question" : "questions"}
+        </span>
       </div>
       <DndContext
         id="form-field-builder-dnd"
@@ -180,6 +200,11 @@ export function FormFieldBuilder({
       >
         <SortableContext items={sectionFields.map(fieldId)} strategy={verticalListSortingStrategy}>
           <div className="grid gap-2">
+            {sectionFields.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-4 py-6 text-center text-[13px] text-muted-foreground">
+                No questions yet. Add the first one below.
+              </div>
+            ) : null}
             {sectionFields.map((field, index) => (
               <SortableField
                 key={fieldId(field)}
@@ -201,6 +226,14 @@ export function FormFieldBuilder({
           </div>
         </SortableContext>
       </DndContext>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="pressable mt-2 text-muted-foreground"
+        onClick={add}
+      >
+        <PlusIcon /> Add question
+      </Button>
     </div>
   );
 }
@@ -235,6 +268,10 @@ function SortableField({
     field.options !== null && "custom" in field.options ? field.options.custom.join(", ") : "";
   const binding = field.options !== null && "bind" in field.options ? field.options.bind : null;
   const bounds = field.options !== null && "min" in field.options ? field.options : null;
+  const hasChars =
+    field.fieldType !== "checkbox" &&
+    field.fieldType !== "dropdown" &&
+    field.fieldType !== "datetime";
   const conditionSource =
     field.condition === null
       ? undefined
@@ -247,91 +284,49 @@ function SortableField({
         transform: CSS.Transform.toString(sortable.transform),
         transition: sortable.transition,
       }}
-      className="rounded-md border bg-card p-3"
+      className="overflow-hidden rounded-lg border bg-card"
     >
-      <div className="grid gap-3 md:grid-cols-[auto_1fr_150px_92px_auto] md:items-end">
+      <div className="flex h-10 items-center gap-1 border-b bg-muted/40 pr-1.5 pl-1.5">
         <button
           type="button"
           tabIndex={-1}
           aria-label={`Drag ${field.label}`}
-          className="hidden cursor-grab self-center text-muted-foreground md:block"
+          className="hidden shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground/60 transition-colors hover:text-muted-foreground md:block"
           {...sortable.listeners}
         >
-          <GripVerticalIcon className="size-4" />
+          <GripVerticalIcon className="size-3.5" />
         </button>
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${id}-label`}>Label</Label>
-          <Input
-            id={`${id}-label`}
-            className="h-8"
-            disabled={field.locked}
-            value={field.label}
-            onChange={(event) => onChange({ ...field, label: event.target.value })}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label>Type</Label>
-          <Select
-            disabled={field.locked}
-            value={field.fieldType}
-            onValueChange={(value) => {
-              const type = parseFieldType(value);
-              onChange({
-                ...field,
-                fieldType: type,
-                options:
-                  type === "dropdown" || type === "checkbox"
-                    ? { custom: [] }
-                    : type === "datetime"
-                      ? { min: null, max: null }
-                      : null,
-                maxChars: type === "datetime" ? null : field.maxChars,
-                mapsTo: null,
-              });
-            }}
+        <Input
+          aria-label="Question label"
+          className="h-7 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-[13px] font-medium shadow-none focus-visible:bg-background dark:bg-transparent"
+          disabled={field.locked}
+          value={field.label}
+          onChange={(event) => onChange({ ...field, label: event.target.value })}
+        />
+        <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
+          {field.locked ? <LockIcon className="mx-1.5 size-3.5" /> : null}
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="text-muted-foreground"
+            aria-label="Move up"
+            onClick={moveUp}
           >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fieldTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${id}-max`}>Max chars</Label>
-          <Input
-            id={`${id}-max`}
-            className="h-8"
-            type="number"
-            min={1}
-            disabled={
-              field.locked ||
-              field.fieldType === "checkbox" ||
-              field.fieldType === "dropdown" ||
-              field.fieldType === "datetime"
-            }
-            value={field.maxChars ?? ""}
-            onChange={(event) =>
-              onChange({ ...field, maxChars: event.target.valueAsNumber || null })
-            }
-          />
-        </div>
-        <div className="flex items-center justify-end gap-1">
-          {field.locked ? <LockIcon className="mr-1 size-3.5 text-muted-foreground" /> : null}
-          <Button size="icon-sm" variant="ghost" aria-label="Move up" onClick={moveUp}>
             <ChevronUpIcon />
           </Button>
-          <Button size="icon-sm" variant="ghost" aria-label="Move down" onClick={moveDown}>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="text-muted-foreground"
+            aria-label="Move down"
+            onClick={moveDown}
+          >
             <ChevronDownIcon />
           </Button>
           <Button
             size="icon-sm"
             variant="ghost"
+            className="text-muted-foreground"
             aria-label="Remove field"
             disabled={field.locked}
             onClick={onRemove}
@@ -340,67 +335,195 @@ function SortableField({
           </Button>
         </div>
       </div>
-      <div className="mt-3 grid gap-3 border-t pt-3 md:grid-cols-3">
-        <label className="flex h-8 items-center justify-between rounded-md border px-2.5 text-xs">
-          Required
-          <Switch
-            checked={field.required}
-            disabled={field.locked}
-            onCheckedChange={(required) => onChange({ ...field, required })}
-          />
-        </label>
-        {field.fieldType === "dropdown" || field.fieldType === "checkbox" ? (
-          <Select
-            value={binding ?? "custom"}
-            onValueChange={(value) => {
-              if (value === "custom") {
-                onChange({ ...field, options: { custom: [] }, mapsTo: null });
-                return;
-              }
-              const bind = parseBinding(value);
-              onChange({ ...field, options: { bind }, mapsTo: bindingMapsTo[bind] });
-            }}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Options source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="custom">Custom options</SelectItem>
-              <SelectItem value="format">Format library</SelectItem>
-              <SelectItem value="track">Track library</SelectItem>
-              <SelectItem value="tags">Tags library</SelectItem>
-              <SelectItem value="level">Level library</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <div />
-        )}
-        {field.condition === null ? (
-          <Select
-            value="always"
-            onValueChange={(value) => {
-              if (value !== "always") {
+      <div className="grid gap-3 p-3">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+          <div className="grid gap-1">
+            <Label className="text-xs text-muted-foreground">Type</Label>
+            <Select
+              disabled={field.locked}
+              value={field.fieldType}
+              onValueChange={(value) => {
+                const type = parseFieldType(value);
                 onChange({
                   ...field,
-                  condition: { fieldId: value, operator: "equals", values: [] },
+                  fieldType: type,
+                  options:
+                    type === "dropdown" || type === "checkbox"
+                      ? { custom: [] }
+                      : type === "datetime"
+                        ? { min: null, max: null }
+                        : null,
+                  maxChars: type === "datetime" ? null : field.maxChars,
+                  mapsTo: null,
                 });
+              }}
+            >
+              <SelectTrigger size="sm" className="h-8 w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fieldTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {fieldTypeLabels[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {hasChars ? (
+            <div className="grid gap-1">
+              <Label htmlFor={`${id}-max`} className="text-xs text-muted-foreground">
+                Max chars
+              </Label>
+              <Input
+                id={`${id}-max`}
+                className="h-8 w-24"
+                type="number"
+                min={1}
+                disabled={field.locked}
+                value={field.maxChars ?? ""}
+                onChange={(event) =>
+                  onChange({ ...field, maxChars: event.target.valueAsNumber || null })
+                }
+              />
+            </div>
+          ) : null}
+          {field.fieldType === "dropdown" || field.fieldType === "checkbox" ? (
+            <div className="grid gap-1">
+              <Label className="text-xs text-muted-foreground">Options</Label>
+              <Select
+                value={binding ?? "custom"}
+                onValueChange={(value) => {
+                  if (value === "custom") {
+                    onChange({ ...field, options: { custom: [] }, mapsTo: null });
+                    return;
+                  }
+                  const bind = parseBinding(value);
+                  onChange({ ...field, options: { bind }, mapsTo: bindingMapsTo[bind] });
+                }}
+              >
+                <SelectTrigger size="sm" className="h-8 w-40">
+                  <SelectValue placeholder="Options source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom">Custom options</SelectItem>
+                  <SelectItem value="format">Format library</SelectItem>
+                  <SelectItem value="track">Track library</SelectItem>
+                  <SelectItem value="tags">Tags library</SelectItem>
+                  <SelectItem value="level">Level library</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <label className="ml-auto flex h-8 items-center gap-2 text-[13px] text-muted-foreground">
+            Required
+            <Switch
+              checked={field.required}
+              disabled={field.locked}
+              onCheckedChange={(required) => onChange({ ...field, required })}
+            />
+          </label>
+        </div>
+        {(field.fieldType === "dropdown" || field.fieldType === "checkbox") && binding === null ? (
+          <div className="grid gap-1">
+            <Label htmlFor={`${id}-options`} className="text-xs text-muted-foreground">
+              Custom options
+            </Label>
+            <Input
+              id={`${id}-options`}
+              className="h-8"
+              placeholder="Option one, Option two"
+              value={customOptions}
+              onChange={(event) =>
+                onChange({
+                  ...field,
+                  options: {
+                    custom: event.target.value
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  },
+                })
               }
-            }}
-          >
-            <SelectTrigger className="h-8 w-full">
-              <SelectValue placeholder="Always shown" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="always">Always shown</SelectItem>
-              {candidates.map((candidate) => (
-                <SelectItem key={fieldId(candidate)} value={fieldId(candidate)}>
-                  Show when {candidate.label}…
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            />
+          </div>
+        ) : null}
+        {field.fieldType === "datetime" ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground">Earliest date and time</Label>
+                {bounds?.min === null || bounds === null ? null : (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={() => onChange({ ...field, options: { min: null, max: bounds.max } })}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <DateTimePicker
+                value={bounds?.min ?? ""}
+                timezone={timezone}
+                placeholder="No minimum"
+                onChange={(min) =>
+                  onChange({ ...field, options: { min, max: bounds?.max ?? null } })
+                }
+              />
+            </div>
+            <div className="grid gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground">Latest date and time</Label>
+                {bounds?.max === null || bounds === null ? null : (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={() => onChange({ ...field, options: { min: bounds.min, max: null } })}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <DateTimePicker
+                value={bounds?.max ?? ""}
+                timezone={timezone}
+                placeholder="No maximum"
+                onChange={(max) =>
+                  onChange({ ...field, options: { min: bounds?.min ?? null, max } })
+                }
+              />
+            </div>
+          </div>
+        ) : null}
+        {field.condition === null ? (
+          candidates.length > 0 ? (
+            <div>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="pressable -ml-1.5 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  const source = candidates[0];
+                  if (source === undefined) return;
+                  onChange({
+                    ...field,
+                    condition: { fieldId: fieldId(source), operator: "equals", values: [] },
+                  });
+                }}
+              >
+                <EyeIcon /> Always shown — add condition
+              </Button>
+            </div>
+          ) : null
         ) : (
-          <div className="flex gap-1">
+          <div className="flex flex-wrap items-center gap-1 rounded-md bg-muted/40 py-1 pr-1 pl-2.5 text-[13px]">
+            <EyeIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="text-muted-foreground">Show when</span>
             <Select
               value={field.condition.fieldId}
               onValueChange={(fieldIdValue) =>
@@ -415,7 +538,7 @@ function SortableField({
                 })
               }
             >
-              <SelectTrigger className="h-8 min-w-0 flex-1">
+              <SelectTrigger size="sm" aria-label="Condition question" className={clauseTrigger}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -439,12 +562,12 @@ function SortableField({
                 })
               }
             >
-              <SelectTrigger className="h-8 w-28">
+              <SelectTrigger size="sm" aria-label="Condition operator" className={clauseTrigger}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="equals">Equals</SelectItem>
-                <SelectItem value="is_one_of">Is one of</SelectItem>
+                <SelectItem value="equals">is</SelectItem>
+                <SelectItem value="is_one_of">is any of</SelectItem>
               </SelectContent>
             </Select>
             {conditionChoices.length > 0 && field.condition.operator === "equals" ? (
@@ -461,8 +584,8 @@ function SortableField({
                   })
                 }
               >
-                <SelectTrigger aria-label="Condition value" className="h-8 min-w-0 flex-1">
-                  <SelectValue placeholder="Choose option" />
+                <SelectTrigger size="sm" aria-label="Condition value" className={clauseTrigger}>
+                  <SelectValue placeholder="choose an option" />
                 </SelectTrigger>
                 <SelectContent>
                   {conditionChoices.map((choice) => (
@@ -473,16 +596,20 @@ function SortableField({
                 </SelectContent>
               </Select>
             ) : conditionChoices.length > 0 ? (
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
                 {conditionChoices.map((choice) => {
                   const active = field.condition?.values.includes(choice.id) === true;
                   return (
-                    <Button
+                    <button
                       key={choice.id}
-                      size="sm"
-                      variant={active ? "secondary" : "outline"}
-                      className="h-7 px-2 text-xs"
+                      type="button"
                       aria-pressed={active}
+                      className={cn(
+                        "pressable h-6 rounded-md px-2 text-xs transition-colors",
+                        active
+                          ? "bg-background font-medium text-foreground ring-1 ring-border"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      )}
                       onClick={() =>
                         onChange({
                           ...field,
@@ -499,15 +626,15 @@ function SortableField({
                       }
                     >
                       {choice.name}
-                    </Button>
+                    </button>
                   );
                 })}
               </div>
             ) : (
               <Input
                 aria-label="Condition value"
-                className="h-8 min-w-0 flex-1"
-                placeholder="equals value"
+                className="h-7 w-44 bg-background text-[13px]"
+                placeholder="Value, another value"
                 value={field.condition.values.join(", ")}
                 onChange={(event) =>
                   onChange({
@@ -525,8 +652,9 @@ function SortableField({
               />
             )}
             <Button
-              size="icon-sm"
+              size="icon-xs"
               variant="ghost"
+              className="ml-auto self-start text-muted-foreground"
               aria-label="Remove condition"
               onClick={() => onChange({ ...field, condition: null })}
             >
@@ -535,74 +663,6 @@ function SortableField({
           </div>
         )}
       </div>
-      {(field.fieldType === "dropdown" || field.fieldType === "checkbox") && binding === null ? (
-        <div className="mt-3 grid gap-1.5">
-          <Label htmlFor={`${id}-options`}>Custom options</Label>
-          <Input
-            id={`${id}-options`}
-            className="h-8"
-            placeholder="Option one, Option two"
-            value={customOptions}
-            onChange={(event) =>
-              onChange({
-                ...field,
-                options: {
-                  custom: event.target.value
-                    .split(",")
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                },
-              })
-            }
-          />
-        </div>
-      ) : null}
-      {field.fieldType === "datetime" ? (
-        <div className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <Label>Earliest date and time</Label>
-              {bounds?.min === null || bounds === null ? null : (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => onChange({ ...field, options: { min: null, max: bounds.max } })}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-            <DateTimePicker
-              value={bounds?.min ?? ""}
-              timezone={timezone}
-              placeholder="No minimum"
-              onChange={(min) => onChange({ ...field, options: { min, max: bounds?.max ?? null } })}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <Label>Latest date and time</Label>
-              {bounds?.max === null || bounds === null ? null : (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => onChange({ ...field, options: { min: bounds.min, max: null } })}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-            <DateTimePicker
-              value={bounds?.max ?? ""}
-              timezone={timezone}
-              placeholder="No maximum"
-              onChange={(max) => onChange({ ...field, options: { min: bounds?.min ?? null, max } })}
-            />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
