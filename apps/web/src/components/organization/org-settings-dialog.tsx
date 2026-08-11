@@ -652,24 +652,29 @@ function MemberRow({
         </TooltipTrigger>
         {disabledReason === null ? null : <TooltipContent>{disabledReason}</TooltipContent>}
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span>
+      {/* The slot is always reserved so role selects align across rows; a
+          disabled trash never renders (disabled:opacity-50 would beat the
+          hover reveal and leave a ghost icon on unremovable rows). */}
+      {disabled ? (
+        <span aria-hidden className="size-6 shrink-0" />
+      ) : (
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="pressable text-muted-foreground opacity-0 group-hover/member:opacity-100 focus-visible:opacity-100"
+              className="pressable shrink-0 text-muted-foreground opacity-0 group-hover/member:opacity-100 focus-visible:opacity-100"
               aria-label={`Remove ${member.name}`}
-              disabled={disabled || remove.isPending}
+              disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
               <Trash2Icon />
             </Button>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{disabledReason ?? `Remove ${member.name}`}</TooltipContent>
-      </Tooltip>
+          </TooltipTrigger>
+          <TooltipContent>{`Remove ${member.name}`}</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   );
 }
