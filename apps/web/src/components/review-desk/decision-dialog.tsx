@@ -45,6 +45,7 @@ export function DecisionDialog({
   const [decision, setDecision] = useState<SubmissionDecision>(initialDecision);
   const [feedback, setFeedback] = useState("");
   const [confirmRedecide, setConfirmRedecide] = useState(false);
+  const [approveContent, setApproveContent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
@@ -58,6 +59,7 @@ export function DecisionDialog({
         .join("\n\n"),
     );
     setConfirmRedecide(false);
+    setApproveContent(false);
   }, [initialDecision, open, submissions]);
 
   const first = submissions[0];
@@ -88,6 +90,7 @@ export function DecisionDialog({
         decision,
         feedback,
         confirmRedecide,
+        approveContent: decision === "accept" && approveContent,
       },
     });
     submittingRef.current = false;
@@ -153,6 +156,21 @@ export function DecisionDialog({
                 Review comments are prefilled when available. Edit freely before sending.
               </p>
             </div>
+            {decision === "accept" ? (
+              <div className="space-y-1.5">
+                <Label className="flex items-start gap-2 rounded-md border p-2 text-xs font-normal">
+                  <Checkbox
+                    checked={approveContent}
+                    onCheckedChange={(checked) => setApproveContent(checked === true)}
+                  />
+                  Also approve content for publication
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Accepted sessions appear on public pages only after their content is approved —
+                  here, or later from Content.
+                </p>
+              </div>
+            ) : null}
             {replacingDecision ? (
               <Label className="flex items-start gap-2 rounded-md border p-2 text-xs font-normal">
                 <Checkbox

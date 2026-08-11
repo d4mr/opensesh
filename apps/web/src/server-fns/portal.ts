@@ -691,6 +691,27 @@ export const deleteAdminSessionFileRequirement = createServerFn({ method: "POST"
     ),
   );
 
+export const approveSessionContent = createServerFn({ method: "POST" })
+  .validator(
+    Schema.toStandardSchemaV1(
+      Schema.Struct({ eventId: Schema.String, submissionIds: Schema.Array(Schema.String) }),
+    ),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const { user } = yield* requireAdminEvent(data.eventId);
+        const portal = yield* Portal;
+        const approved = yield* portal.approveSessionContent(data.eventId, data.submissionIds, {
+          userId: user.userId,
+          name: user.name,
+        });
+        return { approved };
+      }),
+      { require: "staff" },
+    ),
+  );
+
 export const approveContentChange = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(

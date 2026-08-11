@@ -224,7 +224,9 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
       submittedAt: null,
       answers: customAnswers(input.answers, abstractFields, ABSTRACT_COLUMN_MAPPINGS),
       approvedSnapshot: {},
-      contentReviewStatus: "approved",
+      // Nothing about a CFP draft is publication-approved: acceptance and
+      // content approval are separate, later judgments.
+      contentReviewStatus: "pending_review",
     },
     input.submissionId,
   );

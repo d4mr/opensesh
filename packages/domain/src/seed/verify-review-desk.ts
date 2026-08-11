@@ -45,6 +45,7 @@ const verify = Effect.gen(function* () {
     decision: "accept",
     feedback,
     confirmRedecide: false,
+    approveContent: true,
   });
   yield* Effect.forEach(firstDecision.deliveries, (delivery) =>
     reviewDesk.markEmail(delivery.logId, "sent"),
@@ -68,6 +69,7 @@ const verify = Effect.gen(function* () {
     decision: "accept",
     feedback,
     confirmRedecide: false,
+    approveContent: true,
   });
   const taskGroupsAfterRetry = yield* Effect.all(
     [
@@ -113,6 +115,7 @@ const verify = Effect.gen(function* () {
     decision: "decline",
     feedback: "A thoughtful proposal, but the program is full in this track.",
     confirmRedecide: false,
+    approveContent: false,
   });
   yield* Effect.forEach(declined.deliveries, (delivery) =>
     reviewDesk.markEmail(delivery.logId, "sent"),

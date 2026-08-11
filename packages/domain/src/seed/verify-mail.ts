@@ -112,6 +112,7 @@ const verifyFailure = Effect.gen(function* () {
     decision: "accept",
     feedback: "Strong practical proposal.",
     confirmRedecide: false,
+    approveContent: true,
   });
   const deliveries = yield* Effect.forEach(
     decision.deliveries,

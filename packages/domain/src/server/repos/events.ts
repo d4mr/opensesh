@@ -60,7 +60,10 @@ interface EventsService {
   // "you create an event, you are its admin" must hold even when the creator
   // is only an event-scoped admin elsewhere (org owners/admins keep derived
   // access regardless; their row is idempotent insurance against demotion).
-  readonly create: (input: EventCreate, creatorUserId: string | null) => Effect.Effect<Event, DbError>;
+  readonly create: (
+    input: EventCreate,
+    creatorUserId: string | null,
+  ) => Effect.Effect<Event, DbError>;
   readonly update: (id: string, input: EventUpdate) => Effect.Effect<Event, DbError | NotFound>;
   readonly listAdmins: (eventId: string) => Effect.Effect<ReadonlyArray<EventAdmin>, DbError>;
   readonly listAccess: (eventId: string) => Effect.Effect<EventAccess, DbError>;

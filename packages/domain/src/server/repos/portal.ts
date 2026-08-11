@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -406,10 +418,22 @@ interface PortalService {
     historyId: string,
     decision: "approved" | "rejected",
   ) => Effect.Effect<Contact, DbError | Forbidden | NotFound>;
+  // approveContent: acceptance and publication approval are separate steps —
+  // organizer-authored sessions (manual add) pass true; CFP acceptances pass
+  // the organizer's explicit choice.
   readonly acceptSubmission: (
     eventId: string,
     submissionId: string,
+    options?: { readonly approveContent?: boolean },
   ) => Effect.Effect<Submission, DbError | Forbidden | NotFound>;
+  // Marks the sessions' CURRENT content as the approved public version and
+  // resolves any pending edit-history entries. The only path that makes an
+  // accepted session publicly visible.
+  readonly approveSessionContent: (
+    eventId: string,
+    submissionIds: ReadonlyArray<string>,
+    reviewer: PortalActor,
+  ) => Effect.Effect<number, DbError>;
 }
 
 export class Portal extends Context.Service<Portal, PortalService>()("opensesh/Portal") {}
@@ -2432,7 +2456,53 @@ export const PortalLive = Layer.effect(
           );
           return yield* decodeFound(Contact, "Contact", updatedRows[0]);
         }),
-      acceptSubmission: (eventId, submissionId) =>
+      approveSessionContent: (eventId, submissionIds, reviewer) =>
+        submissionIds.length === 0
+          ? Effect.succeed(0)
+          : query(database, "Could not approve session content", (db) =>
+              db.transaction(async (transaction) => {
+                const now = new Date();
+                const updated = await transaction
+                  .update(submissions)
+                  .set({
+                    contentReviewStatus: "approved",
+                    approvedSnapshot: sql`jsonb_build_object('title', ${submissions.title}, 'description', ${submissions.description}, 'formatId', ${submissions.formatId}, 'levelId', ${submissions.levelId}, 'language', ${submissions.language}, 'answers', ${submissions.answers})`,
+                    updatedAt: now,
+                  })
+                  .where(
+                    and(
+                      eq(submissions.eventId, eventId),
+                      inArray(submissions.id, [...submissionIds]),
+                      eq(submissions.status, "accepted"),
+                      ne(submissions.contentReviewStatus, "approved"),
+                    ),
+                  )
+                  .returning({ id: submissions.id });
+                // Approving current content resolves any pending edit-history
+                // entries — the history stays truthful about who signed off.
+                if (updated.length > 0) {
+                  await transaction
+                    .update(submissionEditHistory)
+                    .set({
+                      approvalStatus: "approved",
+                      reviewedAt: now,
+                      reviewedByUserId: reviewer.userId,
+                      updatedAt: now,
+                    })
+                    .where(
+                      and(
+                        inArray(
+                          submissionEditHistory.submissionId,
+                          updated.map((row) => row.id),
+                        ),
+                        eq(submissionEditHistory.approvalStatus, "pending_review"),
+                      ),
+                    );
+                }
+                return updated.length;
+              }),
+            ).pipe(Effect.map((count) => count)),
+      acceptSubmission: (eventId, submissionId, options) =>
         Effect.gen(function* () {
           const loaded = yield* query(database, "Could not load submission", (db) =>
             db
@@ -2443,17 +2513,29 @@ export const PortalLive = Layer.effect(
               .execute(),
           );
           const current = yield* decodeFound(Submission, "Submission", loaded[0]);
-          const approvedSnapshot = snapshot(current);
+          const approveContent = options?.approveContent ?? false;
+          const previouslyApproved =
+            current.contentReviewStatus === "approved" &&
+            Object.keys(current.approvedSnapshot).length > 0;
           const updatedRows = yield* query(database, "Could not accept submission", (db) =>
             db
               .update(submissions)
               // Accepted abstracts graduate into sessions (Sessionboard
               // lifecycle); the row keeps its code, reviews, and history.
+              // Acceptance does not publish: content stays pending_review
+              // until approved (here, when opted in, or from the Content
+              // dashboard). Prior approval survives a re-accept.
               .set({
                 status: "accepted",
                 kind: "session",
-                approvedSnapshot,
-                contentReviewStatus: "approved",
+                ...(approveContent
+                  ? {
+                      approvedSnapshot: snapshot(current),
+                      contentReviewStatus: "approved" as const,
+                    }
+                  : previouslyApproved
+                    ? {}
+                    : { contentReviewStatus: "pending_review" as const }),
                 updatedAt: new Date(),
               })
               .where(eq(submissions.id, submissionId))

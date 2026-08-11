@@ -4,6 +4,9 @@ import { Link } from "@tanstack/react-router";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  CircleCheckIcon,
+  CircleDashedIcon,
+  CircleDotIcon,
   DownloadIcon,
   ExternalLinkIcon,
   FileArchiveIcon,
@@ -82,6 +85,7 @@ import {
   acceptPortalSubmission,
   approveContentChange,
   createAdminFileRequest,
+  approveSessionContent,
   deleteAdminSessionFileRequirement,
   getPortalAdmin,
   manualAssignAdminTask,
@@ -1607,6 +1611,52 @@ const requirementFormFor = (requirement: AdminData["requirements"][number]): Req
   scope: requirement.scope,
 });
 
+const contentStateMeta = {
+  approved: {
+    label: "Approved",
+    icon: CircleCheckIcon,
+    className: "text-[var(--status-accepted)]",
+  },
+  awaiting: {
+    label: "Awaiting approval",
+    icon: CircleDashedIcon,
+    className: "text-[var(--status-pending)]",
+  },
+  changes: {
+    label: "Changes pending",
+    icon: CircleDotIcon,
+    className: "text-[var(--status-pending)]",
+  },
+} as const;
+
+// Acceptance and publication are separate judgments: accepted sessions reach
+// public surfaces only once their content is approved.
+const contentStateFor = (submission: AdminData["submissions"][number]) =>
+  submission.status !== "accepted"
+    ? null
+    : submission.contentReviewStatus === "approved"
+      ? ("approved" as const)
+      : Object.keys(submission.approvedSnapshot).length === 0
+        ? ("awaiting" as const)
+        : ("changes" as const);
+
+function ContentStateBadge({
+  submission,
+}: {
+  readonly submission: AdminData["submissions"][number];
+}) {
+  const state = contentStateFor(submission);
+  if (state === null) return <span className="text-xs text-muted-foreground">—</span>;
+  const meta = contentStateMeta[state];
+  const Icon = meta.icon;
+  return (
+    <span className={cn("inline-flex items-center gap-1 text-xs font-medium", meta.className)}>
+      <Icon className="size-3" />
+      {meta.label}
+    </span>
+  );
+}
+
 function AdminSessions({
   eventId,
   timezone,
@@ -1651,6 +1701,18 @@ function AdminSessions({
       await refresh();
     },
   });
+  const approvePublication = useMutation({
+    mutationFn: (submissionIds: ReadonlyArray<string>) =>
+      approveSessionContent({ data: { eventId, submissionIds: [...submissionIds] } }),
+    onSuccess: async (result) => {
+      if (!result.ok) toast.error(result.error.message);
+      else
+        toast.success(
+          `${result.data.approved} ${result.data.approved === 1 ? "session" : "sessions"} approved for publication`,
+        );
+      await refresh();
+    },
+  });
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted">("all");
   const pendingHistory = data.history
     .map((item) => item.history)
@@ -1660,6 +1722,9 @@ function AdminSessions({
   );
   const contentSubmissions = data.submissions.filter(
     (item) => item.status === "accepted" || item.status === "pending",
+  );
+  const unapproved = contentSubmissions.filter(
+    (item) => item.status === "accepted" && item.contentReviewStatus !== "approved",
   );
   const visibleSubmissions = contentSubmissions.filter(
     (item) => statusFilter === "all" || item.status === statusFilter,
@@ -1721,6 +1786,26 @@ function AdminSessions({
               />
             ) : (
               <>
+                {unapproved.length === 0 ? null : (
+                  <div className="flex h-9 shrink-0 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs">
+                    <CircleDashedIcon className="size-3.5 shrink-0 text-[var(--status-pending)]" />
+                    <span className="min-w-0 flex-1 truncate">
+                      {unapproved.length === 1
+                        ? "1 accepted session is"
+                        : `${unapproved.length} accepted sessions are`}{" "}
+                      not public yet — approve their content to publish.
+                    </span>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="pressable"
+                      disabled={approvePublication.isPending}
+                      onClick={() => approvePublication.mutate(unapproved.map((item) => item.id))}
+                    >
+                      <CircleCheckIcon /> Approve all
+                    </Button>
+                  </div>
+                )}
                 {pendingHistory.length + pendingProfiles.length === 0 ? null : (
                   <div className="overflow-hidden rounded-md border">
                     <div className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
@@ -1830,6 +1915,7 @@ function AdminSessions({
                       <TableRow>
                         <TableHead>Session</TableHead>
                         <TableHead>Status</TableHead>
+                        {compact ? null : <TableHead>Content</TableHead>}
                         {compact ? null : <TableHead>Speakers</TableHead>}
                         {compact ? null : <TableHead className="text-right">Action</TableHead>}
                       </TableRow>
@@ -1838,7 +1924,7 @@ function AdminSessions({
                       {visibleSubmissions.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={compact ? 2 : 4}
+                            colSpan={compact ? 2 : 5}
                             className="h-12 text-center text-xs text-muted-foreground"
                           >
                             No {statusFilter} sessions.
@@ -1874,6 +1960,11 @@ function AdminSessions({
                             </TableCell>
                             {compact ? null : (
                               <TableCell className="h-9 py-1.5">
+                                <ContentStateBadge submission={submission} />
+                              </TableCell>
+                            )}
+                            {compact ? null : (
+                              <TableCell className="h-9 py-1.5">
                                 {speakers.length === 0 ? (
                                   "—"
                                 ) : (
@@ -1901,6 +1992,19 @@ function AdminSessions({
                                     }}
                                   >
                                     <UserRoundCheckIcon /> Accept
+                                  </Button>
+                                ) : contentStateFor(submission) === "awaiting" ? (
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    className="pressable"
+                                    disabled={approvePublication.isPending}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      approvePublication.mutate([submission.id]);
+                                    }}
+                                  >
+                                    <CircleCheckIcon /> Approve
                                   </Button>
                                 ) : (
                                   <ChevronRightIcon className="ml-auto size-4 text-muted-foreground" />

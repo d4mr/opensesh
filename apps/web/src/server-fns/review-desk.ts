@@ -159,7 +159,9 @@ export const createManualSession = createServerFn({ method: "POST" })
         // Reuse the portal acceptance path to snapshot public content and create
         // every auto-on-accept contact and submission task assignment.
         const portal = yield* Portal;
-        return yield* portal.acceptSubmission(data.eventId, created.id);
+        // Organizer-authored content is publication-approved by the act of
+        // writing it — no second sign-off step for manual sessions.
+        return yield* portal.acceptSubmission(data.eventId, created.id, { approveContent: true });
       }),
       { require: "staff" },
     ),

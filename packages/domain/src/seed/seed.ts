@@ -426,7 +426,9 @@ const devflowSubmissions = [
   submittedAt: new Date("2026-08-05T17:00:00.000Z"),
   answers: { fld_devflow_notes: notes },
   approvedSnapshot: {},
-  contentReviewStatus: "approved" as const,
+  // CFP submissions are born unapproved — publication is a separate judgment
+  // made at accept time or later from the Content dashboard.
+  contentReviewStatus: "pending_review" as const,
   createdAt: seededAt,
   updatedAt: seededAt,
   trackId,
@@ -581,21 +583,27 @@ const mayaApprovedProfile = {
 };
 const submissionRows = seedData.submissions.map((submission) => {
   const answers = answersForSeedSubmission(submission);
+  // Only accepted sessions carry approved public content — everything still in
+  // review is born unapproved, exactly as the CFP intake writes it.
+  const approved = submission.status === "accepted";
+  const approvedSnapshot: (typeof submissions.$inferInsert)["approvedSnapshot"] = approved
+    ? {
+        title: submission.title,
+        description: submission.description,
+        formatId: submission.formatId,
+        levelId: submission.levelId,
+        language: submission.language,
+        answers,
+      }
+    : {};
   return {
     ...submission,
     // Accepted submissions have graduated to sessions (see review-desk accept).
-    kind: submission.status === "accepted" ? ("session" as const) : submission.kind,
+    kind: approved ? ("session" as const) : submission.kind,
     scheduleDirty: false,
     answers,
-    approvedSnapshot: {
-      title: submission.title,
-      description: submission.description,
-      formatId: submission.formatId,
-      levelId: submission.levelId,
-      language: submission.language,
-      answers,
-    },
-    contentReviewStatus: "approved" as const,
+    approvedSnapshot,
+    contentReviewStatus: approved ? ("approved" as const) : ("pending_review" as const),
   };
 });
 

@@ -4,9 +4,9 @@ Durable, resumable working record for a fresh full production pass of the Sessio
 
 ## Run identity
 
-- Status: **IN PROGRESS**
+- Status: **COMPLETE — strict manual evidence pass**
 - Started: 2026-08-11 21:25:45 IST
-- Last checkpoint: 2026-08-11 22:00 IST
+- Completed: 2026-08-11 (production state captured through screenshot 156)
 - Target: <https://app.opensesh.io>
 - Evaluator checkout: `/private/tmp/killmysaas-evals`
 - Evaluator commit: `2b0f7956ab0c6f4868d41356e495b3a225badaab` (matches remote `main` at run start)
@@ -51,12 +51,13 @@ The evaluator has two overlapping speaker sources. `sample-data.json` is the ric
 
 | Entity | Value | URL / ID | Status |
 |---|---|---|---|
-| Organizer | Jordan Alvarez (`jordan.organizer@sbek-test.example.com`) | pending | fixture account |
-| Primary event | `DevFlow Conf 2027` | pending | seeded chain target |
+| Organizer | Jordan Alvarez (`jordan.organizer@sbek-test.example.com`) | production account | fixture account; full organizer chain completed |
+| Primary event | `DevFlow Conf 2027` | `/e/devflow-conf-2027` | seeded chain target; agenda published |
 | Isolation event | `Forward Summit 2028` | `/e/forward-summit-2028` | created, but creator immediately has no access |
-| Speaker | Priya Raman (`priya.speaker@sbek-test.example.com`) | pending | fixture account/contact |
-| Co-speaker | Marcus Okafor (`marcus.speaker@sbek-test.example.com`) | pending | fixture account/contact |
-| Reviewer | Sam Whitfield (`sam.reviewer@sbek-test.example.com`) | pending | fixture account |
+| Speaker | Priya Raman (`priya.speaker@sbek-test.example.com`) | portal + event contact | confirmed; profile approved; 2/5 tasks complete |
+| Co-speaker | Marcus Okafor (`marcus.speaker@sbek-test.example.com`) | CRM + event contact | accepted speaker; CRM pipeline won |
+| Imported speaker fixture | Dana Kowalski (`dana.speaker@sbek-test.example.com`) | CRM + event contact | first created manually; later validated through the real CSV importer |
+| Reviewer | Sam Whitfield (`sam.reviewer@sbek-test.example.com`) | reviewer portal | 2/2 assigned reviews complete |
 
 ## Scenario checkpoints
 
@@ -67,23 +68,23 @@ Verdicts are `pending`, `pass`, `partial`, `fail`, or `blocked`. Every verdict m
 | 1 | CFP-S1 — build and publish CFP | organizer | partial | Builder/save/options/validation/public pass; condition and creator access fail |
 | 2 | CFP-S2 — speaker draft, submit, edit | speaker | partial | Existing edit + round-trip + confirmation pass; fresh-start/save-draft path fails; profile-readiness regresses |
 | 3 | CFP-S3 — reviewer assignment and scoring | organizer → reviewer | pass | Exact one-item blind queue, 4/4/Accept/comment persisted; assignment remains stale until reload |
-| 4 | CFP-S4 — decisions, notifications, handoff, close | organizer → speaker | in progress | Accept/decline, sent state, and session handoff pass; close-date enforcement remains |
+| 4 | CFP-S4 — decisions, notifications, handoff, close | organizer → speaker | partial | Accept/decline, sent state, and session handoff pass; close-date enforcement not exercised |
 | 5 | ABS-S1 — submissions with co-author | speaker | pass | Three fixture submissions and Priya/Marcus role labels confirmed; fresh third already seeded per fallback |
 | 6 | ABS-S2 — rounds, pools, assignments, reminders | organizer | partial | Two rounds/pools/scorecards/caps/two assignments pass; reminder has no visible confirmation; AI lacks key |
 | 7 | ABS-S3 — blind scoring, aggregates, export | reviewer → organizer | partial | Exact queue, blind scope, 4/2 + 5/5, weighted aggregates, sorting, 2/2 pass; export produced no observable download |
-| 8 | SPK-S1 — roster and onboarding tasks | organizer | pending | |
-| 9 | SPK-S2 — speaker onboarding | speaker | pending | |
-| 10 | SPK-S3 — progress and bulk communications | organizer | pending | |
-| 11 | CNT-S1 — content collection setup | organizer | pending | |
-| 12 | CNT-S2 — upload and version deliverable | speaker | pending | |
-| 13 | CNT-S3 — track, approve, export | organizer | pending | |
-| 14 | AIA-S1 — agenda and conflicts | organizer | pending | |
-| 15 | AIA-S2 — auto-schedule and publish | organizer | pending | |
-| 16 | EMB-S1 — public browse surfaces | attendee | pending | |
-| 17 | EMB-S2 — itinerary | attendee | pending | |
-| 18 | EMB-S3 — widget builder and consistency | organizer | pending | |
-| 19 | CRM-S1 — directory and enrichment | organizer | pending | |
-| 20 | CRM-S2 — pipeline and reuse | organizer | pending | |
+| 8 | SPK-S1 — roster and onboarding tasks | organizer | partial | CSV mapping/import, roster, tasks, deliverables, invite, search/edit/status/travel pass; file deliverables remain unverified |
+| 9 | SPK-S2 — speaker onboarding | speaker | partial | Scoped portal, task completion, bio/profile workflow, and file constraints pass; actual uploads unverified |
+| 10 | SPK-S3 — progress and bulk communications | organizer | partial | Progress, reminders, campaign, status, logistics pass; file/headshot completion unavailable |
+| 11 | CNT-S1 — content collection setup | organizer | pass | Session-scoped presentation requirement and speaker task linkage persisted |
+| 12 | CNT-S2 — upload and version deliverable | speaker | blocked | Correct upload constraints exposed; browser controller could not attach a local file |
+| 13 | CNT-S3 — track, approve, export | organizer | partial | Version history/restore, tracking, reminders and library pass; upload/ZIP unverified and publication gate fails |
+| 14 | AIA-S1 — agenda and conflicts | organizer | pass | Rooms, dates, placements, exact room and speaker conflicts, and resolution verified |
+| 15 | AIA-S2 — auto-schedule and publish | organizer | pass | Draft generation, rationale, selective acceptance, conflict-free publish, and persistence verified |
+| 16 | EMB-S1 — public browse surfaces | attendee | pass | Five anonymous surfaces, search/filter/detail, consistent published data, graceful image fallbacks |
+| 17 | EMB-S2 — itinerary | attendee | pass | Add/remove, My Schedule, reload persistence, print and ICS affordances verified |
+| 18 | EMB-S3 — widget builder and consistency | organizer | pass | Five view types, live preview, filters/theme, share URL, iframe, JSON and ICS endpoints verified |
+| 19 | CRM-S1 — directory and enrichment | organizer | partial | CSV import, search/filter/segment/profile/tag/note/duplicate safeguards/event link pass; destructive duplicate merge intentionally not executed |
+| 20 | CRM-S2 — pipeline and reuse | organizer | pass | Enrollment, moves, history, notes, analytics, personalized bulk outreach and history verified |
 
 ## Evidence log
 
@@ -139,6 +140,72 @@ Verdicts are `pending`, `pass`, `partial`, `fail`, or `blocked`. Every verdict m
 - Accepting SESS-1 and declining SESS-2 each open a personalized email preview, send successfully, update status immediately, and show `Sent`. Accepted SESS-1 appears in Sessions with title, track, format, Priya, and Marcus intact. Sessions now also exposes a direct `Add session` action.
 - Evidence: `032-evaluation-overview.png` through `061-review-progress-complete.png`.
 
+### Checkpoint 5 — speaker roster, tasks, portal, profile review, and communications
+
+- The organizer created and persisted the three requested general tasks for Priya and Marcus: **Confirm participation** and **Complete bio and profile** due Apr 1, plus **Sign speaker release form** due Apr 15. The template/assignment views show both speakers.
+- Marcus's evaluator-created lightning session was accepted. A session-scoped **Upload Session Presentation** requirement persisted with due date May 1 at 9:00 AM, extensions `.pdf,.key,.pptx`, and 25 MB maximum. A separate **Upload Final Headshot (print quality)** request had to be linked to a task before it reached speakers.
+- Priya's portal remains role-scoped and `/admin` redirects her back to the portal. It exposed five tasks with exact due dates and constraints. Two non-file tasks were completed and persisted as 2/5.
+- Priya entered the canonical long biography with sentinel `SBEK-PORTAL-BIO-01`. The organizer then saw **Awaiting your review** and approved it; the approved bio subsequently appeared on public detail. The underlying pending-version workflow is useful but the speaker is not clearly told that a reload may continue to show the old approved value until an organizer approves.
+- Organizer task progress synchronized to Priya 2 completed / 2 outstanding and Marcus 0 / 4. Bulk reminders now give a clear `2 reminders recorded in demo mode` confirmation and queued state, a positive regression from reviewer reminders.
+- Priya's invite recorded an email-history entry. Workflow status became **Confirmed** and persisted. Travel notes persisted exactly: `Arrival May 11, aisle seat; dietary: Vegetarian`.
+- A two-recipient welcome campaign rendered resolved merge-token previews and recorded a sent campaign with history.
+- Evidence: `062-speaker-roster-before-import.png`, `064-task-confirm-participation-form.png` through `088-speaker-campaign-sent.png`.
+
+### Checkpoint 6 — agenda construction, deliberate conflicts, AI draft, and publish
+
+- The builder exposed the three event days, a time grid, four seeded rooms, an unscheduled pool, and inline room creation. **Overflow Room** persisted.
+- SESS-1 was placed on May 12 at 10:00 AM in Room 2A. Placing Marcus's SESS-4 at the same time produced the exact speaker double-booking with both session codes, Marcus's name, window, and explanation.
+- Moving SESS-4 to May 12 at 2:00 PM cleared that conflict live. Deliberately placing SESS-3 over SESS-1 produced both a room-overlap and Priya double-booking, then moving SESS-3 to May 13 at 11:00 AM cleared both.
+- Important fixture/model mismatch: both 10-minute lightning sessions produced `Duration must use 15-minute increments`, an empty duration selection, and could not save until manually overridden to 15 minutes.
+- The AI agenda draft proposed SESS-2 at the earliest conflict-free slot with a visible rationale. Accepting the single change reduced the unscheduled count to zero. The final conflict-free agenda was published and remained published after reload.
+- Final schedule: SESS-2 May 12 8:00–8:30 Main Stage; SESS-1 May 12 10:00–10:30 Room 2A; SESS-4 May 12 2:00–2:15 Room 2B; SESS-3 May 13 11:00–11:15 Room 2B.
+- Evidence: `089-agenda-initial.png` through `104-agenda-published.png`.
+
+### Checkpoint 7 — widget builder and all anonymous attendee surfaces
+
+- The widget builder exposed exactly five view types: Sessions, Speaker list, Speaker gallery, Agenda, and Itinerary. It also exposed track/format/day/tag filters, theme, 12/24-hour time, color, field visibility, custom CSS hooks, enablement, and a live iframe preview.
+- **Evaluator Sessions List** generated a stable anonymous share URL, copyable iframe, JSON feed, and ICS feed. The embed rendered four published sessions with titles, dates, times, rooms, speakers, job titles, companies, tracks, formats, and descriptions.
+- Logged out, all five public surfaces remained available. Session search worked by title and speaker, and track filtering reduced the exact count. Session and speaker detail surfaces matched the published agenda.
+- Speaker list sorts Marcus before Priya and shows title/company/session counts. Gallery and list use clear initials fallbacks because fixture headshots are absent. Priya's approved biography and three sessions appear publicly; Marcus's public detail says **Bio not provided** despite a rich canonical CRM biography.
+- Agenda days are chronological and session details contain the exact time range, room, format, track, description, and speaker. May 14 is omitted because it has no sessions.
+- Anonymous itinerary add/remove works. My Schedule moved from two sessions to one, and the two-session selection survived reload. Print and Export ICS are visible; the ICS click produced no observable browser download/confirmation, so the affordance passes but payload delivery is not independently verified.
+- Evidence: `105-widgets-admin.png` through `129-my-schedule-one-after-remove.png`.
+
+### Checkpoint 8 — Speaker CRM directory, enrichment, pipeline, outreach, and reuse
+
+- The organization CRM began with 28 contacts and offered search, company/title/tag filters, saved dynamic segments, duplicate review, Directory/Pipeline/Segments/Overview tabs, and event history. Priya search returned two same-name records; Latticework filtering returned exactly one record.
+- A dynamic **AI Experts** segment persisted. Marcus's rich canonical biography, company, title and event/session links existed in CRM even though his event/public biography was empty. Tag `AI` and the exact evaluator note persisted after reload.
+- Marcus enrolled in the pipeline at Prospect with score 85/rationale, then moved Prospect → Contacted → Confirmed. Reload preserved the won column, timestamped transitions, card note, and follow-up activity.
+- Overview exposed contact/event totals, open/won/lost counts, profile completeness, pipeline distribution, top companies, and tags.
+- Bulk outreach to 28 contacts supported `{speaker_name}` and `{talk_title}` with per-recipient previews and a sensible `your proposed topic` fallback. The campaign sent and appeared in history. The default-enabled **Also add recipients to event** checkbox was explicitly turned off to avoid adding all 28 contacts to DevFlow.
+- Duplicate review clearly compared the two Priya records and required both primary selection and an irreversible-action checkbox. No merge was executed because the records use different emails and the earlier safety constraint forbids an unnecessary destructive mutation.
+- Dana Kowalski was not present in the seeded directory. In the original chain her exact CSV fixture data was created manually and linked to DevFlow; the post-pass native-picker recheck below subsequently validated the real importer. Dana carried title/company but had only 1/4 profile readiness.
+- Evidence: `130-crm-directory-initial.png` through `149-event-roster-three-speakers.png`.
+
+### Checkpoint 9 — content revisions, restoration, library, and publication-gate audit
+
+- SESS-1 was edited twice. The first revision added a live-demo sentence; the second added `Attendees should bring a laptop.`. After reload, two attributed versions appeared.
+- Restoring the earlier snapshot created a third attributed version while retaining history. The restored content kept the live-demo addition and removed the laptop sentence. The session title was then restored to its exact original and approved.
+- Immediately after save, the header/submission answers updated while the session-content block and history stayed stale until reload. This is a cache/feedback defect, not data loss.
+- The file library contained seven outstanding records: five session-speaker presentation assignments and two headshot assignments. The presentation requirement expanded dynamically as additional sessions were accepted; Marcus correctly has two distinct session assignments.
+- The content dashboard lists four accepted sessions, but its visible status is only the submission decision `accepted`; it does not distinguish content approval, and all accepted sessions appeared publicly. Therefore the content-approval publication gate is not functioning as a meaningful gate.
+- Evidence: `150-session-content-edit-1.png` through `156-content-dashboard.png`.
+
+### Checkpoint 10 — file-upload automation boundary
+
+- The product exposes a real `input[type=file]` and the correct file constraints. The in-app browser controller used for this run has no `setInputFiles` operation and its file-chooser wait repeatedly timed out. The fallback browser-automation CLI is not installed, and local full-computer control is unavailable in this environment.
+- Consequently, speaker headshot upload, slide upload/version/comment, ZIP payload, review CSV payload, and ICS payload remain **unverified**, not automatically product failures. CSV import was later verified using ordinary Chrome plus the native macOS picker. No dependency installation, database edit, or invasive workaround was used.
+- This matters for the real evaluation: the evaluator harness should use Playwright's `locator.setInputFiles(...)` directly. The product should keep a standard, reachable file input and give explicit success/failure feedback after every upload or export.
+
+### Checkpoint 11 — native-picker retry in ordinary Chrome
+
+- Computer control cannot target the Codex desktop app, so its attached native Open sheet is inaccessible even though it resembles Finder. The same production flow was opened in ordinary Chrome, where computer control is allowed.
+- Chrome's native picker was operated with macOS **Go to Folder** and `/private/tmp/killmysaas-evals/fixtures/speakers.csv`. The importer mapped `name`, `email`, `title`, `company`, and `bio`; previewed Priya and Marcus as **Update**, Dana as **Create**; and reported `3 parsed · 2 matching · 0 errors`.
+- Import completed with exact confirmation: **Created 1 · Updated 2 · Skipped 0**. The roster became three speakers and Dana showed Engineering Manager · Substrate with 1/4 readiness.
+- Crucially, sparse CSV updates did **not** clear Priya's richer profile in this recheck: Bio remained Present, Dietary remained Vegetarian, T-shirt remained M, and profile approval remained Approved. This is a positive regression against the earlier sparse-profile concern and narrows V2-005 to the CFP participant-update path.
+- The current production database visible in both Chrome and the in-app browser had been re-baselined by this retry: four submissions were Pending, zero sessions were accepted/scheduled, no speaker tasks existed, and the agenda was Draft. Treat screenshots 157–159 as a post-pass upload recheck, not continuation of the mutated state in screenshots 001–156.
+- Evidence: `157-csv-import-complete.png`, `158-csv-import-roster.png`, `159-csv-preserves-priya-profile.png`.
+
 ## Issue and default-gap register
 
 Add every observed issue here even when its rubric item passes.
@@ -157,26 +224,80 @@ Add every observed issue here even when its rubric item passes.
 | V2-010 | P2 | Product defect | Reviewer reminders | Reminder action has no visible sent/queued confirmation or history after execution. | `049-review-progress-before-reminder.png`, `050-review-reminder-confirmation.png` | prior OS-015 | confirmed |
 | V2-011 | P2 | Product/eval uncertainty | Review export | `Export CSV` activates, but no download event or visible confirmation is observable within 5 seconds. | `060-review-export-triggered.png` | related to prior export limitation | confirmed UI ambiguity; payload unverified |
 | V2-012 | P3 | Environment/default gap | AI first-pass | AI review is visibly disabled with `Anthropic key not configured`; human review remains complete. | `042-review-results.png`, `058-final-review-results-desc.png` | prior OS-017 | confirmed |
+| V2-013 | P3 | Evaluation tooling boundary | File inputs/exports | The in-app browser's chooser event times out and computer control cannot target its host app. Ordinary Chrome + macOS native picker works; CSV import is verified. Remaining uploads/downloads are still unverified rather than failed. | `076-slide-upload-constraints.png`, `155-file-library-no-uploads.png`, `157-csv-import-complete.png` | narrowed process limitation | workaround validated |
+| V2-014 | P2 | UX friction | Speaker profile approval | Speaker profile edits create a pending version, but the speaker gets no strong `Saved — awaiting organizer approval` explanation and can see the old approved value after reload. | `075-priya-profile-bio-filled.png`, `082-priya-organizer-spotlight.png`, `083-priya-profile-approved.png` | new | confirmed |
+| V2-015 | P3 | Product defect | Profile comparison rendering | Organizer's pending biography comparison displayed literal `<p>…</p>` markup instead of rendered or plain rich text. | `082-priya-organizer-spotlight.png` | same rendering class as V2-009 | confirmed |
+| V2-016 | P2 | Fixture/cardinality risk | Session deliverables | One presentation requirement produced three assignments with SESS-1 + SESS-4, then five after SESS-2/3 were accepted. This is logically per session-speaker, but an eval agent expecting exactly two speaker tasks may misread the count. | `071-deliverables-dashboard.png`, `155-file-library-no-uploads.png` | new | confirmed behavior |
+| V2-017 | P2 | UX prerequisite | Headshot deliverable | Creating a requested-file definition alone leaves `Not assigned to any task yet`; the organizer must separately click **Create task** before speakers receive it. | `070-headshot-request-form.png`, `071-deliverables-dashboard.png` | new | confirmed |
+| V2-018 | P1 | Product/fixture mismatch | Agenda duration | Seeded 10-minute lightning sessions are incompatible with the agenda's 15-minute grid; duration is blank and save is blocked until the organizer overrides to 15 minutes. | `094-agenda-speaker-conflict.png`, `098-agenda-room-overlap-test.png` | new | confirmed |
+| V2-019 | P2 | Product defect | Agenda detail cache | After scheduling or moving a session, the grid and conflict count update but the still-open session detail continues to show the prior time or `Unscheduled`. | `093-agenda-ci-room2a-10.png`, `097-agenda-conflict-resolved.png` | new | confirmed |
+| V2-020 | P3 | Public presentation gap | Agenda day navigation | The event has three configured days, but the public agenda exposes only May 12 and May 13 because May 14 is empty. This is defensible but can look like a missing event day. | `122-public-agenda-day1.png`, `123-public-agenda-day2.png` | new | confirmed behavior |
+| V2-021 | P2 | Product/eval uncertainty | Itinerary export | Export ICS has no visible success state and emitted no observable download event in this controller. | `125-public-itinerary.png`–`129-my-schedule-one-after-remove.png` | related to V2-011 | payload unverified |
+| V2-022 | P1 | Data-model/default gap | CRM ↔ event speaker profile | Marcus has the canonical rich bio in organization CRM but the linked event/public speaker says **Bio not provided**. Event linkage does not hydrate a sparse event profile from richer CRM identity data. | `121-gallery-speaker-detail.png`, `134-crm-marcus-profile.png` | same sparse-data class as prior import issue | confirmed |
+| V2-023 | P1 | Risky default | CRM campaign | **Also add recipients to event** is enabled by default; sending a broad CRM campaign could silently add all 28 recipients to the event unless the organizer notices and opts out. | `143-crm-campaign-preview.png` | new | confirmed |
+| V2-024 | P0 | Product defect | Content approval/publication | Content dashboard conflates accepted decision with approved content, and every accepted session is public regardless of content approval. The approval state is not an effective publication gate. | `109-public-sessions-anonymous.png`, `156-content-dashboard.png` | prior content-gate weakness | confirmed |
+| V2-025 | P2 | Product defect | Session content mutation cache | After save/approve/restore, header values update but content block and version history remain stale until reload. | `150-session-content-edit-1.png`–`154-session-title-restored-approved.png` | new | confirmed |
+| V2-026 | P2 | Fixture/default gap | Dana speaker detail | Dana is absent from seeded CRM and supplied only by sparse CSV. Real import succeeds, but she has name/email/title/company/bio only and still yields 1/4 readiness because social/dietary/shirt/headshot are unspecified. | `148-crm-dana-contact-manual.png`, `149-event-roster-three-speakers.png`, `158-csv-import-roster.png` | known evaluator invention pressure | confirmed |
+| V2-027 | P2 | Product defect | CRM event-link mutation feedback | Adding Dana to DevFlow disabled the action but gave no immediate success state; the event relationship appeared only after reload. | `148-crm-dana-contact-manual.png`, `149-event-roster-three-speakers.png` | same stale-cache family as V2-008/V2-025 | confirmed |
+| V2-028 | P3 | Fixture gap handled well | Public speaker images | No tested event speaker had a usable headshot, so image-rich gallery scoring relies entirely on initials. List/gallery/detail degrade cleanly and remain usable. | `116-public-speakers-list.png`, `119-public-speaker-gallery.png`, `121-gallery-speaker-detail.png` | prior upload limitation | confirmed graceful fallback |
+| V2-029 | P3 | Positive regression | Task reminders | Speaker bulk reminders now show an exact queued count and row state, unlike reviewer reminders. | `078-organizer-task-progress-sync.png`, `079-bulk-task-reminders.png` | improved | confirmed |
+| V2-030 | P3 | Positive fallback | CRM campaign tokens | Contacts without a talk resolve `{talk_title}` to `your proposed topic`, preserving readable bulk email instead of leaking an empty token. | `143-crm-campaign-preview.png` | new | confirmed |
 
-## Rubric scoring
+## Strict manual rubric scoring
 
-Populate after all evidence is gathered.
+This is intentionally conservative. Unverified file payloads receive no credit even where the product exposed the correct control. Partial credit is used only where the majority of a weighted criterion was directly observed. The official evaluator may score higher when Playwright can attach files and capture downloads.
 
 | Area | Area weight | Items | Score |
 |---|---:|---:|---:|
-| Call for Papers | 20 | 18 | pending |
-| Abstract Management | 20 | 14 | pending |
-| Speaker Management | 15 | 16 | pending |
-| Content Management | 15 | 14 | pending |
-| AI Agenda | 10 | 8 | pending |
-| Public Widgets | 20 | 16 | pending |
-| **Required headline** | **100** | **86** | pending |
-| Speaker CRM (optional) | +10 | 12 | pending |
+| Call for Papers | 20 | 18 | **15.0 / 20** (28.5 / 38 item weight) |
+| Abstract Management | 20 | 14 | **18.1 / 20** (24.5 / 27) |
+| Speaker Management | 15 | 16 | **13.4 / 15** (29.5 / 33) |
+| Content Management | 15 | 14 | **8.8 / 15** (17 / 29) |
+| AI Agenda | 10 | 8 | **10.0 / 10** (18 / 18) |
+| Public Widgets | 20 | 16 | **19.7 / 20** (34.5 / 35) |
+| **Required headline** | **100** | **86** | **85.0 / 100** |
+| Speaker CRM (optional) | +10 | 12 | **9.7 / 10** (18.5 / 19) |
 
-## Resume protocol
+### Item-level disposition
 
-1. Read this file and continue from the first `pending` scenario.
-2. Reuse the same evaluator commit and production accounts unless the log explicitly changes them.
-3. Save screenshots immediately under `docs/eval-evidence/2026-08-11-v2/` with a monotonic numeric prefix.
-4. Update the scenario row and evidence log immediately after each meaningful checkpoint.
-5. Record product failures, fixture/default gaps, evaluator limitations, and process deviations separately.
+- **CFP:** pass `01,03,06,08–15,17`; partial `05`; fail `02,07,18`; unverified `04,16`.
+- **Abstracts:** pass `01–08,10–12`; partial `09`; unverified `13`; environment-disabled `14`.
+- **Speakers:** pass `01–07,09,11–15`; partial `08,16`; unverified `10`.
+- **Content:** pass `01,03,06,08–11`; partial `02,07,13`; fail `14`; unverified `04,05,12`.
+- **AI Agenda:** pass `01–08`.
+- **Public Widgets:** pass `01–03,05–12,14–16`; partial `04,13`.
+- **Speaker CRM:** pass `01–05,07–12`; partial `06`.
+
+## Fixture and default hardening plan
+
+These changes reduce evaluator invention pressure without pre-solving the behaviors the rubric is intended to test.
+
+1. **Make identity enrichment non-destructive.** Missing participant/CSV fields must mean “no update,” never “clear existing value.” On event linkage, copy canonical CRM values into only-empty event fields; never overwrite non-empty event overrides.
+2. **Seed complete canonical identities.** Priya and Marcus should start with fixture bio/title/company and explicit optional-field defaults. Dana should be importable with name/email/title/company/bio. Use `dietary = None declared`, `shirt size = Not provided`, empty social links, and `headshot = null`; do not invent sensitive or personal facts.
+3. **Default CFP participant questions safely.** Include Biography by default, or guarantee that absent speaker-profile questions cannot mutate profile data. Keep mobile, social, dietary and shirt optional and visibly optional.
+4. **Normalize lightning durations.** Either support 10-minute agenda increments end-to-end or map a 10-minute lightning format to an explicit schedulable 15-minute slot. Never render a blank required duration for seeded data.
+5. **Clarify assignment cardinality.** Label presentation work as `5 session-speaker assignments across 4 sessions / 2 speakers`, not merely a speaker task count. This prevents an evaluator from treating Marcus's two talks as duplicate tasks.
+6. **Make requested files atomic.** Creating a headshot/presentation requirement should optionally create and assign its speaker task in the same flow, or state the remaining `Create task` step before completion.
+7. **Expose pending profile state to the speaker.** After edit, show `Saved — awaiting organizer approval`, render the pending value, and link/explain the approval lifecycle. Render rich text, never literal HTML.
+8. **Turn risky outreach defaults off.** Default **Also add recipients to event** to unchecked and summarize the impending side effect before send.
+9. **Enforce a real content gate.** Track submission decision and content approval separately. Public APIs/widgets must return only approved published content; the dashboard needs a visible approval state and bulk approval action.
+10. **Close all mutation feedback loops.** Assignment, event-link, agenda detail, and version history caches should update immediately. Every reminder/upload/export must show success/failure; exports should expose a detectable browser download.
+11. **Add an evaluator upload smoke test.** Use Playwright `locator.setInputFiles(...)` against CSV, headshot and presentation inputs, then assert persisted filename/version/status and downloadable ZIP/CSV/ICS payloads. Keep the native input reachable even when visually wrapped.
+12. **Preserve intentional empty states.** Do not seed headshots merely to make the gallery prettier; the rubric explicitly checks graceful missing-image behavior. Initials already pass that requirement.
+
+## Priority order before the official evaluation
+
+1. **P0:** Fix fresh submission ownership/draft creation (`V2-004`) and multi-event creator membership (`V2-001`).
+2. **P0:** Separate content approval from acceptance and enforce it in every public feed (`V2-024`).
+3. **P1:** Fix CFP hydration and conditional rendering (`V2-002`, `V2-003`).
+4. **P1:** Preserve/enrich speaker identity across CFP, CRM, CSV and event profiles (`V2-005`, `V2-006`, `V2-022`, `V2-026`).
+5. **P1:** Resolve 10-minute lightning scheduling and disable broad-event enrollment by default (`V2-018`, `V2-023`).
+6. **P2:** Run the three upload paths and three download paths with Playwright, then fix any actual payload failures.
+7. **P2:** Fix stale mutation surfaces and make the profile/file workflow self-explanatory (`V2-008`, `V2-014`, `V2-017`, `V2-019`, `V2-025`, `V2-027`).
+
+## Evidence integrity and rerun protocol
+
+- The bundle contains **158 screenshots** (`001`–`159`, with no `063`) and this narrative ledger. Screenshots are production UI evidence, not synthetic mockups.
+- No production database, cookies, local storage, secrets, or server files were inspected. No contacts were merged or deleted. Fixture emails only were sent through demo-mode product flows.
+- For a targeted rerun, reuse evaluator commit `2b0f7956ab0c6f4868d41356e495b3a225badaab`, create fresh uniquely named entities, and begin with the P0/P1 rows above.
+- For upload reruns, use `setInputFiles` and capture: pre-action UI, chosen filename, network response/console, success state, persisted version after reload, and downloaded payload metadata.

@@ -181,6 +181,10 @@ export const DecisionRequest = Schema.Struct({
   decision: SubmissionDecision,
   feedback: Schema.String,
   confirmRedecide: Schema.Boolean,
+  // Acceptance and publication are separate judgments: accepted sessions stay
+  // off public surfaces until their content is approved. This flag collapses
+  // the two when the organizer explicitly opts in at decision time.
+  approveContent: Schema.Boolean,
 });
 
 export const CsvColumn = Schema.Literals([

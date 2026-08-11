@@ -194,3 +194,26 @@ morning deploy — everything here ships in the next deploy.
   focus ring, aria-label "Drag X to another stage") separate from the open-contact button.
   Browser-verified: Enter → ArrowRight → Enter moved Elena Petrov Prospect→Contacted (announced
   via live region + "Moved Elena Petrov to Contacted" toast), and the reverse restored her.
+- Aug 11 late night — V2 register P0 arc (screenshot-verified locally, per new validation rule:
+  every repro and fix is confirmed against rendered screenshots, not the accessibility tree).
+  V2-004: CFP wizard treated localStorage draft state as truth after a DB reseed — blank Review
+  step and "cannot edit" walls. Structural fix: client state is now only a cache hint; the loader
+  self-heals on 404/403 (clears stale draft id/answers, clamps the restored step), saveDraft
+  distinguishes NotFound (stale/not-owned → heal + retry as insert) from Forbidden (decided →
+  portal message), updates preserve status/submittedAt, and "Start a submission" explicitly
+  resets to fresh. Also fixed silent data loss: custom answers whose mapsTo isn't a real column
+  (e.g. notes_for_reviewers) now land in the answers jsonb instead of being dropped.
+  V2-001: event creators had no access to their own event (pure-derivation model left no
+  event_members row). Fix keeps derivation pure and adds the invariant that creating an event
+  writes the creator's admin member row in the same transaction (API-key creations pass null).
+  V2-024: acceptance no longer implies publication. CFP submissions are born
+  contentReviewStatus=pending_review; decide() gained an explicit approveContent flag (decision
+  dialog checkbox, default off, "Also approve content for publication"), re-approval only
+  auto-restores when a prior approvedSnapshot exists; manual/API sessions stay approved-on-create
+  (organizer-authored). Content dashboard now shows a Content column (Approved / Awaiting
+  approval / Changes pending), a "N accepted sessions are not public yet" banner with Approve
+  all, and per-row Approve wired to a new approveSessionContent portal fn that also resolves
+  pending edit-history rows. Seeds align with the model (only accepted rows approved+snapshot).
+  Verified end-to-end on AIE: accept w/o checkbox → pending_review; scheduled + republished
+  agenda still hides it publicly (8 of 8); Content approve → toast → public 9 of 9 with the
+  session card rendered; accept with checkbox → approved immediately with snapshot.

@@ -11,6 +11,7 @@ const DecideBody = Schema.Struct({
   decision: Schema.Literals(["accept", "decline"]),
   feedback: Schema.String,
   confirmRedecide: Schema.optionalKey(Schema.Boolean),
+  approveContent: Schema.optionalKey(Schema.Boolean),
 });
 
 const StatusBody = Schema.Struct({
@@ -116,6 +117,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           decision: body.decision,
           feedback: body.feedback,
           confirmRedecide: body.confirmRedecide ?? false,
+          approveContent: body.approveContent ?? false,
         });
         yield* Effect.forEach(
           decision.deliveries,
@@ -198,7 +200,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           speakerIds.map((contactId, position) => ({ contactId, role: "speaker", position })),
         );
         const portal = yield* Portal;
-        return yield* portal.acceptSubmission(eventId, created.id);
+        return yield* portal.acceptSubmission(eventId, created.id, { approveContent: true });
       }),
   },
   {

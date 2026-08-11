@@ -4,7 +4,6 @@ export default defineConfig({
   title: 'opensesh docs',
   description:
     'Documentation for opensesh — the open program OS for conferences. Call for papers, review, agenda, speakers, and embeds, self-hosted on Cloudflare Workers.',
-  baseUrl: 'https://docs.opensesh.io',
   accentColor: '#1d6b4c',
   srcDir: 'docs',
   renderStrategy: 'full-static',

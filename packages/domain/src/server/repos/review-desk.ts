@@ -437,6 +437,7 @@ interface ReviewDeskService {
     readonly decision: SubmissionDecision;
     readonly feedback: string;
     readonly confirmRedecide: boolean;
+    readonly approveContent: boolean;
   }) => Effect.Effect<DecisionSuccess, ReviewDeskFailure>;
   readonly markEmail: (logId: string, status: "sent" | "failed") => Effect.Effect<void, DbError>;
 }
@@ -1261,6 +1262,11 @@ export const ReviewDeskLive = Layer.effect(
               // lifecycle); the row keeps its code, reviews, and history.
               // Re-deciding to declined reverts form-origin rows to
               // kind='abstract'; manually created sessions keep their kind.
+              // Acceptance does NOT publish: content stays pending_review
+              // (public surfaces filter on approved) unless the organizer
+              // opted into approve-on-accept, which snapshots the current
+              // content as the approved public version. A previously approved
+              // session keeps its approval on re-accept.
               .set({
                 status: nextStatus,
                 notifiedAt: now,
@@ -1269,6 +1275,16 @@ export const ReviewDeskLive = Layer.effect(
                   nextStatus === "accepted"
                     ? ("session" as const)
                     : sql`case when ${submissions.sourceFormId} is not null then 'abstract' else ${submissions.kind} end`,
+                ...(nextStatus === "accepted"
+                  ? input.approveContent
+                    ? {
+                        contentReviewStatus: "approved" as const,
+                        approvedSnapshot: sql`jsonb_build_object('title', ${submissions.title}, 'description', ${submissions.description}, 'formatId', ${submissions.formatId}, 'levelId', ${submissions.levelId}, 'language', ${submissions.language}, 'answers', ${submissions.answers})`,
+                      }
+                    : {
+                        contentReviewStatus: sql`case when ${submissions.approvedSnapshot} = '{}'::jsonb then 'pending_review' else ${submissions.contentReviewStatus} end`,
+                      }
+                  : {}),
               })
               .where(
                 and(
