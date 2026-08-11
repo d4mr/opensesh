@@ -10,6 +10,7 @@ import {
   Text255,
 } from "./common";
 import { ReviewDecision, SubmissionKind, SubmissionStatus } from "./submissions";
+import { HumanReviewResult } from "./reviews";
 import { accepted, declined } from "../mail/templates";
 
 export const ReviewDeskTrack = Schema.Struct({
@@ -26,6 +27,8 @@ export const ReviewDeskSpeaker = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   email: Schema.String,
+  role: Schema.String,
+  position: Schema.Number,
   bioPresent: Schema.Boolean,
   headshotUrl: NullableString,
   confirmedAt: NullableDate,
@@ -108,6 +111,7 @@ export const ReviewDeskDetail = Schema.Struct({
   submission: ReviewDeskListItem,
   answers: Schema.Array(ReviewDeskAnswer),
   reviews: Schema.Array(ReviewDeskReview),
+  roundReviews: Schema.Array(HumanReviewResult),
   activity: Schema.Array(ReviewDeskActivity),
   emails: Schema.Array(ReviewDeskEmail),
 });

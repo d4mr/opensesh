@@ -245,12 +245,13 @@ export const assignReviews = createServerFn({ method: "POST" })
         yield* requireRound(data.eventId, data.roundId);
         const reviews = yield* Reviews;
         const submissionIds = Array.from(new Set(data.submissionIds));
-        const assigned = yield* Effect.forEach(
+        const assignments = yield* Effect.forEach(
           submissionIds,
           (submissionId) => reviews.assign(data.roundId, submissionId, data.eventMemberId),
           { concurrency: 1 },
         );
-        return { assigned: assigned.length };
+        const created = assignments.filter((assignment) => assignment.created).length;
+        return { created, skipped: assignments.length - created };
       }),
       { require: "admin" },
     ),
@@ -264,8 +265,8 @@ export const autoDistributeReviews = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         yield* requireRound(data.eventId, data.roundId);
         const reviews = yield* Reviews;
-        const assigned = yield* reviews.autoDistribute(data.roundId, data.trackIds);
-        return { assigned: assigned.length };
+        const result = yield* reviews.autoDistribute(data.roundId, data.trackIds);
+        return { created: result.assignments.length, skipped: result.skipped };
       }),
       { require: "admin" },
     ),
@@ -336,9 +337,11 @@ export const sendReviewReminders = createServerFn({ method: "POST" })
           { concurrency: 5 },
         );
         return {
+          queued: reminders.length,
           sent: deliveries.filter(
             (delivery) => delivery.status === "sent" || delivery.status === "demo",
           ).length,
+          failed: deliveries.filter((delivery) => delivery.status === "failed").length,
         };
       }),
       { require: "admin" },
@@ -412,13 +415,14 @@ export const exportReviewResults = createServerFn({ method: "POST" })
           "Round",
           "Submission code",
           "Submission",
+          "Submission status",
           "Participants",
           "Reviewer",
           ...criterionHeaders,
           "Weighted total",
           "Recommendation",
           "Recusal",
-          "Status",
+          "Review status",
         ];
         const rows = view.results.flatMap((row) => {
           const participants = row.submission.participants
@@ -429,6 +433,7 @@ export const exportReviewResults = createServerFn({ method: "POST" })
             view.configuration.round.name,
             row.submission.code,
             row.submission.title,
+            row.submission.status,
             participants,
             review?.reviewerName ?? "",
             ...view.configuration.criteria.map((criterion) => {
