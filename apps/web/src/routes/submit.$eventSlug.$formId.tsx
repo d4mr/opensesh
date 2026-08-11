@@ -124,7 +124,12 @@ function Wizard({
   const [step, setStepState] = useState(() => {
     if (typeof window === "undefined") return 0;
     const value = Number.parseInt(window.localStorage.getItem(`${storageKey}-step`) ?? "0", 10);
-    return Number.isNaN(value) ? 0 : Math.min(4, Math.max(0, value));
+    const restored = Number.isNaN(value) ? 0 : Math.min(4, Math.max(0, value));
+    // A step beyond Account is only meaningful while a draft exists; without
+    // one a stale key would open a blank Review over an empty form.
+    return window.localStorage.getItem(`${storageKey}-draft`) === null
+      ? Math.min(restored, 1)
+      : restored;
   });
   const [submissionId, setSubmissionId] = useState<string | null>(() =>
     typeof window === "undefined" ? null : window.localStorage.getItem(`${storageKey}-draft`),
@@ -144,6 +149,7 @@ function Wizard({
   );
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [success, setSuccess] = useState(false);
   const [redirectCancelled, setRedirectCancelled] = useState(false);
   const [maxStep, setMaxStep] = useState(() => step);
@@ -159,12 +165,35 @@ function Wizard({
     setStepState(next);
   };
 
+  // The stored draft id is a cache hint, not truth — the row can be gone
+  // (database reseed) or owned by someone else after an account switch. When
+  // the server rejects it, discard the pointer and reset to a clean start
+  // instead of dead-ending every subsequent save.
+  const resetToFresh = (message?: string) => {
+    window.localStorage.removeItem(`${storageKey}-draft`);
+    setSubmissionId(null);
+    loadedDraft.current = null;
+    setAnswers(emptyAnswers(abstractFields));
+    setParticipants(
+      account.email === null
+        ? []
+        : [participantForEmail(participantFields, account.email, roleForPosition(0))],
+    );
+    setError(undefined);
+    setNotice(message);
+  };
+
   useEffect(() => {
     if (account.email === null || submissionId === null || loadedDraft.current === submissionId)
       return;
     loadedDraft.current = submissionId;
     void getPublicDraft({ data: { eventSlug, formId, submissionId } }).then((result) => {
       if (!result.ok) {
+        if (result.error.status === 404 || result.error.status === 403) {
+          resetToFresh("Your previous draft is no longer available, so this starts fresh.");
+          setStepState((current) => Math.min(current, 2));
+          return;
+        }
         setError(result.error.message);
         return;
       }
@@ -186,9 +215,20 @@ function Wizard({
     }
     setSaveState("saving");
     setError(undefined);
-    const result = await savePublicDraft({
+    let result = await savePublicDraft({
       data: { eventSlug, formId, submissionId, answers, participants },
     });
+    // 404 on an existing id means the draft row is gone (reseed, account
+    // switch) — save the same content as a new draft rather than dead-ending.
+    if (!result.ok && result.error.status === 404 && submissionId !== null) {
+      window.localStorage.removeItem(`${storageKey}-draft`);
+      setSubmissionId(null);
+      loadedDraft.current = null;
+      setNotice("Your previous draft was no longer available, so this saved as a new draft.");
+      result = await savePublicDraft({
+        data: { eventSlug, formId, submissionId: null, answers, participants },
+      });
+    }
     if (!result.ok) {
       setSaveState("idle");
       setError(result.error.message);
@@ -201,8 +241,19 @@ function Wizard({
     return result.data.id;
   };
 
+  const hasAnswerContent = Object.values(answers).some((value) =>
+    Array.isArray(value)
+      ? value.length > 0
+      : typeof value === "string"
+        ? value.trim() !== ""
+        : value != null,
+  );
+
   useEffect(() => {
     if (account.email === null || step < 2 || success) return;
+    // Never mint an empty draft — resetting to a fresh form changes state
+    // references without there being anything worth persisting yet.
+    if (submissionId === null && !hasAnswerContent) return;
     setSaveState("idle");
     const timeout = window.setTimeout(() => void save(), 700);
     return () => window.clearTimeout(timeout);
@@ -397,7 +448,12 @@ function Wizard({
             email={account.email}
             submissions={account.submissions}
             callbackUrl={`/submit/${eventSlug}/${formId}`}
-            onContinue={() => setStep(2)}
+            onContinue={() => {
+              // Starting fresh is explicit: any restored draft pointer or
+              // half-filled answers from an earlier session must not leak in.
+              resetToFresh(undefined);
+              setStep(2);
+            }}
             onResume={(id) => void resume(id)}
           />
         ) : null}
@@ -530,6 +586,11 @@ function Wizard({
         {step !== 4 && error !== undefined ? (
           <p className="mt-4 text-[13px] text-destructive">{error}</p>
         ) : null}
+        {notice === undefined ? null : (
+          <p className="mt-4 rounded-md border bg-muted/40 p-3 text-[13px] text-muted-foreground">
+            {notice}
+          </p>
+        )}
       </div>
     </PublicFrame>
   );
@@ -591,12 +652,12 @@ function AccountStep({
               Your submissions
             </p>
             <div className="divide-y overflow-hidden rounded-lg border">
-              {submissions.map((submission) => (
-                <button
-                  key={submission.id}
-                  className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
-                  onClick={() => onResume(submission.id)}
-                >
+              {submissions.map((submission) => {
+                // Decided submissions are managed from the speaker portal —
+                // the wizard only edits drafts and pending submissions, so a
+                // dead-end Edit button never renders here.
+                const editable = submission.status === "draft" || submission.status === "pending";
+                const summary = (
                   <span>
                     <span className="block text-sm font-medium">
                       {submission.title || "Untitled draft"}
@@ -606,11 +667,31 @@ function AccountStep({
                       {submission.status}
                     </span>
                   </span>
-                  <span className="text-xs font-medium text-primary">
-                    {submission.status === "draft" ? "Resume" : "Edit"}
-                  </span>
-                </button>
-              ))}
+                );
+                if (!editable) {
+                  return (
+                    <div
+                      key={submission.id}
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left"
+                    >
+                      {summary}
+                      <span className="text-xs text-muted-foreground">Managed in portal</span>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    key={submission.id}
+                    className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+                    onClick={() => onResume(submission.id)}
+                  >
+                    {summary}
+                    <span className="text-xs font-medium text-primary">
+                      {submission.status === "draft" ? "Resume" : "Edit"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : null}

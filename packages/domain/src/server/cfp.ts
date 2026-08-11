@@ -52,10 +52,28 @@ const normalizeParticipants = (
   }));
 };
 
-const customAnswers = (answers: FormAnswers, fields: ReadonlyArray<FormField>) => {
+// The mappings the save paths actually write to dedicated columns. Any other
+// mapsTo value (historical data, future bindings this code doesn't know) must
+// fall through to the answers/custom jsonb — silently dropping a typed-in
+// value is never acceptable.
+const ABSTRACT_COLUMN_MAPPINGS = new Set([
+  "title",
+  "description",
+  "format_id",
+  "level_id",
+  "tracks",
+  "tags",
+]);
+const PARTICIPANT_COLUMN_MAPPINGS = new Set(["first_name", "last_name", "email", "phone", "bio"]);
+
+const customAnswers = (
+  answers: FormAnswers,
+  fields: ReadonlyArray<FormField>,
+  columnMappings: ReadonlySet<string>,
+) => {
   const custom: Record<string, Schema.Json> = {};
   for (const field of fields) {
-    if (field.mapsTo !== null) continue;
+    if (field.mapsTo !== null && columnMappings.has(field.mapsTo)) continue;
     const value = answers[field.id];
     if (value !== undefined) custom[field.id] = value;
   }
@@ -102,7 +120,7 @@ const contactInput = (
   facebookUrl: null,
   websiteUrl: null,
   confirmedAt: null,
-  custom: customAnswers(answers, fields),
+  custom: customAnswers(answers, fields, PARTICIPANT_COLUMN_MAPPINGS),
   approvedProfile: {},
   profileReviewStatus: "approved",
   workflowStatus: "invited",
@@ -204,7 +222,7 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
       clientSessionId: null,
       notifiedAt: null,
       submittedAt: null,
-      answers: customAnswers(input.answers, abstractFields),
+      answers: customAnswers(input.answers, abstractFields, ABSTRACT_COLUMN_MAPPINGS),
       approvedSnapshot: {},
       contentReviewStatus: "approved",
     },

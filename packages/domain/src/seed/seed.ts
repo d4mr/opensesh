@@ -250,7 +250,7 @@ const devflowFormFields = [
         label: "Notes for reviewers",
         fieldType: "textarea",
         maxChars: 5000,
-        mapsTo: "notes_for_reviewers",
+        mapsTo: null,
         position: 6,
       },
     ] as const

@@ -25,7 +25,7 @@ import {
 } from "../../db/schema";
 import { Db } from "../db";
 import type { SessionIdentity } from "../current-user";
-import { DbError, Forbidden, FormClosed, type NotFound, SubmissionLimitReached } from "../errors";
+import { DbError, Forbidden, FormClosed, NotFound, SubmissionLimitReached } from "../errors";
 import { Event } from "../schema/core";
 import { Form } from "../schema/forms";
 import {
@@ -698,25 +698,45 @@ export const SubmissionsLive = Layer.effect(
             return yield* decode(Submission, "submission", rows[0]);
           }
 
+          // The draft id comes from the client (localStorage restore or a
+          // resume click), so it can point at a row that no longer exists —
+          // e.g. after a database reseed. NotFound tells the client the
+          // pointer is stale and safe to discard; ownership mismatches get
+          // the same answer so ids of other people's submissions leak
+          // nothing.
+          const existing = yield* query(database, "Could not load draft", (db) =>
+            db.select().from(submissions).where(eq(submissions.id, id)).limit(1).execute(),
+          ).pipe(Effect.map((rows) => rows[0]));
+          if (
+            existing === undefined ||
+            existing.sourceFormId !== sourceFormId ||
+            existing.submitterContactId !== submitterContactId
+          ) {
+            return yield* Effect.fail(new NotFound({ message: "This draft no longer exists" }));
+          }
+          if (existing.status !== "draft" && existing.status !== "pending") {
+            return yield* Effect.fail(
+              new Forbidden({
+                message: "This submission has been decided — make changes from your speaker portal",
+              }),
+            );
+          }
+          // Keep the lifecycle fields the wizard has no business changing: a
+          // pending submission being edited must stay pending, not silently
+          // fall out of the review desk as a draft.
           const rows = yield* query(database, "Could not save draft", (db) =>
             db
               .update(submissions)
-              .set({ ...input, status: "draft", updatedAt: new Date() })
-              .where(
-                and(
-                  eq(submissions.id, id),
-                  eq(submissions.sourceFormId, sourceFormId),
-                  eq(submissions.submitterContactId, submitterContactId),
-                ),
-              )
+              .set({
+                ...input,
+                status: existing.status,
+                submittedAt: existing.submittedAt,
+                updatedAt: new Date(),
+              })
+              .where(eq(submissions.id, id))
               .returning()
               .execute(),
           );
-          if (rows.length === 0) {
-            return yield* Effect.fail(
-              new Forbidden({ message: "You cannot edit this submission" }),
-            );
-          }
           return yield* decode(Submission, "submission", rows[0]);
         }),
       submitDraft: (id, contactId) =>
