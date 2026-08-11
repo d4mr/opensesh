@@ -16,7 +16,7 @@ import {
   SaveIcon,
   UsersIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -127,7 +127,7 @@ function FormEditor({
   const [fields, setFields] = useState<ReadonlyArray<FormFieldReplacement>>(() =>
     editorFields(data.fields),
   );
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
   const publicPath = `/submit/${eventSlug}/${data.form.id}`;
   const form = useForm({
     defaultValues: {
@@ -152,48 +152,116 @@ function FormEditor({
       adminAlertUserIds: [...data.form.adminAlertUserIds],
     },
   });
-  const save = async () => {
-    setSaving(true);
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
+  const buildPayload = () => {
     const value = form.state.values;
-    const result = await saveForm({
-      data: {
-        eventId: data.form.eventId,
-        formId: data.form.id,
-        form: {
-          kind: value.kind,
-          collectParticipants: value.collectParticipants,
-          status: value.status,
-          internalName: value.internalName,
-          externalTitle: value.externalTitle,
-          welcomeHeading: value.welcomeHeading,
-          welcomeMessage: value.welcomeMessage,
-          showWelcome: value.showWelcome,
-          abstractSection: value.abstractSection,
-          participantSection: value.participantSection,
-          participantRoles: value.participantRoles,
-          closeDate: value.closeDate.length === 0 ? null : new Date(value.closeDate),
-          submissionLimit: value.submissionLimit,
-          allowMultipleDrafts: value.allowMultipleDrafts,
-          successMessage: value.successMessage,
-          autoRedirectPortal: value.autoRedirectPortal,
-          confirmationEmailEnabled: value.confirmationEmailEnabled,
-          confirmationEmailBody: value.confirmationEmailBody,
-          adminAlertUserIds: value.adminAlertUserIds,
-        },
-        fields,
+    return {
+      eventId: data.form.eventId,
+      formId: data.form.id,
+      form: {
+        kind: value.kind,
+        collectParticipants: value.collectParticipants,
+        status: value.status,
+        internalName: value.internalName,
+        externalTitle: value.externalTitle,
+        welcomeHeading: value.welcomeHeading,
+        welcomeMessage: value.welcomeMessage,
+        showWelcome: value.showWelcome,
+        abstractSection: value.abstractSection,
+        participantSection: value.participantSection,
+        participantRoles: value.participantRoles,
+        closeDate: value.closeDate.length === 0 ? null : new Date(value.closeDate),
+        submissionLimit: value.submissionLimit,
+        allowMultipleDrafts: value.allowMultipleDrafts,
+        successMessage: value.successMessage,
+        autoRedirectPortal: value.autoRedirectPortal,
+        confirmationEmailEnabled: value.confirmationEmailEnabled,
+        confirmationEmailBody: value.confirmationEmailBody,
+        adminAlertUserIds: value.adminAlertUserIds,
       },
-    });
-    setSaving(false);
-    if (!result.ok) {
-      toast.error(result.error.message);
-      return false;
+      fields: fieldsRef.current,
+    };
+  };
+  const buildPayloadRef = useRef(buildPayload);
+  buildPayloadRef.current = buildPayload;
+  // Saves never block the UI: navigation switches steps instantly and the
+  // payload persists in the background. In-flight saves serialize — a change
+  // made mid-save queues one trailing save with the then-current values.
+  // Field ids are minted client-side, so responses need no state sync-back.
+  const lastSavedRef = useRef<string | null>(null);
+  if (lastSavedRef.current === null) lastSavedRef.current = JSON.stringify(buildPayload());
+  const inFlightRef = useRef(false);
+  const queuedRef = useRef(false);
+  const persist = async (): Promise<void> => {
+    if (inFlightRef.current) {
+      queuedRef.current = true;
+      return;
     }
-    setFields(editorFields(result.data.fields));
-    return true;
+    const payload = buildPayloadRef.current();
+    const json = JSON.stringify(payload);
+    if (json === lastSavedRef.current) {
+      setSaveState("saved");
+      return;
+    }
+    inFlightRef.current = true;
+    setSaveState("saving");
+    const result = await saveForm({ data: payload });
+    inFlightRef.current = false;
+    if (!result.ok) {
+      setSaveState("error");
+      toast.error(result.error.message);
+      return;
+    }
+    lastSavedRef.current = json;
+    if (queuedRef.current) {
+      queuedRef.current = false;
+      return persist();
+    }
+    setSaveState(
+      JSON.stringify(buildPayloadRef.current()) === lastSavedRef.current ? "saved" : "dirty",
+    );
   };
-  const changeStep = async (next: number) => {
-    if (await save()) setStep(next);
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  const changeStep = (next: number) => {
+    setStep(next);
+    void persist();
   };
+  const markDirty = () => {
+    if (inFlightRef.current) return;
+    setSaveState((current) =>
+      JSON.stringify(buildPayloadRef.current()) === lastSavedRef.current
+        ? current === "saving"
+          ? current
+          : "saved"
+        : "dirty",
+    );
+  };
+  const markDirtyRef = useRef(markDirty);
+  markDirtyRef.current = markDirty;
+  useEffect(() => {
+    const subscription = form.store.subscribe(() => markDirtyRef.current());
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => markDirtyRef.current(), [fields]);
+  // Trailing autosave: two quiet seconds after edits begin, persist.
+  useEffect(() => {
+    if (saveState !== "dirty") return;
+    const timer = window.setTimeout(() => void persistRef.current(), 2000);
+    return () => window.clearTimeout(timer);
+  }, [saveState]);
+  const saveStateRef = useRef(saveState);
+  saveStateRef.current = saveState;
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (saveStateRef.current === "saved") return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
 
   return (
     <main className="flex-1 p-4 text-sm lg:p-6">
@@ -222,8 +290,21 @@ function FormEditor({
           >
             <ClipboardIcon /> Copy link
           </Button>
-          <Button size="sm" disabled={saving} onClick={() => void save()}>
-            <SaveIcon /> {saving ? "Saving…" : "Save"}
+          <span
+            className="text-xs text-muted-foreground tabular-nums"
+            role="status"
+            aria-live="polite"
+          >
+            {saveState === "saving"
+              ? "Saving…"
+              : saveState === "dirty"
+                ? "Unsaved changes"
+                : saveState === "error"
+                  ? "Save failed"
+                  : "Saved"}
+          </span>
+          <Button size="sm" onClick={() => void persist()}>
+            <SaveIcon /> Save
           </Button>
         </div>
       </div>
@@ -242,7 +323,7 @@ function FormEditor({
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:bg-muted",
               )}
-              onClick={() => void changeStep(index)}
+              onClick={() => changeStep(index)}
             >
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px]">
                 {index < step ? <CheckIcon className="size-3" /> : index + 1}
@@ -595,21 +676,13 @@ function FormEditor({
             ) : null}
 
             <div className="flex items-center justify-between border-t pt-4">
-              <Button
-                variant="outline"
-                disabled={step === 0 || saving}
-                onClick={() => void changeStep(step - 1)}
-              >
+              <Button variant="outline" disabled={step === 0} onClick={() => changeStep(step - 1)}>
                 Back
               </Button>
               {step === steps.length - 1 ? (
-                <Button disabled={saving} onClick={() => void save()}>
-                  {saving ? "Saving…" : "Save form"}
-                </Button>
+                <Button onClick={() => void persist()}>Save form</Button>
               ) : (
-                <Button disabled={saving} onClick={() => void changeStep(step + 1)}>
-                  {saving ? "Saving…" : "Next"}
-                </Button>
+                <Button onClick={() => changeStep(step + 1)}>Next</Button>
               )}
             </div>
           </CardContent>
