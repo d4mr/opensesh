@@ -29,6 +29,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { EditorHeader } from "@/components/app/editor-header";
+import { StatusBadge } from "@/components/app/status-badge";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { EntityCombobox } from "@/components/forms/entity-combobox";
 import { PersonHoverCard } from "@/components/app/person-popover";
@@ -291,7 +292,12 @@ export function EvaluationRoundEditor({
             <ProgressPane eventId={eventId} view={view} refresh={refresh} />
           </TabsContent>
           <TabsContent value="results" className="mt-0 flex min-h-0 flex-1 flex-col">
-            <ResultsPane eventId={eventId} view={view} refresh={refresh} />
+            <ResultsPane
+              eventId={eventId}
+              aiConfigured={workspace.aiConfigured}
+              view={view}
+              refresh={refresh}
+            />
           </TabsContent>
         </Tabs>
       )}
@@ -879,7 +885,16 @@ function AssignmentsPane({
     if (!result.ok) return toast.error(result.error.message);
     setSelected(new Set());
     await refresh();
-    toast.success(`Assigned ${result.data.assigned} ${plural(result.data.assigned, "submission")}`);
+    if (result.data.created === 0) {
+      toast.info("No new assignments — all selected submissions already assigned");
+      return;
+    }
+    toast.success(
+      `Assigned ${result.data.created} ${plural(result.data.created, "submission")}`,
+      result.data.skipped === 0
+        ? undefined
+        : { description: `Skipped ${result.data.skipped} already assigned or capped.` },
+    );
   };
   const unassign = async () => {
     if (confirmAssignment === undefined) return;
@@ -1125,6 +1140,16 @@ function ProgressPane({
     if (!result.ok) return toast.error(result.error.message);
     setSelected(new Set());
     await refresh();
+    if (result.data.failed > 0) {
+      toast.error(
+        `Failed ${result.data.failed} of ${result.data.queued} ${plural(result.data.queued, "reminder")}`,
+      );
+      return;
+    }
+    if (result.data.queued === 0) {
+      toast.info("No reminders queued — selected reviewers have no pending reviews");
+      return;
+    }
     toast.success(`Sent ${result.data.sent} ${plural(result.data.sent, "reminder")}`);
   };
   return (
@@ -1215,10 +1240,12 @@ function ProgressPane({
 
 function ResultsPane({
   eventId,
+  aiConfigured,
   view,
   refresh,
 }: {
   readonly eventId: string;
+  readonly aiConfigured: boolean;
   readonly view: ReviewRoundAdminView;
   readonly refresh: () => Promise<unknown>;
 }) {
@@ -1312,6 +1339,7 @@ function ResultsPane({
           <TableHeader>
             <TableRow className="h-8">
               <TableHead className="h-8 min-w-72 text-xs">Submission</TableHead>
+              <TableHead className="h-8 min-w-24 text-xs">Status</TableHead>
               {view.configuration.criteria.map((criterion) => (
                 <TableHead key={criterion.id} className="h-8 min-w-28 text-xs">
                   {criterion.label}
@@ -1329,6 +1357,7 @@ function ResultsPane({
               <ResultsRows
                 key={row.submission.id}
                 eventId={eventId}
+                aiConfigured={aiConfigured}
                 row={row}
                 view={view}
                 generating={generating === row.submission.id}
@@ -1346,6 +1375,7 @@ function ResultsPane({
 
 function ResultsRows({
   eventId,
+  aiConfigured,
   row,
   view,
   generating,
@@ -1354,6 +1384,7 @@ function ResultsRows({
   refresh,
 }: {
   readonly eventId: string;
+  readonly aiConfigured: boolean;
   readonly row: EvaluationResultRow;
   readonly view: ReviewRoundAdminView;
   readonly generating: boolean;
@@ -1376,6 +1407,9 @@ function ResultsRows({
               .map((participant) => `${participant.name} (${participant.role})`)
               .join("; ")}
           </p>
+        </TableCell>
+        <TableCell>
+          <StatusBadge status={row.submission.status} />
         </TableCell>
         {view.configuration.criteria.map((criterion) => (
           <TableCell key={criterion.id} className="text-xs">
@@ -1406,7 +1440,7 @@ function ResultsRows({
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={view.configuration.criteria.length + 4} className="bg-muted/10 p-3">
+        <TableCell colSpan={view.configuration.criteria.length + 5} className="bg-muted/10 p-3">
           <div className="grid gap-3 xl:grid-cols-2">
             <div className="rounded-lg border bg-background p-3">
               <div className="flex items-center justify-between">
@@ -1452,7 +1486,8 @@ function ResultsRows({
                     size="sm"
                     variant="outline"
                     className="pressable ml-auto"
-                    disabled={generating}
+                    disabled={generating || !aiConfigured}
+                    title={aiConfigured ? undefined : "Anthropic key not configured"}
                     onClick={generate}
                   >
                     <SparklesIcon /> {generating ? "Generating…" : "Run AI review"}
@@ -1460,7 +1495,9 @@ function ResultsRows({
                 ) : null}
               </div>
               {row.aiResult === null ? (
-                aiError === undefined ? (
+                !aiConfigured ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Anthropic key not configured</p>
+                ) : aiError === undefined ? (
                   <p className="mt-2 text-xs text-muted-foreground">
                     No AI review generated. A configured Anthropic key is required; failures are
                     shown without fabricated output.

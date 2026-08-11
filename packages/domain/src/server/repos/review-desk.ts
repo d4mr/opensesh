@@ -12,6 +12,9 @@ import {
   forms,
   levels,
   organizationMembers,
+  reviewAnswers,
+  reviewAssignments,
+  reviewCriteria,
   reviewerTracks,
   reviews,
   submissionParticipants,
@@ -47,6 +50,12 @@ import {
   renderDecisionEmail,
   type SubmissionDecision,
 } from "../schema/review-desk";
+import {
+  HumanReviewResult,
+  ReviewAnswer,
+  ReviewAssignment,
+  ReviewCriterion,
+} from "../schema/reviews";
 import { ReviewDecision, SubmissionKind, SubmissionStatus } from "../schema/submissions";
 import { decode, decodeFound, decodeMany, query } from "./shared";
 
@@ -79,6 +88,8 @@ const RawListRow = Schema.Struct({
   contactHeadshotUrl: NullableString,
   contactConfirmedAt: NullableDate,
   contactCustom: Schema.NullOr(JsonObject),
+  participantRole: NullableString,
+  participantPosition: NullableNumber,
   reviewId: NullableString,
   reviewerId: NullableString,
   reviewerName: NullableString,
@@ -109,6 +120,19 @@ const RawDetailRow = Schema.Struct({
   emailCreatedAt: NullableDate,
 });
 type RawDetailRow = typeof RawDetailRow.Type;
+
+const CompletedRoundReviewRow = Schema.Struct({
+  assignmentId: Schema.String,
+  submissionId: Schema.String,
+});
+
+const RawRoundReviewRow = Schema.Struct({
+  assignment: ReviewAssignment,
+  reviewerName: Schema.String,
+  reviewerEmail: Schema.String,
+  answer: Schema.NullOr(ReviewAnswer),
+  criterion: Schema.NullOr(ReviewCriterion),
+});
 
 interface MutableListItem {
   readonly base: Omit<
@@ -168,6 +192,8 @@ const makeListItems = (rows: ReadonlyArray<RawListRow>) => {
         id: row.contactId,
         name: `${row.contactFirstName} ${row.contactLastName}`.trim(),
         email: row.contactEmail,
+        role: row.participantRole ?? "Speaker",
+        position: row.participantPosition ?? 0,
         bioPresent: row.contactBio !== null && row.contactBio.trim().length > 0,
         headshotUrl: row.contactHeadshotUrl,
         confirmedAt: row.contactConfirmedAt,
@@ -241,6 +267,8 @@ const rawListSelection = {
   contactHeadshotUrl: contacts.headshotUrl,
   contactConfirmedAt: contacts.confirmedAt,
   contactCustom: contacts.custom,
+  participantRole: submissionParticipants.role,
+  participantPosition: submissionParticipants.position,
   reviewId: reviews.id,
   reviewerId: reviews.reviewerId,
   reviewerName: users.name,
@@ -308,10 +336,70 @@ const listQuery = (
             : eq(events.organizationId, session.activeOrganizationId),
         ),
       )
-      .orderBy(desc(submissions.submittedAt), desc(submissions.createdAt))
+      .orderBy(
+        desc(submissions.submittedAt),
+        desc(submissions.createdAt),
+        asc(submissionParticipants.position),
+      )
       .execute(),
   );
 };
+
+const completedRoundReviewRows = (
+  database: Database,
+  eventId: string,
+  submissionIds: ReadonlyArray<string>,
+) =>
+  submissionIds.length === 0
+    ? Effect.succeed([])
+    : query(database, "Could not count completed round reviews", (db) =>
+        db
+          .select({
+            assignmentId: reviewAssignments.id,
+            submissionId: reviewAssignments.submissionId,
+          })
+          .from(reviewAssignments)
+          .innerJoin(submissions, eq(submissions.id, reviewAssignments.submissionId))
+          .where(
+            and(
+              eq(submissions.eventId, eventId),
+              eq(reviewAssignments.status, "completed"),
+              inArray(reviewAssignments.submissionId, submissionIds),
+            ),
+          )
+          .execute(),
+      ).pipe(
+        Effect.flatMap((rows) =>
+          decodeMany(CompletedRoundReviewRow, "completed round review", rows),
+        ),
+      );
+
+const roundReviewRows = (database: Database, eventId: string, submissionId: string) =>
+  query(database, "Could not load completed round reviews", (db) =>
+    db
+      .select({
+        assignment: reviewAssignments,
+        reviewerName: users.name,
+        reviewerEmail: users.email,
+        answer: reviewAnswers,
+        criterion: reviewCriteria,
+      })
+      .from(reviewAssignments)
+      .innerJoin(submissions, eq(submissions.id, reviewAssignments.submissionId))
+      .innerJoin(eventMembers, eq(eventMembers.id, reviewAssignments.eventMemberId))
+      .innerJoin(users, eq(users.id, eventMembers.userId))
+      .leftJoin(reviewAnswers, eq(reviewAnswers.assignmentId, reviewAssignments.id))
+      .leftJoin(reviewCriteria, eq(reviewCriteria.id, reviewAnswers.criterionId))
+      .where(
+        and(
+          eq(submissions.eventId, eventId),
+          eq(reviewAssignments.submissionId, submissionId),
+          eq(reviewAssignments.status, "completed"),
+        ),
+      )
+      .orderBy(desc(reviewAssignments.completedAt), asc(reviewCriteria.position))
+      .execute(),
+  ).pipe(Effect.flatMap((rows) => decodeMany(RawRoundReviewRow, "round review row", rows)));
 
 type ReviewDeskFailure = DbError | Forbidden | InvalidInput | NotFound | AlreadyDecided;
 
@@ -466,7 +554,26 @@ export const ReviewDeskLive = Layer.effect(
           ),
           Effect.flatMap((rows) => decodeMany(RawListRow, "review desk row", rows)),
           Effect.flatMap((rows) =>
-            decodeMany(ReviewDeskListItem, "review desk submission", makeListItems(rows)),
+            Effect.gen(function* () {
+              const items = makeListItems(rows);
+              const roundRows = yield* completedRoundReviewRows(
+                database,
+                eventId,
+                items.map((item) => item.id),
+              );
+              const roundCounts = new Map<string, number>();
+              for (const row of roundRows) {
+                roundCounts.set(row.submissionId, (roundCounts.get(row.submissionId) ?? 0) + 1);
+              }
+              return yield* decodeMany(
+                ReviewDeskListItem,
+                "review desk submission",
+                items.map((item) => ({
+                  ...item,
+                  reviewCount: item.reviewCount + (roundCounts.get(item.id) ?? 0),
+                })),
+              );
+            }),
           ),
           Effect.flatMap((items) => {
             const trackMap = new Map<string, ReviewDeskTrack>();
@@ -558,7 +665,12 @@ export const ReviewDeskLive = Layer.effect(
                     : eq(events.organizationId, session.activeOrganizationId),
                 ),
               )
-              .orderBy(asc(formFields.position), asc(reviews.createdAt), desc(emailLog.createdAt))
+              .orderBy(
+                asc(formFields.position),
+                asc(submissionParticipants.position),
+                asc(reviews.createdAt),
+                desc(emailLog.createdAt),
+              )
               .execute(),
           ).pipe(
             Effect.filterOrFail(
@@ -579,6 +691,41 @@ export const ReviewDeskLive = Layer.effect(
                 const speakers = new Map<string, RawDetailRow>();
                 const reviewMap = new Map<string, ReviewDeskReview>();
                 const emailMap = new Map<string, ReviewDeskEmail>();
+                const rawRoundReviews = yield* roundReviewRows(database, eventId, submissionId);
+                const roundReviews = yield* decodeMany(
+                  HumanReviewResult,
+                  "round review",
+                  Array.from(
+                    new Map(
+                      rawRoundReviews.map((row) => [row.assignment.id, row.assignment]),
+                    ).values(),
+                  ).map((assignment) => {
+                    const identity = rawRoundReviews.find(
+                      (row) => row.assignment.id === assignment.id,
+                    );
+                    return {
+                      assignment,
+                      reviewerName: identity?.reviewerName ?? "Reviewer",
+                      reviewerEmail: identity?.reviewerEmail ?? "",
+                      answers: rawRoundReviews.flatMap((row) =>
+                        row.assignment.id !== assignment.id ||
+                        row.answer === null ||
+                        row.criterion === null
+                          ? []
+                          : [
+                              {
+                                criterionId: row.criterion.id,
+                                label: row.criterion.label,
+                                type: row.criterion.type,
+                                numericValue: row.answer.numericValue,
+                                textValue: row.answer.textValue,
+                                optionValue: row.answer.optionValue,
+                              },
+                            ],
+                      ),
+                    };
+                  }),
+                );
                 for (const row of rows) {
                   if (row.contactId !== null) speakers.set(row.contactId, row);
                   if (
@@ -717,9 +864,13 @@ export const ReviewDeskLive = Layer.effect(
                       ]),
                 ].sort((left, right) => right.at.getTime() - left.at.getTime());
                 return yield* decode(ReviewDeskDetail, "submission detail", {
-                  submission: item,
+                  submission: {
+                    ...item,
+                    reviewCount: item.reviewCount + roundReviews.length,
+                  },
                   answers: Array.from(answerMap.values()),
                   reviews: Array.from(reviewMap.values()),
+                  roundReviews,
                   activity,
                   emails: Array.from(emailMap.values()),
                 });

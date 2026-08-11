@@ -83,6 +83,18 @@ export const ReviewAssignment = Schema.Struct({
 });
 export type ReviewAssignment = typeof ReviewAssignment.Type;
 
+export const ReviewAssignmentMutation = Schema.Struct({
+  assignment: ReviewAssignment,
+  created: Schema.Boolean,
+});
+export type ReviewAssignmentMutation = typeof ReviewAssignmentMutation.Type;
+
+export const ReviewAssignmentBatch = Schema.Struct({
+  assignments: Schema.Array(ReviewAssignment),
+  skipped: Schema.Number,
+});
+export type ReviewAssignmentBatch = typeof ReviewAssignmentBatch.Type;
+
 export const ReviewAnswer = Schema.Struct({
   ...EntityFields,
   assignmentId: Schema.String,
@@ -234,6 +246,7 @@ export type ReviewRoundAdminView = typeof ReviewRoundAdminView.Type;
 
 export const EvaluationAdminWorkspace = Schema.Struct({
   eventId: Schema.String,
+  aiConfigured: Schema.Boolean,
   tracks: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
   rounds: Schema.Array(ReviewRoundAdminView),
 });

@@ -299,33 +299,72 @@ export function SubmissionDetail({
               </div>
             </DetailSection>
 
-            <DetailSection title={`Reviews · ${data.reviews.length}`} className="divide-y">
-              {data.reviews.length === 0 ? (
+            <DetailSection
+              title={`Reviews · ${data.reviews.length + data.roundReviews.length}`}
+              className="divide-y"
+            >
+              {data.reviews.length + data.roundReviews.length === 0 ? (
                 <EmptyRow>No reviews yet.</EmptyRow>
               ) : (
-                data.reviews.map((review) => (
-                  <div key={review.id} className="space-y-2 px-3 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <SpeakerBadge
-                        person={{
-                          name: review.reviewerName,
-                          image: review.reviewerImage,
-                          title: null,
-                          company: null,
-                          bio: null,
-                          status: null,
-                        }}
-                      />
-                      <ReviewBadge review={review} />
-                      <span className="ml-auto text-xs font-medium tabular-nums">
-                        {review.score ?? "—"}/5
-                      </span>
+                <>
+                  {data.reviews.map((review) => (
+                    <div key={review.id} className="space-y-2 px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <SpeakerBadge
+                          person={{
+                            name: review.reviewerName,
+                            image: review.reviewerImage,
+                            title: null,
+                            company: null,
+                            bio: null,
+                            status: null,
+                          }}
+                        />
+                        <ReviewBadge review={review} />
+                        <span className="ml-auto text-xs font-medium tabular-nums">
+                          {review.score ?? "—"}/5
+                        </span>
+                      </div>
+                      {review.comment === null ? null : (
+                        <p className="text-xs leading-5 text-muted-foreground">{review.comment}</p>
+                      )}
                     </div>
-                    {review.comment === null ? null : (
-                      <p className="text-xs leading-5 text-muted-foreground">{review.comment}</p>
-                    )}
-                  </div>
-                ))
+                  ))}
+                  {data.roundReviews.map((review) => (
+                    <div key={review.assignment.id} className="space-y-2 px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <SpeakerBadge
+                          person={{
+                            name: review.reviewerName,
+                            image: null,
+                            title: null,
+                            company: null,
+                            bio: null,
+                            status: null,
+                          }}
+                        />
+                        <Badge variant="outline">Round review</Badge>
+                        {review.assignment.completedAt === null ? null : (
+                          <Timestamp
+                            value={review.assignment.completedAt}
+                            timezone={context.event.timezone}
+                            className="ml-auto text-xs text-muted-foreground"
+                          />
+                        )}
+                      </div>
+                      <dl className="space-y-1">
+                        {review.answers.map((answer) => (
+                          <div key={answer.criterionId} className="flex gap-2 text-xs">
+                            <dt className="text-muted-foreground">{answer.label}</dt>
+                            <dd className="ml-auto text-right font-medium">
+                              {answer.numericValue ?? answer.optionValue ?? answer.textValue ?? "—"}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  ))}
+                </>
               )}
             </DetailSection>
 

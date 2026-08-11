@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
 import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 
 import {
@@ -43,6 +43,8 @@ import {
   ReviewAnswer,
   type ReviewAnswerInput,
   ReviewAssignment,
+  ReviewAssignmentBatch,
+  ReviewAssignmentMutation,
   ReviewCriterion,
   type ReviewCriterionSave,
   ReviewProgress,
@@ -110,11 +112,14 @@ interface ReviewsService {
     roundId: string,
     submissionId: string,
     eventMemberId: string,
-  ) => Effect.Effect<ReviewAssignment, DbError | NotFound | RoundClosed | AssignmentCapExceeded>;
+  ) => Effect.Effect<
+    ReviewAssignmentMutation,
+    DbError | NotFound | RoundClosed | AssignmentCapExceeded
+  >;
   readonly autoDistribute: (
     roundId: string,
     trackIds: ReadonlyArray<string>,
-  ) => Effect.Effect<ReadonlyArray<ReviewAssignment>, DbError | NotFound | RoundClosed>;
+  ) => Effect.Effect<ReviewAssignmentBatch, DbError | NotFound | RoundClosed>;
   readonly unassign: (
     roundId: string,
     assignmentId: string,
@@ -278,6 +283,10 @@ export const ReviewsLive = Layer.effect(
 
     const loadAdminWorkspace = (eventId: string) =>
       Effect.gen(function* () {
+        const apiKey = yield* Config.option(Config.string("ANTHROPIC_API_KEY")).pipe(
+          Effect.orElseSucceed(() => Option.none<string>()),
+        );
+        const aiConfigured = Option.isSome(apiKey) && apiKey.value.trim().length > 0;
         const [
           roundRows,
           criterionRows,
@@ -355,7 +364,12 @@ export const ReviewsLive = Layer.effect(
                 )
                 .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
                 .leftJoin(users, eq(users.email, contacts.email))
-                .where(and(eq(submissions.eventId, eventId), eq(submissions.kind, "abstract")))
+                .where(
+                  and(
+                    eq(submissions.eventId, eventId),
+                    or(isNotNull(submissions.sourceFormId), eq(submissions.kind, "abstract")),
+                  ),
+                )
                 .orderBy(asc(submissions.code), asc(submissionParticipants.position))
                 .execute(),
             ),
@@ -579,6 +593,7 @@ export const ReviewsLive = Layer.effect(
 
         return yield* decode(EvaluationAdminWorkspace, "evaluation workspace", {
           eventId,
+          aiConfigured,
           tracks: trackRows,
           rounds: roundViews,
         });
@@ -1312,7 +1327,8 @@ export const ReviewsLive = Layer.effect(
               )
               .limit(1)
               .execute();
-            if (existing !== undefined) return { kind: "ok" as const, row: existing };
+            if (existing !== undefined)
+              return { kind: "ok" as const, row: existing, created: false };
             const current = await transaction
               .select({ status: reviewAssignments.status })
               .from(reviewAssignments)
@@ -1335,7 +1351,7 @@ export const ReviewsLive = Layer.effect(
               .onConflictDoNothing()
               .returning()
               .execute();
-            if (created !== undefined) return { kind: "ok" as const, row: created };
+            if (created !== undefined) return { kind: "ok" as const, row: created, created: true };
             const [concurrent] = await transaction
               .select()
               .from(reviewAssignments)
@@ -1350,18 +1366,18 @@ export const ReviewsLive = Layer.effect(
               .execute();
             return concurrent === undefined
               ? { kind: "notFound" as const }
-              : { kind: "ok" as const, row: concurrent };
+              : { kind: "ok" as const, row: concurrent, created: false };
           }),
         ).pipe(
           Effect.flatMap(
             (
               outcome,
             ): Effect.Effect<
-              ReviewAssignment,
+              ReviewAssignmentMutation,
               DbError | NotFound | RoundClosed | AssignmentCapExceeded
             > => {
               if (outcome.kind === "notFound")
-                return decodeFound(ReviewAssignment, "Review assignment", undefined);
+                return decodeFound(ReviewAssignmentMutation, "Review assignment", undefined);
               if (outcome.kind === "closed")
                 return Effect.fail(new RoundClosed({ message: "This review round is closed" }));
               if (outcome.kind === "cap")
@@ -1370,7 +1386,10 @@ export const ReviewsLive = Layer.effect(
                     message: "This reviewer has reached their assignment cap",
                   }),
                 );
-              return decode(ReviewAssignment, "review assignment", outcome.row);
+              return decode(ReviewAssignmentMutation, "review assignment mutation", {
+                assignment: outcome.row,
+                created: outcome.created,
+              });
             },
           ),
         ),
@@ -1401,7 +1420,10 @@ export const ReviewsLive = Layer.effect(
                 .select({ id: submissions.id })
                 .from(submissions)
                 .where(
-                  and(eq(submissions.eventId, round.eventId), eq(submissions.status, "pending")),
+                  and(
+                    eq(submissions.eventId, round.eventId),
+                    inArray(submissions.status, ["pending", "maybe"]),
+                  ),
                 )
                 .execute(),
               trackIds.length === 0
@@ -1426,27 +1448,35 @@ export const ReviewsLive = Layer.effect(
                 eventMemberId: assignment.eventMemberId,
               })),
             });
-            if (planned.length === 0) return { kind: "ok" as const, rows: [] };
+            if (planned.length === 0)
+              return { kind: "ok" as const, rows: [], skipped: candidates.length };
             const created = await transaction
               .insert(reviewAssignments)
               .values(planned.map((item) => ({ ...item, roundId, assignedAt: new Date() })))
               .onConflictDoNothing()
               .returning()
               .execute();
-            return { kind: "ok" as const, rows: created };
+            return {
+              kind: "ok" as const,
+              rows: created,
+              skipped: candidates.length - created.length,
+            };
           }),
         ).pipe(
           Effect.flatMap(
-            (
-              outcome,
-            ): Effect.Effect<ReadonlyArray<ReviewAssignment>, DbError | NotFound | RoundClosed> => {
+            (outcome): Effect.Effect<ReviewAssignmentBatch, DbError | NotFound | RoundClosed> => {
               if (outcome.kind === "notFound")
-                return decodeFound(ReviewAssignment, "Review round", undefined).pipe(
-                  Effect.map((assignment) => [assignment]),
-                );
+                return decodeFound(ReviewAssignmentBatch, "Review round", undefined);
               if (outcome.kind === "closed")
                 return Effect.fail(new RoundClosed({ message: "This review round is closed" }));
-              return decodeMany(ReviewAssignment, "review assignment", outcome.rows);
+              return decodeMany(ReviewAssignment, "review assignment", outcome.rows).pipe(
+                Effect.flatMap((assignments) =>
+                  decode(ReviewAssignmentBatch, "review assignment batch", {
+                    assignments,
+                    skipped: outcome.skipped,
+                  }),
+                ),
+              );
             },
           ),
         ),

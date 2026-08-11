@@ -61,7 +61,8 @@ export function DecisionDialog({
   }, [initialDecision, open, submissions]);
 
   const first = submissions[0];
-  const speaker = first?.speakers[0];
+  const speaker =
+    first?.speakers.find((candidate) => /primary/i.test(candidate.role)) ?? first?.speakers[0];
   const preview = renderDecisionEmail({
     decision,
     eventName,
@@ -167,10 +168,10 @@ export function DecisionDialog({
             <p className="text-xs font-medium text-muted-foreground">Email preview</p>
             <p className="mt-2 text-sm font-semibold">{preview.subject}</p>
             <div className="mt-3 whitespace-pre-wrap text-sm leading-6">{preview.text}</div>
-            {submissions.length > 1 ? (
+            {submissions.length > 1 || (first?.speakers.length ?? 0) > 1 ? (
               <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
-                Previewing the first recipient. The same personal message is included for all
-                {` ${submissions.length}`} submissions.
+                Previewing the first recipient. A separate personalized message is sent to every
+                recipient.
               </p>
             ) : null}
           </div>

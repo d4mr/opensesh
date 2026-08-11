@@ -183,7 +183,11 @@ export function ReviewerEvaluationWorkspace({
       toast.error(result.error.message);
       return;
     }
-    await refresh();
+    await Promise.all([
+      refresh(),
+      queryClient.invalidateQueries({ queryKey: ["review-desk", data.eventId] }),
+      queryClient.invalidateQueries({ queryKey: ["review-desk-detail", data.eventId] }),
+    ]);
     toast.success(`Completed review for ${selected.item.code}`);
   };
 
