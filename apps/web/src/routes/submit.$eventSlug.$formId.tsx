@@ -178,7 +178,12 @@ function Wizard({
   }, [account.email, eventSlug, formId, participantFields, submissionId]);
 
   const save = async () => {
-    if (account.email === null) return null;
+    // A signed-out session (expired or never signed in) cannot save; a silent
+    // null here would make Continue a dead click, so route to the sign-in step.
+    if (account.email === null) {
+      setStep(1);
+      return null;
+    }
     setSaveState("saving");
     setError(undefined);
     const result = await savePublicDraft({
