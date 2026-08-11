@@ -9,23 +9,20 @@ const eventId = "evt_aie_nyc_2026";
 const eventSlug = "ai-engineer-nyc-2026";
 const feedback = "Strong architecture and unusually concrete production lessons.";
 
-const dana: SessionIdentity = {
-  userId: "usr_dana",
-  email: "demo@opensesh.io",
-  activeOrganizationId: "org_ai_engineer",
-};
 const rey: SessionIdentity = {
   userId: "usr_rey",
   email: "reviewer@opensesh.io",
+  name: "Rey Reviewer",
   activeOrganizationId: "org_ai_engineer",
 };
+const reyViewer = { userId: rey.userId, isAdmin: false };
 
 const verify = Effect.gen(function* () {
   const reviewDesk = yield* ReviewDesk;
   const tasks = yield* Tasks;
   const events = yield* Events;
   const reviewerEvents = yield* events.listForAdmin(rey, eventSlug);
-  const initialQueue = yield* reviewDesk.evaluationQueue(rey, eventSlug, eventId);
+  const initialQueue = yield* reviewDesk.evaluationQueue(reyViewer, eventId);
   const reviewTarget = initialQueue.items.find((item) => item.myReview === null);
   const acceptTarget = initialQueue.items.find((item) => item.submission.code === "SESS-2");
   if (reviewTarget === undefined || acceptTarget === undefined) {
@@ -34,15 +31,15 @@ const verify = Effect.gen(function* () {
     );
   }
 
-  const savedReview = yield* reviewDesk.upsertReview(rey, eventSlug, {
+  const savedReview = yield* reviewDesk.upsertReview(reyViewer, {
     eventId,
     submissionId: reviewTarget.submission.id,
     decision: "approve",
     score: 5,
     comment: feedback,
   });
-  const reviewedQueue = yield* reviewDesk.evaluationQueue(rey, eventSlug, eventId);
-  const firstDecision = yield* reviewDesk.decide(eventSlug, {
+  const reviewedQueue = yield* reviewDesk.evaluationQueue(reyViewer, eventId);
+  const firstDecision = yield* reviewDesk.decide({
     eventId,
     submissionIds: [acceptTarget.submission.id],
     decision: "accept",
@@ -53,12 +50,7 @@ const verify = Effect.gen(function* () {
     reviewDesk.markEmail(delivery.logId, "sent"),
   );
 
-  const acceptedDetail = yield* reviewDesk.detail(
-    dana,
-    eventSlug,
-    eventId,
-    acceptTarget.submission.id,
-  );
+  const acceptedDetail = yield* reviewDesk.detail(eventId, acceptTarget.submission.id);
   const taskGroups = yield* Effect.all(
     [
       ...acceptedDetail.submission.speakers.map((speaker) =>
@@ -70,7 +62,7 @@ const verify = Effect.gen(function* () {
   );
   const taskCount = taskGroups.reduce((total, assignments) => total + assignments.length, 0);
 
-  const retry = yield* reviewDesk.decide(eventSlug, {
+  const retry = yield* reviewDesk.decide({
     eventId,
     submissionIds: [acceptTarget.submission.id],
     decision: "accept",
@@ -91,7 +83,7 @@ const verify = Effect.gen(function* () {
     0,
   );
 
-  const abstracts = yield* reviewDesk.list(dana, eventSlug, eventId, "abstract");
+  const abstracts = yield* reviewDesk.list(eventId, "abstract");
   const undoTarget = abstracts.submissions.find(
     (submission) => submission.status === "pending" && submission.id !== acceptTarget.submission.id,
   );
@@ -100,8 +92,8 @@ const verify = Effect.gen(function* () {
       new InvalidInput({ message: "Review desk verification needs an inline status target" }),
     );
   }
-  yield* reviewDesk.changeStatus(eventSlug, eventId, undoTarget.id, "maybe");
-  const undone = yield* reviewDesk.changeStatus(eventSlug, eventId, undoTarget.id, "pending");
+  yield* reviewDesk.changeStatus(eventId, undoTarget.id, "maybe");
+  const undone = yield* reviewDesk.changeStatus(eventId, undoTarget.id, "pending");
   const declineTargets = abstracts.submissions
     .filter(
       (submission) =>
@@ -115,7 +107,7 @@ const verify = Effect.gen(function* () {
       new InvalidInput({ message: "Review desk verification needs two pending submissions" }),
     );
   }
-  const declined = yield* reviewDesk.decide(eventSlug, {
+  const declined = yield* reviewDesk.decide({
     eventId,
     submissionIds: declineTargets.map((submission) => submission.id),
     decision: "decline",
@@ -125,12 +117,7 @@ const verify = Effect.gen(function* () {
   yield* Effect.forEach(declined.deliveries, (delivery) =>
     reviewDesk.markEmail(delivery.logId, "sent"),
   );
-  const declinedDetail = yield* reviewDesk.detail(
-    dana,
-    eventSlug,
-    eventId,
-    declineTargets[0]?.id ?? "",
-  );
+  const declinedDetail = yield* reviewDesk.detail(eventId, declineTargets[0]?.id ?? "");
 
   const acceptedEmails = acceptedDetail.emails.filter((email) => email.type === "accepted");
   const checks = [

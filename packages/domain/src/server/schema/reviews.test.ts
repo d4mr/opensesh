@@ -150,7 +150,7 @@ describe("review domain", () => {
       model: "fixture-model",
       overriddenScore: null,
       overrideReason: null,
-      overriddenByEventMemberId: null,
+      overriddenByUserId: null,
       overriddenAt: null,
       createdAt: now,
       updatedAt: now,
@@ -160,6 +160,6 @@ describe("review domain", () => {
     expect(overridden.score).toBe(4.2);
     expect(overridden.overriddenScore).toBe(3.5);
     expect(overridden.overrideReason).toBe("Needs more novelty");
-    expect(overridden.overriddenByEventMemberId).toBe("jordan");
+    expect(overridden.overriddenByUserId).toBe("jordan");
   });
 });

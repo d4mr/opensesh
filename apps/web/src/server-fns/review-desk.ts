@@ -9,68 +9,70 @@ import {
   type CsvColumn,
   type ReviewDeskListItem,
 } from "@opensesh/domain";
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
 import { Contacts, Events, Portal, ReviewDesk, Submissions } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
-import { runServer, runSessionServer } from "@/server/runtime";
-
-// Resolves the slug of the event being managed and verifies the signed-in
-// admin belongs to its organization — the session's default event slug is
-// wrong once the organizer switches events.
-const requireManagedEvent = Effect.fn("requireManagedEvent")(function* (eventId: string) {
-  const user = yield* getCurrentUser;
-  const events = yield* Events;
-  const event = yield* events.get(eventId);
-  if (!user.roles.admin || event.organizationId !== user.orgId)
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  return event;
-});
+import { runServer } from "@/server/runtime";
 
 export const getReviewDeskList = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(ReviewDeskListRequest))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.list(session, eventSlug, data.eventId, data.kind);
+        return yield* reviewDesk.list(data.eventId, data.kind);
       }),
+      { require: "staff" },
     ),
   );
 
 export const getReviewDeskDetail = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(ReviewDeskDetailRequest))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.detail(session, eventSlug, data.eventId, data.submissionId);
+        return yield* reviewDesk.detail(data.eventId, data.submissionId);
       }),
+      { require: "staff" },
     ),
   );
 
 export const getEvaluationQueue = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        const access = yield* requireEventAccess(data.eventId, "reviewer");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.evaluationQueue(session, eventSlug, data.eventId);
+        return yield* reviewDesk.evaluationQueue(
+          { userId: access.user.userId, isAdmin: access.admin },
+          data.eventId,
+        );
       }),
+      { require: "staff" },
     ),
   );
 
 export const saveReview = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(ReviewUpsertRequest))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        const access = yield* requireEventAccess(data.eventId, "reviewer");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.upsertReview(session, eventSlug, data);
+        return yield* reviewDesk.upsertReview(
+          { userId: access.user.userId, isAdmin: access.admin },
+          data,
+        );
       }),
+      { require: "staff" },
     ),
   );
 
@@ -79,16 +81,11 @@ export const changeSubmissionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const event = yield* requireManagedEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.changeStatus(
-          event.slug,
-          data.eventId,
-          data.submissionId,
-          data.status,
-        );
+        return yield* reviewDesk.changeStatus(data.eventId, data.submissionId, data.status);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -97,7 +94,7 @@ export const createManualSession = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        yield* requireManagedEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         const title = data.title.trim();
         const speakerIds = Array.from(new Set(data.speakerIds));
         if (title.length === 0) {
@@ -164,7 +161,7 @@ export const createManualSession = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         return yield* portal.acceptSubmission(data.eventId, created.id);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -173,10 +170,10 @@ export const decideSubmissions = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const event = yield* requireManagedEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
         const mail = yield* Mail;
-        const decision = yield* reviewDesk.decide(event.slug, data);
+        const decision = yield* reviewDesk.decide(data);
         yield* Effect.forEach(
           decision.deliveries,
           (delivery) => mail.sendLogged(delivery.logId, delivery.mail),
@@ -184,7 +181,7 @@ export const decideSubmissions = createServerFn({ method: "POST" })
         );
         return decision.result;
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -217,10 +214,11 @@ const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`;
 export const exportSubmissionsCsv = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(CsvExportRequest))
   .handler(async ({ data }) => {
-    const result = await runSessionServer((session, eventSlug) =>
+    const result = await runServer(
       Effect.gen(function* () {
+        yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        const list = yield* reviewDesk.list(session, eventSlug, data.eventId, data.kind);
+        const list = yield* reviewDesk.list(data.eventId, data.kind);
         const included = new Set(data.submissionIds);
         const rows = list.submissions.filter((submission) => included.has(submission.id));
         return [
@@ -230,6 +228,7 @@ export const exportSubmissionsCsv = createServerFn({ method: "POST" })
           ),
         ].join("\r\n");
       }),
+      { require: "staff" },
     );
     if (!result.ok) {
       return new Response(result.error.message, { status: result.error.status });

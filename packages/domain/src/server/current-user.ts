@@ -11,6 +11,7 @@ import { decodeMany, query } from "./repos/shared";
 export const SessionIdentity = Schema.Struct({
   userId: Schema.String,
   email: Schema.String,
+  name: Schema.String,
   activeOrganizationId: Schema.optionalKey(Schema.String),
 });
 export type SessionIdentity = typeof SessionIdentity.Type;
@@ -18,10 +19,19 @@ export type SessionIdentity = typeof SessionIdentity.Type;
 export const CurrentUserValue = Schema.Struct({
   userId: Schema.String,
   email: Schema.String,
+  name: Schema.String,
   orgId: Schema.String,
   organizationName: Schema.String,
   organizationLogo: Schema.NullOr(Schema.String),
   eventSlug: Schema.NullOr(Schema.String),
+  orgRole: Schema.NullOr(Schema.Literals(["owner", "admin", "member"])),
+  events: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      slug: Schema.String,
+      memberRole: Schema.NullOr(Schema.Literals(["admin", "reviewer"])),
+    }),
+  ),
   roles: Schema.Struct({
     admin: Schema.Boolean,
     reviewer: Schema.Boolean,
@@ -138,10 +148,13 @@ const makeCurrentUserLayer = (
             return {
               userId: session.userId,
               email: session.email,
+              name: session.name,
               orgId: event.organizationId,
               organizationName: selectedContact.organization.name,
               organizationLogo: selectedContact.organization.logo,
               eventSlug: event.slug,
+              orgRole: null,
+              events: [],
               roles: {
                 admin: false,
                 reviewer: false,
@@ -193,11 +206,21 @@ const makeCurrentUserLayer = (
               ? []
               : membershipRows.filter((row) => row.event !== null && row.event.id === event.id);
 
-          const memberRows = yield* decodeMany(
+          const allMemberRows = yield* decodeMany(
             EventMember,
             "event member",
-            rows.flatMap((row) => (row.eventMember === null ? [] : [row.eventMember])),
+            Array.from(
+              new Map(
+                membershipRows.flatMap((row) =>
+                  row.eventMember === null ? [] : [[row.eventMember.id, row.eventMember]],
+                ),
+              ).values(),
+            ),
           );
+          const memberRoleByEventId = new Map(
+            allMemberRows.map((member) => [member.eventId, member.role]),
+          );
+          const memberRows = allMemberRows.filter((member) => member.eventId === event?.id);
           const contactRows = yield* decodeMany(
             Contact,
             "contact",
@@ -205,13 +228,26 @@ const makeCurrentUserLayer = (
           );
 
           const contact = contactRows[0];
+          const orgRole: "owner" | "admin" | "member" =
+            organizationMember.role === "owner"
+              ? "owner"
+              : organizationMember.role === "admin"
+                ? "admin"
+                : "member";
           return {
             userId: session.userId,
             email: session.email,
+            name: session.name,
             orgId: organizationMember.organizationId,
             organizationName: selectedMembership.organization.name,
             organizationLogo: selectedMembership.organization.logo,
             eventSlug: event?.slug ?? null,
+            orgRole,
+            events: organizationEvents.map((candidate) => ({
+              id: candidate.id,
+              slug: candidate.slug,
+              memberRole: memberRoleByEventId.get(candidate.id) ?? null,
+            })),
             roles: {
               admin:
                 organizationMember.role === "owner" ||
@@ -249,6 +285,31 @@ export const getCurrentUser = Effect.gen(function* () {
   const service = yield* CurrentUser;
   return yield* service.get;
 });
+
+export type EventAccessRole = "admin" | "reviewer" | "staff";
+
+// Access is derived, never stored: org owners/admins are admins of every
+// event in the organization; event_members is only a roster overlay for
+// explicitly-invited per-event staff. Recomputed per TARGET event, so an
+// event-scoped admin of event A never passes for event B.
+export const requireEventAccess = (eventId: string, required: EventAccessRole) =>
+  Effect.gen(function* () {
+    const user = yield* getCurrentUser;
+    const event = user.events.find((candidate) => candidate.id === eventId);
+    if (event === undefined) {
+      return yield* Effect.fail(new Forbidden({ message: "You cannot access this event" }));
+    }
+    const admin =
+      user.orgRole === "owner" || user.orgRole === "admin" || event.memberRole === "admin";
+    const allowed =
+      required === "staff" ||
+      (required === "admin" && admin) ||
+      (required === "reviewer" && (admin || event.memberRole === "reviewer"));
+    if (!allowed) {
+      return yield* Effect.fail(new Forbidden({ message: "You do not have access" }));
+    }
+    return { user, event: { id: event.id, slug: event.slug }, admin };
+  });
 
 export const requireCurrentUser = (required: RequiredRole) =>
   Effect.gen(function* () {

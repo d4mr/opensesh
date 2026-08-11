@@ -2,8 +2,8 @@ import { index, integer, jsonb, pgTable, text, timestamp, unique } from "drizzle
 import type { Schema } from "effect";
 
 import { crmSemanticStatus, id, timestamps } from "../columns";
-import { eventMembers, events } from "./core";
-import { organizations } from "./identity";
+import { events } from "./core";
+import { organizations, users } from "./identity";
 import { contacts } from "./submissions";
 
 export const organizationContacts = pgTable(
@@ -71,9 +71,9 @@ export const organizationContactNotes = pgTable(
       .notNull()
       .references(() => organizationContacts.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
-    authorEventMemberId: text("author_event_member_id")
+    authorUserId: text("author_user_id")
       .notNull()
-      .references(() => eventMembers.id, { onDelete: "restrict" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -143,7 +143,7 @@ export const crmPipelineCards = pgTable(
     stageId: text("stage_id")
       .notNull()
       .references(() => crmPipelineStages.id, { onDelete: "cascade" }),
-    ownerEventMemberId: text("owner_event_member_id").references(() => eventMembers.id, {
+    ownerUserId: text("owner_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     note: text("note"),
@@ -168,9 +168,9 @@ export const crmStageHistory = pgTable(
     toStageId: text("to_stage_id")
       .notNull()
       .references(() => crmPipelineStages.id, { onDelete: "restrict" }),
-    actorEventMemberId: text("actor_event_member_id")
+    actorUserId: text("actor_user_id")
       .notNull()
-      .references(() => eventMembers.id, { onDelete: "restrict" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .$defaultFn(() => new Date()),

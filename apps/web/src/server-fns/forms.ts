@@ -1,32 +1,24 @@
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
-import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
-import { Events, Forms, ReadModels } from "@opensesh/domain/server/repos";
+import { requireEventAccess } from "@opensesh/domain/server/current-user";
+import { InvalidInput } from "@opensesh/domain/server/errors";
+import { Forms, ReadModels } from "@opensesh/domain/server/repos";
 import { FormIdRequest, FormSaveRequest } from "@opensesh/domain/server/schema/forms";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
-import { runServer, runSessionServer } from "@/server/runtime";
+import { runServer } from "@/server/runtime";
 
 const EventIdRequest = Schema.Struct({ eventId: Schema.String });
-
-const requireManagedEvent = Effect.fn("requireManagedFormEvent")(function* (eventId: string) {
-  const events = yield* Events;
-  const user = yield* getCurrentUser;
-  const event = yield* events.get(eventId);
-  if (event.organizationId !== user.orgId) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  }
-  return event;
-});
 
 export const getFormSummaries = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(EventIdRequest))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        yield* requireEventAccess(data.eventId, "admin");
         const reads = yield* ReadModels;
-        return yield* reads.formSummariesForAdmin(session, eventSlug, data.eventId);
+        return yield* reads.formSummariesForAdmin(data.eventId);
       }),
+      { require: "staff" },
     ),
   );
 
@@ -36,7 +28,7 @@ export const createForm = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const forms = yield* Forms;
-        yield* requireManagedEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         const form = yield* forms.create({
           eventId: data.eventId,
           internalName: "Untitled submission form",
@@ -132,24 +124,24 @@ export const createForm = createServerFn({ method: "POST" })
         ]);
         return form;
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
 export const getFormEditor = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(FormIdRequest))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        yield* requireEventAccess(data.eventId, "admin");
         const reads = yield* ReadModels;
         const { form, fields, library, admins } = yield* reads.formEditorForAdmin(
-          session,
-          eventSlug,
           data.eventId,
           data.formId,
         );
         return { form, fields, library, admins };
       }),
+      { require: "staff" },
     ),
   );
 
@@ -168,7 +160,7 @@ export const saveForm = createServerFn({ method: "POST" })
           );
         }
         const [, existing] = yield* Effect.all(
-          [requireManagedEvent(data.eventId), forms.getByEvent(data.eventId, data.formId)],
+          [requireEventAccess(data.eventId, "admin"), forms.getByEvent(data.eventId, data.formId)],
           { concurrency: 2 },
         );
         const status = data.form.status ?? existing.status;
@@ -188,7 +180,7 @@ export const saveForm = createServerFn({ method: "POST" })
         }
         return yield* forms.saveWithFields(data.formId, data.form, data.fields);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -198,11 +190,11 @@ export const duplicateForm = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const forms = yield* Forms;
-        yield* requireManagedEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         yield* forms.getByEvent(data.eventId, data.formId);
         return yield* forms.duplicate(data.formId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -212,10 +204,10 @@ export const deleteForm = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const forms = yield* Forms;
-        yield* requireManagedEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         yield* forms.getByEvent(data.eventId, data.formId);
         return yield* forms.delete(data.formId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );

@@ -157,7 +157,7 @@ interface ReviewsService {
     id: string,
     score: number,
     reason: string,
-    eventMemberId: string,
+    userId: string,
   ) => Effect.Effect<AiReviewResult, DbError | NotFound>;
 }
 
@@ -386,11 +386,7 @@ export const ReviewsLive = Layer.effect(
                 .select({ result: aiReviewResults, actorName: users.name })
                 .from(aiReviewResults)
                 .innerJoin(reviewRounds, eq(reviewRounds.id, aiReviewResults.roundId))
-                .leftJoin(
-                  eventMembers,
-                  eq(eventMembers.id, aiReviewResults.overriddenByEventMemberId),
-                )
-                .leftJoin(users, eq(users.id, eventMembers.userId))
+                .leftJoin(users, eq(users.id, aiReviewResults.overriddenByUserId))
                 .where(eq(reviewRounds.eventId, eventId))
                 .execute(),
             ),
@@ -1798,7 +1794,7 @@ export const ReviewsLive = Layer.effect(
                   model: AI_REVIEW_MODEL,
                   overriddenScore: null,
                   overrideReason: null,
-                  overriddenByEventMemberId: null,
+                  overriddenByUserId: null,
                   overriddenAt: null,
                   updatedAt: new Date(),
                 },
@@ -1825,14 +1821,14 @@ export const ReviewsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(AiReviewResult, "AI review result", rows[0]))),
-      overrideAiResult: (id, score, reason, eventMemberId) =>
+      overrideAiResult: (id, score, reason, userId) =>
         query(database, "Could not override AI review", (db) =>
           db
             .update(aiReviewResults)
             .set({
               overriddenScore: score,
               overrideReason: reason,
-              overriddenByEventMemberId: eventMemberId,
+              overriddenByUserId: userId,
               overriddenAt: new Date(),
               updatedAt: new Date(),
             })

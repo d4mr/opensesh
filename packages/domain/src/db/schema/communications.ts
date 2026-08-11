@@ -17,7 +17,8 @@ import {
   targetType,
   timestamps,
 } from "../columns";
-import { eventMembers, events } from "./core";
+import { events } from "./core";
+import { users } from "./identity";
 import { emailLog } from "./portal";
 import { contacts } from "./submissions";
 
@@ -55,9 +56,9 @@ export const emailCampaigns = pgTable(
       .notNull()
       .default({}),
     status: emailCampaignStatus("status").notNull().default("draft"),
-    createdByEventMemberId: text("created_by_event_member_id")
+    createdByUserId: text("created_by_user_id")
       .notNull()
-      .references(() => eventMembers.id, { onDelete: "restrict" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     ...timestamps,
   },

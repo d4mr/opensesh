@@ -131,7 +131,7 @@ export const FileVersion = Schema.Struct({
   contentType: Schema.String,
   size: Schema.Number,
   uploaderContactId: NullableString,
-  uploaderEventMemberId: NullableString,
+  uploaderUserId: NullableString,
   uploaderName: Schema.String,
   uploadedAt: Schema.Date,
 });
@@ -141,7 +141,7 @@ export const FileComment = Schema.Struct({
   ...EntityFields,
   fileUploadId: Schema.String,
   authorContactId: NullableString,
-  authorEventMemberId: NullableString,
+  authorUserId: NullableString,
   authorName: Schema.String,
   body: Schema.String,
 });

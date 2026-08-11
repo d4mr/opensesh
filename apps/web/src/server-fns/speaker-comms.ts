@@ -11,24 +11,17 @@ import {
   SpeakerWorkflowMutationRequest,
   campaignMergeTokens,
 } from "@opensesh/domain";
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { DbError, Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Contacts, Events, Portal, SpeakerComms } from "@opensesh/domain/server/repos";
+import { Contacts, Portal, SpeakerComms } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
 
-const requireEvent = Effect.fn("requireSpeakerCommsEvent")(function* (eventId: string) {
-  const user = yield* getCurrentUser;
-  const events = yield* Events;
-  const event = yield* events.get(eventId);
-  if (!user.roles.admin || event.organizationId !== user.orgId)
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  return { event, user };
-});
+const requireEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
 const decodeBase64 = (value: string) => {
   const binary = atob(value);
@@ -49,7 +42,7 @@ export const getCommunicationCenter = createServerFn({ method: "GET" })
         const communications = yield* SpeakerComms;
         return yield* communications.center(data.eventId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -68,10 +61,10 @@ export const saveAdminSpeaker = createServerFn({ method: "POST" })
         const communications = yield* SpeakerComms;
         return yield* communications.saveSpeaker(
           { ...data, firstName, lastName, email: data.email.trim().toLowerCase() },
-          { userId: user.userId, name: user.email },
+          { userId: user.userId, name: user.name },
         );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -88,7 +81,7 @@ export const setSpeakerWorkflowStatus = createServerFn({ method: "POST" })
           data.workflowStatus,
         );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -119,7 +112,7 @@ export const uploadAdminSpeakerHeadshot = createServerFn({ method: "POST" })
         const portal = yield* Portal;
         const prepared = yield* portal.prepareAdminHeadshot(
           data.eventId,
-          user.userId,
+          { userId: user.userId, name: user.name },
           data.contactId,
         );
         const storageKey = `${data.contactId}/${prepared.fileUploadId}/${crypto.randomUUID()}`;
@@ -140,13 +133,13 @@ export const uploadAdminSpeakerHeadshot = createServerFn({ method: "POST" })
           contentType: data.contentType,
           size: data.size,
           uploaderContactId: null,
-          uploaderEventMemberId: prepared.eventMemberId,
+          uploaderUserId: prepared.uploaderUserId,
           headshotContactId: data.contactId,
           adminApproved: true,
           completeAssignmentId: null,
         });
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });
 
@@ -172,7 +165,7 @@ export const inviteSpeakerPortals = createServerFn({ method: "POST" })
         yield* Effect.forEach(logIds, (logId) => mail.sendQueued(logId), { concurrency: 5 });
         return { invitations, sent: logIds.length };
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });
 
@@ -201,7 +194,7 @@ export const saveEmailTemplate = createServerFn({ method: "POST" })
         const communications = yield* SpeakerComms;
         return yield* communications.saveTemplate(data);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -214,7 +207,7 @@ export const deleteEmailTemplate = createServerFn({ method: "POST" })
         const communications = yield* SpeakerComms;
         return yield* communications.deleteTemplate(data.eventId, data.id);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -246,7 +239,7 @@ export const sendSpeakerCampaign = createServerFn({ method: "POST" })
           failed: results.filter((result) => result.status === "failed").length,
         };
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });
 
@@ -268,7 +261,7 @@ export const saveTaskReminderRule = createServerFn({ method: "POST" })
           data.enabled,
         );
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -296,6 +289,6 @@ export const runTaskReminderRule = createServerFn({ method: "POST" })
           failed: results.filter((result) => result.status === "failed").length,
         };
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });

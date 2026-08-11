@@ -11,7 +11,6 @@ import {
   formats,
   forms,
   levels,
-  organizationMembers,
   reviewAnswers,
   reviewAssignments,
   reviewCriteria,
@@ -29,7 +28,6 @@ import {
   tracks,
   users,
 } from "../../db/schema";
-import type { SessionIdentity } from "../current-user";
 import { Db, type Database } from "../db";
 import { AlreadyDecided, type DbError, Forbidden, InvalidInput, NotFound } from "../errors";
 import type { OutboundMail } from "../mail";
@@ -281,43 +279,13 @@ const rawListSelection = {
   reviewUpdatedAt: reviews.updatedAt,
 };
 
-const listQuery = (
-  database: Database,
-  session: SessionIdentity,
-  eventSlug: string,
-  eventId: string,
-  kind: typeof SubmissionKind.Type,
-) => {
-  const scopeMember = alias(eventMembers, "review_desk_list_member");
-  return query(database, "Could not load submissions", (db) =>
+// Access was decided at the boundary (requireEventAccess); the query only
+// tenant-scopes by the trusted eventId.
+const listQuery = (database: Database, eventId: string, kind: typeof SubmissionKind.Type) =>
+  query(database, "Could not load submissions", (db) =>
     db
       .select(rawListSelection)
-      .from(events)
-      .innerJoin(
-        organizationMembers,
-        and(
-          eq(organizationMembers.organizationId, events.organizationId),
-          eq(organizationMembers.userId, session.userId),
-        ),
-      )
-      .innerJoin(
-        scopeMember,
-        and(
-          eq(scopeMember.eventId, events.id),
-          eq(scopeMember.userId, session.userId),
-          eq(scopeMember.role, "admin"),
-        ),
-      )
-      .innerJoin(
-        submissions,
-        and(
-          eq(submissions.eventId, events.id),
-          // Abstracts desk tracks the CFP lifecycle even after acceptance
-          // graduates a row to kind='session'; Sessions desk is kind-based.
-          kind === "abstract" ? isNotNull(submissions.sourceFormId) : eq(submissions.kind, kind),
-          eq(submissions.eventId, eventId),
-        ),
-      )
+      .from(submissions)
       .leftJoin(formats, eq(formats.id, submissions.formatId))
       .leftJoin(levels, eq(levels.id, submissions.levelId))
       .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
@@ -328,14 +296,13 @@ const listQuery = (
       .leftJoin(submissionParticipants, eq(submissionParticipants.submissionId, submissions.id))
       .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
       .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
-      .leftJoin(eventMembers, eq(eventMembers.id, reviews.reviewerId))
-      .leftJoin(users, eq(users.id, eventMembers.userId))
+      .leftJoin(users, eq(users.id, reviews.reviewerId))
       .where(
         and(
-          eq(events.slug, eventSlug),
-          session.activeOrganizationId === undefined
-            ? undefined
-            : eq(events.organizationId, session.activeOrganizationId),
+          eq(submissions.eventId, eventId),
+          // Abstracts desk tracks the CFP lifecycle even after acceptance
+          // graduates a row to kind='session'; Sessions desk is kind-based.
+          kind === "abstract" ? isNotNull(submissions.sourceFormId) : eq(submissions.kind, kind),
         ),
       )
       .orderBy(
@@ -345,7 +312,6 @@ const listQuery = (
       )
       .execute(),
   );
-};
 
 const completedRoundReviewRows = (
   database: Database,
@@ -432,27 +398,26 @@ type ReviewTransaction =
       readonly reviewerImage: string | null;
     };
 
+interface ReviewDeskViewer {
+  readonly userId: string;
+  readonly isAdmin: boolean;
+}
+
 interface ReviewDeskService {
   readonly list: (
-    session: SessionIdentity,
-    eventSlug: string,
     eventId: string,
     kind: typeof SubmissionKind.Type,
-  ) => Effect.Effect<ReviewDeskList, DbError | Forbidden>;
+  ) => Effect.Effect<ReviewDeskList, DbError>;
   readonly detail: (
-    session: SessionIdentity,
-    eventSlug: string,
     eventId: string,
     submissionId: string,
-  ) => Effect.Effect<typeof ReviewDeskDetail.Type, DbError | Forbidden | NotFound>;
+  ) => Effect.Effect<typeof ReviewDeskDetail.Type, DbError | NotFound>;
   readonly evaluationQueue: (
-    session: SessionIdentity,
-    eventSlug: string,
+    viewer: ReviewDeskViewer,
     eventId: string,
   ) => Effect.Effect<typeof EvaluationQueue.Type, DbError | Forbidden>;
   readonly upsertReview: (
-    session: SessionIdentity,
-    eventSlug: string,
+    viewer: ReviewDeskViewer,
     input: {
       readonly eventId: string;
       readonly submissionId: string;
@@ -462,21 +427,17 @@ interface ReviewDeskService {
     },
   ) => Effect.Effect<ReviewDeskReview, DbError | Forbidden | NotFound>;
   readonly changeStatus: (
-    eventSlug: string,
     eventId: string,
     submissionId: string,
     status: typeof SubmissionStatus.Type,
   ) => Effect.Effect<typeof StatusChangeResult.Type, DbError | Forbidden | InvalidInput | NotFound>;
-  readonly decide: (
-    eventSlug: string,
-    input: {
-      readonly eventId: string;
-      readonly submissionIds: ReadonlyArray<string>;
-      readonly decision: SubmissionDecision;
-      readonly feedback: string;
-      readonly confirmRedecide: boolean;
-    },
-  ) => Effect.Effect<DecisionSuccess, ReviewDeskFailure>;
+  readonly decide: (input: {
+    readonly eventId: string;
+    readonly submissionIds: ReadonlyArray<string>;
+    readonly decision: SubmissionDecision;
+    readonly feedback: string;
+    readonly confirmRedecide: boolean;
+  }) => Effect.Effect<DecisionSuccess, ReviewDeskFailure>;
   readonly markEmail: (logId: string, status: "sent" | "failed") => Effect.Effect<void, DbError>;
 }
 
@@ -490,70 +451,11 @@ export const ReviewDeskLive = Layer.effect(
     const { database } = yield* Db;
     const emailRecipient = alias(contacts, "review_desk_email_recipient");
 
-    // The session's default event slug is wrong once an organizer switches
-    // events (or creates a new one); resolve the actual slug for the event
-    // being managed. Security still comes from the membership joins in each
-    // query — this only removes the slug/eventId mismatch.
-    const eventSlugById = (eventId: string) =>
-      query(database, "Could not load the event", (db) =>
-        db
-          .select({ slug: events.slug })
-          .from(events)
-          .where(eq(events.id, eventId))
-          .limit(1)
-          .execute(),
-      ).pipe(
-        Effect.filterOrFail(
-          (rows) => rows.length > 0,
-          () => new Forbidden({ message: "You cannot manage these submissions" }),
-        ),
-        Effect.map((rows) => rows[0]?.slug ?? ""),
-      );
-
-    // A fresh event has zero submissions, which must render as an empty desk
-    // rather than an access failure.
-    const adminMembership = (session: SessionIdentity, eventId: string) =>
-      query(database, "Could not verify event access", (db) =>
-        db
-          .select({ id: eventMembers.id })
-          .from(events)
-          .innerJoin(
-            organizationMembers,
-            and(
-              eq(organizationMembers.organizationId, events.organizationId),
-              eq(organizationMembers.userId, session.userId),
-            ),
-          )
-          .innerJoin(
-            eventMembers,
-            and(
-              eq(eventMembers.eventId, events.id),
-              eq(eventMembers.userId, session.userId),
-              eq(eventMembers.role, "admin"),
-            ),
-          )
-          .where(eq(events.id, eventId))
-          .limit(1)
-          .execute(),
-      );
-
     return {
-      list: (session, _eventSlug, eventId, kind) =>
-        eventSlugById(eventId).pipe(
-          Effect.flatMap((eventSlug) => listQuery(database, session, eventSlug, eventId, kind)),
-          Effect.filterOrFail(
-            (rows) => rows.length > 0,
-            () => new Forbidden({ message: "You cannot manage these submissions" }),
-          ),
-          Effect.catchTag("Forbidden", (failure) =>
-            adminMembership(session, eventId).pipe(
-              Effect.filterOrFail(
-                (rows) => rows.length > 0,
-                () => failure,
-              ),
-              Effect.map((): ReadonlyArray<never> => []),
-            ),
-          ),
+      // An empty result is just an empty desk; access was decided at the
+      // boundary.
+      list: (eventId, kind) =>
+        listQuery(database, eventId, kind).pipe(
           Effect.flatMap((rows) => decodeMany(RawListRow, "review desk row", rows)),
           Effect.flatMap((rows) =>
             Effect.gen(function* () {
@@ -594,393 +496,117 @@ export const ReviewDeskLive = Layer.effect(
             });
           }),
         ),
-      detail: (session, _eventSlug, eventId, submissionId) => {
-        const scopeMember = alias(eventMembers, "review_desk_detail_member");
-        return Effect.flatMap(eventSlugById(eventId), (eventSlug) =>
-          query(database, "Could not load submission detail", (db) =>
-            db
-              .select({
-                ...rawListSelection,
-                fieldId: formFields.id,
-                fieldSection: formFields.section,
-                fieldLabel: formFields.label,
-                fieldType: formFields.fieldType,
-                fieldPosition: formFields.position,
-                fieldMapsTo: formFields.mapsTo,
-                emailId: emailLog.id,
-                emailContactId: emailLog.contactId,
-                emailRecipient: emailRecipient.email,
-                emailType: emailLog.type,
-                emailSubject: emailLog.subject,
-                emailBody: emailLog.body,
-                emailStatus: emailLog.status,
-                emailSentAt: emailLog.sentAt,
-                emailCreatedAt: emailLog.createdAt,
-              })
-              .from(events)
-              .innerJoin(
-                organizationMembers,
-                and(
-                  eq(organizationMembers.organizationId, events.organizationId),
-                  eq(organizationMembers.userId, session.userId),
-                ),
-              )
-              .innerJoin(
-                scopeMember,
-                and(
-                  eq(scopeMember.eventId, events.id),
-                  eq(scopeMember.userId, session.userId),
-                  eq(scopeMember.role, "admin"),
-                ),
-              )
-              .innerJoin(
-                submissions,
-                and(
-                  eq(submissions.id, submissionId),
-                  eq(submissions.eventId, events.id),
-                  eq(submissions.eventId, eventId),
-                ),
-              )
-              .leftJoin(formats, eq(formats.id, submissions.formatId))
-              .leftJoin(levels, eq(levels.id, submissions.levelId))
-              .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
-              .leftJoin(formFields, eq(formFields.formId, submissions.sourceFormId))
-              .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
-              .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
-              .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
-              .leftJoin(tags, eq(tags.id, submissionTags.tagId))
-              .leftJoin(
-                submissionParticipants,
-                eq(submissionParticipants.submissionId, submissions.id),
-              )
-              .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
-              .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
-              .leftJoin(eventMembers, eq(eventMembers.id, reviews.reviewerId))
-              .leftJoin(users, eq(users.id, eventMembers.userId))
-              .leftJoin(emailLog, eq(emailLog.submissionId, submissions.id))
-              .leftJoin(emailRecipient, eq(emailRecipient.id, emailLog.contactId))
-              .where(
-                and(
-                  eq(events.slug, eventSlug),
-                  session.activeOrganizationId === undefined
-                    ? undefined
-                    : eq(events.organizationId, session.activeOrganizationId),
-                ),
-              )
-              .orderBy(
-                asc(formFields.position),
-                asc(submissionParticipants.position),
-                asc(reviews.createdAt),
-                desc(emailLog.createdAt),
-              )
-              .execute(),
-          ).pipe(
-            Effect.filterOrFail(
-              (rows) => rows.length > 0,
-              () => new NotFound({ message: "Submission not found" }),
-            ),
-            Effect.flatMap((rows) => decodeMany(RawDetailRow, "submission detail row", rows)),
-            Effect.flatMap((rows) =>
-              Effect.gen(function* () {
-                const item = makeListItems(rows)[0];
-                if (item === undefined) {
-                  return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
-                }
-                const submission = rows[0];
-                if (submission === undefined) {
-                  return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
-                }
-                const speakers = new Map<string, RawDetailRow>();
-                const reviewMap = new Map<string, ReviewDeskReview>();
-                const emailMap = new Map<string, ReviewDeskEmail>();
-                const rawRoundReviews = yield* roundReviewRows(database, eventId, submissionId);
-                const roundReviews = yield* decodeMany(
-                  HumanReviewResult,
-                  "round review",
-                  Array.from(
-                    new Map(
-                      rawRoundReviews.map((row) => [row.assignment.id, row.assignment]),
-                    ).values(),
-                  ).map((assignment) => {
-                    const identity = rawRoundReviews.find(
-                      (row) => row.assignment.id === assignment.id,
-                    );
-                    return {
-                      assignment,
-                      reviewerName: identity?.reviewerName ?? "Reviewer",
-                      reviewerEmail: identity?.reviewerEmail ?? "",
-                      answers: rawRoundReviews.flatMap((row) =>
-                        row.assignment.id !== assignment.id ||
-                        row.answer === null ||
-                        row.criterion === null
-                          ? []
-                          : [
-                              {
-                                criterionId: row.criterion.id,
-                                label: row.criterion.label,
-                                type: row.criterion.type,
-                                numericValue: row.answer.numericValue,
-                                textValue: row.answer.textValue,
-                                optionValue: row.answer.optionValue,
-                              },
-                            ],
-                      ),
-                    };
-                  }),
-                );
-                for (const row of rows) {
-                  if (row.contactId !== null) speakers.set(row.contactId, row);
-                  if (
-                    row.reviewId !== null &&
-                    row.reviewerId !== null &&
-                    row.reviewerName !== null &&
-                    row.reviewDecision !== null &&
-                    row.reviewUpdatedAt !== null
-                  ) {
-                    reviewMap.set(row.reviewId, {
-                      id: row.reviewId,
-                      reviewerId: row.reviewerId,
-                      reviewerName: row.reviewerName,
-                      reviewerImage: row.reviewerImage,
-                      decision: row.reviewDecision,
-                      score: row.reviewScore,
-                      comment: row.reviewComment,
-                      updatedAt: row.reviewUpdatedAt,
-                    });
-                  }
-                  if (
-                    row.emailId !== null &&
-                    row.emailType !== null &&
-                    row.emailSubject !== null &&
-                    row.emailBody !== null &&
-                    row.emailStatus !== null &&
-                    row.emailCreatedAt !== null
-                  ) {
-                    emailMap.set(row.emailId, {
-                      id: row.emailId,
-                      contactId: row.emailContactId,
-                      recipient: row.emailRecipient,
-                      type: row.emailType,
-                      subject: row.emailSubject,
-                      body: row.emailBody,
-                      status: row.emailStatus,
-                      sentAt: row.emailSentAt,
-                      createdAt: row.emailCreatedAt,
-                    });
-                  }
-                }
-                const answerMap = new Map<string, ReviewDeskAnswer>();
-                const answerStrings = (value: unknown): ReadonlyArray<string> => {
-                  if (Array.isArray(value)) return value.flatMap(answerStrings);
-                  if (typeof value === "string") return [value];
-                  if (typeof value === "number" || typeof value === "boolean") {
-                    return [`${value}`];
-                  }
-                  return [];
-                };
-                const answerValue = (row: RawDetailRow): string | ReadonlyArray<string> => {
-                  const mapped = row.fieldMapsTo;
-                  if (mapped === "title") return submission.title;
-                  if (mapped === "description") return submission.description;
-                  if (mapped === "format_id") return submission.formatName ?? "Not provided";
-                  if (mapped === "level_id") return submission.levelName ?? "Not provided";
-                  if (mapped === "tracks") return item.tracks.map((track) => track.name);
-                  if (mapped === "tags") return item.tags.map((tag) => tag.name);
-                  if (mapped === "first_name")
-                    return Array.from(speakers.values()).flatMap((speaker) =>
-                      speaker.contactFirstName === null ? [] : [speaker.contactFirstName],
-                    );
-                  if (mapped === "last_name")
-                    return Array.from(speakers.values()).flatMap((speaker) =>
-                      speaker.contactLastName === null ? [] : [speaker.contactLastName],
-                    );
-                  if (mapped === "email")
-                    return Array.from(speakers.values()).flatMap((speaker) =>
-                      speaker.contactEmail === null ? [] : [speaker.contactEmail],
-                    );
-                  if (mapped === "bio")
-                    return Array.from(speakers.values()).flatMap((speaker) =>
-                      speaker.contactBio === null ? [] : [speaker.contactBio],
-                    );
-                  if (row.fieldId === null) return "Not provided";
-                  const values =
-                    row.fieldSection === "participant"
-                      ? Array.from(speakers.values()).flatMap((speaker) => {
-                          const value = speaker.contactCustom?.[row.fieldId ?? ""];
-                          return answerStrings(value);
-                        })
-                      : (() => {
-                          const value = submission.answers[row.fieldId ?? ""];
-                          return answerStrings(value);
-                        })();
-                  return values.length === 0 ? "Not provided" : values;
-                };
-                for (const row of rows) {
-                  if (
-                    row.fieldId === null ||
-                    row.fieldSection === null ||
-                    row.fieldLabel === null ||
-                    row.fieldType === null ||
-                    row.fieldPosition === null ||
-                    answerMap.has(row.fieldId)
-                  ) {
-                    continue;
-                  }
-                  answerMap.set(row.fieldId, {
-                    id: row.fieldId,
-                    section: row.fieldSection,
-                    label: row.fieldLabel,
-                    fieldType: row.fieldType,
-                    position: row.fieldPosition,
-                    value: answerValue(row),
-                  });
-                }
-                const activity = [
-                  { id: "created", label: "Submission created", at: submission.createdAt },
-                  ...(submission.submittedAt === null
-                    ? []
-                    : [
-                        {
-                          id: "submitted",
-                          label: "Submitted for review",
-                          at: submission.submittedAt,
-                        },
-                      ]),
-                  ...(submission.updatedAt.getTime() === submission.createdAt.getTime()
-                    ? []
-                    : [
-                        {
-                          id: "status",
-                          label: `Status is ${submission.status}`,
-                          at: submission.updatedAt,
-                        },
-                      ]),
-                  ...(submission.notifiedAt === null
-                    ? []
-                    : [
-                        {
-                          id: "notified",
-                          label: "Decision notification sent",
-                          at: submission.notifiedAt,
-                        },
-                      ]),
-                ].sort((left, right) => right.at.getTime() - left.at.getTime());
-                return yield* decode(ReviewDeskDetail, "submission detail", {
-                  submission: {
-                    ...item,
-                    reviewCount: item.reviewCount + roundReviews.length,
-                  },
-                  answers: Array.from(answerMap.values()),
-                  reviews: Array.from(reviewMap.values()),
-                  roundReviews,
-                  activity,
-                  emails: Array.from(emailMap.values()),
-                });
-              }),
-            ),
+      detail: (eventId, submissionId) => {
+        return query(database, "Could not load submission detail", (db) =>
+          db
+            .select({
+              ...rawListSelection,
+              fieldId: formFields.id,
+              fieldSection: formFields.section,
+              fieldLabel: formFields.label,
+              fieldType: formFields.fieldType,
+              fieldPosition: formFields.position,
+              fieldMapsTo: formFields.mapsTo,
+              emailId: emailLog.id,
+              emailContactId: emailLog.contactId,
+              emailRecipient: emailRecipient.email,
+              emailType: emailLog.type,
+              emailSubject: emailLog.subject,
+              emailBody: emailLog.body,
+              emailStatus: emailLog.status,
+              emailSentAt: emailLog.sentAt,
+              emailCreatedAt: emailLog.createdAt,
+            })
+            .from(submissions)
+            .leftJoin(formats, eq(formats.id, submissions.formatId))
+            .leftJoin(levels, eq(levels.id, submissions.levelId))
+            .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+            .leftJoin(formFields, eq(formFields.formId, submissions.sourceFormId))
+            .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+            .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+            .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
+            .leftJoin(tags, eq(tags.id, submissionTags.tagId))
+            .leftJoin(
+              submissionParticipants,
+              eq(submissionParticipants.submissionId, submissions.id),
+            )
+            .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+            .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
+            .leftJoin(users, eq(users.id, reviews.reviewerId))
+            .leftJoin(emailLog, eq(emailLog.submissionId, submissions.id))
+            .leftJoin(emailRecipient, eq(emailRecipient.id, emailLog.contactId))
+            .where(and(eq(submissions.id, submissionId), eq(submissions.eventId, eventId)))
+            .orderBy(
+              asc(formFields.position),
+              asc(submissionParticipants.position),
+              asc(reviews.createdAt),
+              desc(emailLog.createdAt),
+            )
+            .execute(),
+        ).pipe(
+          Effect.filterOrFail(
+            (rows) => rows.length > 0,
+            () => new NotFound({ message: "Submission not found" }),
           ),
-        );
-      },
-      evaluationQueue: (session, _eventSlug, eventId) => {
-        const viewerMember = alias(eventMembers, "evaluation_viewer_member");
-        const reviewMember = alias(eventMembers, "evaluation_review_member");
-        const evaluationReviewerTracks = alias(reviewerTracks, "evaluation_reviewer_tracks");
-        return Effect.flatMap(eventSlugById(eventId), (eventSlug) =>
-          query(database, "Could not load evaluation queue", (db) =>
-            db
-              .select({
-                ...rawListSelection,
-                reviewerId: reviews.reviewerId,
-                reviewerName: users.name,
-                reviewerImage: users.image,
-                viewerMemberId: viewerMember.id,
-                viewerRole: viewerMember.role,
-              })
-              .from(events)
-              .innerJoin(
-                organizationMembers,
-                and(
-                  eq(organizationMembers.organizationId, events.organizationId),
-                  eq(organizationMembers.userId, session.userId),
-                ),
-              )
-              .innerJoin(
-                viewerMember,
-                and(eq(viewerMember.eventId, events.id), eq(viewerMember.userId, session.userId)),
-              )
-              .innerJoin(
-                submissions,
-                and(
-                  eq(submissions.eventId, events.id),
-                  eq(submissions.eventId, eventId),
-                  eq(submissions.status, "pending"),
-                ),
-              )
-              .innerJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
-              .innerJoin(tracks, eq(tracks.id, submissionTracks.trackId))
-              .leftJoin(
-                evaluationReviewerTracks,
-                and(
-                  eq(evaluationReviewerTracks.trackId, submissionTracks.trackId),
-                  eq(evaluationReviewerTracks.eventMemberId, viewerMember.id),
-                ),
-              )
-              .leftJoin(formats, eq(formats.id, submissions.formatId))
-              .leftJoin(levels, eq(levels.id, submissions.levelId))
-              .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
-              .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
-              .leftJoin(tags, eq(tags.id, submissionTags.tagId))
-              .leftJoin(
-                submissionParticipants,
-                eq(submissionParticipants.submissionId, submissions.id),
-              )
-              .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
-              .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
-              .leftJoin(reviewMember, eq(reviewMember.id, reviews.reviewerId))
-              .leftJoin(users, eq(users.id, reviewMember.userId))
-              .where(
-                and(
-                  eq(events.slug, eventSlug),
-                  or(eq(viewerMember.role, "admin"), isNotNull(evaluationReviewerTracks.id)),
-                  session.activeOrganizationId === undefined
-                    ? undefined
-                    : eq(events.organizationId, session.activeOrganizationId),
-                ),
-              )
-              .orderBy(asc(submissions.submittedAt))
-              .execute(),
-          ).pipe(
-            Effect.flatMap((rows) =>
-              Effect.gen(function* () {
-                const first = rows[0];
-                if (first === undefined) {
-                  return yield* Effect.fail(
-                    new Forbidden({ message: "No submissions are assigned to you" }),
+          Effect.flatMap((rows) => decodeMany(RawDetailRow, "submission detail row", rows)),
+          Effect.flatMap((rows) =>
+            Effect.gen(function* () {
+              const item = makeListItems(rows)[0];
+              if (item === undefined) {
+                return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
+              }
+              const submission = rows[0];
+              if (submission === undefined) {
+                return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
+              }
+              const speakers = new Map<string, RawDetailRow>();
+              const reviewMap = new Map<string, ReviewDeskReview>();
+              const emailMap = new Map<string, ReviewDeskEmail>();
+              const rawRoundReviews = yield* roundReviewRows(database, eventId, submissionId);
+              const roundReviews = yield* decodeMany(
+                HumanReviewResult,
+                "round review",
+                Array.from(
+                  new Map(
+                    rawRoundReviews.map((row) => [row.assignment.id, row.assignment]),
+                  ).values(),
+                ).map((assignment) => {
+                  const identity = rawRoundReviews.find(
+                    (row) => row.assignment.id === assignment.id,
                   );
-                }
-                const queueRows = rows.map(
-                  ({ viewerMemberId: _memberId, viewerRole: _role, ...row }) => row,
-                );
-                const decoded = yield* decodeMany(RawListRow, "evaluation row", queueRows);
-                const items = yield* decodeMany(
-                  ReviewDeskListItem,
-                  "evaluation submission",
-                  makeListItems(decoded),
-                );
-                const reviewMaps = new Map<string, Map<string, ReviewDeskReview>>();
-                for (const row of decoded) {
-                  if (
-                    row.reviewId === null ||
-                    row.reviewerId === null ||
-                    row.reviewerName === null ||
-                    row.reviewDecision === null ||
-                    row.reviewUpdatedAt === null
-                  ) {
-                    continue;
-                  }
-                  const map =
-                    reviewMaps.get(row.submissionId) ?? new Map<string, ReviewDeskReview>();
-                  map.set(row.reviewId, {
+                  return {
+                    assignment,
+                    reviewerName: identity?.reviewerName ?? "Reviewer",
+                    reviewerEmail: identity?.reviewerEmail ?? "",
+                    answers: rawRoundReviews.flatMap((row) =>
+                      row.assignment.id !== assignment.id ||
+                      row.answer === null ||
+                      row.criterion === null
+                        ? []
+                        : [
+                            {
+                              criterionId: row.criterion.id,
+                              label: row.criterion.label,
+                              type: row.criterion.type,
+                              numericValue: row.answer.numericValue,
+                              textValue: row.answer.textValue,
+                              optionValue: row.answer.optionValue,
+                            },
+                          ],
+                    ),
+                  };
+                }),
+              );
+              for (const row of rows) {
+                if (row.contactId !== null) speakers.set(row.contactId, row);
+                if (
+                  row.reviewId !== null &&
+                  row.reviewerId !== null &&
+                  row.reviewerName !== null &&
+                  row.reviewDecision !== null &&
+                  row.reviewUpdatedAt !== null
+                ) {
+                  reviewMap.set(row.reviewId, {
                     id: row.reviewId,
                     reviewerId: row.reviewerId,
                     reviewerName: row.reviewerName,
@@ -990,154 +616,377 @@ export const ReviewDeskLive = Layer.effect(
                     comment: row.reviewComment,
                     updatedAt: row.reviewUpdatedAt,
                   });
-                  reviewMaps.set(row.submissionId, map);
                 }
-                const evaluationItems: ReadonlyArray<EvaluationItem> = items.map((submission) => {
-                  const itemReviews = Array.from(reviewMaps.get(submission.id)?.values() ?? []);
-                  return {
-                    submission,
-                    myReview:
-                      itemReviews.find((review) => review.reviewerId === first.viewerMemberId) ??
-                      null,
-                    reviews: itemReviews,
-                  };
-                });
-                const sorted = [...evaluationItems].sort((left, right) => {
-                  if ((left.myReview === null) !== (right.myReview === null))
-                    return left.myReview === null ? -1 : 1;
-                  return (
-                    (left.submission.submittedAt?.getTime() ?? 0) -
-                    (right.submission.submittedAt?.getTime() ?? 0)
+                if (
+                  row.emailId !== null &&
+                  row.emailType !== null &&
+                  row.emailSubject !== null &&
+                  row.emailBody !== null &&
+                  row.emailStatus !== null &&
+                  row.emailCreatedAt !== null
+                ) {
+                  emailMap.set(row.emailId, {
+                    id: row.emailId,
+                    contactId: row.emailContactId,
+                    recipient: row.emailRecipient,
+                    type: row.emailType,
+                    subject: row.emailSubject,
+                    body: row.emailBody,
+                    status: row.emailStatus,
+                    sentAt: row.emailSentAt,
+                    createdAt: row.emailCreatedAt,
+                  });
+                }
+              }
+              const answerMap = new Map<string, ReviewDeskAnswer>();
+              const answerStrings = (value: unknown): ReadonlyArray<string> => {
+                if (Array.isArray(value)) return value.flatMap(answerStrings);
+                if (typeof value === "string") return [value];
+                if (typeof value === "number" || typeof value === "boolean") {
+                  return [`${value}`];
+                }
+                return [];
+              };
+              const answerValue = (row: RawDetailRow): string | ReadonlyArray<string> => {
+                const mapped = row.fieldMapsTo;
+                if (mapped === "title") return submission.title;
+                if (mapped === "description") return submission.description;
+                if (mapped === "format_id") return submission.formatName ?? "Not provided";
+                if (mapped === "level_id") return submission.levelName ?? "Not provided";
+                if (mapped === "tracks") return item.tracks.map((track) => track.name);
+                if (mapped === "tags") return item.tags.map((tag) => tag.name);
+                if (mapped === "first_name")
+                  return Array.from(speakers.values()).flatMap((speaker) =>
+                    speaker.contactFirstName === null ? [] : [speaker.contactFirstName],
                   );
+                if (mapped === "last_name")
+                  return Array.from(speakers.values()).flatMap((speaker) =>
+                    speaker.contactLastName === null ? [] : [speaker.contactLastName],
+                  );
+                if (mapped === "email")
+                  return Array.from(speakers.values()).flatMap((speaker) =>
+                    speaker.contactEmail === null ? [] : [speaker.contactEmail],
+                  );
+                if (mapped === "bio")
+                  return Array.from(speakers.values()).flatMap((speaker) =>
+                    speaker.contactBio === null ? [] : [speaker.contactBio],
+                  );
+                if (row.fieldId === null) return "Not provided";
+                const values =
+                  row.fieldSection === "participant"
+                    ? Array.from(speakers.values()).flatMap((speaker) => {
+                        const value = speaker.contactCustom?.[row.fieldId ?? ""];
+                        return answerStrings(value);
+                      })
+                    : (() => {
+                        const value = submission.answers[row.fieldId ?? ""];
+                        return answerStrings(value);
+                      })();
+                return values.length === 0 ? "Not provided" : values;
+              };
+              for (const row of rows) {
+                if (
+                  row.fieldId === null ||
+                  row.fieldSection === null ||
+                  row.fieldLabel === null ||
+                  row.fieldType === null ||
+                  row.fieldPosition === null ||
+                  answerMap.has(row.fieldId)
+                ) {
+                  continue;
+                }
+                answerMap.set(row.fieldId, {
+                  id: row.fieldId,
+                  section: row.fieldSection,
+                  label: row.fieldLabel,
+                  fieldType: row.fieldType,
+                  position: row.fieldPosition,
+                  value: answerValue(row),
                 });
-                const reviewers = new Set(
-                  sorted.flatMap((item) => item.reviews.map((review) => review.reviewerId)),
-                );
-                return yield* decode(EvaluationQueue, "evaluation queue", {
-                  reviewerId: first.viewerMemberId,
-                  viewerIsAdmin: first.viewerRole === "admin",
-                  reviewed: sorted.filter((item) =>
-                    first.viewerRole === "admin" ? item.reviews.length > 0 : item.myReview !== null,
-                  ).length,
-                  total: sorted.length,
-                  reviewerCount: reviewers.size,
-                  items: sorted,
-                });
-              }),
-            ),
+              }
+              const activity = [
+                { id: "created", label: "Submission created", at: submission.createdAt },
+                ...(submission.submittedAt === null
+                  ? []
+                  : [
+                      {
+                        id: "submitted",
+                        label: "Submitted for review",
+                        at: submission.submittedAt,
+                      },
+                    ]),
+                ...(submission.updatedAt.getTime() === submission.createdAt.getTime()
+                  ? []
+                  : [
+                      {
+                        id: "status",
+                        label: `Status is ${submission.status}`,
+                        at: submission.updatedAt,
+                      },
+                    ]),
+                ...(submission.notifiedAt === null
+                  ? []
+                  : [
+                      {
+                        id: "notified",
+                        label: "Decision notification sent",
+                        at: submission.notifiedAt,
+                      },
+                    ]),
+              ].sort((left, right) => right.at.getTime() - left.at.getTime());
+              return yield* decode(ReviewDeskDetail, "submission detail", {
+                submission: {
+                  ...item,
+                  reviewCount: item.reviewCount + roundReviews.length,
+                },
+                answers: Array.from(answerMap.values()),
+                reviews: Array.from(reviewMap.values()),
+                roundReviews,
+                activity,
+                emails: Array.from(emailMap.values()),
+              });
+            }),
           ),
         );
       },
-      upsertReview: (session, _eventSlug, input) =>
-        Effect.flatMap(eventSlugById(input.eventId), (eventSlug) =>
-          query(database, "Could not save review", (db) =>
-            db.transaction(async (transaction): Promise<ReviewTransaction> => {
-              const member = alias(eventMembers, "review_upsert_member");
-              const assignedTrack = alias(reviewerTracks, "review_upsert_track");
-              const rows = await transaction
-                .select({
-                  memberId: member.id,
-                  memberRole: member.role,
-                  reviewerName: users.name,
-                  reviewerImage: users.image,
-                  assignedTrackId: assignedTrack.id,
-                })
-                .from(events)
-                .innerJoin(
-                  organizationMembers,
-                  and(
-                    eq(organizationMembers.organizationId, events.organizationId),
-                    eq(organizationMembers.userId, session.userId),
-                  ),
-                )
-                .innerJoin(
-                  member,
-                  and(eq(member.eventId, events.id), eq(member.userId, session.userId)),
-                )
-                .innerJoin(users, eq(users.id, member.userId))
-                .innerJoin(
-                  submissions,
-                  and(
-                    eq(submissions.id, input.submissionId),
-                    eq(submissions.eventId, events.id),
-                    eq(submissions.eventId, input.eventId),
-                    eq(submissions.status, "pending"),
-                  ),
-                )
+      evaluationQueue: (viewer, eventId) => {
+        const viewerMember = alias(eventMembers, "evaluation_viewer_member");
+        const evaluationReviewerTracks = alias(reviewerTracks, "evaluation_reviewer_tracks");
+        // Admins see every pending submission; reviewers see the submissions
+        // in their assigned tracks — the roster join scopes data, it never
+        // gates access (that happened at the boundary).
+        const queueQuery = viewer.isAdmin
+          ? query(database, "Could not load evaluation queue", (db) =>
+              db
+                .select(rawListSelection)
+                .from(submissions)
                 .innerJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+                .innerJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+                .leftJoin(formats, eq(formats.id, submissions.formatId))
+                .leftJoin(levels, eq(levels.id, submissions.levelId))
+                .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+                .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
+                .leftJoin(tags, eq(tags.id, submissionTags.tagId))
                 .leftJoin(
-                  assignedTrack,
+                  submissionParticipants,
+                  eq(submissionParticipants.submissionId, submissions.id),
+                )
+                .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
+                .leftJoin(users, eq(users.id, reviews.reviewerId))
+                .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "pending")))
+                .orderBy(asc(submissions.submittedAt))
+                .execute(),
+            )
+          : query(database, "Could not load evaluation queue", (db) =>
+              db
+                .select(rawListSelection)
+                .from(submissions)
+                .innerJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+                .innerJoin(tracks, eq(tracks.id, submissionTracks.trackId))
+                .innerJoin(
+                  viewerMember,
                   and(
-                    eq(assignedTrack.trackId, submissionTracks.trackId),
-                    eq(assignedTrack.eventMemberId, member.id),
+                    eq(viewerMember.eventId, submissions.eventId),
+                    eq(viewerMember.userId, viewer.userId),
                   ),
                 )
-                .where(eq(events.slug, eventSlug));
+                .innerJoin(
+                  evaluationReviewerTracks,
+                  and(
+                    eq(evaluationReviewerTracks.trackId, submissionTracks.trackId),
+                    eq(evaluationReviewerTracks.eventMemberId, viewerMember.id),
+                  ),
+                )
+                .leftJoin(formats, eq(formats.id, submissions.formatId))
+                .leftJoin(levels, eq(levels.id, submissions.levelId))
+                .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+                .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
+                .leftJoin(tags, eq(tags.id, submissionTags.tagId))
+                .leftJoin(
+                  submissionParticipants,
+                  eq(submissionParticipants.submissionId, submissions.id),
+                )
+                .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
+                .leftJoin(users, eq(users.id, reviews.reviewerId))
+                .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "pending")))
+                .orderBy(asc(submissions.submittedAt))
+                .execute(),
+            );
+        return queueQuery.pipe(
+          Effect.flatMap((rows) =>
+            Effect.gen(function* () {
               const first = rows[0];
-              if (first === undefined) return { kind: "notFound" };
-              if (
-                first.memberRole !== "admin" &&
-                rows.every((row) => row.assignedTrackId === null)
-              ) {
-                return { kind: "forbidden" };
+              if (first === undefined) {
+                return yield* Effect.fail(
+                  new Forbidden({ message: "No submissions are assigned to you" }),
+                );
               }
-              const saved = await transaction
-                .insert(reviews)
-                .values({
-                  submissionId: input.submissionId,
-                  reviewerId: first.memberId,
+              const decoded = yield* decodeMany(RawListRow, "evaluation row", rows);
+              const items = yield* decodeMany(
+                ReviewDeskListItem,
+                "evaluation submission",
+                makeListItems(decoded),
+              );
+              const reviewMaps = new Map<string, Map<string, ReviewDeskReview>>();
+              for (const row of decoded) {
+                if (
+                  row.reviewId === null ||
+                  row.reviewerId === null ||
+                  row.reviewerName === null ||
+                  row.reviewDecision === null ||
+                  row.reviewUpdatedAt === null
+                ) {
+                  continue;
+                }
+                const map = reviewMaps.get(row.submissionId) ?? new Map<string, ReviewDeskReview>();
+                map.set(row.reviewId, {
+                  id: row.reviewId,
+                  reviewerId: row.reviewerId,
+                  reviewerName: row.reviewerName,
+                  reviewerImage: row.reviewerImage,
+                  decision: row.reviewDecision,
+                  score: row.reviewScore,
+                  comment: row.reviewComment,
+                  updatedAt: row.reviewUpdatedAt,
+                });
+                reviewMaps.set(row.submissionId, map);
+              }
+              const evaluationItems: ReadonlyArray<EvaluationItem> = items.map((submission) => {
+                const itemReviews = Array.from(reviewMaps.get(submission.id)?.values() ?? []);
+                return {
+                  submission,
+                  myReview:
+                    itemReviews.find((review) => review.reviewerId === viewer.userId) ?? null,
+                  reviews: itemReviews,
+                };
+              });
+              const sorted = [...evaluationItems].sort((left, right) => {
+                if ((left.myReview === null) !== (right.myReview === null))
+                  return left.myReview === null ? -1 : 1;
+                return (
+                  (left.submission.submittedAt?.getTime() ?? 0) -
+                  (right.submission.submittedAt?.getTime() ?? 0)
+                );
+              });
+              const reviewers = new Set(
+                sorted.flatMap((item) => item.reviews.map((review) => review.reviewerId)),
+              );
+              return yield* decode(EvaluationQueue, "evaluation queue", {
+                reviewerId: viewer.userId,
+                viewerIsAdmin: viewer.isAdmin,
+                reviewed: sorted.filter((item) =>
+                  viewer.isAdmin ? item.reviews.length > 0 : item.myReview !== null,
+                ).length,
+                total: sorted.length,
+                reviewerCount: reviewers.size,
+                items: sorted,
+              });
+            }),
+          ),
+        );
+      },
+      upsertReview: (viewer, input) =>
+        query(database, "Could not save review", (db) =>
+          db.transaction(async (transaction): Promise<ReviewTransaction> => {
+            const member = alias(eventMembers, "review_upsert_member");
+            const assignedTrack = alias(reviewerTracks, "review_upsert_track");
+            const reviewerRows = await transaction
+              .select({ name: users.name, image: users.image })
+              .from(users)
+              .where(eq(users.id, viewer.userId))
+              .limit(1);
+            const reviewer = reviewerRows[0];
+            if (reviewer === undefined) return { kind: "notFound" };
+            const rows = await transaction
+              .select({
+                submissionId: submissions.id,
+                assignedTrackId: assignedTrack.id,
+              })
+              .from(submissions)
+              .innerJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
+              .leftJoin(
+                member,
+                and(eq(member.eventId, submissions.eventId), eq(member.userId, viewer.userId)),
+              )
+              .leftJoin(
+                assignedTrack,
+                and(
+                  eq(assignedTrack.trackId, submissionTracks.trackId),
+                  eq(assignedTrack.eventMemberId, member.id),
+                ),
+              )
+              .where(
+                and(
+                  eq(submissions.id, input.submissionId),
+                  eq(submissions.eventId, input.eventId),
+                  eq(submissions.status, "pending"),
+                ),
+              );
+            const first = rows[0];
+            if (first === undefined) return { kind: "notFound" };
+            // Non-admin reviewers may only score submissions inside their
+            // assigned tracks; admins score anything in the event.
+            if (!viewer.isAdmin && rows.every((row) => row.assignedTrackId === null)) {
+              return { kind: "forbidden" };
+            }
+            const saved = await transaction
+              .insert(reviews)
+              .values({
+                submissionId: input.submissionId,
+                reviewerId: viewer.userId,
+                decision: input.decision,
+                score: input.score,
+                comment: input.comment,
+              })
+              .onConflictDoUpdate({
+                target: [reviews.submissionId, reviews.reviewerId],
+                set: {
                   decision: input.decision,
                   score: input.score,
                   comment: input.comment,
-                })
-                .onConflictDoUpdate({
-                  target: [reviews.submissionId, reviews.reviewerId],
-                  set: {
-                    decision: input.decision,
-                    score: input.score,
-                    comment: input.comment,
-                    updatedAt: new Date(),
-                  },
-                })
-                .returning();
-              return {
-                kind: "success",
-                review: saved[0] ?? null,
-                reviewerName: first.reviewerName,
-                reviewerImage: first.reviewerImage,
-              };
-            }),
-          ).pipe(
-            Effect.flatMap((outcome) =>
-              Effect.gen(function* () {
-                if (outcome.kind === "notFound")
-                  return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
-                if (outcome.kind === "forbidden")
-                  return yield* Effect.fail(
-                    new Forbidden({ message: "This submission is outside your tracks" }),
-                  );
-                const review = yield* decodeFound(
-                  Schema.Struct({
-                    id: Schema.String,
-                    reviewerId: Schema.String,
-                    decision: ReviewDecision,
-                    score: NullableNumber,
-                    comment: NullableString,
-                    updatedAt: Schema.Date,
-                  }),
-                  "Review",
-                  outcome.review,
+                  updatedAt: new Date(),
+                },
+              })
+              .returning();
+            return {
+              kind: "success",
+              review: saved[0] ?? null,
+              reviewerName: reviewer.name,
+              reviewerImage: reviewer.image,
+            };
+          }),
+        ).pipe(
+          Effect.flatMap((outcome) =>
+            Effect.gen(function* () {
+              if (outcome.kind === "notFound")
+                return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
+              if (outcome.kind === "forbidden")
+                return yield* Effect.fail(
+                  new Forbidden({ message: "This submission is outside your tracks" }),
                 );
-                return yield* decode(ReviewDeskReview, "review desk review", {
-                  ...review,
-                  reviewerName: outcome.reviewerName,
-                  reviewerImage: outcome.reviewerImage,
-                });
-              }),
-            ),
+              const review = yield* decodeFound(
+                Schema.Struct({
+                  id: Schema.String,
+                  reviewerId: Schema.String,
+                  decision: ReviewDecision,
+                  score: NullableNumber,
+                  comment: NullableString,
+                  updatedAt: Schema.Date,
+                }),
+                "Review",
+                outcome.review,
+              );
+              return yield* decode(ReviewDeskReview, "review desk review", {
+                ...review,
+                reviewerName: outcome.reviewerName,
+                reviewerImage: outcome.reviewerImage,
+              });
+            }),
           ),
         ),
-      changeStatus: (eventSlug, eventId, submissionId, status) => {
+      changeStatus: (eventId, submissionId, status) => {
         if (status === "accepted" || status === "declined" || status === "draft") {
           return Effect.fail(
             new InvalidInput({
@@ -1158,21 +1007,12 @@ export const ReviewDeskLive = Layer.effect(
               updatedAt: new Date(),
               kind: sql`case when ${submissions.sourceFormId} is not null then 'abstract' else ${submissions.kind} end`,
             })
-            .where(
-              and(
-                eq(submissions.id, submissionId),
-                eq(submissions.eventId, eventId),
-                inArray(
-                  submissions.eventId,
-                  db.select({ id: events.id }).from(events).where(eq(events.slug, eventSlug)),
-                ),
-              ),
-            )
+            .where(and(eq(submissions.id, submissionId), eq(submissions.eventId, eventId)))
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(StatusChangeResult, "Submission", rows[0])));
       },
-      decide: (eventSlug, input) => {
+      decide: (input) => {
         const uniqueIds = Array.from(new Set(input.submissionIds));
         if (uniqueIds.length === 0) {
           return Effect.fail(new InvalidInput({ message: "Select at least one submission" }));
@@ -1194,11 +1034,7 @@ export const ReviewDeskLive = Layer.effect(
               .from(submissions)
               .innerJoin(
                 events,
-                and(
-                  eq(events.id, submissions.eventId),
-                  eq(events.slug, eventSlug),
-                  eq(events.id, input.eventId),
-                ),
+                and(eq(events.id, submissions.eventId), eq(events.id, input.eventId)),
               )
               .leftJoin(
                 submissionParticipants,

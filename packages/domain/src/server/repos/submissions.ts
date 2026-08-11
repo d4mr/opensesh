@@ -1,11 +1,9 @@
 import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import {
   contacts,
   embeds,
-  eventMembers,
   events,
   fileUploads,
   formats,
@@ -190,7 +188,6 @@ export const SubmissionsLive = Layer.effect(
       .where(eq(contacts.participation, "speaker"))
       .groupBy(contacts.eventId)
       .as("dashboard_contact_counts");
-    const reviewerMember = alias(eventMembers, "dashboard_reviewer_member");
 
     return {
       listByEvent: (eventId) =>
@@ -220,8 +217,7 @@ export const SubmissionsLive = Layer.effect(
             .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
             .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
             .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
-            .leftJoin(eventMembers, eq(eventMembers.id, reviews.reviewerId))
-            .leftJoin(users, eq(users.id, eventMembers.userId))
+            .leftJoin(users, eq(users.id, reviews.reviewerId))
             .where(eq(submissions.eventId, eventId))
             .orderBy(desc(submissions.createdAt), asc(tracks.position), asc(reviews.createdAt))
             .execute(),
@@ -302,8 +298,7 @@ export const SubmissionsLive = Layer.effect(
                 .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
                 .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
                 .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
-                .leftJoin(reviewerMember, eq(reviewerMember.id, reviews.reviewerId))
-                .leftJoin(users, eq(users.id, reviewerMember.userId))
+                .leftJoin(users, eq(users.id, reviews.reviewerId))
                 .where(
                   and(
                     eq(events.slug, eventSlug),

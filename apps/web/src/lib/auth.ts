@@ -8,8 +8,6 @@ import {
   users,
   verifications,
 } from "@opensesh/domain/db/auth";
-import { eventMembers, events } from "@opensesh/domain";
-import { eq } from "drizzle-orm";
 import { sendMagicLink, sendOrganizationInvitation } from "@opensesh/domain/server/mail";
 import { run } from "@opensesh/domain/server/runtime";
 import { betterAuth } from "better-auth";
@@ -104,24 +102,6 @@ const buildAuth = (
               id: `org_${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`,
             },
           }),
-          afterAcceptInvitation: async ({ invitation, member }) => {
-            if (member.role !== "admin" && member.role !== "owner") return;
-            const organizationEvents = await database
-              .select({ id: events.id })
-              .from(events)
-              .where(eq(events.organizationId, invitation.organizationId));
-            if (organizationEvents.length === 0) return;
-            await database
-              .insert(eventMembers)
-              .values(
-                organizationEvents.map((event) => ({
-                  eventId: event.id,
-                  userId: member.userId,
-                  role: "admin" as const,
-                })),
-              )
-              .onConflictDoNothing();
-          },
         },
         sendInvitationEmail: async (data) => {
           const url = `${origin}/accept-invitation/${data.id}`;

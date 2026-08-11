@@ -803,7 +803,7 @@ const crmPipelineCardRows = [
   },
 ].map(({ movedAt, ...card }) => ({
   ...card,
-  ownerEventMemberId: "mem_dana",
+  ownerUserId: "usr_dana",
   createdAt: seededAt,
   updatedAt: new Date(movedAt),
 }));
@@ -846,7 +846,7 @@ const crmStageHistoryRows = [
   cardId: entry.cardId,
   fromStageId: entry.from,
   toStageId: entry.to,
-  actorEventMemberId: "mem_dana",
+  actorUserId: "usr_dana",
   createdAt: new Date(seededAt.getTime() + entry.day * dayMs),
 }));
 
@@ -902,7 +902,7 @@ export const seedDatabase = async (database: Database) => {
             id: `org_mem_${user.id}`,
             organizationId: "org_ai_engineer",
             userId: user.id,
-            role: user.id === "usr_jordan" ? "owner" : "member",
+            role: "member",
             createdAt: seededAt,
           })),
       ]),
@@ -1182,14 +1182,14 @@ export const seedDatabase = async (database: Database) => {
         id: "che_maya_bio",
         contactId: "con_01",
         authorContactId: "con_01",
-        authorEventMemberId: null,
+        authorUserId: null,
         authorName: "Maya Chen",
         changedFields: ["bio"],
         previousValues: { bio: mayaApprovedBio },
         newValues: { bio: mayaPendingBio },
         approvalStatus: "pending_review",
         reviewedAt: null,
-        reviewedByEventMemberId: null,
+        reviewedByUserId: null,
         createdAt: new Date(1785672000000),
         updatedAt: new Date(1785672000000),
       }),

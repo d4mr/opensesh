@@ -123,7 +123,7 @@ export const AiReviewResult = Schema.Struct({
   model: Schema.String,
   overriddenScore: NullableNumber,
   overrideReason: NullableString,
-  overriddenByEventMemberId: NullableString,
+  overriddenByUserId: NullableString,
   overriddenAt: NullableDate,
 });
 export type AiReviewResult = typeof AiReviewResult.Type;
@@ -517,13 +517,13 @@ export const overrideAiScore = (
   result: AiReviewResult,
   score: number,
   reason: string,
-  eventMemberId: string,
+  userId: string,
   now: Date,
 ): AiReviewResult => ({
   ...result,
   overriddenScore: score,
   overrideReason: reason,
-  overriddenByEventMemberId: eventMemberId,
+  overriddenByUserId: userId,
   overriddenAt: now,
   updatedAt: now,
 });

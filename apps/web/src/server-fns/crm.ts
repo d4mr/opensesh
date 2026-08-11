@@ -37,7 +37,7 @@ const requireCrm = Effect.fn("requireCrm")(function* () {
 const requireWorkspace = Effect.fn("requireCrmWorkspace")(function* () {
   const user = yield* getCurrentUser;
   const crm = yield* Crm;
-  const organization = yield* crm.organization(user.orgId, user.userId);
+  const organization = yield* crm.organization(user.orgId);
   return { user, crm, organization };
 });
 
@@ -72,7 +72,6 @@ export const getCrmWorkspace = createServerFn({ method: "GET" }).handler(async (
       );
       return {
         organization: { id: organization.id, name: organization.name, logo: organization.logo },
-        actorEventMemberId: organization.actorEventMemberId,
         events,
         directory,
         tags,
@@ -119,14 +118,10 @@ export const addCrmNote = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm, organization } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         yield* crm.contactDetailView(user.orgId, data.organizationContactId);
         const body = yield* requiredText(data.body, "Write a note before saving");
-        return yield* crm.addNote(
-          data.organizationContactId,
-          body,
-          organization.actorEventMemberId,
-        );
+        return yield* crm.addNote(data.organizationContactId, body, user.userId);
       }),
       { require: "admin" },
     ),
@@ -246,13 +241,13 @@ export const saveCrmCard = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm, organization } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         return yield* crm.saveCard(
           user.orgId,
           data.organizationContactId,
           data.stageId,
           data.note,
-          organization.actorEventMemberId,
+          user.userId,
         );
       }),
       { require: "admin" },
@@ -264,13 +259,8 @@ export const moveCrmCard = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm, organization } = yield* requireWorkspace();
-        return yield* crm.moveCard(
-          user.orgId,
-          data.cardId,
-          data.toStageId,
-          organization.actorEventMemberId,
-        );
+        const { user, crm } = yield* requireCrm();
+        return yield* crm.moveCard(user.orgId, data.cardId, data.toStageId, user.userId);
       }),
       { require: "admin" },
     ),
@@ -315,7 +305,7 @@ export const sendCrmCampaign = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const { user, crm, organization } = yield* requireWorkspace();
+        const { user, crm } = yield* requireCrm();
         const events = yield* Events;
         const event = yield* events.get(data.eventId);
         if (event.organizationId !== user.orgId)
@@ -340,7 +330,7 @@ export const sendCrmCampaign = createServerFn({ method: "POST" })
             source: "crm",
             organizationContactIds: data.organizationContactIds,
           },
-          createdByEventMemberId: organization.actorEventMemberId,
+          createdByUserId: user.userId,
           organizationContactIds: data.organizationContactIds,
         });
         const campaign = yield* crm.sendCampaign(created.campaign.id);

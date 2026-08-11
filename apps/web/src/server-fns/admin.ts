@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
 import { DbError, Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Events, ReadModels } from "@opensesh/domain/server/repos";
 import {
@@ -32,16 +32,6 @@ const decodeBase64 = (value: string) => {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 };
 
-const requireEvent = Effect.fn("requireAdminEvent")(function* (eventId: string) {
-  const events = yield* Events;
-  const user = yield* getCurrentUser;
-  const event = yield* events.get(eventId);
-  if (event.organizationId !== user.orgId) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  }
-  return event;
-});
-
 export const getAdminBootstrap = createServerFn({ method: "GET" }).handler(async () =>
   runServer(
     Effect.gen(function* () {
@@ -52,6 +42,7 @@ export const getAdminBootstrap = createServerFn({ method: "GET" }).handler(async
         {
           userId: user.userId,
           email: user.email,
+          name: user.name,
           activeOrganizationId: user.orgId,
         },
         user.eventSlug,
@@ -100,30 +91,29 @@ export const createEvent = createServerFn({ method: "POST" })
         const slug = organizationEvents.some((event) => event.slug === base)
           ? `${base}-${organizationEvents.length + 1}`
           : base;
-        return yield* events.createForAdmin(
-          {
-            organizationId: user.orgId,
-            name: data.name,
-            slug,
-            tagline: null,
-            description: null,
-            type: data.type,
-            websiteUrl: null,
-            location: null,
-            timezone: data.timezone,
-            startsAt,
-            endsAt,
-            theme: null,
-            logoUrl: null,
-            logoKey: null,
-            backgroundUrl: null,
-            defaultSubmissionLimit: 3,
-            agendaPublishedAt: null,
-            publishedAgenda: [],
-            agendaDirty: false,
-          },
-          user.userId,
-        );
+        // The creator needs no event_members row — an org admin is a derived
+        // admin of every organization event.
+        return yield* events.create({
+          organizationId: user.orgId,
+          name: data.name,
+          slug,
+          tagline: null,
+          description: null,
+          type: data.type,
+          websiteUrl: null,
+          location: null,
+          timezone: data.timezone,
+          startsAt,
+          endsAt,
+          theme: null,
+          logoUrl: null,
+          logoKey: null,
+          backgroundUrl: null,
+          defaultSubmissionLimit: 3,
+          agendaPublishedAt: null,
+          publishedAgenda: [],
+          agendaDirty: false,
+        });
       }),
       { require: "admin" },
     ),
@@ -137,7 +127,8 @@ export const updateEventSettings = createServerFn({ method: "POST" })
     return runServer(
       Effect.gen(function* () {
         const events = yield* Events;
-        const event = yield* requireEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
+        const event = yield* events.get(data.eventId);
         const [startsAt, endsAt] = yield* Effect.all([
           dateOrFail(data.startsAt),
           dateOrFail(data.endsAt),
@@ -202,18 +193,20 @@ export const updateEventSettings = createServerFn({ method: "POST" })
           logoKey,
         });
       }),
-      { require: "admin" },
+      { require: "staff" },
     );
   });
 
 export const getEventLibrary = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
   .handler(async ({ data }) =>
-    runSessionServer((session, eventSlug) =>
+    runServer(
       Effect.gen(function* () {
+        yield* requireEventAccess(data.eventId, "admin");
         const reads = yield* ReadModels;
-        return yield* reads.eventLibraryForAdmin(session, eventSlug, data.eventId);
+        return yield* reads.eventLibraryForAdmin(data.eventId);
       }),
+      { require: "staff" },
     ),
   );
 
@@ -223,7 +216,7 @@ export const saveLibraryItem = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const events = yield* Events;
-        yield* requireEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         const list =
           data.kind === "track"
             ? yield* events.listTracks(data.eventId)
@@ -267,7 +260,7 @@ export const saveLibraryItem = createServerFn({ method: "POST" })
           ? yield* events.createLevel({ ...input, eventId: data.eventId })
           : yield* events.updateLevel(data.id, input);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -277,13 +270,13 @@ export const deleteLibraryItem = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const events = yield* Events;
-        yield* requireEvent(data.eventId);
+        yield* requireEventAccess(data.eventId, "admin");
         if (data.kind === "track") return yield* events.deleteTrack(data.id);
         if (data.kind === "format") return yield* events.deleteFormat(data.id);
         if (data.kind === "room") return yield* events.deleteRoom(data.id);
         if (data.kind === "tag") return yield* events.deleteTag(data.id);
         return yield* events.deleteLevel(data.id);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );

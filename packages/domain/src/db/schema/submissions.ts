@@ -21,7 +21,8 @@ import {
   timestamps,
   tshirtSize,
 } from "../columns";
-import { eventMembers, events, formats, levels, rooms, tags, tracks } from "./core";
+import { events, formats, levels, rooms, tags, tracks } from "./core";
+import { users } from "./identity";
 import { forms } from "./forms";
 
 export const contacts = pgTable(
@@ -128,7 +129,7 @@ export const submissionEditHistory = pgTable(
     authorContactId: text("author_contact_id").references(() => contacts.id, {
       onDelete: "set null",
     }),
-    authorEventMemberId: text("author_event_member_id").references(() => eventMembers.id, {
+    authorUserId: text("author_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     authorName: text("author_name").notNull(),
@@ -139,7 +140,7 @@ export const submissionEditHistory = pgTable(
     newValues: jsonb("new_values").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
     approvalStatus: contentApprovalStatus("approval_status").notNull(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-    reviewedByEventMemberId: text("reviewed_by_event_member_id").references(() => eventMembers.id, {
+    reviewedByUserId: text("reviewed_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     ...timestamps,
@@ -157,7 +158,7 @@ export const contactEditHistory = pgTable(
     authorContactId: text("author_contact_id").references(() => contacts.id, {
       onDelete: "set null",
     }),
-    authorEventMemberId: text("author_event_member_id").references(() => eventMembers.id, {
+    authorUserId: text("author_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     authorName: text("author_name").notNull(),
@@ -168,7 +169,7 @@ export const contactEditHistory = pgTable(
     newValues: jsonb("new_values").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
     approvalStatus: contentApprovalStatus("approval_status").notNull(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-    reviewedByEventMemberId: text("reviewed_by_event_member_id").references(() => eventMembers.id, {
+    reviewedByUserId: text("reviewed_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     ...timestamps,
@@ -244,7 +245,7 @@ export const reviews = pgTable(
       .references(() => submissions.id, { onDelete: "cascade" }),
     reviewerId: text("reviewer_id")
       .notNull()
-      .references(() => eventMembers.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade" }),
     decision: reviewDecision("decision").notNull(),
     score: integer("score"),
     comment: text("comment"),

@@ -69,7 +69,7 @@ const expectedTables: ReadonlyArray<{
   { name: "agenda_drafts", table: agendaDrafts, expected: 0 },
   { name: "users", table: users, expected: 9 },
   { name: "accounts", table: accounts, expected: 9 },
-  { name: "event_members", table: eventMembers, expected: 4 },
+  { name: "event_members", table: eventMembers, expected: 3 },
   { name: "reviewer_tracks", table: reviewerTracks, expected: 2 },
   { name: "tracks", table: tracks, expected: 7 },
   { name: "tags", table: tags, expected: 8 },
@@ -223,7 +223,7 @@ export const verifySeed = async (database: Database) => {
   const statusMatches = statusRows.every(({ status, total }) => expectedStatuses[status] === total);
   const expectedMemberships = new Map([
     ["demo@opensesh.io", "owner"],
-    ["jordan.organizer@sbek-test.example.com", "owner"],
+    ["jordan.organizer@sbek-test.example.com", "member"],
     ["reviewer@opensesh.io", "member"],
     ["sam.reviewer@sbek-test.example.com", "member"],
   ]);

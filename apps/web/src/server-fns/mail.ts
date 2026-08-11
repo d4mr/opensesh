@@ -1,32 +1,20 @@
 import {
   DeliverableReminderRequest,
   EventMailRequest,
-  Forbidden,
   InvalidInput,
   ReminderRequest,
   RetryEmailRequest,
 } from "@opensesh/domain";
-import { getCurrentUser } from "@opensesh/domain/server/current-user";
+import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Events, MailAdmin } from "@opensesh/domain/server/repos";
+import { MailAdmin } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
 
-const requireAdminEvent = Effect.fn("requireMailAdminEvent")(function* (eventId: string) {
-  const user = yield* getCurrentUser;
-  if (!user.roles.admin) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage event email" }));
-  }
-  const events = yield* Events;
-  const event = yield* events.get(eventId);
-  if (event.organizationId !== user.orgId) {
-    return yield* Effect.fail(new Forbidden({ message: "You cannot manage this event" }));
-  }
-  return event;
-});
+const requireAdminEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
 const summarize = (results: ReadonlyArray<{ readonly status: "demo" | "sent" | "failed" }>) => ({
   attempted: results.length,
@@ -44,7 +32,7 @@ export const getAdminEmails = createServerFn({ method: "GET" })
         const admin = yield* MailAdmin;
         return yield* admin.list(data.eventId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -57,7 +45,7 @@ export const getCalendarInviteSummary = createServerFn({ method: "GET" })
         const admin = yield* MailAdmin;
         return yield* admin.calendarSummary(data.eventId);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -76,7 +64,7 @@ export const sendCalendarInvites = createServerFn({ method: "POST" })
         });
         return summarize(results);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -101,7 +89,7 @@ export const sendTaskReminders = createServerFn({ method: "POST" })
         });
         return summarize(results);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -125,7 +113,7 @@ export const sendDeliverableReminders = createServerFn({ method: "POST" })
         });
         return summarize(results);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );
 
@@ -145,6 +133,6 @@ export const retryEmail = createServerFn({ method: "POST" })
         const mail = yield* Mail;
         return yield* mail.sendQueued(entry.id);
       }),
-      { require: "admin" },
+      { require: "staff" },
     ),
   );

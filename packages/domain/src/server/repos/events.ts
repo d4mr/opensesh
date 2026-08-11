@@ -52,7 +52,6 @@ interface EventsService {
   readonly get: (id: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly getBySlug: (slug: string) => Effect.Effect<Event, DbError | NotFound>;
   readonly create: (input: EventCreate) => Effect.Effect<Event, DbError>;
-  readonly createForAdmin: (input: EventCreate, userId: string) => Effect.Effect<Event, DbError>;
   readonly update: (id: string, input: EventUpdate) => Effect.Effect<Event, DbError | NotFound>;
   readonly listAdmins: (eventId: string) => Effect.Effect<ReadonlyArray<EventAdmin>, DbError>;
   readonly listTracks: (eventId: string) => Effect.Effect<ReadonlyArray<Track>, DbError>;
@@ -170,41 +169,6 @@ export const EventsLive = Layer.effect(
         query(database, "Could not create event", (db) =>
           db.insert(events).values(input).returning().execute(),
         ).pipe(Effect.flatMap((rows) => decode(Event, "event", rows[0]))),
-      createForAdmin: (input, userId) =>
-        query(database, "Could not create event", (db) =>
-          db.transaction(async (transaction) => {
-            const rows = await transaction.insert(events).values(input).returning().execute();
-            const event = rows[0];
-            if (event !== undefined) {
-              const organizationAdmins = await transaction
-                .select({ userId: organizationMembers.userId })
-                .from(organizationMembers)
-                .where(
-                  and(
-                    eq(organizationMembers.organizationId, input.organizationId),
-                    inArray(organizationMembers.role, ["owner", "admin"]),
-                  ),
-                )
-                .execute();
-              const adminIds = new Set([
-                userId,
-                ...organizationAdmins.map((member) => member.userId),
-              ]);
-              await transaction
-                .insert(eventMembers)
-                .values(
-                  [...adminIds].map((adminUserId) => ({
-                    eventId: event.id,
-                    userId: adminUserId,
-                    role: "admin" as const,
-                  })),
-                )
-                .onConflictDoNothing()
-                .execute();
-            }
-            return event;
-          }),
-        ).pipe(Effect.flatMap((row) => decode(Event, "event", row))),
       update: (id, input) =>
         query(database, "Could not update event", (db) =>
           db
@@ -214,16 +178,46 @@ export const EventsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Event, "Event", rows[0]))),
+      // Event admins are derived: every org owner/admin plus the
+      // explicitly-invited event-scoped admins, deduped by user.
       listAdmins: (eventId) =>
-        query(database, "Could not list event admins", (db) =>
-          db
-            .select({ id: users.id, name: users.name, email: users.email })
-            .from(eventMembers)
-            .innerJoin(users, eq(users.id, eventMembers.userId))
-            .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.role, "admin")))
-            .orderBy(asc(users.name))
-            .execute(),
-        ).pipe(Effect.flatMap((rows) => decodeMany(EventAdmin, "event admin", rows))),
+        Effect.all([
+          query(database, "Could not list organization admins", (db) =>
+            db
+              .select({ id: users.id, name: users.name, email: users.email })
+              .from(events)
+              .innerJoin(
+                organizationMembers,
+                and(
+                  eq(organizationMembers.organizationId, events.organizationId),
+                  inArray(organizationMembers.role, ["owner", "admin"]),
+                ),
+              )
+              .innerJoin(users, eq(users.id, organizationMembers.userId))
+              .where(eq(events.id, eventId))
+              .execute(),
+          ),
+          query(database, "Could not list event admins", (db) =>
+            db
+              .select({ id: users.id, name: users.name, email: users.email })
+              .from(eventMembers)
+              .innerJoin(users, eq(users.id, eventMembers.userId))
+              .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.role, "admin")))
+              .execute(),
+          ),
+        ]).pipe(
+          Effect.flatMap(([organizationAdmins, overlayAdmins]) =>
+            decodeMany(
+              EventAdmin,
+              "event admin",
+              Array.from(
+                new Map(
+                  [...organizationAdmins, ...overlayAdmins].map((admin) => [admin.id, admin]),
+                ).values(),
+              ).sort((left, right) => left.name.localeCompare(right.name)),
+            ),
+          ),
+        ),
       listTracks: (eventId) =>
         query(database, "Could not list tracks", (db) =>
           db

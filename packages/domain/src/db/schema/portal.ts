@@ -21,7 +21,8 @@ import {
   taskStatus,
   timestamps,
 } from "../columns";
-import { eventMembers, events } from "./core";
+import { events } from "./core";
+import { users } from "./identity";
 import { contacts, submissions } from "./submissions";
 
 export const portalForms = pgTable(
@@ -168,7 +169,7 @@ export const fileVersions = pgTable(
     uploaderContactId: text("uploader_contact_id").references(() => contacts.id, {
       onDelete: "set null",
     }),
-    uploaderEventMemberId: text("uploader_event_member_id").references(() => eventMembers.id, {
+    uploaderUserId: text("uploader_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     uploaderName: text("uploader_name").notNull(),
@@ -191,7 +192,7 @@ export const fileComments = pgTable(
     authorContactId: text("author_contact_id").references(() => contacts.id, {
       onDelete: "set null",
     }),
-    authorEventMemberId: text("author_event_member_id").references(() => eventMembers.id, {
+    authorUserId: text("author_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
     authorName: text("author_name").notNull(),

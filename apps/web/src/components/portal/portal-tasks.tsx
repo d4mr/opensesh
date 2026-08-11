@@ -185,7 +185,7 @@ function TaskContent({
       upload !== undefined &&
       comments.some(
         (comment) =>
-          comment.authorEventMemberId !== null &&
+          comment.authorUserId !== null &&
           (upload.upload.speakerLastReadAt === null ||
             new Date(comment.createdAt) > new Date(upload.upload.speakerLastReadAt)),
       );
@@ -377,7 +377,7 @@ function TaskContent({
       item.upload !== undefined &&
       comments.some(
         (comment) =>
-          comment.authorEventMemberId !== null &&
+          comment.authorUserId !== null &&
           (item.upload?.speakerLastReadAt === null ||
             new Date(comment.createdAt) > new Date(item.upload?.speakerLastReadAt ?? 0)),
       );

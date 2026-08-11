@@ -8,7 +8,6 @@ import {
   emailCampaigns,
   emailLog,
   emailTemplates,
-  eventMembers,
   events,
   reminderRules,
   submissionParticipants,
@@ -166,14 +165,6 @@ export const SpeakerCommsLive = Layer.effect(
               .limit(1)
               .execute();
             if (existing === undefined) return { kind: "notFound" as const };
-            const member = await transaction
-              .select({ id: eventMembers.id })
-              .from(eventMembers)
-              .where(
-                and(eq(eventMembers.eventId, input.eventId), eq(eventMembers.userId, actor.userId)),
-              )
-              .limit(1)
-              .execute();
             const custom = {
               ...existing.custom,
               travelLogistics: input.travelLogistics ?? "",
@@ -202,7 +193,7 @@ export const SpeakerCommsLive = Layer.effect(
               await transaction.insert(contactEditHistory).values({
                 contactId: existing.id,
                 authorContactId: null,
-                authorEventMemberId: member[0]?.id ?? null,
+                authorUserId: actor.userId,
                 authorName: actor.name,
                 changedFields,
                 previousValues: {
@@ -232,7 +223,7 @@ export const SpeakerCommsLive = Layer.effect(
                 },
                 approvalStatus: "approved",
                 reviewedAt: new Date(),
-                reviewedByEventMemberId: member[0]?.id ?? null,
+                reviewedByUserId: actor.userId,
               });
             return { kind: "ok" as const, row: saved };
           }),
@@ -541,18 +532,7 @@ export const SpeakerCommsLive = Layer.effect(
               .where(eq(events.id, input.eventId))
               .limit(1)
               .execute();
-            const [member] = await transaction
-              .select({ id: eventMembers.id })
-              .from(eventMembers)
-              .where(
-                and(
-                  eq(eventMembers.eventId, input.eventId),
-                  eq(eventMembers.userId, input.createdByUserId),
-                ),
-              )
-              .limit(1)
-              .execute();
-            if (event === undefined || member === undefined) return { kind: "notFound" as const };
+            if (event === undefined) return { kind: "notFound" as const };
             const selected =
               input.contactIds.length === 0
                 ? []
@@ -582,7 +562,7 @@ export const SpeakerCommsLive = Layer.effect(
                 bodySnapshot: input.body,
                 recipientFilter: input.recipientFilter,
                 status: "sending",
-                createdByEventMemberId: member.id,
+                createdByUserId: input.createdByUserId,
               })
               .returning()
               .execute();
