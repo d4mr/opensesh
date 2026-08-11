@@ -87,6 +87,7 @@ const sessionFileRequirementFields = {
   dueAt: NullableDate,
   acceptTypes: NullableString,
   maxSizeMb: NullableNumber,
+  scope: TargetType,
   position: Schema.Number,
 };
 
@@ -96,9 +97,20 @@ export const SessionFileRequirement = Schema.Struct({
 });
 export type SessionFileRequirement = typeof SessionFileRequirement.Type;
 
+export const DeliverableStatus = Schema.Literals(["outstanding", "uploaded"]);
+export const SessionFileRequirementAssignment = Schema.Struct({
+  ...EntityFields,
+  requirementId: Schema.String,
+  submissionId: Schema.String,
+  contactId: NullableString,
+  status: DeliverableStatus,
+});
+export type SessionFileRequirementAssignment = typeof SessionFileRequirementAssignment.Type;
+
 const fileUploadFields = {
   fileRequestId: NullableString,
   requirementId: NullableString,
+  assignmentId: NullableString,
   kind: FileKind,
   contactId: Schema.String,
   submissionId: NullableString,
@@ -285,6 +297,11 @@ export const SessionFileRequirementMutationRequest = Schema.Struct({
   dueAt: NullableString,
   acceptTypes: NullableString,
   maxSizeMb: NullableNumber,
+  scope: TargetType,
+});
+export const SessionFileRequirementDeleteRequest = Schema.Struct({
+  eventId: Schema.String,
+  requirementId: Schema.String,
 });
 export const ContentReviewRequest = Schema.Struct({ historyId: Schema.String });
 export const RestoreHistoryRequest = Schema.Struct({ historyId: Schema.String });

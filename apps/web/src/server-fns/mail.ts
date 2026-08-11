@@ -1,4 +1,5 @@
 import {
+  DeliverableReminderRequest,
   EventMailRequest,
   Forbidden,
   InvalidInput,
@@ -95,6 +96,30 @@ export const sendTaskReminders = createServerFn({ method: "POST" })
           { concurrency: 5 },
         );
         const queued = batches.flat();
+        const results = yield* Effect.forEach(queued, (item) => mail.sendQueued(item.logId), {
+          concurrency: 5,
+        });
+        return summarize(results);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const sendDeliverableReminders = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(DeliverableReminderRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        const origin = new URL(getRequest().url).origin;
+        const admin = yield* MailAdmin;
+        const mail = yield* Mail;
+        const queued = yield* admin.queueDeliverableReminders(
+          data.eventId,
+          data.contactIds,
+          data.requirementId ?? null,
+          origin,
+        );
         const results = yield* Effect.forEach(queued, (item) => mail.sendQueued(item.logId), {
           concurrency: 5,
         });

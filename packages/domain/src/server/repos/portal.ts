@@ -17,6 +17,7 @@ import {
   levels,
   portalFormResponses,
   portalForms,
+  sessionFileRequirementAssignments,
   sessionFileRequirements,
   submissionEditHistory,
   submissionParticipants,
@@ -179,6 +180,9 @@ export interface SpeakerPortalBootstrap {
   }>;
   readonly responses: ReadonlyArray<typeof portalFormResponses.$inferSelect>;
   readonly requirements: ReadonlyArray<typeof sessionFileRequirements.$inferSelect>;
+  readonly requirementAssignments: ReadonlyArray<
+    typeof sessionFileRequirementAssignments.$inferSelect
+  >;
   readonly files: ReadonlyArray<{
     readonly upload: typeof fileUploads.$inferSelect;
     readonly request: typeof fileRequests.$inferSelect | null;
@@ -229,6 +233,12 @@ export interface AdminPortalBootstrap {
   }>;
   readonly fileRequests: ReadonlyArray<typeof fileRequests.$inferSelect>;
   readonly requirements: ReadonlyArray<typeof sessionFileRequirements.$inferSelect>;
+  readonly requirementAssignments: ReadonlyArray<{
+    readonly assignment: typeof sessionFileRequirementAssignments.$inferSelect;
+    readonly requirement: typeof sessionFileRequirements.$inferSelect;
+    readonly contact: typeof contacts.$inferSelect | null;
+    readonly submission: typeof submissions.$inferSelect;
+  }>;
   readonly files: ReadonlyArray<{
     readonly upload: typeof fileUploads.$inferSelect;
     readonly request: typeof fileRequests.$inferSelect | null;
@@ -373,7 +383,14 @@ interface PortalService {
   }) => Effect.Effect<typeof fileRequests.$inferSelect | undefined, DbError>;
   readonly saveSessionFileRequirement: (
     input: typeof SessionFileRequirementMutationRequest.Type,
-  ) => Effect.Effect<typeof sessionFileRequirements.$inferSelect | undefined, DbError>;
+  ) => Effect.Effect<
+    typeof sessionFileRequirements.$inferSelect | undefined,
+    DbError | InvalidInput
+  >;
+  readonly deleteSessionFileRequirement: (
+    eventId: string,
+    requirementId: string,
+  ) => Effect.Effect<boolean, DbError>;
   readonly reviewContent: (
     eventId: string,
     userId: string,
@@ -549,21 +566,59 @@ export const PortalLive = Layer.effect(
                 .orderBy(asc(sessionFileRequirements.position))
                 .execute(),
             ).pipe(Effect.map((rows) => rows.map((row) => row.requirement))),
+            requirementAssignments: query(
+              database,
+              "Could not load speaker file assignments",
+              (db) =>
+                db
+                  .selectDistinct({ assignment: sessionFileRequirementAssignments })
+                  .from(sessionFileRequirementAssignments)
+                  .innerJoin(
+                    submissions,
+                    eq(submissions.id, sessionFileRequirementAssignments.submissionId),
+                  )
+                  .leftJoin(
+                    submissionParticipants,
+                    eq(
+                      submissionParticipants.submissionId,
+                      sessionFileRequirementAssignments.submissionId,
+                    ),
+                  )
+                  .where(
+                    and(
+                      eq(submissions.status, "accepted"),
+                      eq(submissionParticipants.contactId, contactId),
+                      or(
+                        eq(sessionFileRequirementAssignments.contactId, contactId),
+                        isNull(sessionFileRequirementAssignments.contactId),
+                      ),
+                    ),
+                  )
+                  .execute(),
+            ).pipe(Effect.map((rows) => rows.map((row) => row.assignment))),
             files: query(database, "Could not load speaker files", (db) =>
               db
                 .selectDistinct({ upload: fileUploads, request: fileRequests })
                 .from(fileUploads)
                 .leftJoin(fileRequests, eq(fileRequests.id, fileUploads.fileRequestId))
                 .leftJoin(
+                  sessionFileRequirementAssignments,
+                  eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+                )
+                .leftJoin(
                   submissionParticipants,
                   eq(submissionParticipants.submissionId, fileUploads.submissionId),
                 )
                 .where(
                   or(
-                    eq(fileUploads.contactId, contactId),
+                    and(isNull(fileUploads.assignmentId), eq(fileUploads.contactId, contactId)),
                     and(
-                      isNotNull(fileUploads.requirementId),
+                      isNotNull(fileUploads.assignmentId),
                       eq(submissionParticipants.contactId, contactId),
+                      or(
+                        eq(sessionFileRequirementAssignments.contactId, contactId),
+                        isNull(sessionFileRequirementAssignments.contactId),
+                      ),
                     ),
                   ),
                 )
@@ -579,6 +634,10 @@ export const PortalLive = Layer.effect(
                 })
                 .from(fileVersions)
                 .innerJoin(fileUploads, eq(fileUploads.id, fileVersions.fileUploadId))
+                .leftJoin(
+                  sessionFileRequirementAssignments,
+                  eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+                )
                 .leftJoin(
                   versionUploaderContacts,
                   eq(versionUploaderContacts.id, fileVersions.uploaderContactId),
@@ -597,10 +656,14 @@ export const PortalLive = Layer.effect(
                 )
                 .where(
                   or(
-                    eq(fileUploads.contactId, contactId),
+                    and(isNull(fileUploads.assignmentId), eq(fileUploads.contactId, contactId)),
                     and(
-                      isNotNull(fileUploads.requirementId),
+                      isNotNull(fileUploads.assignmentId),
                       eq(submissionParticipants.contactId, contactId),
+                      or(
+                        eq(sessionFileRequirementAssignments.contactId, contactId),
+                        isNull(sessionFileRequirementAssignments.contactId),
+                      ),
                     ),
                   ),
                 )
@@ -629,6 +692,10 @@ export const PortalLive = Layer.effect(
                 .from(fileComments)
                 .innerJoin(fileUploads, eq(fileUploads.id, fileComments.fileUploadId))
                 .leftJoin(
+                  sessionFileRequirementAssignments,
+                  eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+                )
+                .leftJoin(
                   commentAuthorContacts,
                   eq(commentAuthorContacts.id, fileComments.authorContactId),
                 )
@@ -646,10 +713,14 @@ export const PortalLive = Layer.effect(
                 )
                 .where(
                   or(
-                    eq(fileUploads.contactId, contactId),
+                    and(isNull(fileUploads.assignmentId), eq(fileUploads.contactId, contactId)),
                     and(
-                      isNotNull(fileUploads.requirementId),
+                      isNotNull(fileUploads.assignmentId),
                       eq(submissionParticipants.contactId, contactId),
+                      or(
+                        eq(sessionFileRequirementAssignments.contactId, contactId),
+                        isNull(sessionFileRequirementAssignments.contactId),
+                      ),
                     ),
                   ),
                 )
@@ -858,6 +929,36 @@ export const PortalLive = Layer.effect(
                 .where(eq(sessionFileRequirements.eventId, eventId))
                 .orderBy(asc(sessionFileRequirements.position))
                 .execute(),
+            ),
+            requirementAssignments: query(
+              database,
+              "Could not load session file assignments",
+              (db) =>
+                db
+                  .select({
+                    assignment: sessionFileRequirementAssignments,
+                    requirement: sessionFileRequirements,
+                    contact: contacts,
+                    submission: submissions,
+                  })
+                  .from(sessionFileRequirementAssignments)
+                  .innerJoin(
+                    sessionFileRequirements,
+                    eq(sessionFileRequirements.id, sessionFileRequirementAssignments.requirementId),
+                  )
+                  .innerJoin(
+                    submissions,
+                    eq(submissions.id, sessionFileRequirementAssignments.submissionId),
+                  )
+                  .leftJoin(contacts, eq(contacts.id, sessionFileRequirementAssignments.contactId))
+                  .where(
+                    and(
+                      eq(sessionFileRequirements.eventId, eventId),
+                      eq(submissions.status, "accepted"),
+                    ),
+                  )
+                  .orderBy(asc(sessionFileRequirements.position), asc(submissions.code))
+                  .execute(),
             ),
             files: query(database, "Could not load uploaded files", (db) =>
               db
@@ -1485,6 +1586,7 @@ export const PortalLive = Layer.effect(
       ) =>
         Effect.gen(function* () {
           let fileRequestId = requestedFileRequestId;
+          let requirementAssignmentId: string | null = null;
           if (requirementId !== null) {
             if (
               assignmentId !== null ||
@@ -1501,16 +1603,24 @@ export const PortalLive = Layer.effect(
               "Could not verify session file requirement",
               (db) =>
                 db
-                  .select({ requirement: sessionFileRequirements })
-                  .from(sessionFileRequirements)
+                  .select({
+                    requirement: sessionFileRequirements,
+                    assignment: sessionFileRequirementAssignments,
+                  })
+                  .from(sessionFileRequirementAssignments)
+                  .innerJoin(
+                    sessionFileRequirements,
+                    eq(sessionFileRequirements.id, sessionFileRequirementAssignments.requirementId),
+                  )
                   .innerJoin(
                     submissions,
                     and(
                       eq(submissions.id, submissionId),
+                      eq(submissions.id, sessionFileRequirementAssignments.submissionId),
                       eq(submissions.eventId, sessionFileRequirements.eventId),
                     ),
                   )
-                  .innerJoin(
+                  .leftJoin(
                     submissionParticipants,
                     and(
                       eq(submissionParticipants.submissionId, submissions.id),
@@ -1521,17 +1631,24 @@ export const PortalLive = Layer.effect(
                     and(
                       eq(sessionFileRequirements.id, requirementId),
                       eq(submissions.status, "accepted"),
+                      eq(submissionParticipants.contactId, contactId),
+                      or(
+                        eq(sessionFileRequirementAssignments.contactId, contactId),
+                        isNull(sessionFileRequirementAssignments.contactId),
+                      ),
                     ),
                   )
                   .limit(1)
                   .execute(),
             );
-            const requirement = requirementRows[0]?.requirement;
-            if (requirement === undefined) {
+            const requirementRow = requirementRows[0];
+            if (requirementRow === undefined) {
               return yield* Effect.fail(
                 new Forbidden({ message: "You cannot upload files for this session" }),
               );
             }
+            const { requirement } = requirementRow;
+            requirementAssignmentId = requirementRow.assignment.id;
             if (requirement.maxSizeMb !== null && size > requirement.maxSizeMb * 1024 * 1024) {
               return yield* Effect.fail(
                 new InvalidInput({
@@ -1582,7 +1699,9 @@ export const PortalLive = Layer.effect(
                     ? fileRequestId === null
                       ? eq(fileUploads.kind, kind)
                       : eq(fileUploads.fileRequestId, fileRequestId)
-                    : eq(fileUploads.requirementId, requirementId),
+                    : requirementAssignmentId === null
+                      ? isNull(fileUploads.assignmentId)
+                      : eq(fileUploads.assignmentId, requirementAssignmentId),
                   submissionId === null ? undefined : eq(fileUploads.submissionId, submissionId),
                 ),
               )
@@ -1597,6 +1716,7 @@ export const PortalLive = Layer.effect(
                 .values({
                   fileRequestId,
                   requirementId,
+                  assignmentId: requirementAssignmentId,
                   kind,
                   contactId,
                   submissionId,
@@ -1659,6 +1779,27 @@ export const PortalLive = Layer.effect(
               .where(eq(fileUploads.id, input.fileUploadId))
               .execute(),
           );
+          const assignmentRows = yield* query(
+            database,
+            "Could not load uploaded file assignment",
+            (db) =>
+              db
+                .select({ assignmentId: fileUploads.assignmentId })
+                .from(fileUploads)
+                .where(eq(fileUploads.id, input.fileUploadId))
+                .limit(1)
+                .execute(),
+          );
+          const requirementAssignmentId = assignmentRows[0]?.assignmentId;
+          if (requirementAssignmentId !== null && requirementAssignmentId !== undefined) {
+            yield* query(database, "Could not complete file assignment", (db) =>
+              db
+                .update(sessionFileRequirementAssignments)
+                .set({ status: "uploaded", updatedAt: new Date() })
+                .where(eq(sessionFileRequirementAssignments.id, requirementAssignmentId))
+                .execute(),
+            );
+          }
           if (input.headshotContactId !== null) {
             const headshotContactId = input.headshotContactId;
             yield* query(database, "Could not update speaker headshot", (db) =>
@@ -1731,6 +1872,10 @@ export const PortalLive = Layer.effect(
               .from(fileUploads)
               .innerJoin(contacts, eq(contacts.id, contactId))
               .leftJoin(
+                sessionFileRequirementAssignments,
+                eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+              )
+              .leftJoin(
                 submissionParticipants,
                 eq(submissionParticipants.submissionId, fileUploads.submissionId),
               )
@@ -1738,10 +1883,14 @@ export const PortalLive = Layer.effect(
                 and(
                   eq(fileUploads.id, fileUploadId),
                   or(
-                    eq(fileUploads.contactId, contactId),
+                    and(isNull(fileUploads.assignmentId), eq(fileUploads.contactId, contactId)),
                     and(
-                      isNotNull(fileUploads.requirementId),
+                      isNotNull(fileUploads.assignmentId),
                       eq(submissionParticipants.contactId, contactId),
+                      or(
+                        eq(sessionFileRequirementAssignments.contactId, contactId),
+                        isNull(sessionFileRequirementAssignments.contactId),
+                      ),
                     ),
                   ),
                 ),
@@ -1803,10 +1952,19 @@ export const PortalLive = Layer.effect(
         Effect.gen(function* () {
           const rows = yield* query(database, "Could not load file version", (db) =>
             db
-              .select({ version: fileVersions, upload: fileUploads, contact: contacts })
+              .select({
+                version: fileVersions,
+                upload: fileUploads,
+                contact: contacts,
+                assignment: sessionFileRequirementAssignments,
+              })
               .from(fileVersions)
               .innerJoin(fileUploads, eq(fileUploads.id, fileVersions.fileUploadId))
               .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
+              .leftJoin(
+                sessionFileRequirementAssignments,
+                eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+              )
               .where(eq(fileVersions.id, versionId))
               .limit(1)
               .execute(),
@@ -1833,9 +1991,7 @@ export const PortalLive = Layer.effect(
           const actorContactId = actor.contactId;
           const assetSubmissionId = row.upload.submissionId;
           const participantAccess =
-            actorContactId === undefined ||
-            row.upload.requirementId === null ||
-            assetSubmissionId === null
+            actorContactId === undefined || row.assignment === null || assetSubmissionId === null
               ? []
               : yield* query(database, "Could not verify session file access", (db) =>
                   db
@@ -1851,8 +2007,12 @@ export const PortalLive = Layer.effect(
                     .execute(),
                 );
           const allowed =
-            (actor.contactId !== undefined && row.upload.contactId === actor.contactId) ||
-            participantAccess.length > 0 ||
+            (actorContactId !== undefined &&
+              ((row.upload.assignmentId === null && row.upload.contactId === actorContactId) ||
+                (row.assignment !== null &&
+                  (row.assignment.contactId === null ||
+                    row.assignment.contactId === actorContactId) &&
+                  participantAccess.length > 0))) ||
             staff.length > 0;
           if (!allowed)
             return yield* Effect.fail(new Forbidden({ message: "You cannot download this file" }));
@@ -2056,9 +2216,32 @@ export const PortalLive = Layer.effect(
                 ? null
                 : input.acceptTypes.trim(),
             maxSizeMb: input.maxSizeMb,
+            scope: input.scope,
             position: existing[0]?.position ?? positions.length + 1,
           };
-          return yield* query(database, "Could not save session file requirement", (db) =>
+          const scopeChanged = existing[0] !== undefined && existing[0].scope !== input.scope;
+          if (scopeChanged && requirementId !== null) {
+            const uploads = yield* query(database, "Could not inspect requirement uploads", (db) =>
+              db
+                .select({ id: fileUploads.id })
+                .from(fileUploads)
+                .innerJoin(
+                  sessionFileRequirementAssignments,
+                  eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+                )
+                .where(eq(sessionFileRequirementAssignments.requirementId, requirementId))
+                .limit(1)
+                .execute(),
+            );
+            if (uploads.length > 0) {
+              return yield* Effect.fail(
+                new InvalidInput({
+                  message: "Scope cannot change after a requirement has uploads",
+                }),
+              );
+            }
+          }
+          const saved = yield* query(database, "Could not save session file requirement", (db) =>
             requirementId === null
               ? db.insert(sessionFileRequirements).values(values).returning().execute()
               : db
@@ -2073,7 +2256,77 @@ export const PortalLive = Layer.effect(
                   .returning()
                   .execute(),
           ).pipe(Effect.map((rows) => rows[0]));
+          if (saved === undefined) return undefined;
+          if (scopeChanged) {
+            yield* query(database, "Could not replace file assignments", (db) =>
+              db
+                .delete(sessionFileRequirementAssignments)
+                .where(eq(sessionFileRequirementAssignments.requirementId, saved.id))
+                .execute(),
+            );
+          }
+          if (requirementId === null || scopeChanged) {
+            const targets = yield* query(
+              database,
+              "Could not load accepted session speakers",
+              (db) =>
+                db
+                  .select({
+                    submissionId: submissions.id,
+                    contactId: submissionParticipants.contactId,
+                  })
+                  .from(submissions)
+                  .leftJoin(
+                    submissionParticipants,
+                    eq(submissionParticipants.submissionId, submissions.id),
+                  )
+                  .where(
+                    and(eq(submissions.eventId, input.eventId), eq(submissions.status, "accepted")),
+                  )
+                  .execute(),
+            );
+            const assignmentTargets =
+              saved.scope === "submission"
+                ? Array.from(new Set(targets.map((target) => target.submissionId))).map(
+                    (submissionId) => ({ submissionId, contactId: null }),
+                  )
+                : targets.flatMap((target) =>
+                    target.contactId === null
+                      ? []
+                      : [{ submissionId: target.submissionId, contactId: target.contactId }],
+                  );
+            if (assignmentTargets.length > 0) {
+              yield* query(database, "Could not create file assignments", (db) =>
+                db
+                  .insert(sessionFileRequirementAssignments)
+                  .values(
+                    assignmentTargets.map((target) => ({
+                      requirementId: saved.id,
+                      submissionId: target.submissionId,
+                      contactId: target.contactId,
+                      status: "outstanding" as const,
+                    })),
+                  )
+                  .onConflictDoNothing()
+                  .execute(),
+              );
+            }
+          }
+          return saved;
         }),
+      deleteSessionFileRequirement: (eventId, requirementId) =>
+        query(database, "Could not delete session file requirement", (db) =>
+          db
+            .delete(sessionFileRequirements)
+            .where(
+              and(
+                eq(sessionFileRequirements.id, requirementId),
+                eq(sessionFileRequirements.eventId, eventId),
+              ),
+            )
+            .returning({ id: sessionFileRequirements.id })
+            .execute(),
+        ).pipe(Effect.map((rows) => rows.length > 0)),
       reviewContent: (eventId, userId, historyId, decision) =>
         Effect.gen(function* () {
           const member = yield* memberForAdmin(eventId, userId);
@@ -2253,7 +2506,7 @@ export const PortalLive = Layer.effect(
               .returning()
               .execute(),
           );
-          const [participants, templates] = yield* Effect.all([
+          const [participants, templates, requirements] = yield* Effect.all([
             query(database, "Could not load submission speakers", (db) =>
               db
                 .select()
@@ -2271,6 +2524,13 @@ export const PortalLive = Layer.effect(
                     eq(taskTemplates.autoAssignOnAccept, true),
                   ),
                 )
+                .execute(),
+            ),
+            query(database, "Could not load session file requirements", (db) =>
+              db
+                .select()
+                .from(sessionFileRequirements)
+                .where(eq(sessionFileRequirements.eventId, eventId))
                 .execute(),
             ),
           ]);
@@ -2302,6 +2562,35 @@ export const PortalLive = Layer.effect(
           if (assignments.length > 0) {
             yield* query(database, "Could not assign automatic tasks", (db) =>
               db.insert(taskAssignments).values(assignments).onConflictDoNothing().execute(),
+            );
+          }
+          const fileAssignments: Array<typeof sessionFileRequirementAssignments.$inferInsert> = [];
+          for (const requirement of requirements) {
+            if (requirement.scope === "submission") {
+              fileAssignments.push({
+                requirementId: requirement.id,
+                submissionId,
+                contactId: null,
+                status: "outstanding",
+              });
+              continue;
+            }
+            for (const contactId of contactIds) {
+              fileAssignments.push({
+                requirementId: requirement.id,
+                submissionId,
+                contactId,
+                status: "outstanding",
+              });
+            }
+          }
+          if (fileAssignments.length > 0) {
+            yield* query(database, "Could not assign session files", (db) =>
+              db
+                .insert(sessionFileRequirementAssignments)
+                .values(fileAssignments)
+                .onConflictDoNothing()
+                .execute(),
             );
           }
           return yield* decodeFound(Submission, "Submission", updatedRows[0]);

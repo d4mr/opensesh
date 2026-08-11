@@ -44,6 +44,7 @@ import {
   reviews,
   rooms,
   sessionFileRequirements,
+  sessionFileRequirementAssignments,
   submissionParticipants,
   submissionEditHistory,
   submissions,
@@ -81,12 +82,17 @@ const expectedTables: ReadonlyArray<{
   { name: "submissions", table: submissions, expected: 36 },
   { name: "submission_tracks", table: submissionTracks, expected: 36 },
   { name: "submission_tags", table: submissionTags, expected: 64 },
-  { name: "submission_participants", table: submissionParticipants, expected: 43 },
+  { name: "submission_participants", table: submissionParticipants, expected: 44 },
   { name: "reviews", table: reviews, expected: 6 },
   { name: "portal_forms", table: portalForms, expected: 2 },
   { name: "portal_form_responses", table: portalFormResponses, expected: 4 },
   { name: "file_requests", table: fileRequests, expected: 1 },
   { name: "session_file_requirements", table: sessionFileRequirements, expected: 2 },
+  {
+    name: "session_file_requirement_assignments",
+    table: sessionFileRequirementAssignments,
+    expected: 28,
+  },
   { name: "file_uploads", table: fileUploads, expected: 1 },
   { name: "file_versions", table: fileVersions, expected: 1 },
   { name: "file_comments", table: fileComments, expected: 2 },
@@ -127,74 +133,91 @@ const expectedStatuses = {
 
 export const verifySeed = async (database: Database) => {
   const otherSubmission = alias(submissions, "other_submission");
-  const [summary, statusRows, conflicts, memberships, personas, devflow, devflowLibrary, rounds] =
-    await Promise.all([
-      Promise.all(
-        expectedTables.map(async (entry) => {
-          const actual = await database.$count(entry.table);
-          return {
-            table: entry.name,
-            expected: entry.expected,
-            actual,
-            status: actual === entry.expected ? "ok" : "mismatch",
-          };
-        }),
-      ),
-      database
-        .select({ status: submissions.status, total: count() })
-        .from(submissions)
-        .groupBy(submissions.status)
-        .orderBy(asc(submissions.status)),
-      database
-        .select({ id: submissions.id, otherId: otherSubmission.id })
-        .from(submissions)
-        .innerJoin(
-          otherSubmission,
-          and(
-            lt(submissions.id, otherSubmission.id),
-            eq(submissions.roomId, otherSubmission.roomId),
-            lt(submissions.startsAt, otherSubmission.endsAt),
-            gt(submissions.endsAt, otherSubmission.startsAt),
-          ),
-        )
-        .where(isNotNull(submissions.roomId)),
-      database
-        .select({
-          email: users.email,
-          organization: organizations.slug,
-          role: organizationMembers.role,
-        })
-        .from(organizationMembers)
-        .innerJoin(users, eq(users.id, organizationMembers.userId))
-        .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
-        .orderBy(asc(users.email)),
-      database
-        .select({ email: users.email, providerId: accounts.providerId })
-        .from(users)
-        .innerJoin(accounts, eq(accounts.userId, users.id))
-        .where(
-          inArray(users.email, [
-            "jordan.organizer@sbek-test.example.com",
-            "priya.speaker@sbek-test.example.com",
-            "marcus.speaker@sbek-test.example.com",
-            "sam.reviewer@sbek-test.example.com",
-          ]),
-        )
-        .orderBy(asc(users.email)),
-      database.select().from(events).where(eq(events.slug, "devflow-conf-2027")).limit(1),
-      Promise.all([
-        database.$count(tracks, eq(tracks.eventId, "evt_devflow_2027")),
-        database.$count(formats, eq(formats.eventId, "evt_devflow_2027")),
-        database.$count(rooms, eq(rooms.eventId, "evt_devflow_2027")),
-        database.$count(submissions, eq(submissions.eventId, "evt_devflow_2027")),
-      ]),
-      database
-        .select({ round: reviewRounds, criterion: reviewCriteria })
-        .from(reviewRounds)
-        .leftJoin(reviewCriteria, eq(reviewCriteria.roundId, reviewRounds.id))
-        .where(eq(reviewRounds.eventId, "evt_devflow_2027"))
-        .orderBy(asc(reviewRounds.position), asc(reviewCriteria.position)),
-    ]);
+  const [
+    summary,
+    statusRows,
+    conflicts,
+    memberships,
+    personas,
+    devflow,
+    devflowLibrary,
+    rounds,
+    deliverables,
+  ] = await Promise.all([
+    Promise.all(
+      expectedTables.map(async (entry) => {
+        const actual = await database.$count(entry.table);
+        return {
+          table: entry.name,
+          expected: entry.expected,
+          actual,
+          status: actual === entry.expected ? "ok" : "mismatch",
+        };
+      }),
+    ),
+    database
+      .select({ status: submissions.status, total: count() })
+      .from(submissions)
+      .groupBy(submissions.status)
+      .orderBy(asc(submissions.status)),
+    database
+      .select({ id: submissions.id, otherId: otherSubmission.id })
+      .from(submissions)
+      .innerJoin(
+        otherSubmission,
+        and(
+          lt(submissions.id, otherSubmission.id),
+          eq(submissions.roomId, otherSubmission.roomId),
+          lt(submissions.startsAt, otherSubmission.endsAt),
+          gt(submissions.endsAt, otherSubmission.startsAt),
+        ),
+      )
+      .where(isNotNull(submissions.roomId)),
+    database
+      .select({
+        email: users.email,
+        organization: organizations.slug,
+        role: organizationMembers.role,
+      })
+      .from(organizationMembers)
+      .innerJoin(users, eq(users.id, organizationMembers.userId))
+      .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
+      .orderBy(asc(users.email)),
+    database
+      .select({ email: users.email, providerId: accounts.providerId })
+      .from(users)
+      .innerJoin(accounts, eq(accounts.userId, users.id))
+      .where(
+        inArray(users.email, [
+          "jordan.organizer@sbek-test.example.com",
+          "priya.speaker@sbek-test.example.com",
+          "marcus.speaker@sbek-test.example.com",
+          "sam.reviewer@sbek-test.example.com",
+        ]),
+      )
+      .orderBy(asc(users.email)),
+    database.select().from(events).where(eq(events.slug, "devflow-conf-2027")).limit(1),
+    Promise.all([
+      database.$count(tracks, eq(tracks.eventId, "evt_devflow_2027")),
+      database.$count(formats, eq(formats.eventId, "evt_devflow_2027")),
+      database.$count(rooms, eq(rooms.eventId, "evt_devflow_2027")),
+      database.$count(submissions, eq(submissions.eventId, "evt_devflow_2027")),
+    ]),
+    database
+      .select({ round: reviewRounds, criterion: reviewCriteria })
+      .from(reviewRounds)
+      .leftJoin(reviewCriteria, eq(reviewCriteria.roundId, reviewRounds.id))
+      .where(eq(reviewRounds.eventId, "evt_devflow_2027"))
+      .orderBy(asc(reviewRounds.position), asc(reviewCriteria.position)),
+    database
+      .select({
+        requirementId: sessionFileRequirementAssignments.requirementId,
+        contactId: sessionFileRequirementAssignments.contactId,
+        status: sessionFileRequirementAssignments.status,
+      })
+      .from(sessionFileRequirementAssignments)
+      .where(eq(sessionFileRequirementAssignments.submissionId, "sub_21")),
+  ]);
   console.table(summary);
 
   const statusMatches = statusRows.every(({ status, total }) => expectedStatuses[status] === total);
@@ -214,6 +237,24 @@ export const verifySeed = async (database: Database) => {
     new Set(rounds.map((row) => row.round.id)).size === 2 &&
     rounds.filter((row) => row.round.id === "rnd_devflow_initial").length === 4 &&
     rounds.filter((row) => row.round.id === "rnd_devflow_final").length === 2;
+  const deliverablesMatch =
+    deliverables.length === 3 &&
+    deliverables.some(
+      (row) =>
+        row.requirementId === "sfr_slides" &&
+        row.contactId === "con_01" &&
+        row.status === "uploaded",
+    ) &&
+    deliverables.some(
+      (row) =>
+        row.requirementId === "sfr_slides" &&
+        row.contactId === "con_13" &&
+        row.status === "outstanding",
+    ) &&
+    deliverables.some(
+      (row) =>
+        row.requirementId === "sfr_intro" && row.contactId === null && row.status === "outstanding",
+    );
 
   if (
     summary.some((entry) => entry.status !== "ok") ||
@@ -223,7 +264,8 @@ export const verifySeed = async (database: Database) => {
     !membershipsMatch ||
     !personasMatch ||
     !devflowMatches ||
-    !roundsMatch
+    !roundsMatch ||
+    !deliverablesMatch
   ) {
     process.stderr.write("Seed verification failed.\n");
     process.exitCode = 1;

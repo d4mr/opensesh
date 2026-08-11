@@ -6,6 +6,8 @@ import {
   emailLog,
   events,
   rooms,
+  sessionFileRequirementAssignments,
+  sessionFileRequirements,
   submissionParticipants,
   submissions,
   taskAssignments,
@@ -14,7 +16,7 @@ import {
 import { Db, type Database } from "../db";
 import type { DbError, NotFound } from "../errors";
 import { buildCalendarInvite } from "../mail/ics";
-import { calendarInvite, taskReminder } from "../mail/templates";
+import { calendarInvite, deliverableReminder, taskReminder } from "../mail/templates";
 import type { AdminEmail, CalendarInviteSummary } from "../schema/mail";
 import { EmailLogEntry } from "../schema/portal";
 import { decodeFound, decodeMany, query } from "./shared";
@@ -34,6 +36,12 @@ interface MailAdminService {
   readonly queueTaskReminders: (
     eventId: string,
     contactId: string | null,
+    portalOrigin: string,
+  ) => Effect.Effect<ReadonlyArray<QueuedMail>, DbError>;
+  readonly queueDeliverableReminders: (
+    eventId: string,
+    contactIds: ReadonlyArray<string>,
+    requirementId: string | null,
     portalOrigin: string,
   ) => Effect.Effect<ReadonlyArray<QueuedMail>, DbError>;
 }
@@ -255,9 +263,11 @@ export const MailAdminLive = Layer.effect(
                     task: taskTemplates.title,
                     dueDate: taskTemplates.dueDate,
                     submissionCode: submissions.code,
+                    timezone: events.timezone,
                   })
                   .from(taskAssignments)
                   .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
+                  .innerJoin(events, eq(events.id, taskTemplates.eventId))
                   .leftJoin(submissions, eq(submissions.id, taskAssignments.submissionId))
                   .where(
                     and(eq(taskTemplates.eventId, eventId), eq(taskAssignments.status, "todo")),
@@ -304,7 +314,7 @@ export const MailAdminLive = Layer.effect(
               const due =
                 assignment.dueDate === null
                   ? "No due date"
-                  : `Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(assignment.dueDate)}`;
+                  : `Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: assignment.timezone }).format(assignment.dueDate)}`;
               contactTasks.set(assignment.assignmentId, `${task} · ${due}`);
               tasks.set(contactId, contactTasks);
             }
@@ -341,6 +351,133 @@ export const MailAdminLive = Layer.effect(
           }).filter((row) => row !== null);
           if (queued.length === 0) return [];
           return yield* query(database, "Could not queue task reminders", (db) =>
+            db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute(),
+          );
+        }),
+      queueDeliverableReminders: (eventId, requestedContactIds, requirementId, portalOrigin) =>
+        Effect.gen(function* () {
+          const [assignments, participants] = yield* Effect.all(
+            [
+              query(database, "Could not load outstanding deliverables", (db) =>
+                db
+                  .select({
+                    assignmentId: sessionFileRequirementAssignments.id,
+                    assignmentContactId: sessionFileRequirementAssignments.contactId,
+                    submissionId: submissions.id,
+                    submissionCode: submissions.code,
+                    requirement: sessionFileRequirements.title,
+                    dueAt: sessionFileRequirements.dueAt,
+                    contactId: contacts.id,
+                    email: contacts.email,
+                    firstName: contacts.firstName,
+                    eventName: events.name,
+                    logoUrl: events.logoUrl,
+                    timezone: events.timezone,
+                  })
+                  .from(sessionFileRequirementAssignments)
+                  .innerJoin(
+                    sessionFileRequirements,
+                    eq(sessionFileRequirements.id, sessionFileRequirementAssignments.requirementId),
+                  )
+                  .innerJoin(
+                    submissions,
+                    eq(submissions.id, sessionFileRequirementAssignments.submissionId),
+                  )
+                  .innerJoin(events, eq(events.id, sessionFileRequirements.eventId))
+                  .leftJoin(contacts, eq(contacts.id, sessionFileRequirementAssignments.contactId))
+                  .where(
+                    and(
+                      eq(sessionFileRequirements.eventId, eventId),
+                      eq(sessionFileRequirementAssignments.status, "outstanding"),
+                      eq(submissions.status, "accepted"),
+                      requirementId === null
+                        ? undefined
+                        : eq(sessionFileRequirements.id, requirementId),
+                    ),
+                  )
+                  .orderBy(asc(sessionFileRequirements.position), asc(submissions.code))
+                  .execute(),
+              ),
+              query(database, "Could not load deliverable recipients", (db) =>
+                db
+                  .select({
+                    submissionId: submissionParticipants.submissionId,
+                    contactId: contacts.id,
+                    email: contacts.email,
+                    firstName: contacts.firstName,
+                  })
+                  .from(submissionParticipants)
+                  .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                  .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+                  .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "accepted")))
+                  .execute(),
+              ),
+            ],
+            { concurrency: "unbounded" },
+          );
+          const requested = new Set(requestedContactIds);
+          const queued = assignments.flatMap((assignment) => {
+            const recipients =
+              assignment.assignmentContactId === null
+                ? participants.filter(
+                    (participant) => participant.submissionId === assignment.submissionId,
+                  )
+                : assignment.contactId === null ||
+                    assignment.email === null ||
+                    assignment.firstName === null
+                  ? []
+                  : [
+                      {
+                        submissionId: assignment.submissionId,
+                        contactId: assignment.contactId,
+                        email: assignment.email,
+                        firstName: assignment.firstName,
+                      },
+                    ];
+            return recipients.flatMap((recipient) => {
+              if (!requested.has(recipient.contactId)) return [];
+              const due =
+                assignment.dueAt === null
+                  ? "No due date"
+                  : `Due ${new Intl.DateTimeFormat("en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                      timeZone: assignment.timezone,
+                    }).format(assignment.dueAt)}`;
+              const portalUrl = `${portalOrigin}/portal/submissions?spotlight=${assignment.submissionId}`;
+              const rendered = deliverableReminder({
+                eventName: assignment.eventName,
+                logoUrl: assignment.logoUrl,
+                speakerName: recipient.firstName,
+                requirement: assignment.requirement,
+                sessionCode: assignment.submissionCode,
+                due,
+                portalUrl,
+              });
+              return [
+                {
+                  eventId,
+                  contactId: recipient.contactId,
+                  submissionId: assignment.submissionId,
+                  type: "task_reminder" as const,
+                  recipient: recipient.email,
+                  subject: rendered.subject,
+                  body: rendered.text,
+                  htmlBody: rendered.html,
+                  icsAttached: false,
+                  icsContent: null,
+                  icsSequence: null,
+                  status: "queued" as const,
+                  provider: null,
+                  providerId: null,
+                  error: null,
+                  sentAt: null,
+                },
+              ];
+            });
+          });
+          if (queued.length === 0) return [];
+          return yield* query(database, "Could not queue deliverable reminders", (db) =>
             db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute(),
           );
         }),

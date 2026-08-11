@@ -26,3 +26,8 @@ export const ReminderRequest = Schema.Struct({
   contactId: Schema.NullOr(Schema.String),
   contactIds: Schema.optionalKey(Schema.Array(Schema.String)),
 });
+export const DeliverableReminderRequest = Schema.Struct({
+  eventId: Schema.String,
+  contactIds: Schema.Array(Schema.String),
+  requirementId: Schema.optionalKey(Schema.String),
+});

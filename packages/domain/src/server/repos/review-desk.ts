@@ -14,6 +14,8 @@ import {
   organizationMembers,
   reviewerTracks,
   reviews,
+  sessionFileRequirementAssignments,
+  sessionFileRequirements,
   submissionParticipants,
   submissions,
   submissionTags,
@@ -1098,6 +1100,10 @@ export const ReviewDeskLive = Layer.effect(
                   eq(taskTemplates.autoAssignOnAccept, true),
                 ),
               );
+            const requirements = await transaction
+              .select()
+              .from(sessionFileRequirements)
+              .where(eq(sessionFileRequirements.eventId, input.eventId));
             let createdTasks = 0;
             if (input.decision === "accept") {
               const todo = "todo" as const;
@@ -1144,6 +1150,42 @@ export const ReviewDeskLive = Layer.effect(
                   .onConflictDoNothing()
                   .returning({ id: taskAssignments.id });
                 createdTasks = inserted.length;
+              }
+              const participantsBySubmission = new Map<string, Set<string>>();
+              for (const row of targetRows) {
+                if (row.contactId === null) continue;
+                const contactIds = participantsBySubmission.get(row.submissionId) ?? new Set();
+                contactIds.add(row.contactId);
+                participantsBySubmission.set(row.submissionId, contactIds);
+              }
+              const fileAssignments: Array<typeof sessionFileRequirementAssignments.$inferInsert> =
+                [];
+              for (const requirement of requirements) {
+                for (const submissionId of uniqueIds) {
+                  if (requirement.scope === "submission") {
+                    fileAssignments.push({
+                      requirementId: requirement.id,
+                      submissionId,
+                      contactId: null,
+                      status: "outstanding",
+                    });
+                    continue;
+                  }
+                  for (const contactId of participantsBySubmission.get(submissionId) ?? []) {
+                    fileAssignments.push({
+                      requirementId: requirement.id,
+                      submissionId,
+                      contactId,
+                      status: "outstanding",
+                    });
+                  }
+                }
+              }
+              if (fileAssignments.length > 0) {
+                await transaction
+                  .insert(sessionFileRequirementAssignments)
+                  .values(fileAssignments)
+                  .onConflictDoNothing();
               }
             }
             const candidates = targetRows.flatMap((row) => {

@@ -13,6 +13,7 @@ import {
   formats,
   levels,
   sessionFileRequirements,
+  sessionFileRequirementAssignments,
   submissionParticipants,
   submissions,
   submissionTags,
@@ -435,6 +436,7 @@ export const WidgetsLive = Layer.effect(
                     version: fileVersions,
                     request: fileRequests,
                     requirement: sessionFileRequirements,
+                    assignment: sessionFileRequirementAssignments,
                     contact: contacts,
                   })
                   .from(fileUploads)
@@ -444,6 +446,10 @@ export const WidgetsLive = Layer.effect(
                   .leftJoin(
                     sessionFileRequirements,
                     eq(sessionFileRequirements.id, fileUploads.requirementId),
+                  )
+                  .leftJoin(
+                    sessionFileRequirementAssignments,
+                    eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
                   )
                   .where(eq(contacts.eventId, eventId))
                   .orderBy(desc(fileVersions.uploadedAt))
@@ -528,7 +534,13 @@ export const WidgetsLive = Layer.effect(
                   submissionCode: row.submission?.code ?? null,
                 })),
               files: Array.from(currentFiles.values())
-                .filter((row) => row.upload.contactId === contact.id)
+                .filter(
+                  (row) =>
+                    (row.assignment === null && row.upload.contactId === contact.id) ||
+                    row.assignment?.contactId === contact.id ||
+                    (row.assignment?.contactId === null &&
+                      linked.some((submission) => submission.id === row.assignment?.submissionId)),
+                )
                 .map((row) => ({
                   id: row.upload.id,
                   versionId: row.version.id,

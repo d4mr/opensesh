@@ -14,6 +14,7 @@ import type { PortalFormSection } from "../../server/schema/portal";
 import {
   emailStatus,
   emailType,
+  deliverableStatus,
   fileKind,
   id,
   targetType,
@@ -89,10 +90,35 @@ export const sessionFileRequirements = pgTable(
     dueAt: timestamp("due_at", { withTimezone: true }),
     acceptTypes: text("accept_types"),
     maxSizeMb: integer("max_size_mb"),
+    scope: targetType("scope").notNull().default("contact"),
     position: integer("position").notNull(),
     ...timestamps,
   },
   (table) => [index("session_file_requirements_event_idx").on(table.eventId, table.position)],
+);
+
+export const sessionFileRequirementAssignments = pgTable(
+  "session_file_requirement_assignments",
+  {
+    id: id(),
+    requirementId: text("requirement_id")
+      .notNull()
+      .references(() => sessionFileRequirements.id, { onDelete: "cascade" }),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+    status: deliverableStatus("status").notNull().default("outstanding"),
+    ...timestamps,
+  },
+  (table) => [
+    index("session_file_requirement_assignments_requirement_idx").on(table.requirementId),
+    index("session_file_requirement_assignments_submission_idx").on(table.submissionId),
+    index("session_file_requirement_assignments_contact_idx").on(table.contactId),
+    unique("session_file_requirement_assignments_target_unique")
+      .on(table.requirementId, table.submissionId, table.contactId)
+      .nullsNotDistinct(),
+  ],
 );
 
 export const fileUploads = pgTable(
@@ -104,6 +130,9 @@ export const fileUploads = pgTable(
     }),
     requirementId: text("requirement_id").references(() => sessionFileRequirements.id, {
       onDelete: "set null",
+    }),
+    assignmentId: text("assignment_id").references(() => sessionFileRequirementAssignments.id, {
+      onDelete: "cascade",
     }),
     kind: fileKind("kind").notNull(),
     contactId: text("contact_id")
@@ -119,11 +148,9 @@ export const fileUploads = pgTable(
   (table) => [
     index("file_uploads_request_idx").on(table.fileRequestId),
     index("file_uploads_requirement_idx").on(table.requirementId),
+    index("file_uploads_assignment_idx").on(table.assignmentId),
     index("file_uploads_contact_idx").on(table.contactId),
-    unique("file_uploads_submission_requirement_unique").on(
-      table.submissionId,
-      table.requirementId,
-    ),
+    unique("file_uploads_assignment_unique").on(table.assignmentId),
   ],
 );
 

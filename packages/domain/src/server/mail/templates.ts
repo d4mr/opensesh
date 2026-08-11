@@ -154,6 +154,28 @@ export const taskReminder = (input: {
   };
 };
 
+export const deliverableReminder = (input: {
+  readonly eventName: string;
+  readonly speakerName: string;
+  readonly requirement: string;
+  readonly sessionCode: string;
+  readonly due: string;
+  readonly portalUrl: string;
+  readonly logoUrl?: string | null;
+}): RenderedEmail => {
+  const subject = `Reminder: ${input.requirement} for ${input.sessionCode}`;
+  const detail = `${input.requirement} · ${input.sessionCode} · ${input.due}`;
+  return {
+    subject,
+    text: `Hi ${input.speakerName},\n\nA quick reminder that ${input.requirement} is still outstanding for ${input.sessionCode}.\n\n${detail}\n\nUpload your file: ${input.portalUrl}`,
+    html: layout(
+      input.eventName,
+      input.logoUrl,
+      `${paragraph(`Hi ${input.speakerName},`)}${paragraph(`A quick reminder that ${input.requirement} is still outstanding for ${input.sessionCode}.`)}${paragraph(detail)}<p style="margin:0">${link("Upload your file", input.portalUrl)}</p>`,
+    ),
+  };
+};
+
 export const calendarInvite = (input: {
   readonly eventName: string;
   readonly speakerName: string;
