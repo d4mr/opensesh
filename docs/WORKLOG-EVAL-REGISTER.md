@@ -93,3 +93,24 @@ morning deploy — everything here ships in the next deploy.
   inside /embed (was shipping demo chrome into customer embeds). OS-009 truthful HTTP statuses
   at the single server-fn boundary (path-guarded against SSR bleed) + OS-010 DbError cause
   logging in repos/shared.ts + wrangler observability enabled.
+- Aug 11 late — WP25/27/29/28 merged (zero-conflict), checks pass, browser-verified: portal
+  preview strip + Back-to-admin, member nav, contact-only portal, sessions-desk Add session.
+- Aug 11 night — OS-003 P0 acceptance CLOSED locally: full DevFlow wizard walkthrough as Dana
+  (draft resume, autosave, role-labeled Speakers step) → 1 Primary speaker + 1 Co-presenter →
+  "Submission received"; DB shows SESS-6 pending with both roles; row visible in DevFlow admin
+  submissions desk. Two bugs found en route: (a) signed-out Continue was a silent no-op
+  (save() returned null with no feedback) — fixed: routes to the Account sign-in step (ab68821);
+  (b) org OWNER Dana got "You cannot manage these submissions" on DevFlow — the WP25 model says
+  org owner/admin ⇒ admin on every event, but repos re-derive access via strict event_members
+  joins, and event_members.id doubles as the attribution FK. Root cause: access derived in two
+  places + drift-prone membership fan-outs (createForAdmin, afterAcceptInvitation).
+- Aug 11 night — WP26 (deliverable assignments) + WP30 (contact/CRM integrity) merged; one
+  conflict each (upload-button extraction vs assignment-status variant; reminder timezone),
+  flat migration regenerated (20260811125036_stormy_loners), inArray import fixed, 6/6 checks,
+  44 tests, seed verification passed.
+- Aug 11 night — permissions refactor planned (Fable Plan agent) and dispatched to a Fable
+  implementation agent (worktree, DB opensesh_wp31): pure derivation — requireEventAccess as
+  the single gate in current-user.ts; repos drop access joins (net-LOC negative); attribution
+  columns move event_members.id → users.id (reviews.reviewer_id repointed); reviewer-staffing
+  tables keep member ids; createForAdmin/afterAcceptInvitation fan-outs deleted; seed demotes
+  Jordan to org member (event-admin persona); listAdmins = org admins ∪ overlay admins.
