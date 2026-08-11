@@ -147,8 +147,6 @@ export const saveForm = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const forms = yield* Forms;
-        yield* requireManagedEvent(data.eventId);
-        yield* forms.getByEvent(data.eventId, data.formId);
         const title = data.fields.find(
           (field) => field.section === "abstract" && field.locked && field.mapsTo === "title",
         );
@@ -157,8 +155,16 @@ export const saveForm = createServerFn({ method: "POST" })
             new InvalidInput({ message: "The locked Title field is required" }),
           );
         }
-        const form = yield* forms.update(data.formId, data.form);
-        const fields = yield* forms.replaceFields(data.formId, data.fields);
+        // Two database phases: the org/event authorization reads together,
+        // then the independent form-row and field-set writes together.
+        yield* Effect.all(
+          [requireManagedEvent(data.eventId), forms.getByEvent(data.eventId, data.formId)],
+          { concurrency: 2 },
+        );
+        const [form, fields] = yield* Effect.all(
+          [forms.update(data.formId, data.form), forms.replaceFields(data.formId, data.fields)],
+          { concurrency: 2 },
+        );
         return { form, fields };
       }),
       { require: "admin" },

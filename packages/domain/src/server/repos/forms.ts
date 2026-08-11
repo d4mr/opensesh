@@ -1,5 +1,6 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, notInArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
+import { nanoid } from "nanoid";
 
 import { formFields, forms, submissions } from "../../db/schema";
 import { Db } from "../db";
@@ -156,18 +157,56 @@ export const FormsLive = Layer.effect(
           db.delete(forms).where(eq(forms.id, id)).execute(),
         ).pipe(Effect.asVoid),
       listFields,
+      // Editors send stable field ids, so replacement is an upsert of the
+      // kept rows plus a prune of the rest — one concurrent database phase
+      // instead of the four sequential round trips a BEGIN/DELETE/INSERT/
+      // COMMIT transaction costs when the database is a region away.
       replaceFields: (formId, fields) =>
-        query(database, "Could not replace form fields", (db) =>
-          db.transaction(async (transaction) => {
-            await transaction.delete(formFields).where(eq(formFields.formId, formId)).execute();
-            if (fields.length === 0) return [];
-            return await transaction
+        Effect.gen(function* () {
+          const next = fields.map((field) => ({ ...field, id: field.id ?? nanoid(), formId }));
+          const keptIds = next.map((field) => field.id);
+          const prune = query(database, "Could not prune form fields", (db) =>
+            db
+              .delete(formFields)
+              .where(
+                keptIds.length === 0
+                  ? eq(formFields.formId, formId)
+                  : and(eq(formFields.formId, formId), notInArray(formFields.id, keptIds)),
+              )
+              .execute(),
+          );
+          if (next.length === 0) {
+            yield* prune;
+            return [];
+          }
+          const upsert = query(database, "Could not save form fields", (db) =>
+            db
               .insert(formFields)
-              .values(fields.map((field) => ({ ...field, formId })))
+              .values(next)
+              .onConflictDoUpdate({
+                target: formFields.id,
+                // A colliding id from another form must not be captured.
+                setWhere: eq(formFields.formId, formId),
+                set: {
+                  section: sql`excluded.section`,
+                  label: sql`excluded.label`,
+                  fieldType: sql`excluded.field_type`,
+                  maxChars: sql`excluded.max_chars`,
+                  required: sql`excluded.required`,
+                  locked: sql`excluded.locked`,
+                  position: sql`excluded.position`,
+                  options: sql`excluded.options`,
+                  mapsTo: sql`excluded.maps_to`,
+                  condition: sql`excluded.condition`,
+                  updatedAt: new Date(),
+                },
+              })
               .returning()
-              .execute();
-          }),
-        ).pipe(Effect.flatMap((rows) => decodeMany(FormField, "form field", rows))),
+              .execute(),
+          );
+          const [rows] = yield* Effect.all([upsert, prune], { concurrency: 2 });
+          return yield* decodeMany(FormField, "form field", rows);
+        }),
     };
   }),
 );

@@ -18,12 +18,13 @@ import {
   ExternalLinkIcon,
   EyeIcon,
   ListChecksIcon,
+  LoaderCircleIcon,
   PanelTopIcon,
   Settings2Icon,
   SlidersHorizontalIcon,
   UsersIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -145,7 +146,7 @@ function FormEditor({
   const [fields, setFields] = useState<ReadonlyArray<FormFieldReplacement>>(() =>
     editorFields(data.fields),
   );
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const publicPath = `/submit/${eventSlug}/${data.form.id}`;
@@ -172,48 +173,116 @@ function FormEditor({
       adminAlertUserIds: [...data.form.adminAlertUserIds],
     },
   });
-  const save = async () => {
-    setSaving(true);
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
+  const buildPayload = () => {
     const value = form.state.values;
-    const result = await saveForm({
-      data: {
-        eventId: data.form.eventId,
-        formId: data.form.id,
-        form: {
-          kind: value.kind,
-          collectParticipants: value.collectParticipants,
-          status: value.status,
-          internalName: value.internalName,
-          externalTitle: value.externalTitle,
-          welcomeHeading: value.welcomeHeading,
-          welcomeMessage: value.welcomeMessage,
-          showWelcome: value.showWelcome,
-          abstractSection: value.abstractSection,
-          participantSection: value.participantSection,
-          participantRoles: value.participantRoles,
-          closeDate: value.closeDate.length === 0 ? null : new Date(value.closeDate),
-          submissionLimit: value.submissionLimit,
-          allowMultipleDrafts: value.allowMultipleDrafts,
-          successMessage: value.successMessage,
-          autoRedirectPortal: value.autoRedirectPortal,
-          confirmationEmailEnabled: value.confirmationEmailEnabled,
-          confirmationEmailBody: value.confirmationEmailBody,
-          adminAlertUserIds: value.adminAlertUserIds,
-        },
-        fields,
+    return {
+      eventId: data.form.eventId,
+      formId: data.form.id,
+      form: {
+        kind: value.kind,
+        collectParticipants: value.collectParticipants,
+        status: value.status,
+        internalName: value.internalName,
+        externalTitle: value.externalTitle,
+        welcomeHeading: value.welcomeHeading,
+        welcomeMessage: value.welcomeMessage,
+        showWelcome: value.showWelcome,
+        abstractSection: value.abstractSection,
+        participantSection: value.participantSection,
+        participantRoles: value.participantRoles,
+        closeDate: value.closeDate.length === 0 ? null : new Date(value.closeDate),
+        submissionLimit: value.submissionLimit,
+        allowMultipleDrafts: value.allowMultipleDrafts,
+        successMessage: value.successMessage,
+        autoRedirectPortal: value.autoRedirectPortal,
+        confirmationEmailEnabled: value.confirmationEmailEnabled,
+        confirmationEmailBody: value.confirmationEmailBody,
+        adminAlertUserIds: value.adminAlertUserIds,
       },
-    });
-    setSaving(false);
-    if (!result.ok) {
-      toast.error(result.error.message);
-      return false;
+      fields: fieldsRef.current,
+    };
+  };
+  const buildPayloadRef = useRef(buildPayload);
+  buildPayloadRef.current = buildPayload;
+  // Saves never block the UI: navigation switches steps instantly and the
+  // payload persists in the background. In-flight saves serialize — a change
+  // made mid-save queues one trailing save with the then-current values.
+  // Field ids are minted client-side, so responses need no state sync-back.
+  const lastSavedRef = useRef<string | null>(null);
+  if (lastSavedRef.current === null) lastSavedRef.current = JSON.stringify(buildPayload());
+  const inFlightRef = useRef(false);
+  const queuedRef = useRef(false);
+  const persist = async (): Promise<void> => {
+    if (inFlightRef.current) {
+      queuedRef.current = true;
+      return;
     }
-    setFields(editorFields(result.data.fields));
-    return true;
+    const payload = buildPayloadRef.current();
+    const json = JSON.stringify(payload);
+    if (json === lastSavedRef.current) {
+      setSaveState("saved");
+      return;
+    }
+    inFlightRef.current = true;
+    setSaveState("saving");
+    const result = await saveForm({ data: payload });
+    inFlightRef.current = false;
+    if (!result.ok) {
+      setSaveState("error");
+      toast.error(result.error.message);
+      return;
+    }
+    lastSavedRef.current = json;
+    if (queuedRef.current) {
+      queuedRef.current = false;
+      return persist();
+    }
+    setSaveState(
+      JSON.stringify(buildPayloadRef.current()) === lastSavedRef.current ? "saved" : "dirty",
+    );
   };
-  const changeStep = async (next: number) => {
-    if (await save()) setStep(next);
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  const changeStep = (next: number) => {
+    setStep(next);
+    void persist();
   };
+  const markDirty = () => {
+    if (inFlightRef.current) return;
+    setSaveState((current) =>
+      JSON.stringify(buildPayloadRef.current()) === lastSavedRef.current
+        ? current === "saving"
+          ? current
+          : "saved"
+        : "dirty",
+    );
+  };
+  const markDirtyRef = useRef(markDirty);
+  markDirtyRef.current = markDirty;
+  useEffect(() => {
+    const subscription = form.store.subscribe(() => markDirtyRef.current());
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => markDirtyRef.current(), [fields]);
+  // Trailing autosave: two quiet seconds after edits begin, persist.
+  useEffect(() => {
+    if (saveState !== "dirty") return;
+    const timer = window.setTimeout(() => void persistRef.current(), 2000);
+    return () => window.clearTimeout(timer);
+  }, [saveState]);
+  const saveStateRef = useRef(saveState);
+  saveStateRef.current = saveState;
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (saveStateRef.current === "saved") return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
   const copyLink = () => {
     void navigator.clipboard.writeText(`${window.location.origin}${publicPath}`);
     setCopied(true);
@@ -240,6 +309,7 @@ function FormEditor({
           <p className="mt-0.5 text-[13px] text-muted-foreground">Submission form</p>
         </div>
         <div className="flex items-center gap-1.5">
+          <SaveStatus state={saveState} retry={() => void persist()} />
           <Button
             size="sm"
             variant="ghost"
@@ -253,16 +323,8 @@ function FormEditor({
               <ExternalLinkIcon /> Open
             </a>
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="pressable"
-            onClick={() => setPreviewOpen(true)}
-          >
+          <Button size="sm" className="pressable" onClick={() => setPreviewOpen(true)}>
             <EyeIcon /> Preview
-          </Button>
-          <Button size="sm" className="pressable" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save"}
           </Button>
         </div>
       </div>
@@ -282,7 +344,7 @@ function FormEditor({
                   ? "bg-muted font-medium"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
-              onClick={() => void changeStep(index)}
+              onClick={() => changeStep(index)}
             >
               <item.icon className="size-4 shrink-0 opacity-70" />
               <span className="truncate">{item.title}</span>
@@ -664,8 +726,8 @@ function FormEditor({
             <Button
               variant="ghost"
               className="pressable"
-              disabled={step === 0 || saving}
-              onClick={() => void changeStep(step - 1)}
+              disabled={step === 0}
+              onClick={() => changeStep(step - 1)}
             >
               Back
             </Button>
@@ -674,13 +736,8 @@ function FormEditor({
                 <EyeIcon /> Preview the form
               </Button>
             ) : (
-              <Button
-                variant="outline"
-                className="pressable"
-                disabled={saving}
-                onClick={() => void changeStep(step + 1)}
-              >
-                {saving ? "Saving…" : "Next"}
+              <Button variant="outline" className="pressable" onClick={() => changeStep(step + 1)}>
+                Next
               </Button>
             )}
           </div>
@@ -700,6 +757,46 @@ function FormEditor({
         )}
       </form.Subscribe>
     </main>
+  );
+}
+
+// Quiet sync indicator, Linear-style: a small fixed-width annotation that
+// never competes with the toolbar buttons. Failure is the only loud state.
+function SaveStatus({
+  state,
+  retry,
+}: {
+  readonly state: "saved" | "dirty" | "saving" | "error";
+  readonly retry: () => void;
+}) {
+  if (state === "error") {
+    return (
+      <button
+        type="button"
+        onClick={retry}
+        className="flex items-center gap-1 text-xs font-medium text-destructive"
+        role="status"
+        aria-live="polite"
+      >
+        Save failed — retry
+      </button>
+    );
+  }
+  return (
+    <span
+      className="mr-1 flex items-center gap-1.5 text-xs text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      {state === "saving" ? (
+        <LoaderCircleIcon className="size-3 animate-spin" />
+      ) : state === "saved" ? (
+        <CheckIcon className="size-3" />
+      ) : (
+        <span className="size-1.5 rounded-full bg-muted-foreground/40" aria-hidden />
+      )}
+      {state === "saving" ? "Saving" : state === "saved" ? "Saved" : "Unsaved"}
+    </span>
   );
 }
 
