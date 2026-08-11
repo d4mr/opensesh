@@ -24,16 +24,48 @@ export function PortalHome() {
 
   if (!portal.data.ok) return <p className="p-6">{portal.data.error.message}</p>;
   const data = portal.data.data;
-  const done = data.tasks.filter((item) => item.assignment.status !== "todo").length;
-  const next = [...data.tasks]
-    .filter((item) => item.assignment.status === "todo" && item.template.dueDate !== null)
-    .sort((left, right) => {
-      const leftDue = left.template.dueDate;
-      const rightDue = right.template.dueDate;
-      return leftDue === null || rightDue === null
-        ? 0
-        : new Date(leftDue).getTime() - new Date(rightDue).getTime();
-    })[0];
+  const sessionFiles = data.submissions
+    .filter((item) => item.submission.status === "accepted")
+    .flatMap((item) =>
+      data.requirements.map((requirement) => ({
+        submission: item.submission,
+        requirement,
+        uploaded: data.files.some(
+          (file) =>
+            file.upload.submissionId === item.submission.id &&
+            file.upload.requirementId === requirement.id,
+        ),
+      })),
+    );
+  const taskDone = data.tasks.filter((item) => item.assignment.status !== "todo").length;
+  const fileDone = sessionFiles.filter((item) => item.uploaded).length;
+  const total = data.tasks.length + sessionFiles.length;
+  const done = taskDone + fileDone;
+  const dueItems = [
+    ...data.tasks.flatMap((item) =>
+      item.assignment.status === "todo" && item.template.dueDate !== null
+        ? [{ due: new Date(item.template.dueDate), title: item.template.title }]
+        : [],
+    ),
+    ...sessionFiles.flatMap((item) =>
+      !item.uploaded && item.requirement.dueAt !== null
+        ? [
+            {
+              due: new Date(item.requirement.dueAt),
+              title: `${item.requirement.title} · ${item.submission.code}`,
+            },
+          ]
+        : [],
+    ),
+  ];
+  const next = dueItems.sort((left, right) => left.due.getTime() - right.due.getTime())[0];
+  const uploadedFileCount = (submissionId: string) =>
+    data.requirements.filter((requirement) =>
+      data.files.some(
+        (item) =>
+          item.upload.submissionId === submissionId && item.upload.requirementId === requirement.id,
+      ),
+    ).length;
 
   return (
     <main className="h-[calc(100svh-3rem)] overflow-y-auto">
@@ -71,6 +103,9 @@ export function PortalHome() {
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {format?.name ?? "Format pending"}
+                    {submission.status !== "accepted" || data.requirements.length === 0
+                      ? null
+                      : ` · ${uploadedFileCount(submission.id)} of ${data.requirements.length} files uploaded`}
                   </p>
                 </div>
                 <StatusBadge status={submission.status} className="shrink-0" />
@@ -122,12 +157,14 @@ export function PortalHome() {
           <div className="flex items-center justify-between gap-4 px-4 py-3">
             <div>
               <p className="text-sm font-semibold tabular-nums">
-                {done} of {data.tasks.length} tasks done
+                {done} of {total} complete
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {next?.template.dueDate === null || next === undefined
-                  ? "You are all caught up."
-                  : `Next due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: data.event.timezone }).format(new Date(next.template.dueDate))}: ${next.template.title}`}
+                {next === undefined
+                  ? done === total
+                    ? "You are all caught up."
+                    : "No upcoming due dates."
+                  : `Next due ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: data.event.timezone }).format(next.due)}: ${next.title}`}
               </p>
             </div>
             <Link
