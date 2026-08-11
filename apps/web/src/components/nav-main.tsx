@@ -84,6 +84,12 @@ function NavItemLink({
         {content}
       </Link>
     );
+  if (item.section === "org-settings")
+    return (
+      <Link to="/admin/settings/organization" {...props}>
+        {content}
+      </Link>
+    );
   if (item.section === "speakers")
     return (
       <Link to="/admin/speakers" search={{ spotlight: undefined }} {...props}>
@@ -133,8 +139,10 @@ export function NavMain({
             const active =
               item.section === undefined
                 ? pathname === "/admin"
-                : pathname === `/admin/${item.section}` ||
-                  pathname.startsWith(`/admin/${item.section}/`);
+                : item.section === "org-settings"
+                  ? pathname === "/admin/settings/organization"
+                  : pathname === `/admin/${item.section}` ||
+                    pathname.startsWith(`/admin/${item.section}/`);
 
             return (
               <SidebarMenuItem key={item.title}>

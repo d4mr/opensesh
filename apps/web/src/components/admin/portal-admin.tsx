@@ -1926,9 +1926,13 @@ function SpeakerCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-3">
             <PersonHoverCard person={personFor(data, contact)}>
-              <p className="truncate text-sm font-medium">
+              <Link
+                to="/admin/speakers"
+                search={{ spotlight: contact.id }}
+                className="min-w-0 truncate text-sm font-medium hover:underline"
+              >
                 {contact.firstName} {contact.lastName}
-              </p>
+              </Link>
             </PersonHoverCard>
             <p className="shrink-0 text-xs text-muted-foreground">{meta}</p>
           </div>

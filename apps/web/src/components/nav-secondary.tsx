@@ -28,13 +28,18 @@ export function NavSecondary({
         <SidebarMenu>
           <Collapsible
             asChild
-            defaultOpen={pathname.startsWith("/admin/settings")}
+            defaultOpen={
+              pathname.startsWith("/admin/settings") && pathname !== "/admin/settings/organization"
+            }
             className="group/collapsible"
           >
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton
-                  isActive={pathname.startsWith("/admin/settings")}
+                  isActive={
+                    pathname.startsWith("/admin/settings") &&
+                    pathname !== "/admin/settings/organization"
+                  }
                   tooltip={item.title}
                 >
                   {item.icon}
@@ -47,14 +52,6 @@ export function NavSecondary({
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild isActive={pathname === "/admin/settings/event"}>
                       <Link to="/admin/settings/event">Event</Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      asChild
-                      isActive={pathname === "/admin/settings/organization"}
-                    >
-                      <Link to="/admin/settings/organization">Organization</Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>

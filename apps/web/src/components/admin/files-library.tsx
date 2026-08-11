@@ -1,10 +1,11 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { DownloadIcon, FileArchiveIcon, FolderOpenIcon } from "lucide-react";
+import { DownloadIcon, FileArchiveIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { PersonHoverCard } from "@/components/app/person-popover";
 import { PersonTag } from "@/components/app/person-tag";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { FileThread } from "@/components/portal/file-thread";
@@ -399,8 +400,8 @@ function FilesLibraryData({
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
               <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-                <Table>
-                  <TableHeader>
+                <Table containerClassName="overflow-visible">
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead className="w-9">
                         <Checkbox
@@ -431,7 +432,6 @@ function FilesLibraryData({
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
                       {compact ? null : <TableHead className="text-right">Versions</TableHead>}
-                      <TableHead className="w-20 text-right">Detail</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -439,9 +439,13 @@ function FilesLibraryData({
                       <TableRow
                         key={row.id}
                         ref={rowRef(row.id)}
-                        className={cn("h-9", rowClassName(row.id))}
+                        className={cn("h-9 cursor-pointer", rowClassName(row.id))}
+                        onClick={() => openSpotlight(row.id)}
                       >
-                        <TableCell className="h-9 py-1">
+                        <TableCell
+                          className="h-9 py-1"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <Checkbox
                             aria-label={`Select ${row.label}`}
                             disabled={row.file === undefined || row.latest === undefined}
@@ -476,10 +480,27 @@ function FilesLibraryData({
                           </TableCell>
                         )}
                         {compact ? null : (
-                          <TableCell className="h-9 max-w-44 truncate py-1">
-                            {row.contacts
-                              .map((contact) => `${contact.firstName} ${contact.lastName}`)
-                              .join(", ") || "—"}
+                          <TableCell className="h-9 max-w-44 py-1">
+                            {row.contacts.length === 0 ? (
+                              "—"
+                            ) : (
+                              <span className="flex flex-wrap gap-x-1.5 truncate">
+                                {row.contacts.map((contact) => (
+                                  <PersonHoverCard
+                                    key={contact.id}
+                                    person={{
+                                      id: contact.id,
+                                      name: `${contact.firstName} ${contact.lastName}`,
+                                      image: contact.headshotUrl,
+                                    }}
+                                  >
+                                    <span>
+                                      {contact.firstName} {contact.lastName}
+                                    </span>
+                                  </PersonHoverCard>
+                                ))}
+                              </span>
+                            )}
                           </TableCell>
                         )}
                         <TableCell className="h-9 py-1">{row.kind}</TableCell>
@@ -502,20 +523,6 @@ function FilesLibraryData({
                             {row.versionCount}
                           </TableCell>
                         )}
-                        <TableCell className="h-9 py-1 text-right">
-                          {row.file === undefined ? (
-                            "—"
-                          ) : (
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              className="pressable"
-                              onClick={() => openSpotlight(row.id)}
-                            >
-                              <FolderOpenIcon /> Open
-                            </Button>
-                          )}
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -608,19 +615,34 @@ function FileSpotlight({
   readonly row: LibraryRow | undefined;
   readonly onClose: () => void;
 }) {
-  if (row?.file === undefined) return null;
-  const upload = row.file.upload;
-  const requirement = data.requirements.find((item) => item.id === upload.requirementId);
-  const request = data.fileRequests.find((item) => item.id === upload.fileRequestId);
+  if (row === undefined) return null;
+  const upload = row.file?.upload;
+  const deliverableRef = row.deliverableId?.split(":") ?? [];
+  const requirement = data.requirements.find(
+    (item) =>
+      item.id ===
+      (upload?.requirementId ?? (deliverableRef[0] === "requirement" ? deliverableRef[1] : null)),
+  );
+  const request = data.fileRequests.find(
+    (item) =>
+      item.id ===
+      (upload?.fileRequestId ?? (deliverableRef[0] === "request" ? deliverableRef[1] : null)),
+  );
   const linkedTask = data.templates.find(
     (item) => item.template.fileRequestId === request?.id,
   )?.template;
-  const versions = data.versions
-    .map((item) => item.version)
-    .filter((version) => version.fileUploadId === upload.id);
-  const comments = data.comments
-    .map((item) => item.comment)
-    .filter((comment) => comment.fileUploadId === upload.id);
+  const versions =
+    upload === undefined
+      ? []
+      : data.versions
+          .map((item) => item.version)
+          .filter((version) => version.fileUploadId === upload.id);
+  const comments =
+    upload === undefined
+      ? []
+      : data.comments
+          .map((item) => item.comment)
+          .filter((comment) => comment.fileUploadId === upload.id);
   const latest = row.latest;
   const dueAt = requirement?.dueAt ?? request?.dueAt ?? null;
 
@@ -661,7 +683,7 @@ function FileSpotlight({
         <div className="grid gap-5">
           <section>
             <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Why this file exists
+              Properties
             </p>
             <dl className="divide-y overflow-hidden rounded-lg border">
               <div className="grid grid-cols-[112px_1fr] gap-3 px-3 py-2.5">
@@ -707,47 +729,69 @@ function FileSpotlight({
                   </dd>
                 </div>
               )}
+              {row.submission === null ? null : (
+                <div className="grid grid-cols-[112px_1fr] items-center gap-3 px-3 py-2.5">
+                  <dt className="text-xs text-muted-foreground">Session</dt>
+                  <dd className="min-w-0 text-sm">
+                    <Link
+                      to="/admin/sessions"
+                      search={{ status: "all", spotlight: row.submission.id }}
+                      className="pressable inline-flex max-w-full items-baseline gap-1.5 truncate hover:underline"
+                    >
+                      <span className="font-mono text-xs tabular-nums">{row.submission.code}</span>
+                      <span className="truncate">{row.submission.title}</span>
+                    </Link>
+                  </dd>
+                </div>
+              )}
+              {row.contacts.length === 0 ? null : (
+                <div className="grid grid-cols-[112px_1fr] items-center gap-3 px-3 py-2.5">
+                  <dt className="text-xs text-muted-foreground">
+                    Speaker{row.contacts.length === 1 ? "" : "s"}
+                  </dt>
+                  <dd className="flex min-w-0 flex-wrap gap-1.5">
+                    {row.contacts.map((contact) => (
+                      <PersonHoverCard
+                        key={contact.id}
+                        person={{
+                          id: contact.id,
+                          name: `${contact.firstName} ${contact.lastName}`,
+                          image: contact.headshotUrl,
+                        }}
+                      >
+                        <Link
+                          to="/admin/speakers"
+                          search={{ spotlight: contact.id }}
+                          className="pressable rounded-md"
+                        >
+                          <PersonTag
+                            person={{
+                              name: `${contact.firstName} ${contact.lastName}`,
+                              image: contact.headshotUrl,
+                            }}
+                          />
+                        </Link>
+                      </PersonHoverCard>
+                    ))}
+                  </dd>
+                </div>
+              )}
             </dl>
           </section>
-          <section>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Context
+          {upload === undefined ? (
+            <p className="rounded-md border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">
+              No upload yet. It will appear here once the speaker submits the file.
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {row.submission === null ? null : (
-                <Link
-                  to="/admin/sessions"
-                  search={{ status: "all", spotlight: row.submission.id }}
-                  className="pressable rounded-md border px-2 py-1 font-mono text-xs tabular-nums hover:bg-muted/50"
-                >
-                  {row.submission.code}
-                </Link>
-              )}
-              {row.contacts.map((contact) => (
-                <Link
-                  key={contact.id}
-                  to="/admin/speakers"
-                  search={{ spotlight: contact.id }}
-                  className="pressable rounded-md"
-                >
-                  <PersonTag
-                    person={{
-                      name: `${contact.firstName} ${contact.lastName}`,
-                      image: contact.headshotUrl,
-                    }}
-                  />
-                </Link>
-              ))}
-            </div>
-          </section>
-          <FileThread
-            eventId={eventId}
-            authorName={data.currentUserName}
-            upload={upload}
-            versions={versions}
-            comments={comments}
-            embedded
-          />
+          ) : (
+            <FileThread
+              eventId={eventId}
+              authorName={data.currentUserName}
+              upload={upload}
+              versions={versions}
+              comments={comments}
+              embedded
+            />
+          )}
         </div>
       </div>
     </div>

@@ -36,6 +36,7 @@ import {
 const dashboard: ReadonlyArray<AdminNavItem> = [{ title: "Overview", icon: <GaugeIcon /> }];
 const organization: ReadonlyArray<AdminNavItem> = [
   { title: "Speaker CRM", section: "crm", icon: <ContactRoundIcon /> },
+  { title: "Organization settings", section: "org-settings", icon: <Building2Icon /> },
 ];
 const program: ReadonlyArray<AdminNavItem> = [
   { title: "Call for Papers", section: "forms", icon: <FileInputIcon /> },

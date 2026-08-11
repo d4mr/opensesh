@@ -4,6 +4,7 @@ import { DownloadIcon, MessageSquareIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { PersonHoverCard } from "@/components/app/person-popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { downloadVersion } from "@/lib/files";
@@ -27,6 +28,34 @@ const uploaderRole = (value: {
   readonly uploaderContactId: string | null;
   readonly uploaderEventMemberId: string | null;
 }) => (value.uploaderEventMemberId === null ? "Speaker" : "Organizer");
+
+// Admin-side person names carry the rich hover card; contact-backed names
+// lazy-load the full profile, organizer names show a static identity card.
+function ThreadPersonName({
+  name,
+  contactId,
+  role,
+  admin,
+}: {
+  readonly name: string;
+  readonly contactId: string | null;
+  readonly role: string;
+  readonly admin: boolean;
+}) {
+  const label = <span className="font-medium text-foreground">{name}</span>;
+  if (!admin) return label;
+  return (
+    <PersonHoverCard
+      person={
+        contactId === null
+          ? { name, image: null, title: role }
+          : { id: contactId, name, image: null }
+      }
+    >
+      {label}
+    </PersonHoverCard>
+  );
+}
 
 export function FileThread({
   upload,
@@ -180,7 +209,13 @@ export function FileThread({
                   {index === 0 ? <span className="text-primary">· Current</span> : null}
                 </p>
                 <p className="text-muted-foreground">
-                  {version.uploaderName} · {uploaderRole(version)} ·{" "}
+                  <ThreadPersonName
+                    name={version.uploaderName}
+                    contactId={version.uploaderContactId}
+                    role={uploaderRole(version)}
+                    admin={eventId !== undefined}
+                  />{" "}
+                  · {uploaderRole(version)} ·{" "}
                   {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
                     new Date(version.uploadedAt),
                   )}{" "}
@@ -215,8 +250,13 @@ export function FileThread({
               <div key={comment.id} className="rounded-md border bg-background px-2.5 py-2 text-xs">
                 <div className="flex justify-between gap-3 text-muted-foreground">
                   <span>
-                    <span className="font-medium text-foreground">{comment.authorName}</span> ·{" "}
-                    {authorRole(comment)}
+                    <ThreadPersonName
+                      name={comment.authorName}
+                      contactId={comment.authorContactId}
+                      role={authorRole(comment)}
+                      admin={eventId !== undefined}
+                    />{" "}
+                    · {authorRole(comment)}
                   </span>
                   <span>
                     {comment.pending === true

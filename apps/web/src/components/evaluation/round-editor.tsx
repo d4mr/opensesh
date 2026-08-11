@@ -62,6 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { adminEvaluationQuery } from "@/lib/evaluation-queries";
@@ -861,6 +862,7 @@ function AssignmentsPane({
   const filtered = view.submissions.filter(
     (submission) => trackId === "all" || submission.trackIds.includes(trackId),
   );
+  const pages = usePagination(filtered, { resetKey: trackId, getId: (item) => item.id });
   const mutate = async (mode: "assign" | "auto") => {
     const result =
       mode === "assign"
@@ -1006,7 +1008,7 @@ function AssignmentsPane({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((submission) => {
+            {pages.pageItems.map((submission) => {
               const assignments = view.assignments.filter(
                 (assignment) => assignment.submissionId === submission.id,
               );
@@ -1072,6 +1074,12 @@ function AssignmentsPane({
             })}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={pages.page}
+          pageSize={pages.pageSize}
+          total={filtered.length}
+          onPageChange={pages.setPage}
+        />
       </div>
       <Dialog
         open={confirmAssignment !== undefined}
@@ -1110,6 +1118,7 @@ function ProgressPane({
   readonly refresh: () => Promise<unknown>;
 }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const pages = usePagination(view.progress, { getId: (row) => row.eventMemberId });
   const send = async () => {
     const result = await sendReviewReminders({
       data: { eventId, roundId: view.configuration.round.id, eventMemberIds: [...selected] },
@@ -1152,7 +1161,7 @@ function ProgressPane({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {view.progress.map((row) => (
+            {pages.pageItems.map((row) => (
               <TableRow key={row.eventMemberId} className="h-10">
                 <TableCell>
                   <Checkbox
@@ -1194,6 +1203,12 @@ function ProgressPane({
             ))}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={pages.page}
+          pageSize={pages.pageSize}
+          total={view.progress.length}
+          onPageChange={pages.setPage}
+        />
       </div>
     </div>
   );
@@ -1223,6 +1238,10 @@ function ResultsPane({
       return difference || left.index - right.index;
     })
     .map(({ row }) => row);
+  const pages = usePagination(ordered, {
+    resetKey: direction,
+    getId: (row) => row.submission.id,
+  });
   const download = async () => {
     const response = await exportReviewResults({
       data: { eventId, roundId: view.configuration.round.id },
@@ -1297,7 +1316,7 @@ function ResultsPane({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ordered.map((row) => (
+            {pages.pageItems.map((row) => (
               <ResultsRows
                 key={row.submission.id}
                 eventId={eventId}
@@ -1311,6 +1330,12 @@ function ResultsPane({
             ))}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={pages.page}
+          pageSize={pages.pageSize}
+          total={ordered.length}
+          onPageChange={pages.setPage}
+        />
       </div>
     </div>
   );

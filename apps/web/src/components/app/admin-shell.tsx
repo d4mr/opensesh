@@ -38,6 +38,7 @@ import {
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { crmWorkspaceQuery } from "@/lib/crm-queries";
+import { organizationSettingsQuery } from "@/lib/organization-queries";
 
 interface NavItem {
   readonly title: string;
@@ -103,8 +104,19 @@ export function AdminShell({
   const navigate = useNavigate();
   const portal = useQuery({ ...adminPortalQuery(event.id), enabled: user.roles.admin });
   const crmMode = pathname === "/admin/crm" || pathname.startsWith("/admin/crm/");
+  const orgSettingsMode = pathname === "/admin/settings/organization";
+  const organizationMode = crmMode || orgSettingsMode;
   const crm = useQuery({ ...crmWorkspaceQuery, enabled: crmMode && user.roles.admin });
-  const organizationName = crm.data?.ok === true ? crm.data.data.organization.name : undefined;
+  const orgSettings = useQuery({
+    ...organizationSettingsQuery,
+    enabled: orgSettingsMode && user.roles.admin,
+  });
+  const organizationName =
+    crm.data?.ok === true
+      ? crm.data.data.organization.name
+      : orgSettings.data?.ok === true
+        ? orgSettings.data.data.organization.name
+        : undefined;
   const pendingContentChanges =
     portal.data?.ok === true
       ? portal.data.data.history.filter(
@@ -120,7 +132,11 @@ export function AdminShell({
         ? pathname === "/admin"
         : pathname === `/admin/${item.section}` || pathname.startsWith(`/admin/${item.section}/`),
     )?.title ?? "Overview";
-  const headerTitle = crmMode ? `Speaker CRM · ${organizationName ?? "Organization"}` : activeTitle;
+  const headerTitle = crmMode
+    ? `Speaker CRM · ${organizationName ?? "Organization"}`
+    : orgSettingsMode
+      ? `Organization settings · ${organizationName ?? "Organization"}`
+      : activeTitle;
 
   useEffect(() => {
     const onKeyDown = (keyboardEvent: KeyboardEvent) => {
@@ -193,7 +209,7 @@ export function AdminShell({
           pathname={pathname}
           user={user}
           pendingContentChanges={pendingContentChanges}
-          organizationMode={crmMode}
+          organizationMode={organizationMode}
           organizationName={organizationName}
         />
         <SidebarInset className="min-w-0">

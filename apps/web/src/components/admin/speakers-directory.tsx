@@ -524,79 +524,67 @@ function Directory({
                 {filtered.length} of {rows.length} speaker{rows.length === 1 ? "" : "s"}
               </p>
             </div>
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-9">
-                      <Checkbox
-                        checked={allVisibleSelected}
-                        aria-label="Select all visible speakers"
-                        onCheckedChange={(checked) =>
-                          setSelectedIds(
-                            checked === true
-                              ? new Set(filtered.map((row) => row.contact.id))
-                              : new Set(),
-                          )
-                        }
-                      />
-                    </TableHead>
-                    <TableHead>Speaker</TableHead>
-                    {compact ? null : <TableHead>Role</TableHead>}
-                    {compact ? null : <TableHead>Profile readiness</TableHead>}
-                    {compact ? null : <TableHead>Workflow</TableHead>}
-                    {compact ? null : <TableHead>Task progress</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+              <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+                <Table containerClassName="overflow-visible">
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
-                      <TableCell
-                        colSpan={compact ? 2 : 6}
-                        className="py-10 text-center text-sm text-muted-foreground"
-                      >
-                        No speakers match.
-                      </TableCell>
+                      <TableHead className="w-9">
+                        <Checkbox
+                          checked={allVisibleSelected}
+                          aria-label="Select all visible speakers"
+                          onCheckedChange={(checked) =>
+                            setSelectedIds(
+                              checked === true
+                                ? new Set(filtered.map((row) => row.contact.id))
+                                : new Set(),
+                            )
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>Speaker</TableHead>
+                      {compact ? null : <TableHead>Role</TableHead>}
+                      {compact ? null : <TableHead>Profile readiness</TableHead>}
+                      {compact ? null : <TableHead>Workflow</TableHead>}
+                      {compact ? null : <TableHead>Task progress</TableHead>}
                     </TableRow>
-                  ) : (
-                    pages.pageItems.map((row) => (
-                      <TableRow
-                        key={row.contact.id}
-                        ref={rowRef(row.contact.id)}
-                        className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
-                        onClick={() => openSpotlight(row.contact.id)}
-                      >
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.length === 0 ? (
+                      <TableRow>
                         <TableCell
-                          className="h-9 py-0"
-                          onClick={(event) => event.stopPropagation()}
+                          colSpan={compact ? 2 : 6}
+                          className="py-10 text-center text-sm text-muted-foreground"
                         >
-                          <Checkbox
-                            checked={selectedIds.has(row.contact.id)}
-                            aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
-                            onCheckedChange={(checked) =>
-                              setSelectedIds((current) => {
-                                const next = new Set(current);
-                                if (checked === true) next.add(row.contact.id);
-                                else next.delete(row.contact.id);
-                                return next;
-                              })
-                            }
-                          />
+                          No speakers match.
                         </TableCell>
-                        <TableCell className="h-9 py-0">
-                          <PersonHoverCard
-                            person={{
-                              id: row.contact.id,
-                              name: `${row.contact.firstName} ${row.contact.lastName}`,
-                              image: row.contact.headshotUrl,
-                              title: row.contact.title,
-                              company: row.contact.company,
-                              bio: row.contact.bio,
-                              status:
-                                statusOverrides.get(row.contact.id) ?? row.contact.workflowStatus,
-                              sessionsCount: row.sessions.length,
-                            }}
+                      </TableRow>
+                    ) : (
+                      pages.pageItems.map((row) => (
+                        <TableRow
+                          key={row.contact.id}
+                          ref={rowRef(row.contact.id)}
+                          className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
+                          onClick={() => openSpotlight(row.contact.id)}
+                        >
+                          <TableCell
+                            className="h-9 py-0"
+                            onClick={(event) => event.stopPropagation()}
                           >
+                            <Checkbox
+                              checked={selectedIds.has(row.contact.id)}
+                              aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                              onCheckedChange={(checked) =>
+                                setSelectedIds((current) => {
+                                  const next = new Set(current);
+                                  if (checked === true) next.add(row.contact.id);
+                                  else next.delete(row.contact.id);
+                                  return next;
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="h-9 py-0">
                             <div className="flex items-center gap-2.5">
                               <Headshot row={row} />
                               <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium">
@@ -608,42 +596,42 @@ function Directory({
                                 ) : null}
                               </p>
                             </div>
-                          </PersonHoverCard>
-                        </TableCell>
-                        {compact ? null : (
-                          <TableCell className="h-9 max-w-52 py-0">
-                            <p className="truncate text-xs text-muted-foreground">
-                              {[row.contact.title, row.contact.company]
-                                .filter(Boolean)
-                                .join(" · ") || row.contact.email}
-                            </p>
                           </TableCell>
-                        )}
-                        {compact ? null : (
-                          <TableCell className="h-9 py-0 text-xs">
-                            <ProfileReadiness row={row} />
-                          </TableCell>
-                        )}
-                        {compact ? null : (
-                          <TableCell className="h-9 py-0 text-xs">
-                            <WorkflowBadge
-                              status={
-                                statusOverrides.get(row.contact.id) ?? row.contact.workflowStatus
-                              }
-                            />
-                          </TableCell>
-                        )}
-                        {compact ? null : (
-                          <TableCell className="h-9 py-0 text-xs tabular-nums text-muted-foreground">
-                            {row.tasks.filter((task) => task.status !== "todo").length}/
-                            {row.tasks.length} done
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                          {compact ? null : (
+                            <TableCell className="h-9 max-w-52 py-0">
+                              <p className="truncate text-xs text-muted-foreground">
+                                {[row.contact.title, row.contact.company]
+                                  .filter(Boolean)
+                                  .join(" · ") || row.contact.email}
+                              </p>
+                            </TableCell>
+                          )}
+                          {compact ? null : (
+                            <TableCell className="h-9 py-0 text-xs">
+                              <ProfileReadiness row={row} />
+                            </TableCell>
+                          )}
+                          {compact ? null : (
+                            <TableCell className="h-9 py-0 text-xs">
+                              <WorkflowBadge
+                                status={
+                                  statusOverrides.get(row.contact.id) ?? row.contact.workflowStatus
+                                }
+                              />
+                            </TableCell>
+                          )}
+                          {compact ? null : (
+                            <TableCell className="h-9 py-0 text-xs tabular-nums text-muted-foreground">
+                              {row.tasks.filter((task) => task.status !== "todo").length}/
+                              {row.tasks.length} done
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
               <PaginationFooter
                 page={pages.page}
                 pageSize={pages.pageSize}
