@@ -28,10 +28,6 @@ export interface CapturedInvitation {
   readonly url: string;
 }
 
-const DEMO_ORGANIZATION_ID = "org_ai_engineer";
-const keepsDemoMembership = (email: string) =>
-  email.endsWith("@opensesh.io") || email.endsWith("@sbek-test.example.com");
-
 export const makeAuth = (
   env: Cloudflare.Env,
   origin: string,
@@ -84,23 +80,6 @@ const buildAuth = (
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
-    },
-    databaseHooks: {
-      user: {
-        create: {
-          after: async (user) => {
-            if (!keepsDemoMembership(user.email.toLowerCase())) return;
-            await database
-              .insert(organizationMembers)
-              .values({
-                organizationId: DEMO_ORGANIZATION_ID,
-                userId: user.id,
-                role: "member",
-              })
-              .onConflictDoNothing();
-          },
-        },
-      },
     },
     plugins: [
       magicLink({

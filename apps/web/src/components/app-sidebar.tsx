@@ -120,7 +120,7 @@ export function AppSidebar({
         )}
       </SidebarHeader>
       <SidebarContent>
-        {user.roles.admin ? <NavMain items={dashboard} pathname={pathname} /> : null}
+        <NavMain items={dashboard} pathname={pathname} />
         {user.roles.admin ? (
           <NavMain label="Organization" items={organization} pathname={pathname} />
         ) : null}

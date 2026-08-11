@@ -841,34 +841,15 @@ export const seedDatabase = async (database: Database) => {
           role: "member",
           createdAt: seededAt,
         },
-        {
-          id: "org_mem_maya",
-          organizationId: "org_ai_engineer",
-          userId: "usr_maya",
-          role: "member",
-          createdAt: seededAt,
-        },
-        {
-          id: "org_mem_lina",
-          organizationId: "org_ai_engineer",
-          userId: "usr_lina",
-          role: "member",
-          createdAt: seededAt,
-        },
-        {
-          id: "org_mem_jamal",
-          organizationId: "org_ai_engineer",
-          userId: "usr_jamal",
-          role: "member",
-          createdAt: seededAt,
-        },
-        ...devflowUsers.map((user) => ({
-          id: `org_mem_${user.id}`,
-          organizationId: "org_ai_engineer",
-          userId: user.id,
-          role: user.id === "usr_jordan" ? "owner" : "member",
-          createdAt: seededAt,
-        })),
+        ...devflowUsers
+          .filter((user) => user.id === "usr_jordan" || user.id === "usr_sam")
+          .map((user) => ({
+            id: `org_mem_${user.id}`,
+            organizationId: "org_ai_engineer",
+            userId: user.id,
+            role: user.id === "usr_jordan" ? "owner" : "member",
+            createdAt: seededAt,
+          })),
       ]),
       transaction.insert(accounts).values([
         ...seedData.users.map((user) => ({

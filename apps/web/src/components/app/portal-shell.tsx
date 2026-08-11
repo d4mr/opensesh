@@ -95,9 +95,11 @@ function DesktopPillNav({ pathname }: { readonly pathname: string }) {
 
 export function PortalShell({
   event,
+  preview,
   user,
 }: {
   readonly event: Event;
+  readonly preview?: { readonly contactId: string; readonly contactName: string };
   readonly user: CurrentUserValue;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -105,6 +107,20 @@ export function PortalShell({
 
   return (
     <div className="min-h-svh">
+      {preview === undefined ? null : (
+        <div className="flex h-9 items-center border-b bg-muted/40 px-4 text-xs text-muted-foreground">
+          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
+            <span className="truncate">
+              Previewing as{" "}
+              <span className="font-medium text-foreground">{preview.contactName}</span> — speakers
+              see exactly this.
+            </span>
+            <Link to="/admin" className="pressable shrink-0 font-medium text-foreground">
+              Back to admin
+            </Link>
+          </div>
+        </div>
+      )}
       <header className="border-b">
         <div className="mx-auto flex h-12 max-w-5xl items-center gap-3 px-4 text-sm">
           <Link
@@ -115,7 +131,7 @@ export function PortalShell({
             <span className="truncate">{event.name}</span>
           </Link>
           <DesktopPillNav pathname={pathname} />
-          <UserMenu user={user} />
+          <UserMenu user={user} context="portal" />
         </div>
         <nav className="mx-auto flex max-w-5xl items-center justify-center-safe gap-1 overflow-x-auto px-4 pb-2 text-sm [scrollbar-width:none] sm:hidden">
           {nav.map((item, index) => (

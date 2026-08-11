@@ -56,11 +56,34 @@ const requireAdminEvent = Effect.fn("requirePortalAdminEvent")(function* (eventI
 export const getSpeakerPortal = createServerFn({ method: "GET" }).handler(async () =>
   runServer(
     Effect.gen(function* () {
-      const { contactId } = yield* requireSpeaker();
+      const user = yield* getCurrentUser;
       const portal = yield* Portal;
-      return yield* portal.speakerBootstrap(contactId);
+      if (user.roles.contactId !== undefined) {
+        return yield* portal.speakerBootstrap(user.roles.contactId);
+      }
+      if (!user.roles.admin && !user.roles.reviewer && !user.roles.member) {
+        return yield* Effect.fail(new Forbidden({ message: "You do not have a speaker portal" }));
+      }
+      if (user.eventSlug === null) {
+        return yield* Effect.fail(new Forbidden({ message: "There is no event to preview" }));
+      }
+      const events = yield* Events;
+      const event = yield* events.getBySlug(user.eventSlug);
+      if (event.organizationId !== user.orgId) {
+        return yield* Effect.fail(new Forbidden({ message: "You cannot preview this event" }));
+      }
+      const contacts = yield* Contacts;
+      const contact = yield* contacts.findPreviewByEvent(event.id);
+      const bootstrap = yield* portal.speakerBootstrap(contact.id);
+      return {
+        ...bootstrap,
+        preview: {
+          contactId: contact.id,
+          contactName: `${contact.firstName} ${contact.lastName}`,
+        },
+      };
     }),
-    { require: "speaker" },
+    { require: "session" },
   ),
 );
 

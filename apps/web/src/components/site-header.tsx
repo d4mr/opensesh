@@ -20,12 +20,12 @@ export function SiteHeader({
         <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
         <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto flex items-center gap-2">
-          {user.roles.admin ? (
+          {user.roles.admin || user.roles.reviewer || user.roles.member ? (
             <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
               <Link to="/portal">View portal</Link>
             </Button>
           ) : null}
-          <UserMenu user={user} />
+          <UserMenu user={user} context="admin" />
         </div>
       </div>
     </header>

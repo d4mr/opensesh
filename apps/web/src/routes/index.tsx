@@ -13,9 +13,10 @@ export const Route = createFileRoute("/")({
     if (!viewer.ok) {
       throw redirect({ to: viewer.error.status === 428 ? "/onboarding" : "/login" });
     }
-    if (viewer.data.roles.admin || viewer.data.roles.reviewer) {
+    if (viewer.data.roles.admin || viewer.data.roles.reviewer || viewer.data.roles.member) {
       throw redirect({ to: "/admin" });
     }
-    throw redirect({ to: "/portal" });
+    if (viewer.data.roles.contactId !== undefined) throw redirect({ to: "/portal" });
+    throw redirect({ to: "/onboarding", search: { new: undefined } });
   },
 });

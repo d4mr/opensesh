@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, or } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
@@ -103,7 +103,6 @@ export const EventsLive = Layer.effect(
 
     const currentEvent = alias(events, "current_event");
     const organizationEvent = alias(events, "organization_event");
-    const organizationEventMember = alias(eventMembers, "organization_event_member");
 
     return {
       list: () =>
@@ -124,8 +123,6 @@ export const EventsLive = Layer.effect(
           db
             .select({
               event: organizationEvent,
-              eventRole: eventMembers.role,
-              organizationRole: organizationMembers.role,
             })
             .from(currentEvent)
             .innerJoin(
@@ -135,25 +132,9 @@ export const EventsLive = Layer.effect(
                 eq(organizationMembers.userId, session.userId),
               ),
             )
-            .leftJoin(
-              eventMembers,
-              and(
-                eq(eventMembers.eventId, currentEvent.id),
-                eq(eventMembers.userId, session.userId),
-              ),
-            )
             .innerJoin(
               organizationEvent,
               eq(organizationEvent.organizationId, currentEvent.organizationId),
-            )
-            // Organization owners/admins manage every event; event-scoped
-            // staff only see the events where they have an explicit role.
-            .leftJoin(
-              organizationEventMember,
-              and(
-                eq(organizationEventMember.eventId, organizationEvent.id),
-                eq(organizationEventMember.userId, session.userId),
-              ),
             )
             .where(
               and(
@@ -161,14 +142,6 @@ export const EventsLive = Layer.effect(
                 session.activeOrganizationId === undefined
                   ? undefined
                   : eq(currentEvent.organizationId, session.activeOrganizationId),
-                or(
-                  inArray(organizationMembers.role, ["owner", "admin"]),
-                  inArray(eventMembers.role, ["admin", "reviewer"]),
-                ),
-                or(
-                  inArray(organizationMembers.role, ["owner", "admin"]),
-                  inArray(organizationEventMember.role, ["admin", "reviewer"]),
-                ),
               ),
             )
             .orderBy(asc(organizationEvent.startsAt))
@@ -184,14 +157,10 @@ export const EventsLive = Layer.effect(
               "event",
               rows.map((row) => row.event),
             ).pipe(
-              Effect.map((decoded) =>
-                rows[0]?.organizationRole === "member" && rows[0]?.eventRole === "reviewer"
-                  ? decoded.filter((event) => event.slug === eventSlug)
-                  : [
-                      ...decoded.filter((event) => event.slug === eventSlug),
-                      ...decoded.filter((event) => event.slug !== eventSlug),
-                    ],
-              ),
+              Effect.map((decoded) => [
+                ...decoded.filter((event) => event.slug === eventSlug),
+                ...decoded.filter((event) => event.slug !== eventSlug),
+              ]),
             ),
           ),
         ),
