@@ -11,14 +11,6 @@ import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -135,27 +127,7 @@ export function OrgSettingsDialog({
             </SidebarContent>
           </Sidebar>
           <main className="flex h-[600px] flex-1 flex-col overflow-hidden">
-            <header className="flex h-12 shrink-0 items-center gap-2 border-b">
-              <div className="flex items-center gap-2 px-6">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink
-                        className="cursor-pointer"
-                        onClick={() => setSection("Profile")}
-                      >
-                        Organization settings
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{section}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
-            </header>
-            <div className="flex flex-1 flex-col overflow-y-auto px-6 py-6 text-sm">
+            <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 text-sm">
               {open ? (
                 <Suspense fallback={<SectionSkeleton />}>
                   <SectionContent section={section} />
