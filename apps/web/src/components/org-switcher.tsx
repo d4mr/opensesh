@@ -18,6 +18,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 function OrgLogo({
   logo,
@@ -28,10 +29,10 @@ function OrgLogo({
 }) {
   return (
     <span
-      className={
-        "flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background " +
-        (className ?? "")
-      }
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background",
+        className,
+      )}
     >
       {logo === null ? (
         <Building2Icon className="size-4" />
@@ -86,17 +87,21 @@ export function OrgSwitcher({ user }: { readonly user: CurrentUserValue }) {
             {list.map((organization) => (
               <DropdownMenuItem
                 key={organization.id}
+                className="text-[13px]"
                 onClick={() => void switchOrganization(organization.id)}
               >
-                <OrgLogo logo={organization.logo ?? null} className="size-6 rounded-md" />
+                <OrgLogo logo={organization.logo ?? null} className="size-5 rounded-sm" />
                 <span className="truncate">{organization.name}</span>
-                {organization.id === user.orgId ? <CheckIcon className="ml-auto size-4" /> : null}
+                {organization.id === user.orgId ? <CheckIcon className="ml-auto size-3.5" /> : null}
               </DropdownMenuItem>
             ))}
             {user.roles.admin ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                <DropdownMenuItem
+                  className="text-[13px] text-muted-foreground"
+                  onClick={() => setSettingsOpen(true)}
+                >
                   <Settings2Icon />
                   Organization settings
                 </DropdownMenuItem>

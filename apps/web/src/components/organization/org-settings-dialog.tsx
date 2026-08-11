@@ -94,22 +94,33 @@ export function OrgSettingsDialog({
 }) {
   const [section, setSection] = useState<SectionName>("Profile");
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setSection("Profile");
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="overflow-hidden p-0 md:max-h-[620px] md:max-w-[820px] lg:max-w-[960px]">
         <DialogTitle className="sr-only">Organization settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your organization profile, members, and invitations.
         </DialogDescription>
-        <SidebarProvider className="items-start">
+        <SidebarProvider
+          className="items-start"
+          style={{ "--sidebar-width": "11rem" } as React.CSSProperties}
+        >
           <Sidebar collapsible="none" className="hidden md:flex">
             <SidebarContent>
               <SidebarGroup>
                 <SidebarGroupLabel>Organization</SidebarGroupLabel>
                 <SidebarGroupContent>
-                  <SidebarMenu>
+                  <SidebarMenu className="gap-0.5">
                     {nav.map((item) => (
                       <SidebarMenuItem key={item.name}>
                         <SidebarMenuButton
+                          size="sm"
+                          className="text-[13px]"
                           isActive={item.name === section}
                           onClick={() => setSection(item.name)}
                         >
@@ -360,6 +371,19 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
                 {logoFile === null ? null : (
                   <span className="truncate text-xs text-muted-foreground">{logoFile.name}</span>
                 )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="pressable"
+                  disabled={submitting}
+                  onClick={() => {
+                    form.reset();
+                    setLogoFile(null);
+                  }}
+                >
+                  Cancel
+                </Button>
                 <Button type="submit" size="sm" className="pressable" disabled={submitting}>
                   {submitting ? "Saving…" : "Save changes"}
                 </Button>
