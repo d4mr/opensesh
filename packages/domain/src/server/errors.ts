@@ -107,3 +107,7 @@ export class OrganizationMemberNotFound extends Data.TaggedError("OrganizationMe
 export class OrganizationSelfDemotion extends Data.TaggedError("OrganizationSelfDemotion")<{
   readonly message: string;
 }> {}
+
+export class IntegrationError extends Data.TaggedError("IntegrationError")<{
+  readonly message: string;
+}> {}

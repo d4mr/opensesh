@@ -8,6 +8,7 @@
     "./db/auth": "./src/db/auth.ts",
     "./server/current-user": "./src/server/current-user.ts",
     "./server/cfp": "./src/server/cfp.ts",
+    "./server/integrations/accelevents": "./src/server/integrations/accelevents.ts",
     "./server/errors": "./src/server/errors.ts",
     "./server/mail": "./src/server/mail.ts",
     "./server/mail/ics": "./src/server/mail/ics.ts",

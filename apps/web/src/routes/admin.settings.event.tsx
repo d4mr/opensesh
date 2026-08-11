@@ -1,4 +1,4 @@
-import type { Event, EventType } from "@opensesh/domain";
+import type { AcceleventsOutcome, Event, EventType } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -29,6 +29,7 @@ import {
   revokeEventAdmin,
   updateEventSettings,
 } from "@/server-fns/admin";
+import { getIntegration, runIntegrationSync, saveIntegration } from "@/server-fns/integrations";
 
 export const Route = createFileRoute("/admin/settings/event")({ component: EventSettings });
 
@@ -469,6 +470,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
           </SettingsSection>
 
           <EventAccessSection eventId={event.id} />
+          <IntegrationsSection eventId={event.id} />
         </div>
       </form>
     </main>
@@ -615,5 +617,195 @@ function PreviewRow({
       <span className="text-[11px] text-muted-foreground">{label}</span>
       {children}
     </div>
+  );
+}
+
+const integrationQuery = (eventId: string) =>
+  queryOptions({
+    queryKey: ["event-integration", eventId],
+    queryFn: () => getIntegration({ data: { eventId } }),
+    staleTime: 30_000,
+  });
+
+const outcomeLine = (label: string, outcome: AcceleventsOutcome) =>
+  `${label}: ${outcome.created} added, ${outcome.updated} updated, ${outcome.skipped} skipped`;
+
+function IntegrationsSection({ eventId }: { readonly eventId: string }) {
+  const queryClient = useQueryClient();
+  const integration = useQuery(integrationQuery(eventId));
+  const [eventUrl, setEventUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [importAttendees, setImportAttendees] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const view = integration.data?.ok === true ? integration.data.data : null;
+
+  // Seed local fields once from the stored connection; the API key input
+  // stays empty (the stored key never round-trips to the client).
+  useEffect(() => {
+    if (hydrated || integration.data === undefined) return;
+    if (view !== null) {
+      setEventUrl(view.eventUrl);
+      setImportAttendees(view.importAttendees);
+    }
+    setHydrated(true);
+  }, [hydrated, integration.data, view]);
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["event-integration", eventId] });
+
+  const save = async (overrides?: { eventUrl?: string; apiKey?: string }) => {
+    setSaving(true);
+    const result = await saveIntegration({
+      data: {
+        eventId,
+        eventUrl: overrides?.eventUrl ?? eventUrl,
+        apiKey: (overrides?.apiKey ?? apiKey) === "" ? null : (overrides?.apiKey ?? apiKey),
+        importAttendees,
+      },
+    });
+    setSaving(false);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return false;
+    }
+    setApiKey("");
+    toast.success("Accelevents connection saved");
+    await refresh();
+    return true;
+  };
+
+  const useDemoConnection = async () => {
+    setEventUrl("demo");
+    const saved = await save({ eventUrl: "demo", apiKey: "demo-accelevents-key" });
+    if (saved) toast.info("Demo connection uses bundled sample data — try Sync now");
+  };
+
+  const runSync = async () => {
+    setSyncing(true);
+    const result = await runIntegrationSync({ data: { eventId } });
+    setSyncing(false);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    const report = result.data;
+    toast.success(
+      `Synced from Accelevents — speakers: ${report.speakers.created} added, ${report.speakers.updated} updated` +
+        (report.attendees === null
+          ? ""
+          : `; attendees: ${report.attendees.created} added, ${report.attendees.skipped} already known`),
+    );
+    await refresh();
+    await queryClient.invalidateQueries({ queryKey: ["crm-workspace"] });
+  };
+
+  const connected = view !== null && view.hasApiKey;
+
+  return (
+    <SettingsSection title="Integrations">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] font-medium">Accelevents</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            One-way import from your registration platform — speakers land in the Speaker CRM with
+            full profiles and are linked to this event; attendees become contacts tagged
+            “Accelevents attendee”. Nothing is ever written back.
+          </p>
+        </div>
+        <span
+          className={cn(
+            "mt-0.5 inline-flex h-5 shrink-0 items-center rounded-full border px-2 text-[11px]",
+            connected
+              ? "border-emerald-600/30 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
+              : "text-muted-foreground",
+          )}
+        >
+          {connected ? "Connected" : "Not connected"}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="accel-event-url">Accelevents event URL</FieldLabel>
+          <Input
+            id="accel-event-url"
+            value={eventUrl}
+            onChange={(event) => setEventUrl(event.target.value)}
+            placeholder="my-conference"
+            className="h-8"
+          />
+          <FieldDescription>
+            The slug from accelevents.com/e/<span className="font-medium">your-event</span>.
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="accel-api-key">API key</FieldLabel>
+          <Input
+            id="accel-api-key"
+            type="password"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder={view?.apiKeyPreview ?? "From Manage enterprise → Integrations"}
+            className="h-8"
+            autoComplete="off"
+          />
+          <FieldDescription>
+            {view?.hasApiKey
+              ? "A key is stored. Leave blank to keep it."
+              : "Generated by an owner under Integrations → API Key."}
+          </FieldDescription>
+        </Field>
+      </div>
+      <label className="mt-1 flex w-fit cursor-pointer items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={importAttendees}
+          onChange={(event) => setImportAttendees(event.target.checked)}
+          className="size-3.5 accent-primary"
+        />
+        Also import attendees as CRM contacts
+      </label>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="pressable"
+          disabled={saving || eventUrl.trim() === ""}
+          onClick={() => void save()}
+        >
+          {connected ? "Update connection" : "Connect"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="pressable"
+          disabled={syncing || !connected}
+          onClick={() => void runSync()}
+        >
+          {syncing ? "Syncing…" : "Sync now"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="pressable text-muted-foreground"
+          disabled={saving}
+          onClick={() => void useDemoConnection()}
+        >
+          Use demo connection
+        </Button>
+      </div>
+      {view?.lastResult != null ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Last sync {view.lastSyncedAt === null ? "" : new Date(view.lastSyncedAt).toLocaleString()}{" "}
+          — {outcomeLine("speakers", view.lastResult.speakers)}
+          {view.lastResult.attendees === null
+            ? ""
+            : `; ${outcomeLine("attendees", view.lastResult.attendees)}`}
+          {`; ${view.lastResult.linkedToEvent} linked to this event`}
+        </p>
+      ) : null}
+    </SettingsSection>
   );
 }

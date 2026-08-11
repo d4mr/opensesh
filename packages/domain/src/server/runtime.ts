@@ -11,6 +11,7 @@ import type {
   DuplicateMerge,
   Forbidden,
   FormClosed,
+  IntegrationError,
   InvalidInput,
   InvalidPipelineMove,
   MailError,
@@ -40,6 +41,7 @@ export type AppError =
   | DuplicateMerge
   | Forbidden
   | FormClosed
+  | IntegrationError
   | InvalidInput
   | InvalidPipelineMove
   | MailError
@@ -73,6 +75,7 @@ const toServerError = Match.type<AppError>().pipe(
     DuplicateMerge: (error) => ({ status: 409, message: error.message }),
     NotFound: (error) => ({ status: 404, message: error.message }),
     FormClosed: (error) => ({ status: 409, message: error.message }),
+    IntegrationError: (error) => ({ status: 502, message: error.message }),
     InvalidInput: (error) => ({ status: 400, message: error.message }),
     InvalidPipelineMove: (error) => ({ status: 409, message: error.message }),
     NumericOutOfBounds: (error) => ({ status: 400, message: error.message }),
