@@ -776,7 +776,7 @@ export const PortalLive = Layer.effect(
               db
                 .select()
                 .from(contacts)
-                .where(eq(contacts.eventId, eventId))
+                .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
                 .orderBy(asc(contacts.lastName), asc(contacts.firstName))
                 .execute(),
             ),
@@ -1899,6 +1899,7 @@ export const PortalLive = Layer.effect(
                     .where(
                       and(
                         eq(contacts.eventId, input.eventId),
+                        eq(contacts.participation, "speaker"),
                         inArray(contacts.id, input.contactIds),
                       ),
                     )

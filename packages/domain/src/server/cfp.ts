@@ -54,6 +54,7 @@ const contactInput = (
 ): ContactCreate => ({
   eventId,
   email,
+  participation: "speaker",
   firstName: stringAnswer(
     answers,
     fields.find((field) => field.mapsTo === "first_name"),
@@ -94,6 +95,7 @@ const contactInput = (
 const contactUpdate = (input: ContactCreate): ContactUpdate => ({
   firstName: input.firstName,
   lastName: input.lastName,
+  participation: "speaker",
   bio: input.bio,
   phone: input.phone,
   custom: input.custom,

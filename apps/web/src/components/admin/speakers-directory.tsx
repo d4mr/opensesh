@@ -898,12 +898,41 @@ function Directory({
                         ? ""
                         : ` · T-shirt ${selected.contact.tshirtSize}`}
                     </p>
-                    <p className="mt-2 border-t pt-2 whitespace-pre-wrap text-muted-foreground">
+                    <div className="mt-2 flex items-start gap-2 border-t pt-2">
                       {typeof selected.contact.custom.travelLogistics === "string" &&
-                      selected.contact.custom.travelLogistics.trim() !== ""
-                        ? selected.contact.custom.travelLogistics
-                        : "No travel or logistics notes."}
-                    </p>
+                      selected.contact.custom.travelLogistics.trim() !== "" ? (
+                        <>
+                          <p className="min-w-0 flex-1 whitespace-pre-wrap text-muted-foreground">
+                            {selected.contact.custom.travelLogistics}
+                          </p>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            className="pressable shrink-0"
+                            onClick={() => {
+                              setEditing(selected);
+                              setFormOpen(true);
+                            }}
+                          >
+                            <PencilIcon /> Edit
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          className="pressable -ml-2 text-muted-foreground"
+                          onClick={() => {
+                            setEditing(selected);
+                            setFormOpen(true);
+                          }}
+                        >
+                          <PencilIcon /> Add travel notes
+                        </Button>
+                      )}
+                    </div>
                     {!hasRichText(selected.contact.bio) ? (
                       <p className="mt-2 italic text-muted-foreground">No bio yet.</p>
                     ) : (

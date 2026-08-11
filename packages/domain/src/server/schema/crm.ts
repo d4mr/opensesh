@@ -176,6 +176,7 @@ export const CrmMergeRequest = Schema.Struct({
 export const CrmAddToEventRequest = Schema.Struct({
   organizationContactId: Schema.String,
   eventId: Schema.String,
+  participation: Schema.Literals(["speaker", "organizer"]),
 });
 export const CrmCsvContact = Schema.Struct({
   firstName: Schema.String,
@@ -195,6 +196,7 @@ export const CrmCampaignRequest = Schema.Struct({
   organizationContactIds: Schema.Array(Schema.String),
   subject: Schema.String,
   body: Schema.String,
+  addToEvent: Schema.Boolean,
 });
 
 export const CrmEventSummary = Schema.Struct({

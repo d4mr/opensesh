@@ -71,9 +71,9 @@ export const emailCampaignRecipients = pgTable(
     campaignId: text("campaign_id")
       .notNull()
       .references(() => emailCampaigns.id, { onDelete: "cascade" }),
-    contactId: text("contact_id")
-      .notNull()
-      .references(() => contacts.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    recipientName: text("recipient_name").notNull(),
+    recipientEmail: text("recipient_email").notNull(),
     resolvedSubject: text("resolved_subject").notNull(),
     resolvedBody: text("resolved_body").notNull(),
     deliveryStatus: campaignDeliveryStatus("delivery_status").notNull().default("pending"),
@@ -81,9 +81,9 @@ export const emailCampaignRecipients = pgTable(
     ...timestamps,
   },
   (table) => [
-    unique("email_campaign_recipients_campaign_contact_unique").on(
+    unique("email_campaign_recipients_campaign_email_unique").on(
       table.campaignId,
-      table.contactId,
+      table.recipientEmail,
     ),
     index("email_campaign_recipients_contact_idx").on(table.contactId),
   ],

@@ -1,7 +1,57 @@
 import type { PublicProgram } from "../schema/widgets";
 import { describe, expect, it } from "vitest";
 
-import { findPublicSession, publicSubmissionVisible } from "./widgets";
+import { findPublicSession, publicSubmissionVisible, speakerCsvUpdateValues } from "./widgets";
+
+describe("speaker CSV updates", () => {
+  it("preserves profile fields omitted by a sparse import and clears present blank cells", () => {
+    const existing = {
+      dietaryRequirements: "vegetarian" as const,
+      tshirtSize: "M" as const,
+    };
+    const sparse = speakerCsvUpdateValues({
+      firstName: "Priya",
+      lastName: "Raman",
+      email: "priya@example.com",
+      title: undefined,
+      company: undefined,
+      bio: undefined,
+      dietary: undefined,
+      tshirt: undefined,
+      linkedin: undefined,
+      twitter: undefined,
+      facebook: undefined,
+      website: undefined,
+      phone: undefined,
+      action: "update",
+    });
+    const clearing = speakerCsvUpdateValues({
+      firstName: "Priya",
+      lastName: "Raman",
+      email: "priya@example.com",
+      title: undefined,
+      company: undefined,
+      bio: undefined,
+      dietary: "",
+      tshirt: null,
+      linkedin: undefined,
+      twitter: undefined,
+      facebook: undefined,
+      website: undefined,
+      phone: undefined,
+      action: "update",
+    });
+
+    expect({ ...existing, ...sparse }).toMatchObject({
+      dietaryRequirements: "vegetarian",
+      tshirtSize: "M",
+    });
+    expect({ ...existing, ...clearing }).toMatchObject({
+      dietaryRequirements: "none",
+      tshirtSize: null,
+    });
+  });
+});
 
 const program: PublicProgram = {
   event: {

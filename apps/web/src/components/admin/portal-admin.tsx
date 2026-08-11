@@ -211,6 +211,7 @@ function AdminTasks({
   const [drawer, setDrawer] = useState(fileRequestId !== undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [outstandingOnly, setOutstandingOnly] = useState(true);
+  const [taskTemplateId, setTaskTemplateId] = useState("any");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<ReadonlySet<string>>(new Set());
@@ -296,13 +297,24 @@ function AdminTasks({
       const outstanding = assignments.filter((row) => row.assignment.status === "todo").length;
       return { contact, assignments, outstanding, done: assignments.length - outstanding };
     })
-    .filter((row) => !outstandingOnly || row.outstanding > 0)
+    .filter(
+      (row) =>
+        (!outstandingOnly || row.outstanding > 0) &&
+        (taskTemplateId === "any" ||
+          row.assignments.some(
+            (assignment) =>
+              assignment.assignment.taskTemplateId === taskTemplateId &&
+              assignment.assignment.status === "todo",
+          )),
+    )
     .sort(
       (left, right) =>
         right.outstanding - left.outstanding ||
         left.contact.lastName.localeCompare(right.contact.lastName),
     );
-  const speakerPages = usePagination(speakers, { resetKey: String(outstandingOnly) });
+  const speakerPages = usePagination(speakers, {
+    resetKey: `${String(outstandingOnly)}:${taskTemplateId}`,
+  });
   const open = (id: string | null) => {
     setEditingId(id);
     setDrawer(true);
@@ -312,6 +324,7 @@ function AdminTasks({
     .map((speaker) => speaker.contact.id);
   const allOutstandingSelected =
     outstandingIds.length > 0 && outstandingIds.every((id) => selectedSpeakerIds.has(id));
+  const selectedReminderIds = outstandingIds.filter((id) => selectedSpeakerIds.has(id));
 
   return (
     <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
@@ -384,6 +397,19 @@ function AdminTasks({
                 />
                 <FilterIcon className="size-3.5" /> Has outstanding
               </label>
+              <Select value={taskTemplateId} onValueChange={setTaskTemplateId}>
+                <SelectTrigger size="sm" className="w-44 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any task</SelectItem>
+                  {data.templates.map((row) => (
+                    <SelectItem key={row.template.id} value={row.template.id}>
+                      {row.template.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
                 <Checkbox
                   checked={
@@ -403,16 +429,15 @@ function AdminTasks({
             <Button
               size="sm"
               variant="outline"
-              disabled={remind.isPending || selectedSpeakerIds.size === 0}
+              disabled={remind.isPending || selectedReminderIds.length === 0}
               onClick={() => {
-                const ids = outstandingIds.filter((id) => selectedSpeakerIds.has(id));
-                remind.mutate({ contactIds: ids, ids });
+                remind.mutate({ contactIds: selectedReminderIds, ids: selectedReminderIds });
               }}
             >
               <SendIcon />
               {remind.isPending
                 ? "Sending…"
-                : `Send ${selectedSpeakerIds.size} reminder${selectedSpeakerIds.size === 1 ? "" : "s"}`}
+                : `Send ${selectedReminderIds.length} reminder${selectedReminderIds.length === 1 ? "" : "s"}`}
             </Button>
           </div>
           <TableShell
@@ -624,7 +649,7 @@ export function TaskTemplateDialog({
             : `file:${initialFileRequestId}`
           : `file:${existing.fileRequestId}`
         : `form:${existing.portalFormId}`,
-    auto: existing?.autoAssignOnAccept ?? true,
+    auto: initialContactIds.size < speakers.length ? false : (existing?.autoAssignOnAccept ?? true),
     dueDate:
       existing?.dueDate === null || existing?.dueDate === undefined
         ? ""
@@ -643,7 +668,8 @@ export function TaskTemplateDialog({
           scope: form.scope === "submission" ? "submission" : "contact",
           portalFormId: form.link.startsWith("form:") ? form.link.slice(5) : null,
           fileRequestId: form.link.startsWith("file:") ? form.link.slice(5) : null,
-          autoAssignOnAccept: form.auto,
+          autoAssignOnAccept:
+            form.scope === "contact" && form.contactIds.size < speakers.length ? false : form.auto,
           dueDate:
             form.dueDate.length === 0 ? null : zonedDateTimeIso(form.dueDate, 12 * 60, timezone),
           contactIds: form.scope === "contact" ? [...form.contactIds] : [],
@@ -769,15 +795,37 @@ export function TaskTemplateDialog({
                 onOpenChange={setPickerOpen}
                 contacts={speakers}
                 value={form.contactIds}
-                onChange={(contactIds) => setForm({ ...form, contactIds: new Set(contactIds) })}
+                onChange={(contactIds) => {
+                  const next = new Set(contactIds);
+                  setForm({
+                    ...form,
+                    contactIds: next,
+                    auto: next.size < speakers.length ? false : form.auto,
+                  });
+                }}
                 title="Assign speakers"
                 description="Everyone selected is assigned this task."
               />
             </div>
           )}
-          <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-            Auto-assign on accept
-            <Switch checked={form.auto} onCheckedChange={(auto) => setForm({ ...form, auto })} />
+          <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+            <span>
+              <span className="block">Auto-assign on accept</span>
+              {form.scope === "contact" && form.contactIds.size < speakers.length ? (
+                <span className="block text-xs text-muted-foreground">
+                  Off while assigning specific speakers
+                </span>
+              ) : null}
+            </span>
+            <Switch
+              checked={
+                form.scope === "contact" && form.contactIds.size < speakers.length
+                  ? false
+                  : form.auto
+              }
+              disabled={form.scope === "contact" && form.contactIds.size < speakers.length}
+              onCheckedChange={(auto) => setForm({ ...form, auto })}
+            />
           </label>
         </div>
         <DialogFooter>

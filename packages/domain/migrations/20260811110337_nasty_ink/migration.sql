@@ -244,7 +244,7 @@ CREATE TABLE "crm_stage_history" (
 CREATE TABLE "organization_contact_events" (
 	"id" text PRIMARY KEY,
 	"organization_contact_id" text NOT NULL,
-	"contact_id" text NOT NULL CONSTRAINT "organization_contact_events_contact_unique" UNIQUE,
+	"contact_id" text NOT NULL,
 	"event_id" text NOT NULL,
 	"role" text NOT NULL,
 	"status" text NOT NULL,
@@ -302,14 +302,16 @@ CREATE TABLE "organization_tags" (
 CREATE TABLE "email_campaign_recipients" (
 	"id" text PRIMARY KEY,
 	"campaign_id" text NOT NULL,
-	"contact_id" text NOT NULL,
+	"contact_id" text,
+	"recipient_name" text NOT NULL,
+	"recipient_email" text NOT NULL,
 	"resolved_subject" text NOT NULL,
 	"resolved_body" text NOT NULL,
 	"delivery_status" "campaign_delivery_status" DEFAULT 'pending'::"campaign_delivery_status" NOT NULL,
 	"email_log_id" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "email_campaign_recipients_campaign_contact_unique" UNIQUE("campaign_id","contact_id")
+	CONSTRAINT "email_campaign_recipients_campaign_email_unique" UNIQUE("campaign_id","recipient_email")
 );
 --> statement-breakpoint
 CREATE TABLE "email_campaigns" (
@@ -657,6 +659,7 @@ CREATE TABLE "contacts" (
 	"email" text NOT NULL,
 	"first_name" text NOT NULL,
 	"last_name" text NOT NULL,
+	"participation" text DEFAULT 'speaker' NOT NULL,
 	"title" text,
 	"company" text,
 	"salutation" text,
@@ -868,7 +871,7 @@ ALTER TABLE "organization_contact_tags" ADD CONSTRAINT "organization_contact_tag
 ALTER TABLE "organization_contacts" ADD CONSTRAINT "organization_contacts_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_tags" ADD CONSTRAINT "organization_tags_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_campaign_recipients" ADD CONSTRAINT "email_campaign_recipients_campaign_id_email_campaigns_id_fkey" FOREIGN KEY ("campaign_id") REFERENCES "email_campaigns"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "email_campaign_recipients" ADD CONSTRAINT "email_campaign_recipients_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "email_campaign_recipients" ADD CONSTRAINT "email_campaign_recipients_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "email_campaign_recipients" ADD CONSTRAINT "email_campaign_recipients_email_log_id_email_log_id_fkey" FOREIGN KEY ("email_log_id") REFERENCES "email_log"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "email_campaigns" ADD CONSTRAINT "email_campaigns_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_campaigns" ADD CONSTRAINT "email_campaigns_template_id_email_templates_id_fkey" FOREIGN KEY ("template_id") REFERENCES "email_templates"("id") ON DELETE SET NULL;--> statement-breakpoint

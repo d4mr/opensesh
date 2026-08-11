@@ -273,6 +273,7 @@ export const MailAdminLive = Layer.effect(
                     email: contacts.email,
                     firstName: contacts.firstName,
                     eventName: events.name,
+                    timezone: events.timezone,
                     logoUrl: events.logoUrl,
                   })
                   .from(submissionParticipants)
@@ -304,7 +305,7 @@ export const MailAdminLive = Layer.effect(
               const due =
                 assignment.dueDate === null
                   ? "No due date"
-                  : `Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(assignment.dueDate)}`;
+                  : `Due ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: people.get(contactId)?.timezone ?? "UTC" }).format(assignment.dueDate)}`;
               contactTasks.set(assignment.assignmentId, `${task} · ${due}`);
               tasks.set(contactId, contactTasks);
             }

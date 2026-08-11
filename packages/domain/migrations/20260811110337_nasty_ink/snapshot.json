@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6807c3ff-bc0a-456d-8f1b-f6bf2aa67744",
+  "id": "9053b54b-c8e5-417e-99cf-794c71bcf2fc",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -3111,12 +3111,38 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "contact_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_campaign_recipients"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "recipient_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_campaign_recipients"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "recipient_email",
       "entityType": "columns",
       "schema": "public",
       "table": "email_campaign_recipients"
@@ -6595,6 +6621,19 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'speaker'",
+      "generated": null,
+      "identity": null,
+      "name": "participation",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contacts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
@@ -9744,7 +9783,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
+      "onDelete": "SET NULL",
       "name": "email_campaign_recipients_contact_id_contacts_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -11600,17 +11639,6 @@
     {
       "nameExplicit": true,
       "columns": [
-        "contact_id"
-      ],
-      "nullsNotDistinct": false,
-      "name": "organization_contact_events_contact_unique",
-      "entityType": "uniques",
-      "schema": "public",
-      "table": "organization_contact_events"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
         "organization_contact_id",
         "event_id"
       ],
@@ -11660,10 +11688,10 @@
       "nameExplicit": true,
       "columns": [
         "campaign_id",
-        "contact_id"
+        "recipient_email"
       ],
       "nullsNotDistinct": false,
-      "name": "email_campaign_recipients_campaign_contact_unique",
+      "name": "email_campaign_recipients_campaign_email_unique",
       "entityType": "uniques",
       "schema": "public",
       "table": "email_campaign_recipients"

@@ -184,6 +184,7 @@ export const SubmissionsLive = Layer.effect(
     const dashboardContactCounts = database
       .select({ eventId: contacts.eventId, speakers: countDistinct(contacts.id).as("speakers") })
       .from(contacts)
+      .where(eq(contacts.participation, "speaker"))
       .groupBy(contacts.eventId)
       .as("dashboard_contact_counts");
     const staffMember = alias(eventMembers, "dashboard_staff_member");

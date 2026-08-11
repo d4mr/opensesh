@@ -55,7 +55,6 @@ export const organizationContactEvents = pgTable(
     ...timestamps,
   },
   (table) => [
-    unique("organization_contact_events_contact_unique").on(table.contactId),
     unique("organization_contact_events_org_contact_event_unique").on(
       table.organizationContactId,
       table.eventId,
