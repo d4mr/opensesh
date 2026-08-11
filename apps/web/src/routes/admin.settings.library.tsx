@@ -71,12 +71,17 @@ function EventLibrary() {
           Reusable values for forms, submissions, and agenda planning.
         </p>
       </div>
-      <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pb-14 xl:grid-cols-2">
-        <LibrarySection eventId={eventId} kind="track" title="Tracks" rows={data.tracks} />
-        <LibrarySection eventId={eventId} kind="format" title="Formats" rows={data.formats} />
-        <LibrarySection eventId={eventId} kind="room" title="Rooms" rows={data.rooms} />
-        <LibrarySection eventId={eventId} kind="tag" title="Tags" rows={data.tags} />
-        <LibrarySection eventId={eventId} kind="level" title="Levels" rows={data.levels} />
+      {/* Scroll container and layout grid stay separate elements: a
+          fixed-height grid distributes its auto rows to fit and clips
+          the sections instead of overflowing. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="grid content-start gap-4 pb-14 xl:grid-cols-2">
+          <LibrarySection eventId={eventId} kind="track" title="Tracks" rows={data.tracks} />
+          <LibrarySection eventId={eventId} kind="format" title="Formats" rows={data.formats} />
+          <LibrarySection eventId={eventId} kind="room" title="Rooms" rows={data.rooms} />
+          <LibrarySection eventId={eventId} kind="tag" title="Tags" rows={data.tags} />
+          <LibrarySection eventId={eventId} kind="level" title="Levels" rows={data.levels} />
+        </div>
       </div>
     </main>
   );
