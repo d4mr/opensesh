@@ -127,3 +127,13 @@ morning deploy — everything here ships in the next deploy.
 - Aug 11 night — user-directed CRM polish: multi-tag filters widen (any-of, was intersecting to
   zero), active-segment bar fully framed, company/title filters became EntityCombobox search
   pickers (capped async resolver). All browser-verified.
+- Aug 11 night — settings surface polish + event access management (user-directed): event-settings
+  and library pages got real scroll containers (a fixed-height grid distributes auto rows to fit
+  and clips sections — scroll wrapper and layout grid are now separate elements); members dialog
+  reserves the trash slot instead of rendering disabled ghosts. New Event settings → Access
+  section: Events.listAccess/grantAdmin/revokeAdmin expose the WP31 derivation read model — org
+  owners/admins listed as derived (managed in org settings), event-scoped admins grantable from
+  org members and revocable (revoke demotes to reviewer when review staffing references the row,
+  else deletes), reviewers shown read-only. Cross-link help text in both org Members dialog and
+  the Access section. Browser-verified grant (Rey), promote-reviewer + demote-on-revoke (Sam),
+  plain revoke; 6/6 checks, 45 tests.

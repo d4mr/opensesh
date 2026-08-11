@@ -396,6 +396,11 @@ function MembersSection({ settings }: { readonly settings: OrganizationSettings 
           <span className="font-medium text-foreground">Member</span> — sees events and reviews
           sessions they&apos;re assigned.
         </p>
+        <p className="pt-1.5">
+          Roles here apply to every event. Access scoped to a single event — event admins and
+          reviewers — is managed per event in{" "}
+          <span className="font-medium text-foreground">Event settings → Access</span>.
+        </p>
       </div>
     </div>
   );

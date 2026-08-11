@@ -197,6 +197,47 @@ export const updateEventSettings = createServerFn({ method: "POST" })
     );
   });
 
+const EventAccessTarget = Schema.Struct({ eventId: Schema.String, userId: Schema.String });
+
+export const getEventAccess = createServerFn({ method: "GET" })
+  .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const events = yield* Events;
+        yield* requireEventAccess(data.eventId, "admin");
+        return yield* events.listAccess(data.eventId);
+      }),
+      { require: "staff" },
+    ),
+  );
+
+export const grantEventAdmin = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(EventAccessTarget))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const events = yield* Events;
+        yield* requireEventAccess(data.eventId, "admin");
+        yield* events.grantAdmin(data.eventId, data.userId);
+      }),
+      { require: "staff" },
+    ),
+  );
+
+export const revokeEventAdmin = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(EventAccessTarget))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const events = yield* Events;
+        yield* requireEventAccess(data.eventId, "admin");
+        return yield* events.revokeAdmin(data.eventId, data.userId);
+      }),
+      { require: "staff" },
+    ),
+  );
+
 export const getEventLibrary = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
   .handler(async ({ data }) =>

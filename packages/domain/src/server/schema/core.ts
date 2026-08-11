@@ -141,6 +141,26 @@ export const EventAdmin = Schema.Struct({
 });
 export type EventAdmin = typeof EventAdmin.Type;
 
+// One row per person with access to an event. "organization" entries are
+// derived (org owners/admins are admins of every org event) and can only be
+// changed in organization settings; "event" entries are the overlay rows.
+export const EventAccessEntry = Schema.Struct({
+  userId: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+  source: Schema.Literals(["organization", "event"]),
+  role: Schema.Literals(["owner", "admin", "reviewer"]),
+});
+export type EventAccessEntry = typeof EventAccessEntry.Type;
+
+export const EventAccess = Schema.Struct({
+  entries: Schema.Array(EventAccessEntry),
+  grantable: Schema.Array(
+    Schema.Struct({ userId: Schema.String, name: Schema.String, email: Schema.String }),
+  ),
+});
+export type EventAccess = typeof EventAccess.Type;
+
 export const LibraryKind = Schema.Literals(["track", "format", "room", "tag", "level"]);
 export type LibraryKind = typeof LibraryKind.Type;
 

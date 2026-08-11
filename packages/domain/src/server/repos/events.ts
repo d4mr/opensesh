@@ -8,6 +8,9 @@ import {
   formats,
   levels,
   organizationMembers,
+  reviewAssignments,
+  reviewRoundMembers,
+  reviewerTracks,
   rooms,
   submissionTags,
   submissionTracks,
@@ -18,10 +21,12 @@ import {
 } from "../../db/schema";
 import { Db } from "../db";
 import type { SessionIdentity } from "../current-user";
-import { Forbidden, ResourceInUse, type DbError, type NotFound } from "../errors";
+import { Forbidden, InvalidInput, NotFound, ResourceInUse, type DbError } from "../errors";
 import {
   Event,
   type EventCreate,
+  EventAccess,
+  type EventAccessEntry,
   EventAdmin,
   type EventUpdate,
   Format,
@@ -54,6 +59,15 @@ interface EventsService {
   readonly create: (input: EventCreate) => Effect.Effect<Event, DbError>;
   readonly update: (id: string, input: EventUpdate) => Effect.Effect<Event, DbError | NotFound>;
   readonly listAdmins: (eventId: string) => Effect.Effect<ReadonlyArray<EventAdmin>, DbError>;
+  readonly listAccess: (eventId: string) => Effect.Effect<EventAccess, DbError>;
+  readonly grantAdmin: (
+    eventId: string,
+    userId: string,
+  ) => Effect.Effect<void, DbError | InvalidInput>;
+  readonly revokeAdmin: (
+    eventId: string,
+    userId: string,
+  ) => Effect.Effect<"removed" | "reviewer", DbError | NotFound>;
   readonly listTracks: (eventId: string) => Effect.Effect<ReadonlyArray<Track>, DbError>;
   readonly createTrack: (input: TrackCreate) => Effect.Effect<Track, DbError>;
   readonly updateTrack: (
@@ -218,6 +232,158 @@ export const EventsLive = Layer.effect(
             ),
           ),
         ),
+      // The full access picture for one event: org owners/admins (derived,
+      // managed in organization settings) plus the event-scoped overlay rows.
+      // Overlay rows always belong to org members, so one join covers both.
+      listAccess: (eventId) =>
+        query(database, "Could not load event access", (db) =>
+          db
+            .select({
+              userId: users.id,
+              name: users.name,
+              email: users.email,
+              orgRole: organizationMembers.role,
+              overlayRole: eventMembers.role,
+            })
+            .from(events)
+            .innerJoin(
+              organizationMembers,
+              eq(organizationMembers.organizationId, events.organizationId),
+            )
+            .innerJoin(users, eq(users.id, organizationMembers.userId))
+            .leftJoin(
+              eventMembers,
+              and(eq(eventMembers.eventId, events.id), eq(eventMembers.userId, users.id)),
+            )
+            .where(eq(events.id, eventId))
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) => {
+            const entryFor = (row: (typeof rows)[number]): EventAccessEntry | null => {
+              const base = { userId: row.userId, name: row.name, email: row.email };
+              if (row.orgRole === "owner" || row.orgRole === "admin") {
+                return { ...base, source: "organization", role: row.orgRole };
+              }
+              if (row.overlayRole !== null) {
+                return { ...base, source: "event", role: row.overlayRole };
+              }
+              return null;
+            };
+            const rank = (entry: EventAccessEntry) =>
+              entry.source === "organization"
+                ? entry.role === "owner"
+                  ? 0
+                  : 1
+                : entry.role === "admin"
+                  ? 2
+                  : 3;
+            const entries = rows
+              .flatMap((row) => entryFor(row) ?? [])
+              .sort(
+                (left, right) => rank(left) - rank(right) || left.name.localeCompare(right.name),
+              );
+            const grantable = rows
+              .filter(
+                (row) =>
+                  row.orgRole !== "owner" && row.orgRole !== "admin" && row.overlayRole !== "admin",
+              )
+              .map((row) => ({ userId: row.userId, name: row.name, email: row.email }))
+              .sort((left, right) => left.name.localeCompare(right.name));
+            return decode(EventAccess, "event access", { entries, grantable });
+          }),
+        ),
+      grantAdmin: (eventId, userId) =>
+        Effect.gen(function* () {
+          const membership = yield* query(
+            database,
+            "Could not check organization membership",
+            (db) =>
+              db
+                .select({ id: organizationMembers.id })
+                .from(events)
+                .innerJoin(
+                  organizationMembers,
+                  and(
+                    eq(organizationMembers.organizationId, events.organizationId),
+                    eq(organizationMembers.userId, userId),
+                  ),
+                )
+                .where(eq(events.id, eventId))
+                .execute(),
+          );
+          if (membership.length === 0) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "Event admins must be organization members first" }),
+            );
+          }
+          yield* query(database, "Could not grant event admin", (db) =>
+            db
+              .insert(eventMembers)
+              .values({ eventId, userId, role: "admin" })
+              .onConflictDoUpdate({
+                target: [eventMembers.eventId, eventMembers.userId],
+                set: { role: "admin", updatedAt: new Date() },
+              })
+              .execute(),
+          );
+        }),
+      // Revoking admin never orphans review staffing: rows referenced by
+      // reviewer assignments demote back to reviewer instead of deleting.
+      revokeAdmin: (eventId, userId) =>
+        Effect.gen(function* () {
+          const rows = yield* query(database, "Could not load event membership", (db) =>
+            db
+              .select()
+              .from(eventMembers)
+              .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.userId, userId)))
+              .limit(1)
+              .execute(),
+          );
+          const member = rows[0];
+          if (member === undefined || member.role !== "admin") {
+            return yield* Effect.fail(
+              new NotFound({ message: "This person is not an event-scoped admin" }),
+            );
+          }
+          const counts = yield* Effect.all([
+            query(database, "Could not check reviewer tracks", (db) =>
+              db
+                .select({ value: count() })
+                .from(reviewerTracks)
+                .where(eq(reviewerTracks.eventMemberId, member.id))
+                .execute(),
+            ),
+            query(database, "Could not check review rounds", (db) =>
+              db
+                .select({ value: count() })
+                .from(reviewRoundMembers)
+                .where(eq(reviewRoundMembers.eventMemberId, member.id))
+                .execute(),
+            ),
+            query(database, "Could not check review assignments", (db) =>
+              db
+                .select({ value: count() })
+                .from(reviewAssignments)
+                .where(eq(reviewAssignments.eventMemberId, member.id))
+                .execute(),
+            ),
+          ]);
+          const staffed = counts.some((rows_) => (rows_[0]?.value ?? 0) > 0);
+          if (staffed) {
+            yield* query(database, "Could not demote event admin", (db) =>
+              db
+                .update(eventMembers)
+                .set({ role: "reviewer", updatedAt: new Date() })
+                .where(eq(eventMembers.id, member.id))
+                .execute(),
+            );
+            return "reviewer" as const;
+          }
+          yield* query(database, "Could not remove event admin", (db) =>
+            db.delete(eventMembers).where(eq(eventMembers.id, member.id)).execute(),
+          );
+          return "removed" as const;
+        }),
       listTracks: (eventId) =>
         query(database, "Could not list tracks", (db) =>
           db

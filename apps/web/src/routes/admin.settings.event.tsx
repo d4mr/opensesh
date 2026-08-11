@@ -1,8 +1,8 @@
 import type { Event, EventType } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
-import { useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CopyIcon, ImageUpIcon } from "lucide-react";
+import { CopyIcon, ImageUpIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,7 +23,12 @@ import {
 } from "@/components/ui/select";
 import { fileAsBase64 } from "@/lib/files";
 import { cn } from "@/lib/utils";
-import { updateEventSettings } from "@/server-fns/admin";
+import {
+  getEventAccess,
+  grantEventAdmin,
+  revokeEventAdmin,
+  updateEventSettings,
+} from "@/server-fns/admin";
 
 export const Route = createFileRoute("/admin/settings/event")({ component: EventSettings });
 
@@ -440,6 +445,8 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
             </form.Field>
           </SettingsSection>
 
+          <EventAccessSection eventId={event.id} />
+
           <div className="flex justify-end border-t pt-4">
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(submitting) => (
@@ -452,6 +459,134 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
         </div>
       </form>
     </main>
+  );
+}
+
+const eventAccessQuery = (eventId: string) =>
+  queryOptions({
+    queryKey: ["event-access", eventId],
+    queryFn: () => getEventAccess({ data: { eventId } }),
+    staleTime: 30_000,
+  });
+
+const accessRoleLabel = {
+  "organization-owner": "Organization owner",
+  "organization-admin": "Organization admin",
+  "event-admin": "Event admin",
+  "event-reviewer": "Reviewer",
+} as const;
+
+function EventAccessSection({ eventId }: { readonly eventId: string }) {
+  const queryClient = useQueryClient();
+  const access = useQuery(eventAccessQuery(eventId));
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [pending, setPending] = useState(false);
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["event-access", eventId] });
+
+  const grant = async () => {
+    setPending(true);
+    const result = await grantEventAdmin({ data: { eventId, userId: selectedUserId } });
+    setPending(false);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    setSelectedUserId("");
+    toast.success("Event admin added");
+    await refresh();
+  };
+
+  const revoke = async (userId: string) => {
+    setPending(true);
+    const result = await revokeEventAdmin({ data: { eventId, userId } });
+    setPending(false);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    toast.success(
+      result.data === "reviewer"
+        ? "Admin access removed — they stay a reviewer for their review assignments"
+        : "Event admin removed",
+    );
+    await refresh();
+  };
+
+  return (
+    <SettingsSection title="Access">
+      {access.data === undefined ? (
+        <p className="text-xs text-muted-foreground">Loading access…</p>
+      ) : !access.data.ok ? (
+        <p className="text-xs text-muted-foreground">{access.data.error.message}</p>
+      ) : (
+        <>
+          {access.data.data.grantable.length > 0 ? (
+            <div className="mb-3 flex items-center gap-2 rounded-md bg-muted/40 p-2">
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Choose an organization member"
+                  className="h-8 flex-1 bg-background"
+                >
+                  <SelectValue placeholder="Choose an organization member…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {access.data.data.grantable.map((person) => (
+                    <SelectItem key={person.userId} value={person.userId} textValue={person.name}>
+                      {person.name}
+                      <span className="text-muted-foreground">{person.email}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                className="pressable"
+                disabled={selectedUserId === "" || pending}
+                onClick={() => void grant()}
+              >
+                Make event admin
+              </Button>
+            </div>
+          ) : null}
+          <div className="divide-y rounded-md border">
+            {access.data.data.entries.map((entry) => (
+              <div key={entry.userId} className="flex items-center gap-3 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium">{entry.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{entry.email}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {accessRoleLabel[`${entry.source}-${entry.role}` as keyof typeof accessRoleLabel]}
+                </span>
+                {entry.source === "event" && entry.role === "admin" ? (
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label={`Remove ${entry.name} as event admin`}
+                    className="pressable shrink-0 text-muted-foreground"
+                    disabled={pending}
+                    onClick={() => void revoke(entry.userId)}
+                  >
+                    <XIcon />
+                  </Button>
+                ) : (
+                  // Reserve the slot so role labels align across rows.
+                  <span aria-hidden className="size-6 shrink-0" />
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Organization owners and admins are admins of every event automatically — manage them in
+            Organization settings → Members. Reviewers get event access when they are invited to a
+            review round.
+          </p>
+        </>
+      )}
+    </SettingsSection>
   );
 }
 
