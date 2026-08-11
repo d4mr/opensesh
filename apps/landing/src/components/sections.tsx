@@ -1,4 +1,11 @@
-import { ArrowRightIcon, CheckIcon, MinusIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  LinkIcon,
+  MapPinIcon,
+  MinusIcon,
+  ReplyIcon,
+} from "lucide-react";
 
 import { demoHref, GITHUB_URL } from "../config";
 import { AgendaDemo } from "./demos/agenda-demo";
@@ -228,6 +235,229 @@ export function Features() {
           <Reveal delay={100}>{feature.demo}</Reveal>
         </div>
       ))}
+      <Crosses />
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ spotlight */
+
+const spotlightRows = [
+  { name: "Amara Okafor", status: "bg-status-pending" },
+  { name: "Maya Chen", status: "bg-status-accepted", active: true },
+  { name: "Jonas Weber", status: "bg-status-accepted" },
+  { name: "Priya Raman", status: "bg-status-pending" },
+  { name: "Tomás Silva", status: "bg-status-declined" },
+  { name: "Lena Fischer", status: "bg-status-pending" },
+];
+
+const spotlightBullets = [
+  "Stays in the list — the table collapses beside the panel instead of navigating away",
+  "Keyboard-native — j and k walk to the next and previous row, Escape closes",
+  "URL-addressable — every detail view is a link you can share",
+  "Works on speakers, submissions, content, and files",
+];
+
+/** Non-interactive master-detail mock: compact list column + detail panel. */
+function SpotlightMock() {
+  return (
+    <div aria-hidden="true" className="overflow-hidden rounded-lg border bg-background select-none">
+      <div className="flex h-9 items-center gap-1.5 border-b bg-paper px-3.5">
+        <span className="size-2.5 rounded-full border" />
+        <span className="size-2.5 rounded-full border" />
+        <span className="size-2.5 rounded-full border" />
+        <div className="ml-2 flex h-6 min-w-0 flex-1 items-center overflow-hidden rounded border bg-background px-2.5 font-mono text-[10px] whitespace-nowrap text-muted-foreground">
+          /speakers<span className="text-primary">?spotlight=maya-chen</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] divide-x">
+        <div className="flex min-w-0 flex-col text-[12px]">
+          <div className="flex items-center justify-between border-b bg-paper px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+            <span>Speakers</span>
+            <span className="tabular-nums">28</span>
+          </div>
+          {spotlightRows.map((row) => (
+            <div
+              key={row.name}
+              className={cn(
+                "flex items-center justify-between gap-2 border-b px-3 py-2",
+                row.active === true && "border-l-2 border-l-primary bg-primary/5",
+              )}
+            >
+              <span
+                className={cn(
+                  "truncate",
+                  row.active === true ? "font-semibold" : "text-muted-foreground",
+                )}
+              >
+                {row.name}
+              </span>
+              <span className={cn("size-1.5 shrink-0 rounded-full", row.status)} />
+            </div>
+          ))}
+          <div className="dot-band min-h-6 flex-1" />
+        </div>
+        <div className="min-w-0 p-4 md:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="grid size-9 shrink-0 place-items-center rounded-md bg-status-accepted-bg text-[11px] font-semibold text-status-accepted">
+                MC
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Maya Chen</p>
+                <p className="text-[11px] text-muted-foreground">Staff engineer, Range</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-status-accepted-bg px-2 py-0.5 text-[10px] font-medium text-status-accepted">
+              Accepted
+            </span>
+          </div>
+          <dl className="mt-4 space-y-2.5 border-t pt-3.5 text-[12px]">
+            {[
+              ["Talk", "Postgres at the edge of the world"],
+              ["Track", "Infrastructure"],
+              ["Onboarding", "4 of 5 tasks done"],
+              ["Files", "headshot.jpg · slides.pdf"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex gap-3">
+                <dt className="w-20 shrink-0 text-muted-foreground">{label}</dt>
+                <dd className="m-0 min-w-0 truncate">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-paper px-3.5 py-2 font-mono text-[10px] text-muted-foreground">
+        <span>
+          <kbd className="rounded border bg-background px-1">j</kbd>{" "}
+          <kbd className="rounded border bg-background px-1">k</kbd> walk rows
+        </span>
+        <span>
+          <kbd className="rounded border bg-background px-1">esc</kbd> close
+        </span>
+        <span className="ml-auto hidden sm:inline">scroll position preserved</span>
+      </div>
+    </div>
+  );
+}
+
+export function Spotlight() {
+  return (
+    <section id="spotlight" className="relative border-b">
+      <Narrow>
+        <Reveal className="bg-background px-6 py-16 md:py-20">
+          <Overline>Spotlight</Overline>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            Look closer without losing your place.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            Click any row in any big table — speakers, submissions, content, files — and the list
+            collapses to a compact column while a detail panel slides in beside it. Inspect, decide,
+            move to the next. You never leave the list.
+          </p>
+        </Reveal>
+      </Narrow>
+      <div className="grid items-center gap-10 border-t px-6 py-16 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:px-10 md:py-20">
+        <Reveal>
+          <p className="text-[15px] leading-relaxed text-muted-foreground">
+            The selection lives in the URL, so every detail view is deep-linkable. Close the panel
+            and your scroll position is exactly where you left it. And if a filter hides the row you
+            had open, the panel says so instead of vanishing.
+          </p>
+          <ul className="mt-5 space-y-2">
+            {spotlightBullets.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-2.5 text-sm">
+                <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+        <Reveal delay={100}>
+          <SpotlightMock />
+        </Reveal>
+      </div>
+      <Crosses />
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ linear band */
+
+export function LinearBand() {
+  return (
+    <section className="border-b">
+      <Narrow>
+        <Reveal className="mx-auto max-w-2xl bg-background px-6 py-16 text-center md:py-24">
+          <Overline>The premise</Overline>
+          <h2 className="mt-3 text-balance text-2xl font-semibold tracking-tight md:text-3xl">
+            We asked: what if the Linear team decided to make conference program management
+            software?
+          </h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+            The answer is a tool where density is respect for your time. Where every table has a
+            keyboard path, state lives in the URL, and you never wonder what just happened — every
+            action answers back.
+          </p>
+          <p className="mt-6 text-[15px] font-semibold text-primary">So we built it.</p>
+        </Reveal>
+      </Narrow>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------- click with confidence */
+
+const confidenceCards = [
+  {
+    icon: MapPinIcon,
+    title: "Never lose your place",
+    body: "Spotlight keeps you in the list, your scroll position survives the trip, and back-navigation restores exactly the view you left.",
+  },
+  {
+    icon: ReplyIcon,
+    title: "Every action answers back",
+    body: "Saves confirm. Syncs report how many rows changed. Errors say what to do next, not just that something went wrong.",
+  },
+  {
+    icon: LinkIcon,
+    title: "The URL is the truth",
+    body: "Deep-link any view, filter, or detail. Refresh and nothing is lost. Send the link and a teammate lands exactly where you are.",
+  },
+];
+
+export function Confidence() {
+  return (
+    <section className="relative border-b">
+      <Narrow>
+        <Reveal className="bg-background px-6 py-16 md:py-20">
+          <Overline>No dead ends</Overline>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            Click with confidence.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            Most conference tools are mazes: seven tabs deep, breadcrumbs gone, wondering whether
+            that last edit saved. opensesh is the opposite. You can click anything, because you
+            never lose yourself.
+          </p>
+        </Reveal>
+      </Narrow>
+      <div className="grid border-t sm:grid-cols-3">
+        {confidenceCards.map((card, index) => (
+          <Reveal
+            key={card.title}
+            delay={index * 60}
+            className={cn(
+              "border-b p-6 sm:border-r sm:border-b-0",
+              index === confidenceCards.length - 1 && "border-b-0 sm:border-r-0",
+            )}
+          >
+            <card.icon className="size-4 text-primary" aria-hidden="true" />
+            <p className="mt-3 text-sm font-semibold">{card.title}</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">{card.body}</p>
+          </Reveal>
+        ))}
+      </div>
       <Crosses />
     </section>
   );

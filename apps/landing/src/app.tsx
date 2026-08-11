@@ -3,11 +3,14 @@ import { Nav } from "./components/nav";
 import {
   AgoraBand,
   Compare,
+  Confidence,
   Features,
   FinalCta,
   Footer,
+  LinearBand,
   Loop,
   OpenSource,
+  Spotlight,
   Stats,
   StripeBand,
 } from "./components/sections";
@@ -26,6 +29,9 @@ export function App() {
           <Loop />
           <AgoraBand />
           <Features />
+          <Spotlight />
+          <LinearBand />
+          <Confidence />
           <Compare />
           <StripeBand />
           <OpenSource />

@@ -3,6 +3,7 @@ import { BrandMark, ButtonLink, GithubIcon } from "./ui";
 
 const links = [
   { label: "Product", href: "#product" },
+  { label: "Spotlight", href: "#spotlight" },
   { label: "Workflow", href: "#workflow" },
   { label: "Compare", href: "#compare" },
   { label: "Open source", href: "#open-source" },
