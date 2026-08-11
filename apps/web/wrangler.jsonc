@@ -5,6 +5,7 @@
   "compatibility_date": "2026-08-08",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  "routes": [{ "pattern": "app.opensesh.io", "custom_domain": true }],
   "vars": {
     "DEMO_MODE": "1",
     "MAIL_PROVIDER": "demo",

@@ -40,7 +40,6 @@ import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms_.$for
 import { Route as AdminPortalFormsFormIdRouteImport } from './routes/admin.portal-forms.$formId'
 import { Route as AdminSettingsEventRouteImport } from './routes/admin.settings.event'
 import { Route as AdminSettingsLibraryRouteImport } from './routes/admin.settings.library'
-import { Route as AdminSettingsOrganizationRouteImport } from './routes/admin.settings.organization'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as EEventSlugIndexRouteImport } from './routes/e.$eventSlug.index'
 import { Route as EEventSlugAgendaRouteImport } from './routes/e.$eventSlug.agenda'
@@ -209,12 +208,6 @@ const AdminSettingsLibraryRoute = AdminSettingsLibraryRouteImport.update({
   path: '/settings/library',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminSettingsOrganizationRoute =
-  AdminSettingsOrganizationRouteImport.update({
-    id: '/settings/organization',
-    path: '/settings/organization',
-    getParentRoute: () => AdminRoute,
-  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -310,7 +303,6 @@ export interface FileRoutesByFullPath {
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
-  '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
@@ -353,7 +345,6 @@ export interface FileRoutesByTo {
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
-  '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
@@ -400,7 +391,6 @@ export interface FileRoutesById {
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
   '/admin/settings/event': typeof AdminSettingsEventRoute
   '/admin/settings/library': typeof AdminSettingsLibraryRoute
-  '/admin/settings/organization': typeof AdminSettingsOrganizationRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
@@ -448,7 +438,6 @@ export interface FileRouteTypes {
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
-    | '/admin/settings/organization'
     | '/api/auth/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
@@ -491,7 +480,6 @@ export interface FileRouteTypes {
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
-    | '/admin/settings/organization'
     | '/api/auth/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
@@ -537,7 +525,6 @@ export interface FileRouteTypes {
     | '/admin/portal-forms/$formId'
     | '/admin/settings/event'
     | '/admin/settings/library'
-    | '/admin/settings/organization'
     | '/api/auth/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
@@ -785,13 +772,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsLibraryRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/settings/organization': {
-      id: '/admin/settings/organization'
-      path: '/settings/organization'
-      fullPath: '/admin/settings/organization'
-      preLoaderRoute: typeof AdminSettingsOrganizationRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -899,7 +879,6 @@ interface AdminRouteChildren {
   AdminPortalFormsFormIdRoute: typeof AdminPortalFormsFormIdRoute
   AdminSettingsEventRoute: typeof AdminSettingsEventRoute
   AdminSettingsLibraryRoute: typeof AdminSettingsLibraryRoute
-  AdminSettingsOrganizationRoute: typeof AdminSettingsOrganizationRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -922,7 +901,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPortalFormsFormIdRoute: AdminPortalFormsFormIdRoute,
   AdminSettingsEventRoute: AdminSettingsEventRoute,
   AdminSettingsLibraryRoute: AdminSettingsLibraryRoute,
-  AdminSettingsOrganizationRoute: AdminSettingsOrganizationRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

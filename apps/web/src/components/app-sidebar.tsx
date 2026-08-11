@@ -24,7 +24,7 @@ import {
 import { EventSwitcher } from "@/components/event-switcher";
 import { NavMain, type AdminNavItem } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
-import { NavUser } from "@/components/nav-user";
+import { OrgSwitcher } from "@/components/org-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -36,7 +36,6 @@ import {
 const dashboard: ReadonlyArray<AdminNavItem> = [{ title: "Overview", icon: <GaugeIcon /> }];
 const organization: ReadonlyArray<AdminNavItem> = [
   { title: "Speaker CRM", section: "crm", icon: <ContactRoundIcon /> },
-  { title: "Organization settings", section: "org-settings", icon: <Building2Icon /> },
 ];
 const program: ReadonlyArray<AdminNavItem> = [
   { title: "Call for Papers", section: "forms", icon: <FileInputIcon /> },
@@ -61,14 +60,6 @@ const settings = {
   section: "settings",
   icon: <SettingsIcon />,
 } satisfies AdminNavItem & { readonly section: string };
-
-const personaNames: Readonly<Record<string, string>> = {
-  "demo@opensesh.io": "Dana Organizer",
-  "reviewer@opensesh.io": "Rey Reviewer",
-  "maya.chen@retrievallabs.ai": "Maya Chen",
-  "lina.haddad@checkpoint.health": "Lina Haddad",
-  "jamal.reed@agentdesk.co": "Jamal Reed",
-};
 
 export function AppSidebar({
   event,
@@ -96,8 +87,6 @@ export function AppSidebar({
   readonly organizationName?: string;
   readonly organizationLogo?: string | null;
 }) {
-  const name = personaNames[user.email] ?? user.email.split("@")[0] ?? user.email;
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -154,7 +143,7 @@ export function AppSidebar({
         ) : null}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{ name, email: user.email }} />
+        <OrgSwitcher user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

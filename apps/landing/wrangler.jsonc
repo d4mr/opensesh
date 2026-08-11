@@ -3,6 +3,10 @@
   "name": "opensesh-landing",
   "account_id": "a41a8466de6cfbc49087e3063094c1fd",
   "compatibility_date": "2026-08-08",
+  "routes": [
+    { "pattern": "opensesh.io", "custom_domain": true },
+    { "pattern": "www.opensesh.io", "custom_domain": true },
+  ],
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
