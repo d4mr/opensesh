@@ -11,7 +11,7 @@ export function Hero() {
       <Breakout>
         <div className="relative">
           <img
-            src="/art/renaissance-salon-full-green-haze.png"
+            src="/art/renaissance-salon-full-green-haze.webp"
             alt=""
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top"

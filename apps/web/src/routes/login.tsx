@@ -62,7 +62,7 @@ function LoginBackdrop({ children }: { readonly children: React.ReactNode }) {
   return (
     <main className="relative flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
       <img
-        src="/art/renaissance-salon-full-green-haze.png"
+        src="/art/renaissance-salon-full-green-haze.webp"
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />

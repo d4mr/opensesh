@@ -166,7 +166,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
           <div className="relative hidden bg-primary/10 md:block">
             {panelFailed ? null : (
               <img
-                src="/art/ancient-agora-conference.png"
+                src="/art/ancient-agora-conference.webp"
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover dark:brightness-90"
                 onError={() => setPanelFailed(true)}

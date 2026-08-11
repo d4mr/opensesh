@@ -108,7 +108,7 @@ export function AgoraBand() {
     <Breakout>
       <figure className="relative">
         <img
-          src="/art/ancient-agora-conference.png"
+          src="/art/ancient-agora-conference.webp"
           alt="Engraving of a speaker addressing a seated crowd in an ancient Greek agora"
           className="h-[46svh] w-full object-cover object-[center_30%] md:h-[60svh]"
         />
@@ -260,7 +260,7 @@ export function Compare() {
     <Breakout>
       <section id="compare" className="relative">
         <img
-          src="/art/garden-congress.png"
+          src="/art/garden-congress.webp"
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
