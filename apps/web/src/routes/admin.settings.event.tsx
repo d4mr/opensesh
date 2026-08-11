@@ -2,7 +2,7 @@ import type { Event, EventType } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CopyIcon, ImageUpIcon, XIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, ImageUpIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -101,7 +101,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
       logoUrl: event.logoUrl ?? "",
       defaultSubmissionLimit: event.defaultSubmissionLimit,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ value, formApi }) => {
       if (new Date(value.endsAt) <= new Date(value.startsAt)) {
         toast.error("Event end must be after start");
         return;
@@ -137,6 +137,8 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
         return;
       }
       setIcon(null);
+      // Rebaseline so the toolbar flips back from "Save settings" to "Saved".
+      formApi.reset(value);
       toast.success("Event settings saved");
       await queryClient.invalidateQueries({ queryKey: ["admin-events"] });
     },
@@ -144,24 +146,45 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
   const publicPath = `/e/${event.slug}`;
 
   return (
-    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden p-4 text-sm lg:p-6">
-      <div className="mb-4 shrink-0">
-        <h1 className="text-lg font-semibold">Event settings</h1>
-        <p className="text-xs text-muted-foreground">
-          Identity, schedule, branding, and submission defaults.
-        </p>
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col text-sm">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2.5 lg:px-6">
+        <div>
+          <h1 className="text-sm font-semibold">Event settings</h1>
+          <p className="text-xs text-muted-foreground">
+            Identity, schedule, branding, and submission defaults.
+          </p>
+        </div>
+        <form.Subscribe selector={(state) => [state.isSubmitting, state.isDirty] as const}>
+          {([submitting, dirty]) =>
+            dirty || icon !== null ? (
+              <Button type="submit" form="event-settings-form" size="sm" disabled={submitting}>
+                {submitting ? "Saving…" : "Save settings"}
+              </Button>
+            ) : (
+              <span
+                className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                <CheckIcon className="size-3" /> Saved
+              </span>
+            )
+          }
+        </form.Subscribe>
       </div>
       <form
-        // The scroll container and the layout grid must be separate elements:
-        // a fixed-height grid distributes its auto rows to fit and clips the
-        // sections instead of overflowing.
-        className="min-h-0 flex-1 overflow-y-auto"
+        id="event-settings-form"
+        // The content below the toolbar scrolls as one region. `relative`
+        // keeps absolutely-positioned descendants (Radix renders a hidden
+        // native <select> beside each in-form Select) contained and clipped
+        // here instead of escaping to the page and stretching it.
+        className="relative min-h-0 flex-1 overflow-y-auto p-4 lg:p-6"
         onSubmit={(submitEvent) => {
           submitEvent.preventDefault();
           void form.handleSubmit();
         }}
       >
-        <div className="grid max-w-4xl gap-3 pb-14">
+        <div className="grid max-w-4xl gap-3 pb-10">
           <SettingsSection title="Basics">
             <div className="grid gap-4 sm:grid-cols-2">
               <form.Field name="name">
@@ -446,16 +469,6 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
           </SettingsSection>
 
           <EventAccessSection eventId={event.id} />
-
-          <div className="flex justify-end border-t pt-4">
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(submitting) => (
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? "Saving…" : "Save settings"}
-                </Button>
-              )}
-            </form.Subscribe>
-          </div>
         </div>
       </form>
     </main>

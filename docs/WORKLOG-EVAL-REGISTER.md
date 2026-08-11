@@ -137,3 +137,12 @@ morning deploy — everything here ships in the next deploy.
   else deletes), reviewers shown read-only. Cross-link help text in both org Members dialog and
   the Access section. Browser-verified grant (Rey), promote-reviewer + demote-on-revoke (Sam),
   plain revoke; 6/6 checks, 45 tests.
+- Aug 11 night — settings-page scroll model redone per user feedback: the outer page was gaining
+  ~600px of phantom scroll on event settings only — Radix renders a hidden absolutely-positioned
+  native <select> beside each in-form Select, whose containing block skipped the non-positioned
+  scroll container and resolved to the relative shell <main>. Fix + rework: event settings now has
+  a pinned toolbar (title + dirty-gated Save that rests as "✓ Saved", rebaselined via
+  formApi.reset after save) above one scrolling content region (`relative` so the hidden selects
+  stay contained); library page scrolls whole-pane, title included. Members dialog trash now
+  floats in the gutter outside the row (absolute, hover-revealed) so role selects sit flush right.
+  All browser-verified.

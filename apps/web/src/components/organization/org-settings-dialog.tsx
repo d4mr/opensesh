@@ -616,7 +616,7 @@ function MemberRow({
   });
 
   return (
-    <div className="group/member -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+    <div className="group/member relative -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
       <Avatar className="size-7">
         {member.image === null ? null : <AvatarImage src={member.image} alt="" />}
         <AvatarFallback className="text-[11px]">{initials(member.name)}</AvatarFallback>
@@ -657,19 +657,18 @@ function MemberRow({
         </TooltipTrigger>
         {disabledReason === null ? null : <TooltipContent>{disabledReason}</TooltipContent>}
       </Tooltip>
-      {/* The slot is always reserved so role selects align across rows; a
-          disabled trash never renders (disabled:opacity-50 would beat the
-          hover reveal and leave a ghost icon on unremovable rows). */}
-      {disabled ? (
-        <span aria-hidden className="size-6 shrink-0" />
-      ) : (
+      {/* The trash floats in the gutter outside the row so role selects stay
+          flush with the content's right edge; a disabled trash never renders
+          (disabled:opacity-50 would beat the hover reveal and leave a ghost
+          icon on unremovable rows). */}
+      {disabled ? null : (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="pressable shrink-0 text-muted-foreground opacity-0 group-hover/member:opacity-100 focus-visible:opacity-100"
+              className="pressable absolute top-1/2 -right-8 -translate-y-1/2 text-muted-foreground opacity-0 group-hover/member:opacity-100 focus-visible:opacity-100"
               aria-label={`Remove ${member.name}`}
               disabled={remove.isPending}
               onClick={() => remove.mutate()}

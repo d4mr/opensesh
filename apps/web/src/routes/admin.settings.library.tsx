@@ -64,24 +64,20 @@ function EventLibrary() {
   if (!library.data.ok) return <p className="p-6 text-sm">{library.data.error.message}</p>;
   const data = library.data.data;
   return (
-    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden p-4 text-sm lg:p-6">
-      <div className="mb-4 shrink-0">
+    // The whole pane scrolls as one region, title included.
+    <main className="h-[calc(100svh-var(--header-height)-1rem)] overflow-y-auto p-4 text-sm lg:p-6">
+      <div className="mb-4">
         <h1 className="text-lg font-semibold">Program library</h1>
         <p className="text-sm text-muted-foreground">
           Reusable values for forms, submissions, and agenda planning.
         </p>
       </div>
-      {/* Scroll container and layout grid stay separate elements: a
-          fixed-height grid distributes its auto rows to fit and clips
-          the sections instead of overflowing. */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="grid content-start gap-4 pb-14 xl:grid-cols-2">
-          <LibrarySection eventId={eventId} kind="track" title="Tracks" rows={data.tracks} />
-          <LibrarySection eventId={eventId} kind="format" title="Formats" rows={data.formats} />
-          <LibrarySection eventId={eventId} kind="room" title="Rooms" rows={data.rooms} />
-          <LibrarySection eventId={eventId} kind="tag" title="Tags" rows={data.tags} />
-          <LibrarySection eventId={eventId} kind="level" title="Levels" rows={data.levels} />
-        </div>
+      <div className="grid content-start gap-4 pb-14 xl:grid-cols-2">
+        <LibrarySection eventId={eventId} kind="track" title="Tracks" rows={data.tracks} />
+        <LibrarySection eventId={eventId} kind="format" title="Formats" rows={data.formats} />
+        <LibrarySection eventId={eventId} kind="room" title="Rooms" rows={data.rooms} />
+        <LibrarySection eventId={eventId} kind="tag" title="Tags" rows={data.tags} />
+        <LibrarySection eventId={eventId} kind="level" title="Levels" rows={data.levels} />
       </div>
     </main>
   );
