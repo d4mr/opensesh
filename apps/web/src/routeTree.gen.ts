@@ -49,6 +49,8 @@ import { Route as EEventSlugAgendaRouteImport } from './routes/e.$eventSlug.agen
 import { Route as EEventSlugItineraryRouteImport } from './routes/e.$eventSlug.itinerary'
 import { Route as EEventSlugSessionsRouteImport } from './routes/e.$eventSlug.sessions'
 import { Route as EEventSlugSpeakersRouteImport } from './routes/e.$eventSlug.speakers'
+import { Route as EmbedEmbedIdIcsRouteImport } from './routes/embed.$embedId.ics'
+import { Route as EmbedEmbedIdJsonRouteImport } from './routes/embed.$embedId.json'
 import { Route as EventAssetsEventIdIconRouteImport } from './routes/event-assets.$eventId.icon'
 import { Route as OrgAssetsOrgIdIconRouteImport } from './routes/org-assets.$orgId.icon'
 import { Route as SpeakerAssetsContactIdHeadshotRouteImport } from './routes/speaker-assets.$contactId.headshot'
@@ -257,6 +259,16 @@ const EEventSlugSpeakersRoute = EEventSlugSpeakersRouteImport.update({
   path: '/speakers',
   getParentRoute: () => EEventSlugRoute,
 } as any)
+const EmbedEmbedIdIcsRoute = EmbedEmbedIdIcsRouteImport.update({
+  id: '/ics',
+  path: '/ics',
+  getParentRoute: () => EmbedEmbedIdRoute,
+} as any)
+const EmbedEmbedIdJsonRoute = EmbedEmbedIdJsonRouteImport.update({
+  id: '/json',
+  path: '/json',
+  getParentRoute: () => EmbedEmbedIdRoute,
+} as any)
 const EventAssetsEventIdIconRoute = EventAssetsEventIdIconRouteImport.update({
   id: '/event-assets/$eventId/icon',
   path: '/event-assets/$eventId/icon',
@@ -314,7 +326,7 @@ export interface FileRoutesByFullPath {
   '/admin/widgets': typeof AdminWidgetsRoute
   '/e/$': typeof ESplatRoute
   '/e/$eventSlug': typeof EEventSlugRouteWithChildren
-  '/embed/$embedId': typeof EmbedEmbedIdRoute
+  '/embed/$embedId': typeof EmbedEmbedIdRouteWithChildren
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
@@ -330,6 +342,8 @@ export interface FileRoutesByFullPath {
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
+  '/embed/$embedId/ics': typeof EmbedEmbedIdIcsRoute
+  '/embed/$embedId/json': typeof EmbedEmbedIdJsonRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
   '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
@@ -359,7 +373,7 @@ export interface FileRoutesByTo {
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/widgets': typeof AdminWidgetsRoute
   '/e/$': typeof ESplatRoute
-  '/embed/$embedId': typeof EmbedEmbedIdRoute
+  '/embed/$embedId': typeof EmbedEmbedIdRouteWithChildren
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin': typeof AdminIndexRoute
@@ -375,6 +389,8 @@ export interface FileRoutesByTo {
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
+  '/embed/$embedId/ics': typeof EmbedEmbedIdIcsRoute
+  '/embed/$embedId/json': typeof EmbedEmbedIdJsonRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
   '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
@@ -408,7 +424,7 @@ export interface FileRoutesById {
   '/admin/widgets': typeof AdminWidgetsRoute
   '/e/$': typeof ESplatRoute
   '/e/$eventSlug': typeof EEventSlugRouteWithChildren
-  '/embed/$embedId': typeof EmbedEmbedIdRoute
+  '/embed/$embedId': typeof EmbedEmbedIdRouteWithChildren
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
@@ -424,6 +440,8 @@ export interface FileRoutesById {
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
+  '/embed/$embedId/ics': typeof EmbedEmbedIdIcsRoute
+  '/embed/$embedId/json': typeof EmbedEmbedIdJsonRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
   '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
@@ -474,6 +492,8 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/itinerary'
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
+    | '/embed/$embedId/ics'
+    | '/embed/$embedId/json'
     | '/event-assets/$eventId/icon'
     | '/org-assets/$orgId/icon'
     | '/speaker-assets/$contactId/headshot'
@@ -519,6 +539,8 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/itinerary'
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
+    | '/embed/$embedId/ics'
+    | '/embed/$embedId/json'
     | '/event-assets/$eventId/icon'
     | '/org-assets/$orgId/icon'
     | '/speaker-assets/$contactId/headshot'
@@ -567,6 +589,8 @@ export interface FileRouteTypes {
     | '/e/$eventSlug/itinerary'
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
+    | '/embed/$embedId/ics'
+    | '/embed/$embedId/json'
     | '/event-assets/$eventId/icon'
     | '/org-assets/$orgId/icon'
     | '/speaker-assets/$contactId/headshot'
@@ -586,7 +610,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SubmitRoute: typeof SubmitRouteWithChildren
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
-  EmbedEmbedIdRoute: typeof EmbedEmbedIdRoute
+  EmbedEmbedIdRoute: typeof EmbedEmbedIdRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
   OrgAssetsOrgIdIconRoute: typeof OrgAssetsOrgIdIconRoute
@@ -875,6 +899,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EEventSlugSpeakersRouteImport
       parentRoute: typeof EEventSlugRoute
     }
+    '/embed/$embedId/ics': {
+      id: '/embed/$embedId/ics'
+      path: '/ics'
+      fullPath: '/embed/$embedId/ics'
+      preLoaderRoute: typeof EmbedEmbedIdIcsRouteImport
+      parentRoute: typeof EmbedEmbedIdRoute
+    }
+    '/embed/$embedId/json': {
+      id: '/embed/$embedId/json'
+      path: '/json'
+      fullPath: '/embed/$embedId/json'
+      preLoaderRoute: typeof EmbedEmbedIdJsonRouteImport
+      parentRoute: typeof EmbedEmbedIdRoute
+    }
     '/event-assets/$eventId/icon': {
       id: '/event-assets/$eventId/icon'
       path: '/event-assets/$eventId/icon'
@@ -1028,6 +1066,20 @@ const SubmitRouteChildren: SubmitRouteChildren = {
 const SubmitRouteWithChildren =
   SubmitRoute._addFileChildren(SubmitRouteChildren)
 
+interface EmbedEmbedIdRouteChildren {
+  EmbedEmbedIdIcsRoute: typeof EmbedEmbedIdIcsRoute
+  EmbedEmbedIdJsonRoute: typeof EmbedEmbedIdJsonRoute
+}
+
+const EmbedEmbedIdRouteChildren: EmbedEmbedIdRouteChildren = {
+  EmbedEmbedIdIcsRoute: EmbedEmbedIdIcsRoute,
+  EmbedEmbedIdJsonRoute: EmbedEmbedIdJsonRoute,
+}
+
+const EmbedEmbedIdRouteWithChildren = EmbedEmbedIdRoute._addFileChildren(
+  EmbedEmbedIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
@@ -1038,7 +1090,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SubmitRoute: SubmitRouteWithChildren,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
-  EmbedEmbedIdRoute: EmbedEmbedIdRoute,
+  EmbedEmbedIdRoute: EmbedEmbedIdRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,
   OrgAssetsOrgIdIconRoute: OrgAssetsOrgIdIconRoute,

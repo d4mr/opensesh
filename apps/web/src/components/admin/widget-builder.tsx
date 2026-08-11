@@ -241,7 +241,7 @@ function WidgetEditor({
   const [draft, setDraft] = useState(widget);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [codeOpen, setCodeOpen] = useState(false);
-  const [copied, setCopied] = useState<"url" | "iframe" | null>(null);
+  const [copied, setCopied] = useState<CopyKey | null>(null);
   const initial = useRef(true);
   const save = useMutation({
     mutationFn: (value: Widget) =>
@@ -299,6 +299,8 @@ function WidgetEditor({
       url,
       previewUrl: `/embed/${widget.id}?${params.toString()}`,
       iframe: `<iframe src="${url}" title="${draft.name.replaceAll('"', "&quot;")}" width="100%" height="640" style="border:0" loading="lazy"></iframe>`,
+      json: `${origin}/embed/${widget.id}/json`,
+      ics: `${origin}/embed/${widget.id}/ics`,
     };
   }, [draft, widget.id]);
   return (
@@ -338,6 +340,18 @@ function WidgetEditor({
                 value={outputs.iframe}
                 copied={copied === "iframe"}
                 onCopy={() => void copyOutput(outputs.iframe, "iframe", setCopied)}
+              />
+              <OutputRow
+                label="JSON feed"
+                value={outputs.json}
+                copied={copied === "json"}
+                onCopy={() => void copyOutput(outputs.json, "json", setCopied)}
+              />
+              <OutputRow
+                label="Calendar (ICS)"
+                value={outputs.ics}
+                copied={copied === "ics"}
+                onCopy={() => void copyOutput(outputs.ics, "ics", setCopied)}
               />
             </div>
           </DialogContent>
@@ -543,10 +557,12 @@ function OutputRow({
   );
 }
 
+type CopyKey = "url" | "iframe" | "json" | "ics";
+
 const copyOutput = async (
   value: string,
-  key: "url" | "iframe",
-  setCopied: (value: "url" | "iframe" | null) => void,
+  key: CopyKey,
+  setCopied: (value: CopyKey | null) => void,
 ) => {
   await navigator.clipboard.writeText(value);
   setCopied(key);
