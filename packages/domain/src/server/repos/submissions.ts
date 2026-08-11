@@ -1,18 +1,24 @@
-import { and, asc, countDistinct, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import {
   contacts,
+  embeds,
   eventMembers,
   events,
+  formats,
   forms,
   organizationMembers,
+  reviewRounds,
   reviews,
+  rooms,
   submissionParticipants,
   submissions,
   submissionTags,
   submissionTracks,
+  taskAssignments,
+  taskTemplates,
   tracks,
   users,
 } from "../../db/schema";
@@ -111,6 +117,19 @@ export interface DashboardStats {
   /** Overlapping accepted sessions sharing a room. */
   readonly conflicts: number;
   readonly cfpCloseDate: Date | null;
+  /** Counts that derive the program-lifecycle guide on Overview. */
+  readonly lifecycle: {
+    readonly tracks: number;
+    readonly formats: number;
+    readonly rooms: number;
+    readonly forms: number;
+    readonly openForms: number;
+    readonly rounds: number;
+    readonly widgets: number;
+    readonly tasksTotal: number;
+    readonly tasksComplete: number;
+    readonly notified: number;
+  };
   readonly agendaDays: ReadonlyArray<{
     readonly date: string;
     readonly sessions: number;
@@ -303,6 +322,100 @@ export const SubmissionsLive = Layer.effect(
                 .where(eq(events.slug, eventSlug))
                 .execute(),
             ),
+            query(database, "Could not load dashboard lifecycle", async (db) => {
+              const [event] = await db
+                .select({ id: events.id })
+                .from(events)
+                .where(eq(events.slug, eventSlug))
+                .limit(1)
+                .execute();
+              const empty = {
+                tracks: 0,
+                formats: 0,
+                rooms: 0,
+                rounds: 0,
+                widgets: 0,
+                tasksTotal: 0,
+                tasksComplete: 0,
+                notified: 0,
+              };
+              if (event === undefined) return empty;
+              const value = async (promise: Promise<ReadonlyArray<{ value: number }>>) =>
+                Number((await promise)[0]?.value ?? 0);
+              const [
+                trackCount,
+                formatCount,
+                roomCount,
+                roundCount,
+                widgetCount,
+                taskTotals,
+                notifiedCount,
+              ] = await Promise.all([
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(tracks)
+                    .where(eq(tracks.eventId, event.id))
+                    .execute(),
+                ),
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(formats)
+                    .where(eq(formats.eventId, event.id))
+                    .execute(),
+                ),
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(rooms)
+                    .where(eq(rooms.eventId, event.id))
+                    .execute(),
+                ),
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(reviewRounds)
+                    .where(eq(reviewRounds.eventId, event.id))
+                    .execute(),
+                ),
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(embeds)
+                    .where(eq(embeds.eventId, event.id))
+                    .execute(),
+                ),
+                db
+                  .select({
+                    total: count(),
+                    complete: count(taskAssignments.completedAt),
+                  })
+                  .from(taskAssignments)
+                  .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
+                  .where(eq(taskTemplates.eventId, event.id))
+                  .execute(),
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(submissions)
+                    .where(
+                      and(eq(submissions.eventId, event.id), isNotNull(submissions.notifiedAt)),
+                    )
+                    .execute(),
+                ),
+              ]);
+              return {
+                tracks: trackCount,
+                formats: formatCount,
+                rooms: roomCount,
+                rounds: roundCount,
+                widgets: widgetCount,
+                tasksTotal: Number(taskTotals[0]?.total ?? 0),
+                tasksComplete: Number(taskTotals[0]?.complete ?? 0),
+                notified: notifiedCount,
+              };
+            }),
           ],
           { concurrency: "unbounded" },
         ).pipe(
@@ -310,7 +423,7 @@ export const SubmissionsLive = Layer.effect(
             ([rows]) => rows.length > 0,
             () => new Forbidden({ message: "You do not have access" }),
           ),
-          Effect.flatMap(([rows, formRows]) => {
+          Effect.flatMap(([rows, formRows, lifecycleCounts]) => {
             const submissionRows = rows.flatMap((row) =>
               row.submissionId === null ||
               row.code === null ||
@@ -439,6 +552,11 @@ export const SubmissionsLive = Layer.effect(
                       : (openCloseDates
                           .slice()
                           .sort((left, right) => left.getTime() - right.getTime())[0] ?? null),
+                  lifecycle: {
+                    ...lifecycleCounts,
+                    forms: formRows.length,
+                    openForms: formRows.filter((form) => form.status === "open").length,
+                  },
                   agendaDays: Array.from(agendaByDay, ([date, day]) => ({
                     date,
                     sessions: day.sessions,

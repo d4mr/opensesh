@@ -5,6 +5,7 @@ import { lazy, Suspense } from "react";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { DashboardAttention } from "@/components/dashboard-attention";
+import { ProgramLifecycle } from "@/components/dashboard-lifecycle";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SectionCards } from "@/components/section-cards";
 import { Badge } from "@/components/ui/badge";
@@ -63,19 +64,24 @@ function Dashboard() {
             </Button>
           </div>
           {data.submitted === 0 && data.drafts === 0 ? (
-            <AdminEmptyState
-              icon={FileInputIcon}
-              title="Your program starts with a call for papers"
-              description="Create a submission form to collect the first proposals for this event."
-              action={
-                <Button asChild size="sm" className="pressable">
-                  <a href="/admin/forms">Create call for papers</a>
-                </Button>
-              }
-            />
+            user.roles.admin ? (
+              <ProgramLifecycle stats={data} />
+            ) : (
+              <AdminEmptyState
+                icon={FileInputIcon}
+                title="Your program starts with a call for papers"
+                description="Create a submission form to collect the first proposals for this event."
+                action={
+                  <Button asChild size="sm" className="pressable">
+                    <a href="/admin/forms">Create call for papers</a>
+                  </Button>
+                }
+              />
+            )
           ) : (
             <>
               <SectionCards stats={data} linked={user.roles.admin} />
+              {user.roles.admin ? <ProgramLifecycle stats={data} /> : null}
               {user.roles.admin ? <DashboardAttention stats={data} /> : null}
               <Suspense fallback={null}>
                 <DataTable data={data.recentSubmissions} />
