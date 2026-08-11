@@ -114,3 +114,16 @@ morning deploy — everything here ships in the next deploy.
   columns move event_members.id → users.id (reviews.reviewer_id repointed); reviewer-staffing
   tables keep member ids; createForAdmin/afterAcceptInvitation fan-outs deleted; seed demotes
   Jordan to org member (event-admin persona); listAdmins = org admins ∪ overlay admins.
+- Aug 11 night — WP31 permissions refactor MERGED (bd8af45, agent commit 0c10dac): pure derivation
+  landed. requireEventAccess in current-user.ts is the single gate (per-target-event recompute);
+  repos take pre-authorized ids — memberForAdmin/adminMembership/eventSlugById/createForAdmin and
+  every roster gate join deleted; attribution FKs moved to users.id (reviews.reviewer_id repointed);
+  reviewer-staffing tables keep member ids; afterAcceptInvitation fan-out deleted; listAdmins =
+  org admins ∪ overlay (single derivation read model); flat migration 20260811131544. Verified on
+  main: 6/6 checks, 45 tests, seed + persona proofs (15/15: Dana admin everywhere with zero roster
+  rows; Jordan devflow-admin/aie-staff-only; Rey track-scoped reviewer; Maya contact-only), browser:
+  Dana on DevFlow desk lists 4 submissions and Tasks shows the empty state (both previously
+  Forbidden). docs/DESIGN.md gained §8 Permissions. Net −517 LOC of access logic.
+- Aug 11 night — user-directed CRM polish: multi-tag filters widen (any-of, was intersecting to
+  zero), active-segment bar fully framed, company/title filters became EntityCombobox search
+  pickers (capped async resolver). All browser-verified.
