@@ -203,6 +203,9 @@ export const addReviewMember = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         yield* requireAdminEvent(data.eventId);
         yield* requireRound(data.eventId, data.roundId);
+        if (data.name.trim().length === 0) {
+          return yield* Effect.fail(new InvalidInput({ message: "Reviewer name is required" }));
+        }
         if (
           data.assignmentCap !== null &&
           (!Number.isInteger(data.assignmentCap) || data.assignmentCap < 1)
@@ -215,6 +218,7 @@ export const addReviewMember = createServerFn({ method: "POST" })
         const mail = yield* Mail;
         const provisioned = yield* reviews.provisionMember({
           roundId: data.roundId,
+          name: data.name,
           email: data.email,
           assignmentCap: data.assignmentCap,
           accessPath: data.accessPath,

@@ -279,9 +279,14 @@ export const saveLibraryItem = createServerFn({ method: "POST" })
             : yield* events.updateTrack(data.id, input);
         }
         if (data.kind === "format") {
+          const durationMinutes = data.durationMinutes ?? 30;
+          const durationSuffix = new RegExp(
+            `\\s*\\(${durationMinutes}\\s*min(?:ute)?s?\\)\\s*$`,
+            "i",
+          );
           const input = {
-            name: data.name,
-            durationMinutes: data.durationMinutes ?? 30,
+            name: data.name.replace(durationSuffix, "").trim(),
+            durationMinutes,
             position,
           };
           return data.id === null

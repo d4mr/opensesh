@@ -74,6 +74,7 @@ export function EntityCombobox<T extends EntityItem>(props: EntityComboboxProps<
   } = props;
   const items: ReadonlyArray<T> = props.items ?? emptyItems;
   const [open, setOpen] = useState(false);
+  const [activeValue, setActiveValue] = useState("");
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<ReadonlyArray<T>>(items);
@@ -145,7 +146,13 @@ export function EntityCombobox<T extends EntityItem>(props: EntityComboboxProps<
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen && !props.multiple) setActiveValue(props.value);
+      }}
+    >
       <PopoverTrigger asChild>
         {renderTrigger === undefined ? (
           <Button
@@ -181,7 +188,11 @@ export function EntityCombobox<T extends EntityItem>(props: EntityComboboxProps<
         collisionPadding={8}
         className={cn("w-[var(--radix-popover-trigger-width)] min-w-64 p-0", contentClassName)}
       >
-        <Command shouldFilter={loadItems === undefined} className="relative">
+        <Command
+          shouldFilter={loadItems === undefined}
+          className="relative"
+          {...(props.multiple ? {} : { value: activeValue, onValueChange: setActiveValue })}
+        >
           <CommandInput
             value={query}
             onValueChange={setQuery}

@@ -12,13 +12,15 @@ const demoPersonaByRole: Record<string, DemoPersonaEmail> = {
 };
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>) =>
-    typeof search.demo === "string" ? { demo: search.demo } : {},
+  validateSearch: (search: Record<string, unknown>) => ({
+    demo: typeof search.demo === "string" ? search.demo : undefined,
+    email: typeof search.email === "string" ? search.email : undefined,
+  }),
   component: Login,
 });
 
 function Login() {
-  const { demo } = Route.useSearch();
+  const { demo, email } = Route.useSearch();
   const demoEmail = demo === undefined ? undefined : demoPersonaByRole[demo];
   const [demoFailed, setDemoFailed] = useState(false);
   const attempted = useRef(false);
@@ -52,7 +54,7 @@ function Login() {
   return (
     <LoginBackdrop>
       <div className="w-full max-w-sm md:max-w-4xl">
-        <LoginForm />
+        <LoginForm initialEmail={email} />
       </div>
     </LoginBackdrop>
   );

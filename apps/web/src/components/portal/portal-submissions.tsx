@@ -307,7 +307,8 @@ function SubmissionContent({
                         Session cancelled
                       </span>
                     ) : null}
-                    {submission.contentReviewStatus === "pending_review" ? (
+                    {submission.status === "accepted" &&
+                    submission.contentReviewStatus === "pending_review" ? (
                       <span className="rounded-md bg-[var(--status-pending-bg)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-pending)]">
                         Edits pending approval
                       </span>
@@ -434,7 +435,8 @@ function SubmissionContent({
               : "The organizers cancelled this session. Reach out to them if you have questions."}
           </div>
         ) : null}
-        {selected.submission.contentReviewStatus === "pending_review" ? (
+        {selected.submission.status === "accepted" &&
+        selected.submission.contentReviewStatus === "pending_review" ? (
           <div className="mt-4 rounded-md border border-[var(--status-pending)]/30 bg-[var(--status-pending-bg)] px-3 py-2 text-xs text-[var(--status-pending)]">
             Your content changes are pending organizer approval. The last approved version remains
             public.

@@ -105,6 +105,7 @@ interface ReviewsService {
   ) => Effect.Effect<ReviewRoundMember, DbError>;
   readonly provisionMember: (input: {
     readonly roundId: string;
+    readonly name: string;
     readonly email: string;
     readonly assignmentCap: number | null;
     readonly accessPath: string;
@@ -1175,10 +1176,18 @@ export const ReviewsLive = Layer.effect(
             if (user === undefined) {
               const [created] = await transaction
                 .insert(users)
-                .values({ email, name: email.split("@")[0] ?? email })
+                .values({ email, name: input.name.trim() })
                 .returning()
                 .execute();
               user = created;
+            } else if (input.name.trim().length > 0 && user.name !== input.name.trim()) {
+              const [updated] = await transaction
+                .update(users)
+                .set({ name: input.name.trim(), updatedAt: new Date() })
+                .where(eq(users.id, user.id))
+                .returning()
+                .execute();
+              user = updated;
             }
             if (user === undefined) return { kind: "notFound" as const };
             await transaction

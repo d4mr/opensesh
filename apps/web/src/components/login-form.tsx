@@ -18,13 +18,17 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { requestMagicLink } from "@/server-fns/auth";
 
-export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
+export function LoginForm({
+  className,
+  initialEmail = "",
+  ...props
+}: React.ComponentProps<"div"> & { readonly initialEmail?: string }) {
   const [error, setError] = useState<string>();
   const [magicSending, setMagicSending] = useState(false);
   const [panelFailed, setPanelFailed] = useState(false);
   const [sent, setSent] = useState<{ readonly email: string; readonly demoLink?: string }>();
   const form = useForm({
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: initialEmail, password: "" },
     onSubmit: async ({ value }) => {
       setError(undefined);
       const result = await authClient.signIn.email({

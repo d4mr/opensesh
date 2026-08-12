@@ -23,7 +23,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
-import { restoreAdminHistory, updateAdminSessionContent } from "@/server-fns/portal";
+import {
+  restoreAdminHistory,
+  setSessionContentApproval,
+  updateAdminSessionContent,
+} from "@/server-fns/portal";
 
 type SessionContent = Pick<
   Submission,
@@ -81,6 +85,24 @@ export function SessionContentEditor({
       await refresh();
     },
   });
+  const approval = useMutation({
+    mutationFn: () =>
+      setSessionContentApproval({
+        data: {
+          eventId,
+          submissionId: submission.id,
+          approved: submission.contentReviewStatus !== "approved",
+        },
+      }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success(result.data.approved ? "Session published" : "Session unpublished");
+      await refresh();
+    },
+  });
   const orderedHistory = [...history].sort(
     (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
   );
@@ -96,14 +118,25 @@ export function SessionContentEditor({
             </p>
           </div>
           {editing ? null : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="pressable"
-              onClick={() => setEditing(true)}
-            >
-              <PencilIcon /> Edit session
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable"
+                disabled={approval.isPending}
+                onClick={() => approval.mutate()}
+              >
+                {submission.contentReviewStatus === "approved" ? "Unpublish" : "Approve"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable"
+                onClick={() => setEditing(true)}
+              >
+                <PencilIcon /> Edit session
+              </Button>
+            </div>
           )}
         </div>
         {editing ? (

@@ -775,6 +775,35 @@ export const approveSessionContent = createServerFn({ method: "POST" })
     ),
   );
 
+export const setSessionContentApproval = createServerFn({ method: "POST" })
+  .validator(
+    Schema.toStandardSchemaV1(
+      Schema.Struct({
+        eventId: Schema.String,
+        submissionId: Schema.String,
+        approved: Schema.Boolean,
+      }),
+    ),
+  )
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const { user } = yield* requireAdminEvent(data.eventId);
+        const portal = yield* Portal;
+        if (!data.approved) {
+          yield* portal.unapproveSessionContent(data.eventId, data.submissionId);
+          return { approved: false };
+        }
+        const approved = yield* portal.approveSessionContent(data.eventId, [data.submissionId], {
+          userId: user.userId,
+          name: user.name,
+        });
+        return { approved: approved > 0 };
+      }),
+      { require: "staff" },
+    ),
+  );
+
 export const approveContentChange = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(

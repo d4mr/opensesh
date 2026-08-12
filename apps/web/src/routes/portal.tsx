@@ -25,7 +25,7 @@ export const Route = createFileRoute("/portal")({
     // login/logout/persona-switch reset the client and force a fresh check.
     const viewer = await context.queryClient.ensureQueryData(portalViewerQuery);
     if (!viewer.ok) {
-      throw redirect({ to: "/login" });
+      throw redirect({ to: "/login", search: { demo: undefined, email: undefined } });
     }
     return { user: viewer.data };
   },

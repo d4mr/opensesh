@@ -807,7 +807,19 @@ export const CrmLive = Layer.effect(
         const { id: stageId, ...values } = input;
         return stageId === null
           ? query(database, "Could not create CRM stage", (db) =>
-              db.insert(crmPipelineStages).values(values).returning().execute(),
+              db
+                .insert(crmPipelineStages)
+                .values(values)
+                .onConflictDoUpdate({
+                  target: [crmPipelineStages.organizationId, crmPipelineStages.name],
+                  set: {
+                    semanticStatus: values.semanticStatus,
+                    position: values.position,
+                    updatedAt: new Date(),
+                  },
+                })
+                .returning()
+                .execute(),
             ).pipe(Effect.flatMap((rows) => decode(CrmPipelineStage, "CRM stage", rows[0])))
           : query(database, "Could not update CRM stage", (db) =>
               db

@@ -8,7 +8,11 @@ import {
   type RequiredRole,
 } from "@opensesh/domain/server/current-user";
 import { Db, makeDatabase } from "@opensesh/domain/server/db";
-import { makeRepositoriesLiveWith, type RepositoryServices } from "@opensesh/domain/server/repos";
+import {
+  makeRepositoriesLiveWith,
+  type RepositoryServices,
+  SpeakerComms,
+} from "@opensesh/domain/server/repos";
 import { type AppError, type ServerResult, toServerResult } from "@opensesh/domain/server/runtime";
 import { Mail } from "@opensesh/domain/server/mail";
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server";
@@ -18,13 +22,6 @@ import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
 const DEMO_EVENT_SLUG = "ai-engineer-nyc-2026";
-const EVALUATOR_EVENT_SLUG = "devflow-conf-2027";
-const evaluatorEmails = new Set([
-  "jordan.organizer@sbek-test.example.com",
-  "priya.speaker@sbek-test.example.com",
-  "marcus.speaker@sbek-test.example.com",
-  "sam.reviewer@sbek-test.example.com",
-]);
 const demoEmails = new Set([
   "demo@opensesh.io",
   "reviewer@opensesh.io",
@@ -33,11 +30,7 @@ const demoEmails = new Set([
   "jamal.reed@agentdesk.co",
 ]);
 const preferredEventSlugForSession = (session: SessionIdentity) =>
-  evaluatorEmails.has(session.email)
-    ? EVALUATOR_EVENT_SLUG
-    : demoEmails.has(session.email)
-      ? DEMO_EVENT_SLUG
-      : undefined;
+  demoEmails.has(session.email) ? DEMO_EVENT_SLUG : undefined;
 
 const sessionIdentity = (headers: Headers, origin: string) =>
   Effect.gen(function* () {
@@ -137,4 +130,64 @@ export const runServer = async <A, E extends AppError>(
       : requireCurrentUser(options.require).pipe(Effect.andThen(program));
 
   return withStatus(await runtime.runPromise(toServerResult(secured)));
+};
+
+export const runScheduledTaskReminders = async (env: Cloudflare.Env, now: Date) => {
+  const dbLive = Layer.succeed(Db, { database: makeDatabase(env.HYPERDRIVE.connectionString) });
+  const runtime = ManagedRuntime.make(
+    Layer.mergeAll(
+      makeRepositoriesLiveWith(dbLive),
+      mailLayerFromEnv(env),
+      ConfigProvider.layer(
+        ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
+      ),
+    ),
+  );
+  try {
+    const result = await runtime.runPromise(
+      toServerResult(
+        Effect.gen(function* () {
+          const communications = yield* SpeakerComms;
+          const mail = yield* Mail;
+          const rules = yield* communications.listEnabledReminderRules();
+          const deliveries = yield* Effect.forEach(
+            rules,
+            (rule) =>
+              Effect.gen(function* () {
+                const queued = yield* communications.queueReminderRule(
+                  rule.eventId,
+                  rule.id,
+                  env.APP_ORIGIN,
+                  now,
+                );
+                const sent = yield* Effect.forEach(
+                  queued.logIds,
+                  (logId) => mail.sendQueued(logId),
+                  { concurrency: 5 },
+                );
+                return {
+                  skipped: queued.skippedAsDuplicate,
+                  sent: sent.filter((delivery) => delivery.status !== "failed").length,
+                  failed: sent.filter((delivery) => delivery.status === "failed").length,
+                };
+              }),
+            { concurrency: 3 },
+          );
+          let skipped = 0;
+          let sent = 0;
+          let failed = 0;
+          for (const delivery of deliveries) {
+            if (delivery.skipped) skipped += 1;
+            sent += delivery.sent;
+            failed += delivery.failed;
+          }
+          return { rules: deliveries.length, skipped, sent, failed };
+        }),
+      ),
+    );
+    if (!result.ok) throw new Error(result.error.message);
+    return result.data;
+  } finally {
+    await runtime.dispose();
+  }
 };

@@ -323,6 +323,11 @@ function Wizard({
             markdown={form.successMessage}
             className="mx-auto mt-3 text-sm text-muted-foreground"
           />
+          {form.confirmationEmailEnabled && account.email !== null ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Confirmation sent to {account.email}.
+            </p>
+          ) : null}
           {form.autoRedirectPortal && !redirectCancelled ? (
             <p className="mt-5 text-xs text-muted-foreground">
               Going to your portal in 10 seconds…{" "}
@@ -483,6 +488,11 @@ function Wizard({
             answers={answers}
             onAnswersChange={setAnswers}
             onBack={() => setStep(1)}
+            footerStart={
+              <Button type="button" variant="ghost" onClick={() => void save()}>
+                Save draft
+              </Button>
+            }
             onContinue={async () => {
               if ((await save()) !== null) setStep(form.collectParticipants ? 3 : 4);
             }}

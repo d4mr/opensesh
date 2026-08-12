@@ -172,11 +172,14 @@ function TaskContent({
   const completedSessionFiles = sessionFiles.filter((item) => item.upload !== undefined).length;
 
   const renderTask = (item: (typeof data.tasks)[number], complete: boolean) => {
-    const upload = data.files.find(
-      (file) =>
-        file.upload.fileRequestId === item.template.fileRequestId &&
-        file.upload.submissionId === item.assignment.submissionId,
-    );
+    const upload =
+      item.template.fileRequestId === null
+        ? undefined
+        : data.files.find(
+            (file) =>
+              file.upload.fileRequestId === item.template.fileRequestId &&
+              file.upload.submissionId === item.assignment.submissionId,
+          );
     const versions = data.versions
       .map((entry) => entry.version)
       .filter((version) => version.fileUploadId === upload?.upload.id);

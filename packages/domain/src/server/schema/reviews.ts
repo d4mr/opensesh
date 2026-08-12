@@ -349,6 +349,7 @@ export const SaveReviewRoundRequest = Schema.Struct({
 export const AddReviewMemberRequest = Schema.Struct({
   eventId: Schema.String,
   roundId: Schema.String,
+  name: Schema.String,
   email: Schema.String,
   assignmentCap: NullableNumber,
   accessPath: Schema.String,

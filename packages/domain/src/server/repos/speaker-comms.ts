@@ -30,7 +30,7 @@ import {
   type SpeakerProfileMutationRequest,
 } from "../schema/communications";
 import { Contact, type SpeakerWorkflowStatus } from "../schema/submissions";
-import { decode, decodeFound, query } from "./shared";
+import { decode, decodeFound, decodeMany, query } from "./shared";
 
 type SpeakerInput = typeof SpeakerProfileMutationRequest.Type;
 
@@ -76,10 +76,14 @@ interface SpeakerCommsService {
   ) => Effect.Effect<EmailCampaign, DbError | NotFound>;
   readonly saveReminderRule: (
     eventId: string,
-    id: string,
+    id: string | null,
     daysBeforeDue: number,
     enabled: boolean,
   ) => Effect.Effect<typeof ReminderRule.Type, DbError | NotFound>;
+  readonly listEnabledReminderRules: () => Effect.Effect<
+    ReadonlyArray<typeof ReminderRule.Type>,
+    DbError
+  >;
   readonly queueReminderRule: (
     eventId: string,
     id: string,
@@ -697,12 +701,31 @@ export const SpeakerCommsLive = Layer.effect(
       saveReminderRule: (eventId, id, daysBeforeDue, enabled) =>
         query(database, "Could not save reminder rule", (db) =>
           db
-            .update(reminderRules)
-            .set({ daysBeforeDue, enabled, updatedAt: new Date() })
-            .where(and(eq(reminderRules.id, id), eq(reminderRules.eventId, eventId)))
+            .insert(reminderRules)
+            .values({
+              ...(id === null ? {} : { id }),
+              eventId,
+              scope: "contact",
+              taskType: "incomplete_task",
+              daysBeforeDue,
+              enabled,
+            })
+            .onConflictDoUpdate({
+              target: [reminderRules.eventId, reminderRules.scope, reminderRules.taskType],
+              set: { daysBeforeDue, enabled, updatedAt: new Date() },
+            })
             .returning()
             .execute(),
-        ).pipe(Effect.flatMap((rows) => decodeFound(ReminderRule, "Reminder rule", rows[0]))),
+        ).pipe(Effect.flatMap((rows) => decode(ReminderRule, "reminder rule", rows[0]))),
+      listEnabledReminderRules: () =>
+        query(database, "Could not load enabled reminder rules", (db) =>
+          db
+            .select()
+            .from(reminderRules)
+            .where(eq(reminderRules.enabled, true))
+            .orderBy(asc(reminderRules.createdAt))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(ReminderRule, "reminder rule", rows))),
       queueReminderRule: (eventId, id, portalOrigin, now) =>
         query(database, "Could not run reminder rule", (db) =>
           db.transaction(async (transaction) => {

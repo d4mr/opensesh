@@ -1,5 +1,7 @@
 import handler from "@tanstack/react-start/server-entry";
 
+import { runScheduledTaskReminders } from "@/server/runtime";
+
 // Documents must revalidate on every load: without this, browsers
 // heuristically cache the HTML shell and keep referencing deleted asset
 // hashes after a deploy. Hashed assets keep their immutable caching.
@@ -17,5 +19,9 @@ export default {
       });
     }
     return response;
+  },
+  async scheduled(controller, env) {
+    const result = await runScheduledTaskReminders(env, new Date(controller.scheduledTime));
+    console.log(JSON.stringify({ event: "task_reminders_completed", ...result }));
   },
 } satisfies ExportedHandler<Cloudflare.Env>;

@@ -84,7 +84,11 @@ function Signup() {
                   </form.Subscribe>
                   <p className="mt-5 text-center text-xs text-muted-foreground">
                     Already have an account?{" "}
-                    <Link to="/login" className="font-medium text-foreground hover:underline">
+                    <Link
+                      to="/login"
+                      search={{ demo: undefined, email: undefined }}
+                      className="font-medium text-foreground hover:underline"
+                    >
                       Sign in
                     </Link>
                   </p>

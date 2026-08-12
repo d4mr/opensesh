@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { contacts, eventMembers, events, organizationMembers, organizations } from "../db/schema";
@@ -105,7 +105,7 @@ const makeCurrentUserLayer = (
           const selectedMembership =
             allRows.find(
               (row) => row.organizationMember.organizationId === session.activeOrganizationId,
-            ) ?? allRows[0];
+            ) ?? allRows.at(-1);
           if (selectedMembership === undefined) {
             const contactRows = yield* query(database, "Could not load speaker contact", (db) =>
               db
@@ -114,20 +114,17 @@ const makeCurrentUserLayer = (
                 .innerJoin(events, eq(events.id, contacts.eventId))
                 .innerJoin(organizations, eq(organizations.id, events.organizationId))
                 .where(eq(contacts.email, session.email))
-                .orderBy(asc(events.startsAt))
+                .orderBy(desc(contacts.createdAt))
                 .execute(),
             );
             const preferredSlug =
               typeof preferredEventSlug === "function"
                 ? preferredEventSlug(session)
                 : preferredEventSlug;
-            const now = new Date();
             const selectedContact =
               (preferredSlug === undefined
                 ? undefined
-                : contactRows.find((row) => row.event.slug === preferredSlug)) ??
-              contactRows.find((row) => row.event.startsAt >= now) ??
-              contactRows.at(-1);
+                : contactRows.find((row) => row.event.slug === preferredSlug)) ?? contactRows[0];
             if (selectedContact === undefined) {
               return yield* Effect.fail(
                 new NeedsOrganization({ message: "Create an organization to continue" }),

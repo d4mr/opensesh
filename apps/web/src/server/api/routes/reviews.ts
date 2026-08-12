@@ -110,6 +110,7 @@ const RoundBody = Schema.Struct({
 });
 
 const MemberBody = Schema.Struct({
+  name: Schema.String,
   email: Schema.String,
   assignmentCap: Schema.NullOr(Schema.Number),
   accessPath: Schema.String,
@@ -234,6 +235,7 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const mail = yield* Mail;
         const provisioned = yield* reviews.provisionMember({
           roundId,
+          name: body.name,
           email: body.email,
           assignmentCap: body.assignmentCap,
           accessPath: body.accessPath,

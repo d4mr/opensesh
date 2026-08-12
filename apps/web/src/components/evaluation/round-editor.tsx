@@ -710,6 +710,7 @@ function ReviewersPane({
   readonly refresh: () => Promise<unknown>;
 }) {
   const reviewerTracks = useQuery(reviewerTracksQuery(eventId));
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [cap, setCap] = useState("5");
   const [adding, setAdding] = useState(false);
@@ -720,11 +721,12 @@ function ReviewersPane({
   }>();
   const add = async () => {
     setAdding(true);
-    const accessPath = `${window.location.origin}/login`;
+    const accessPath = `${window.location.origin}/login?email=${encodeURIComponent(email)}`;
     const result = await addReviewMember({
       data: {
         eventId,
         roundId: view.configuration.round.id,
+        name,
         email,
         assignmentCap: cap.length === 0 ? null : Number(cap),
         accessPath,
@@ -737,6 +739,7 @@ function ReviewersPane({
       path: result.data.accessPath,
       reused: result.data.alreadyInPool,
     });
+    setName("");
     setEmail("");
     await refresh();
     toast.success(result.data.alreadyInPool ? "Reused reviewer in this round" : "Added 1 reviewer");
@@ -751,7 +754,16 @@ function ReviewersPane({
           </p>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_8rem_auto]">
+      <div className="mt-4 grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_8rem_auto]">
+        <div className="grid gap-1.5">
+          <Label htmlFor="reviewer-name">Reviewer name</Label>
+          <Input
+            id="reviewer-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Sam Whitfield"
+          />
+        </div>
         <div className="grid gap-1.5">
           <Label htmlFor="reviewer-email">Reviewer email</Label>
           <Input
@@ -774,7 +786,7 @@ function ReviewersPane({
         </div>
         <Button
           className="pressable self-end"
-          disabled={adding || email.length === 0}
+          disabled={adding || name.trim().length === 0 || email.length === 0}
           onClick={() => void add()}
         >
           <UserPlusIcon /> {adding ? "Adding…" : "Add reviewer"}

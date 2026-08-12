@@ -96,9 +96,10 @@ export const createManualSession = createServerFn({ method: "POST" })
 
         const contacts = yield* Contacts;
         const events = yield* Events;
-        const [eventContacts, eventFormats] = yield* Effect.all([
+        const [eventContacts, eventFormats, eventTracks] = yield* Effect.all([
           contacts.listByEvent(data.eventId),
           events.listFormats(data.eventId),
+          events.listTracks(data.eventId),
         ]);
         const availableContactIds = new Set(eventContacts.map((contact) => contact.id));
         if (speakerIds.some((id) => !availableContactIds.has(id))) {
@@ -109,6 +110,11 @@ export const createManualSession = createServerFn({ method: "POST" })
         if (data.formatId !== null && !eventFormats.some((format) => format.id === data.formatId)) {
           return yield* Effect.fail(
             new InvalidInput({ message: "Choose a format from this event" }),
+          );
+        }
+        if (data.trackId !== null && !eventTracks.some((track) => track.id === data.trackId)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Choose a track from this event" }),
           );
         }
 
@@ -135,7 +141,7 @@ export const createManualSession = createServerFn({ method: "POST" })
           submittedAt: new Date(),
           answers: {},
           approvedSnapshot: {},
-          contentReviewStatus: "approved",
+          contentReviewStatus: "pending_review",
           cancelledAt: null,
           cancelledBy: null,
         });
@@ -143,14 +149,13 @@ export const createManualSession = createServerFn({ method: "POST" })
           created.id,
           speakerIds.map((contactId, position) => ({ contactId, role: "speaker", position })),
         );
+        yield* submissions.replaceTrackIds(created.id, data.trackId === null ? [] : [data.trackId]);
 
         // Directly-created accepted sessions skip the review decision transaction.
         // Reuse the portal acceptance path to snapshot public content and create
         // every auto-on-accept contact and submission task assignment.
         const portal = yield* Portal;
-        // Organizer-authored content is publication-approved by the act of
-        // writing it — no second sign-off step for manual sessions.
-        return yield* portal.acceptSubmission(data.eventId, created.id, { approveContent: true });
+        return yield* portal.acceptSubmission(data.eventId, created.id);
       }),
       { require: "staff" },
     ),

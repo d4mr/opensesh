@@ -159,6 +159,7 @@ export const ManualSessionCreateRequest = Schema.Struct({
   title: Text255,
   description: RichText5000,
   formatId: NullableString,
+  trackId: NullableString,
   speakerIds: Schema.Array(Schema.String),
 });
 

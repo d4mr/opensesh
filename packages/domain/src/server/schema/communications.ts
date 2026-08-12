@@ -219,7 +219,7 @@ export const CampaignSendRequest = Schema.Struct({
 
 export const ReminderRuleMutationRequest = Schema.Struct({
   eventId: Schema.String,
-  id: Schema.String,
+  id: NullableString,
   daysBeforeDue: Schema.Number,
   enabled: Schema.Boolean,
 });

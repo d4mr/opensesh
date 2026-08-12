@@ -45,6 +45,7 @@ export function AddSessionDialog({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [formatId, setFormatId] = useState("");
+  const [trackId, setTrackId] = useState("");
   const [description, setDescription] = useState("");
   const [speakerIds, setSpeakerIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -55,6 +56,7 @@ export function AddSessionDialog({
   const reset = () => {
     setTitle("");
     setFormatId("");
+    setTrackId("");
     setDescription("");
     setSpeakerIds(new Set());
     setPickerOpen(false);
@@ -67,6 +69,7 @@ export function AddSessionDialog({
           title,
           description,
           formatId: formatId.length === 0 ? null : formatId,
+          trackId: trackId.length === 0 ? null : trackId,
           speakerIds: Array.from(speakerIds),
         },
       }),
@@ -130,6 +133,21 @@ export function AddSessionDialog({
                 {data.library.formats.map((format) => (
                   <SelectItem key={format.id} value={format.id}>
                     {format.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Track</Label>
+            <Select value={trackId} onValueChange={(value) => setTrackId(value ?? "")}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a track" />
+              </SelectTrigger>
+              <SelectContent>
+                {data.library.tracks.map((track) => (
+                  <SelectItem key={track.id} value={track.id}>
+                    {track.name}
                   </SelectItem>
                 ))}
               </SelectContent>

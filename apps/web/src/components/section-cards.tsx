@@ -28,11 +28,11 @@ export function SectionCards({
     },
     {
       label: "Review progress",
-      value: `${stats.reviewed} of ${stats.submitted}`,
+      value: `${stats.reviewedEligible} of ${stats.reviewEligible}`,
       badge: "Reviews",
       detail:
-        stats.submitted - stats.reviewed > 0
-          ? `${stats.submitted - stats.reviewed} awaiting first review`
+        stats.reviewEligible - stats.reviewedEligible > 0
+          ? `${stats.reviewEligible - stats.reviewedEligible} awaiting first review`
           : "Every submission reviewed",
       section: "evaluation",
     },
@@ -49,7 +49,9 @@ export function SectionCards({
       badge:
         stats.conflicts > 0
           ? `${stats.conflicts} ${stats.conflicts === 1 ? "conflict" : "conflicts"}`
-          : "Draft",
+          : stats.agendaPublished
+            ? "Published"
+            : "Draft",
       badgeDestructive: stats.conflicts > 0,
       detail:
         stats.acceptedUnscheduled > 0

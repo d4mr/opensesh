@@ -153,9 +153,16 @@ export function DatePicker({
 }) {
   const [open, setOpen] = useState(false);
   const selected = value.length === 0 ? undefined : dateFromKey(value);
+  const [month, setMonth] = useState(selected ?? new Date());
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setMonth(selected ?? new Date());
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -181,6 +188,8 @@ export function DatePicker({
           startMonth={calendarStartMonth}
           endMonth={calendarEndMonth}
           selected={selected}
+          month={month}
+          onMonthChange={setMonth}
           onSelect={(date) => {
             if (date === undefined) return;
             onChange(
@@ -218,6 +227,7 @@ export function DateTimePicker({
   );
   const selected =
     current === null ? undefined : new Date(current.year, current.month - 1, current.day);
+  const [month, setMonth] = useState(selected ?? new Date());
   const minutes = current === null ? 9 * 60 : current.hour * 60 + current.minute;
 
   const update = (date: Date, nextMinutes: number) => {
@@ -226,7 +236,13 @@ export function DateTimePicker({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setMonth(selected ?? new Date());
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -255,6 +271,8 @@ export function DateTimePicker({
           startMonth={calendarStartMonth}
           endMonth={calendarEndMonth}
           selected={selected}
+          month={month}
+          onMonthChange={setMonth}
           onSelect={(date) => {
             if (date !== undefined) update(date, minutes);
           }}

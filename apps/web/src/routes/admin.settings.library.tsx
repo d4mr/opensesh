@@ -101,6 +101,7 @@ function LibrarySection({
             size="sm"
             variant="ghost"
             className="ml-auto h-7 px-2 text-xs"
+            aria-label={`Add ${title.toLowerCase()}`}
             onClick={() => setEditing({ id: "", name: "" })}
           >
             <PlusIcon className="size-3.5" /> Add
@@ -193,7 +194,7 @@ function LibraryEditor({
         <form.Field name="name">
           {(field) => (
             <Input
-              aria-label="Name"
+              aria-label={kind === "format" ? "Format name (without duration)" : "Name"}
               className="h-7"
               autoFocus
               value={field.state.value}

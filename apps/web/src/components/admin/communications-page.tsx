@@ -697,11 +697,10 @@ function ReminderSettings({
   const [enabled, setEnabled] = useState(rule?.enabled ?? false);
   const save = useMutation({
     mutationFn: () =>
-      rule === undefined
-        ? Promise.resolve(null)
-        : saveTaskReminderRule({ data: { eventId, id: rule.id, daysBeforeDue: days, enabled } }),
+      saveTaskReminderRule({
+        data: { eventId, id: rule?.id ?? null, daysBeforeDue: days, enabled },
+      }),
     onSuccess: async (result) => {
-      if (result === null) return;
       if (!result.ok) toast.error(result.error.message);
       else {
         toast.success("Reminder rule saved");
@@ -711,15 +710,13 @@ function ReminderSettings({
   });
   const run = useMutation({
     mutationFn: async () => {
-      if (rule === undefined) return null;
       const saved = await saveTaskReminderRule({
-        data: { eventId, id: rule.id, daysBeforeDue: days, enabled },
+        data: { eventId, id: rule?.id ?? null, daysBeforeDue: days, enabled },
       });
       if (!saved.ok) return saved;
-      return runTaskReminderRule({ data: { eventId, id: rule.id } });
+      return runTaskReminderRule({ data: { eventId, id: saved.data.id } });
     },
     onSuccess: async (result) => {
-      if (result === null) return;
       if (!result.ok) toast.error(result.error.message);
       else if (!("skippedAsDuplicate" in result.data)) return;
       else if (result.data.skippedAsDuplicate) toast.success("Already ran in this delivery window");
@@ -760,18 +757,13 @@ function ReminderSettings({
           value={days}
           onChange={(event) => setDays(Number(event.target.value))}
         />
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={save.isPending || rule === undefined}
-          onClick={() => save.mutate()}
-        >
+        <Button size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
           Save rule
         </Button>
         <Button
           size="sm"
           className="ml-auto"
-          disabled={run.isPending || rule === undefined || !enabled}
+          disabled={run.isPending || !enabled}
           onClick={() => run.mutate()}
         >
           <SendIcon /> {run.isPending ? "Running…" : "Run now"}

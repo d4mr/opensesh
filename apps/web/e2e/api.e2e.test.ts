@@ -575,6 +575,7 @@ describe.sequential("all opensesh REST operations through local workerd and Post
       await requestOperation("addReviewer", {
         params: { eventId: DEVFLOW_EVENT_ID, roundId: INITIAL_ROUND_ID },
         body: {
+          name: "Reviewer E2E",
           email: "reviewer-e2e@api-e2e.example.com",
           assignmentCap: 5,
           accessPath: "/admin/evaluation/rnd_devflow_initial",

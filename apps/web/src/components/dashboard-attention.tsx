@@ -167,7 +167,9 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
           <span className="text-xs text-muted-foreground">
             {stats.conflicts > 0
               ? `${stats.conflicts} ${stats.conflicts === 1 ? "conflict needs" : "conflicts need"} resolving`
-              : "Draft — not published"}
+              : stats.agendaPublished
+                ? "Published"
+                : "Draft — not published"}
           </span>
           <Button variant="outline" size="sm" asChild>
             <Link to="/admin/agenda" search={{ view: "rooms", day: undefined, draft: undefined }}>

@@ -447,6 +447,10 @@ interface PortalService {
     submissionIds: ReadonlyArray<string>,
     reviewer: PortalActor,
   ) => Effect.Effect<number, DbError>;
+  readonly unapproveSessionContent: (
+    eventId: string,
+    submissionId: string,
+  ) => Effect.Effect<Submission, DbError | NotFound>;
 }
 
 export class Portal extends Context.Service<Portal, PortalService>()("opensesh/Portal") {}
@@ -2656,6 +2660,21 @@ export const PortalLive = Layer.effect(
                 return updated.length;
               }),
             ).pipe(Effect.map((count) => count)),
+      unapproveSessionContent: (eventId, submissionId) =>
+        query(database, "Could not unapprove session content", (db) =>
+          db
+            .update(submissions)
+            .set({ contentReviewStatus: "pending_review", updatedAt: new Date() })
+            .where(
+              and(
+                eq(submissions.id, submissionId),
+                eq(submissions.eventId, eventId),
+                eq(submissions.status, "accepted"),
+              ),
+            )
+            .returning()
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeFound(Submission, "Submission", rows[0]))),
       acceptSubmission: (eventId, submissionId, options) =>
         Effect.gen(function* () {
           const loaded = yield* query(database, "Could not load submission", (db) =>

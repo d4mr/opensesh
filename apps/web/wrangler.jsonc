@@ -7,10 +7,12 @@
   "main": "src/server.ts",
   "routes": [{ "pattern": "app.opensesh.io", "custom_domain": true }],
   "vars": {
+    "APP_ORIGIN": "https://app.opensesh.io",
     "DEMO_MODE": "1",
     "MAIL_PROVIDER": "demo",
     "MAIL_FROM": "auth@opensesh.io",
   },
+  "triggers": { "crons": ["0 * * * *"] },
   "send_email": [{ "name": "EMAIL" }],
   "r2_buckets": [
     {
