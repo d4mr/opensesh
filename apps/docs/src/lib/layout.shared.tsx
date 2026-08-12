@@ -12,7 +12,7 @@ export function baseOptions(): BaseLayoutProps {
         </>
       ),
     },
-    githubUrl: "https://github.com/deformercr/opensesh",
+    githubUrl: "https://github.com/d4mr/opensesh",
     links: [
       {
         text: "app.opensesh.io",
