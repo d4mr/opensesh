@@ -133,9 +133,12 @@ function WidgetData({
           <PlusIcon /> Add widget
         </Button>
       </div>
-      <div className="min-h-0 flex-1 divide-y overflow-y-auto rounded-lg border bg-card">
+      {/* The card hugs its rows — a short list shouldn't drag an empty
+          border to the bottom of the viewport. The wrapper keeps scrolling. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {widgets.data.data.length === 0 ? (
           <AdminEmptyState
+            className="rounded-lg border bg-card"
             icon={Code2Icon}
             title="Publish your first widget"
             description="Create an embeddable sessions, speakers, or agenda view."
@@ -151,15 +154,17 @@ function WidgetData({
             }
           />
         ) : (
-          widgets.data.data.map((widget) => (
-            <WidgetRow
-              key={widget.id}
-              widget={widget}
-              eventId={eventId}
-              timezone={timezone}
-              onOpen={() => select(widget.id)}
-            />
-          ))
+          <div className="divide-y overflow-hidden rounded-lg border bg-card">
+            {widgets.data.data.map((widget) => (
+              <WidgetRow
+                key={widget.id}
+                widget={widget}
+                eventId={eventId}
+                timezone={timezone}
+                onOpen={() => select(widget.id)}
+              />
+            ))}
+          </div>
         )}
       </div>
     </main>
