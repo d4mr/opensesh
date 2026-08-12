@@ -24,7 +24,7 @@ This is a sealed evaluation run.
 | Entity | Round 03 value | Created/verified |
 | --- | --- | --- |
 | Organizer | Jordan Alvarez — `sbek-organizer+r03-20260813-001@example.com` | Created in Round 03 |
-| Speaker 1 | Priya Nair — `sbek-speaker+r03-20260813-001@example.com` | Pending |
+| Speaker 1 | Priya Raman — `sbek-speaker+r03-20260813-001@example.com` | Created in Round 03 |
 | Speaker 2 | Marcus Chen — `sbek-speaker2+r03-20260813-001@example.com` | Pending |
 | Reviewer | Sam Whitfield — `sbek-reviewer+r03-20260813-001@example.com` | Pending |
 | Attendee | Alex Attendee — `alex.attendee+r03-20260813-001@example.com` | Pending |
@@ -51,7 +51,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | Scenario | Description | Status | Evidence / observations |
 | --- | --- | --- | --- |
 | CFP-S1 | Organizer builds and publishes the CFP | Complete | `001`–`018`; public form `https://app.opensesh.io/submit/devflow-conf-2027-3/O37jjey2KkezEeX6Rb4xd` |
-| CFP-S2 | Speaker drafts, submits, and edits proposals | Pending | — |
+| CFP-S2 | Speaker drafts, submits, and edits proposals | Complete | `019`–`032`; new submissions `SESS-1` and `SESS-2` |
 | CFP-S3 | Organizer assigns a reviewer; reviewer scores | Pending | — |
 | CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Pending | — |
 | ABS-S1 | Speaker seeds submissions with a co-author | Pending | — |
@@ -93,11 +93,27 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `001-cfp-s1-clean-signup.png` through `018-cfp-s1-second-event-empty-submissions.png`. Every file was written and size-verified in this run.
 
+### CFP-S2 — Speaker drafts, submits, and edits proposals
+
+- Created the Round 03-only speaker account `sbek-speaker+r03-20260813-001@example.com` from the public CFP.
+- Entered only the first proposal title; the form displayed `Saving…` then `Saved`. Navigated back to Account and verified `SESS-1 · draft · Resume` with the title preserved.
+- Resumed the draft and captured inline errors for Description, Track, Format, and Key takeaway.
+- Verified all three tracks, all five formatted session types, and all three Audience level choices in their open dropdowns.
+- Verified Workshop selects and displays Workshop prerequisites without a reload, then Talk hides the field without a reload.
+- Completed and submitted `SESS-1`, including the fixture abstract, Platform & Infra, Talk, Intermediate, fixture bio, and required takeaway. Confirmation exact visible text: `<p>Thank you. Your submission has been received.</p>` and `Confirmation sent to sbek-speaker+r03-20260813-001@example.com.`
+- Portal listed `SESS-1` with status `pending`. Edited the abstract to append `Updated: now includes 2026 benchmark data.`, reloaded the full page, and verified the sentence persisted.
+- Completed and submitted `SESS-2` (`Your AI Pair Programmer Is Lying to You: Verification Patterns That Scale`) with AI Engineering, Talk, Advanced, the fixture abstract, and required takeaway.
+- Portal dashboard showed exactly two Round 03 proposals, both `pending`.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `019-cfp-s2-speaker-signup.png` through `032-cfp-s2-dashboard-two-submissions.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
 2. **Rapid sequential library additions expose stale UI state.** After saving `Developer Experience`, the immediate snapshot showed only two tracks, then the row appeared while a retry form was already open. The retry had to be cancelled to avoid a duplicate. A similar delayed count occurred for Panel: four formats were shown immediately, five after a later wait. There were no console warnings. The product eventually persisted correctly, but an evaluator can reasonably retry and create duplicates.
 3. **Public form cannot be field-tested anonymously.** This is allowed by the eval, but it moves dropdown, conditional, and required-field validation evidence into the speaker scenario and adds an account transition before the first data-entry page.
+4. **Confirmation rich text is rendered as escaped markup.** The confirmation page visibly says `<p>Thank you. Your submission has been received.</p>` rather than rendering the paragraph. Confirmation delivery text is otherwise explicit and correct.
+5. **Autosave/navigation has an ambiguous intermediate state.** Continue/Review/Submit clicks frequently left the current page visible with a `Checking…` or saving state before navigation completed. The action did complete, but an evaluator can interpret the first click as ineffective and click again. No duplicate submissions resulted in this scenario.
 
 ## Score
 
