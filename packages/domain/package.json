@@ -17,7 +17,8 @@
     "./server/schema/*": "./src/server/schema/*.ts",
     "./server/runtime": "./src/server/runtime.ts",
     "./server/db": "./src/server/db.ts",
-    "./server/events": "./src/server/events.ts"
+    "./server/events": "./src/server/events.ts",
+    "./testing/api-e2e": "./src/testing/api-e2e.ts"
   },
   "scripts": {
     "check": "vp check",

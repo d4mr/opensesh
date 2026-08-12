@@ -8,7 +8,7 @@ const generated = [
 
 export default defineConfig({
   test: {
-    include: ["apps/**/*.{test,spec}.{ts,tsx}", "packages/**/*.{test,spec}.ts"],
+    include: ["apps/**/src/**/*.{test,spec}.{ts,tsx}", "packages/**/*.{test,spec}.ts"],
   },
   lint: {
     ignorePatterns: generated,
