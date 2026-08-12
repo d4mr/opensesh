@@ -528,3 +528,34 @@ DevFlow with the spotlight populated, zero client refetches of review-desk
 data and zero wrong-event requests; client-side spotlight click prefetches
 `evt_devflow_2027`+`sub_devflow_1` → 200 (the exact request shape that 404'd
 on prod). Checks clean (227 files), tests 57/57.
+
+## 2026-08-12 — V3-003: reviewer overview blocked; V3-001 confirmed fixed
+
+**V3-001 (public CFP conditions)** was already resolved by the conditional-field
+rework: `FormRenderer` unmounts fields whose condition is unmet
+(`isFormFieldVisible` — fields never render, not CSS-hidden), so "Workshop
+prerequisites" no longer appears when Format is Talk. Code-verified; the V3 run
+predates the fix.
+
+**V3-003 (reviewer sees event-wide KPIs).** Owner: the overview should be
+blocked for reviewers — their home is the review queue. Three layers, same
+doctrine as the rest of the permissions model (derived access, DESIGN.md §8):
+`/admin`'s index route redirects non-admin staff to `/admin/evaluation`; the
+sidebar and shell nav drop Overview for reviewers (only "My Reviews" remains);
+and `getDashboardStats` now runs `requireEventAccess(eventId, "admin")` server
+side — the dashboard payload (event-wide KPIs + every recent submission) is no
+longer obtainable by a reviewer at all, matching every other admin server fn.
+The dashboard component's now-dead non-admin branches were removed.
+
+**Found while verifying: SyncIndicator hydration mismatch.** SSR renders while
+route queries are in flight (`useIsFetching` > 0 → busy class), but the client
+hydrates a settled cache → React #418 attribute mismatch in the shell header.
+Fixed with the `useSyncExternalStore` hydration gate (server snapshot = idle
+for both the server render and the hydration pass; live counts apply right
+after). Console verified clean.
+
+**Verified in browser (local dev).** Rey (`?demo=reviewer`): `/admin` →
+redirected to `/admin/evaluation`, sidebar shows only "My Reviews", queue
+renders (pristine seed has no pending assignments), console clean. Dana:
+Overview unchanged (full KPIs, lifecycle, attention, recent submissions).
+Checks clean, tests 57/57.

@@ -120,7 +120,8 @@ export function AppSidebar({
         )}
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={dashboard} pathname={pathname} />
+        {/* The overview is an organizer surface; reviewers land on their queue. */}
+        {user.roles.admin ? <NavMain items={dashboard} pathname={pathname} /> : null}
         {user.roles.admin ? (
           <NavMain label="Organization" items={organization} pathname={pathname} />
         ) : null}

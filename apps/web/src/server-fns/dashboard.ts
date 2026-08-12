@@ -1,21 +1,29 @@
-import { Events, Submissions } from "@opensesh/domain/server/repos";
+import { requireEventAccess } from "@opensesh/domain/server/current-user";
+import { Submissions } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
-import { runSessionServer } from "@/server/runtime";
+import { runServer } from "@/server/runtime";
 
 export const getDashboardStats = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
   .handler(async ({ data }) =>
-    runSessionServer((session) =>
+    runServer(
       Effect.gen(function* () {
-        // Resolve the slug of the event selected in the switcher — the
-        // session's default slug is wrong once the organizer switches events.
-        // loadDashboard still enforces the caller's event membership.
-        const events = yield* Events;
-        const event = yield* events.get(data.eventId);
+        // Admins only: the dashboard aggregates event-wide KPIs and every
+        // recent submission — a reviewer's home is their review queue.
+        const access = yield* requireEventAccess(data.eventId, "admin");
         const submissions = yield* Submissions;
-        return yield* submissions.loadDashboard(session, event.slug);
+        return yield* submissions.loadDashboard(
+          {
+            userId: access.user.userId,
+            email: access.user.email,
+            name: access.user.name,
+            activeOrganizationId: access.user.orgId,
+          },
+          access.event.slug,
+        );
       }),
+      { require: "staff" },
     ),
   );

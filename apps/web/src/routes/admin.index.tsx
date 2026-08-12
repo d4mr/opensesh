@@ -1,6 +1,6 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { CalendarClockIcon, ExternalLinkIcon, FileInputIcon } from "lucide-react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { CalendarClockIcon, ExternalLinkIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 
 import { qk } from "@/lib/query-keys";
@@ -8,7 +8,6 @@ import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Timestamp } from "@/components/app/timestamp";
 import { DashboardAttention } from "@/components/dashboard-attention";
 import { ProgramLifecycle } from "@/components/dashboard-lifecycle";
-import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SectionCards } from "@/components/section-cards";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,11 @@ const dashboardQuery = (eventId: string) =>
   });
 
 export const Route = createFileRoute("/admin/")({
+  // The overview is an organizer surface (event-wide KPIs, every recent
+  // submission) — a reviewer's home is their review queue.
+  beforeLoad: ({ context }) => {
+    if (!context.user.roles.admin) throw redirect({ to: "/admin/evaluation" });
+  },
   component: Dashboard,
 });
 
@@ -41,7 +45,6 @@ const closesIn = (closeDate: Date, timezone: string) => {
 };
 
 function Dashboard() {
-  const { user } = Route.useRouteContext();
   const context = useAdminEvent();
   const stats = useSuspenseQuery(dashboardQuery(context?.event.id ?? ""));
 
@@ -71,25 +74,12 @@ function Dashboard() {
             </Button>
           </div>
           {data.submitted === 0 && data.drafts === 0 ? (
-            user.roles.admin ? (
-              <ProgramLifecycle stats={data} />
-            ) : (
-              <AdminEmptyState
-                icon={FileInputIcon}
-                title="Your program starts with a call for papers"
-                description="Create a submission form to collect the first proposals for this event."
-                action={
-                  <Button asChild size="sm" className="pressable">
-                    <a href="/admin/forms">Create call for papers</a>
-                  </Button>
-                }
-              />
-            )
+            <ProgramLifecycle stats={data} />
           ) : (
             <>
-              <SectionCards stats={data} linked={user.roles.admin} />
-              {user.roles.admin ? <ProgramLifecycle stats={data} /> : null}
-              {user.roles.admin ? <DashboardAttention stats={data} /> : null}
+              <SectionCards stats={data} linked />
+              <ProgramLifecycle stats={data} />
+              <DashboardAttention stats={data} />
               <Suspense fallback={null}>
                 <DataTable data={data.recentSubmissions} />
               </Suspense>

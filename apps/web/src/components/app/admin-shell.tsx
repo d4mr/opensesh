@@ -120,12 +120,11 @@ export function AdminShell({
           (entry) => entry.history.approvalStatus === "pending_review",
         ).length
       : 0;
+  // Reviewers only get their queue — the overview is an organizer surface
+  // (and /admin redirects them here).
   const navigationItems = user.roles.admin
     ? allItems
-    : [
-        { title: "Overview", icon: GaugeIcon },
-        { title: "My Reviews", section: "evaluation", icon: ClipboardCheckIcon },
-      ];
+    : [{ title: "My Reviews", section: "evaluation", icon: ClipboardCheckIcon }];
   const activeTitle =
     navigationItems.find((item) =>
       item.section === undefined
