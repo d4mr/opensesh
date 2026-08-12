@@ -1070,12 +1070,20 @@ function AssignmentsPane({
     setAutoOpen(false);
     await refresh();
     const description = [
-      `${result.data.outOfTrack} out of track`,
-      `${result.data.conflictsSkipped} conflicts skipped`,
-      `${result.data.shortfalls.length} shortfalls`,
+      ...(result.data.outOfTrack === 0 ? [] : [`${result.data.outOfTrack} out of track`]),
+      ...(result.data.conflictsSkipped === 0
+        ? []
+        : [
+            `${result.data.conflictsSkipped} ${plural(result.data.conflictsSkipped, "conflict")} skipped`,
+          ]),
+      ...(result.data.shortfalls.length === 0
+        ? []
+        : [
+            `${result.data.shortfalls.length} ${plural(result.data.shortfalls.length, "shortfall")}`,
+          ]),
     ].join(" · ");
     toast.success(`Created ${result.data.created} ${plural(result.data.created, "assignment")}`, {
-      description,
+      description: description.length === 0 ? undefined : description,
     });
   };
   const unassign = async () => {
@@ -1378,7 +1386,9 @@ function AssignmentsPane({
               }
               onClick={() => void applyAutoDistribution()}
             >
-              {applying ? "Distributing…" : `Create ${preview?.planned.length ?? 0} assignments`}
+              {applying
+                ? "Distributing…"
+                : `Create ${preview?.planned.length ?? 0} ${plural(preview?.planned.length ?? 0, "assignment")}`}
             </Button>
           </DialogFooter>
         </DialogContent>
