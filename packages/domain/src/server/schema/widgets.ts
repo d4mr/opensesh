@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
 import { EmailStatus, EmailType, FileKind, TaskStatus } from "./portal";
-import { SpeakerWorkflowStatus } from "./submissions";
+import { SpeakerWorkflowStatus, SubmissionStatus } from "./submissions";
 
 export const WidgetView = Schema.Literals([
   "sessions",
@@ -187,7 +187,21 @@ export const SpeakerDirectoryRow = Schema.Struct({
     custom: JsonObject,
   }),
   sessions: Schema.Array(
-    Schema.Struct({ id: Schema.String, code: Schema.String, title: Schema.String }),
+    Schema.Struct({
+      id: Schema.String,
+      code: Schema.String,
+      title: Schema.String,
+      startsAt: NullableDate,
+      cancelledAt: NullableDate,
+    }),
+  ),
+  otherSubmissions: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      code: Schema.String,
+      title: Schema.String,
+      status: SubmissionStatus,
+    }),
   ),
   tasks: Schema.Array(
     Schema.Struct({

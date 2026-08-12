@@ -7,6 +7,8 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { Link } from "@tanstack/react-router";
 import {
   CheckIcon,
+  CircleDashedIcon,
+  CircleSlashIcon,
   CopyIcon,
   DownloadIcon,
   HistoryIcon,
@@ -24,6 +26,7 @@ import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { ChangeDiff } from "@/components/app/change-diff";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
+import { StatusBadge } from "@/components/app/status-badge";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { Timestamp } from "@/components/app/timestamp";
 import { TaskTemplateDialog } from "@/components/admin/portal-admin";
@@ -140,6 +143,32 @@ function ReadinessLine({
 
 function SectionLabel({ children }: { readonly children: string }) {
   return <h3 className="text-xs font-medium text-muted-foreground">{children}</h3>;
+}
+
+function SessionReadinessBadge({
+  session,
+}: {
+  readonly session: SpeakerDirectoryRow["sessions"][number];
+}) {
+  if (session.cancelledAt !== null) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <CircleSlashIcon className="size-3" /> Cancelled
+      </span>
+    );
+  }
+  if (session.startsAt === null) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-[color:var(--status-pending-border)] bg-[var(--status-pending-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--status-pending)]">
+        <CircleDashedIcon className="size-3" /> Unscheduled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-[color:var(--status-accepted-border)] bg-[var(--status-accepted-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--status-accepted)]">
+      <CheckIcon className="size-3" /> Scheduled
+    </span>
+  );
 }
 
 export function SpeakersDirectory({
@@ -346,6 +375,7 @@ function Directory({
           row.contact.title ?? "",
           row.contact.company ?? "",
           ...row.sessions.map((session) => session.title),
+          ...row.otherSubmissions.map((submission) => submission.title),
         ]
           .join(" ")
           .toLowerCase()
@@ -950,15 +980,41 @@ function Directory({
                             key={session.id}
                             to="/admin/sessions"
                             search={{ state: "all", spotlight: session.id }}
-                            className="pressable flex h-8 min-w-0 items-center gap-2 px-3 transition-colors hover:bg-muted/50 hover:text-foreground"
+                            className="flex h-8 min-w-0 items-center gap-2 px-3 transition-colors hover:bg-muted/50"
                           >
                             <span className="shrink-0 font-mono tabular-nums">{session.code}</span>
-                            <span className="truncate text-muted-foreground">{session.title}</span>
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              {session.title}
+                            </span>
+                            <SessionReadinessBadge session={session} />
                           </Link>
                         ))
                       )}
                     </div>
                   </section>
+                  {selected.otherSubmissions.length === 0 ? null : (
+                    <section>
+                      <SectionLabel>Other submissions</SectionLabel>
+                      <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
+                        {selected.otherSubmissions.map((submission) => (
+                          <Link
+                            key={submission.id}
+                            to="/admin/submissions"
+                            search={{ status: "all", spotlight: submission.id }}
+                            className="flex h-8 min-w-0 items-center gap-2 px-3 transition-colors hover:bg-muted/50"
+                          >
+                            <span className="shrink-0 font-mono tabular-nums">
+                              {submission.code}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              {submission.title}
+                            </span>
+                            <StatusBadge status={submission.status} />
+                          </Link>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                   <section>
                     <SectionLabel>Tasks</SectionLabel>
                     <div className="mt-1.5 max-w-xl divide-y overflow-hidden rounded-lg border">
@@ -970,10 +1026,13 @@ function Directory({
                         selected.tasks.map((task) => {
                           const status = waivedIds.has(task.id) ? "waived" : task.status;
                           return (
-                            <div key={task.id} className="flex min-w-0 items-center gap-1 px-2">
+                            <div
+                              key={task.id}
+                              className="flex min-w-0 items-center gap-1 px-2 transition-colors hover:bg-muted/50"
+                            >
                               <button
                                 type="button"
-                                className="pressable flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 text-left transition-colors hover:bg-muted/50"
+                                className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 px-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
                                 onClick={() => setPeekTaskId(task.id)}
                               >
                                 <span className="min-w-0 flex-1 truncate">

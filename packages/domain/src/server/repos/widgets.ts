@@ -516,96 +516,110 @@ export const WidgetsLive = Layer.effect(
           for (const row of fileRows) {
             if (!currentFiles.has(row.upload.id)) currentFiles.set(row.upload.id, row);
           }
-          const directoryRows = Array.from(grouped.values()).map(
-            ({ contact, submissions: linked }) => ({
-              contact: {
-                id: contact.id,
-                email: contact.email,
-                profileReviewStatus: contact.profileReviewStatus,
-                firstName: contact.firstName,
-                lastName: contact.lastName,
-                title: contact.title,
-                company: contact.company,
-                bio: contact.bio,
-                headshotUrl: contact.headshotUrl,
-                dietaryRequirements: contact.dietaryRequirements,
-                tshirtSize: contact.tshirtSize,
-                phone: contact.phone,
-                linkedinUrl: contact.linkedinUrl,
-                twitterUrl: contact.twitterUrl,
-                facebookUrl: contact.facebookUrl,
-                websiteUrl: contact.websiteUrl,
-                workflowStatus: contact.workflowStatus,
-                custom: contact.custom,
-              },
-              sessions: linked.map((submission) => ({
+          const directoryEntries = Array.from(grouped.values()).filter(
+            ({ submissions: linked }) =>
+              linked.length === 0 || linked.some((submission) => submission.status === "accepted"),
+          );
+          const directoryRows = directoryEntries.map(({ contact, submissions: linked }) => ({
+            contact: {
+              id: contact.id,
+              email: contact.email,
+              profileReviewStatus: contact.profileReviewStatus,
+              firstName: contact.firstName,
+              lastName: contact.lastName,
+              title: contact.title,
+              company: contact.company,
+              bio: contact.bio,
+              headshotUrl: contact.headshotUrl,
+              dietaryRequirements: contact.dietaryRequirements,
+              tshirtSize: contact.tshirtSize,
+              phone: contact.phone,
+              linkedinUrl: contact.linkedinUrl,
+              twitterUrl: contact.twitterUrl,
+              facebookUrl: contact.facebookUrl,
+              websiteUrl: contact.websiteUrl,
+              workflowStatus: contact.workflowStatus,
+              custom: contact.custom,
+            },
+            sessions: linked
+              .filter((submission) => submission.status === "accepted")
+              .map((submission) => ({
                 id: submission.id,
                 code: submission.code,
                 title: submission.title,
+                startsAt: submission.startsAt,
+                cancelledAt: submission.cancelledAt,
               })),
-              tasks: assignmentRows
-                .filter(
-                  (row) =>
-                    row.assignment.contactId === contact.id ||
-                    (row.assignment.submissionId !== null &&
-                      linked.some((submission) => submission.id === row.assignment.submissionId)),
-                )
-                .map((row) => ({
-                  id: row.assignment.id,
-                  title: row.template.title,
-                  status: row.assignment.status,
-                  dueDate: row.template.dueDate,
-                  submissionCode: row.submission?.code ?? null,
-                })),
-              files: Array.from(currentFiles.values())
-                .filter(
-                  (row) =>
-                    (row.assignment === null && row.upload.contactId === contact.id) ||
-                    row.assignment?.contactId === contact.id ||
-                    (row.assignment?.contactId === null &&
-                      linked.some((submission) => submission.id === row.assignment?.submissionId)),
-                )
-                .map((row) => ({
-                  id: row.upload.id,
-                  versionId: row.version.id,
-                  filename: row.version.filename,
-                  kind: row.upload.kind,
-                  label:
-                    row.request?.title ??
-                    row.requirement?.title ??
-                    (row.upload.kind === "headshot" ? "Headshot" : "Slides"),
-                  uploadedAt: row.version.uploadedAt,
-                  contentType: row.version.contentType,
-                  size: row.version.size,
-                  uploaderName: row.version.uploaderName,
-                })),
-              emails: emailRows
-                .filter((row) => row.contactId === contact.id)
-                .slice(0, 10)
-                .map((row) => ({
-                  id: row.id,
-                  subject: row.subject,
-                  type: row.type,
-                  status: row.status,
-                  sentAt: row.sentAt,
-                })),
-              profileChanges: profileRows
-                .filter((row) => row.contact.id === contact.id)
-                .map(({ history }) => ({
-                  id: history.id,
-                  changedFields: history.changedFields,
-                  previousValues: history.previousValues,
-                  newValues: history.newValues,
-                  authorName: history.authorName,
-                  approvalStatus: history.approvalStatus,
-                  reviewedAt: history.reviewedAt,
-                  createdAt: history.createdAt,
-                })),
-            }),
-          );
+            otherSubmissions: linked
+              .filter((submission) => submission.status !== "accepted")
+              .map((submission) => ({
+                id: submission.id,
+                code: submission.code,
+                title: submission.title,
+                status: submission.status,
+              })),
+            tasks: assignmentRows
+              .filter(
+                (row) =>
+                  row.assignment.contactId === contact.id ||
+                  (row.assignment.submissionId !== null &&
+                    linked.some((submission) => submission.id === row.assignment.submissionId)),
+              )
+              .map((row) => ({
+                id: row.assignment.id,
+                title: row.template.title,
+                status: row.assignment.status,
+                dueDate: row.template.dueDate,
+                submissionCode: row.submission?.code ?? null,
+              })),
+            files: Array.from(currentFiles.values())
+              .filter(
+                (row) =>
+                  (row.assignment === null && row.upload.contactId === contact.id) ||
+                  row.assignment?.contactId === contact.id ||
+                  (row.assignment?.contactId === null &&
+                    linked.some((submission) => submission.id === row.assignment?.submissionId)),
+              )
+              .map((row) => ({
+                id: row.upload.id,
+                versionId: row.version.id,
+                filename: row.version.filename,
+                kind: row.upload.kind,
+                label:
+                  row.request?.title ??
+                  row.requirement?.title ??
+                  (row.upload.kind === "headshot" ? "Headshot" : "Slides"),
+                uploadedAt: row.version.uploadedAt,
+                contentType: row.version.contentType,
+                size: row.version.size,
+                uploaderName: row.version.uploaderName,
+              })),
+            emails: emailRows
+              .filter((row) => row.contactId === contact.id)
+              .slice(0, 10)
+              .map((row) => ({
+                id: row.id,
+                subject: row.subject,
+                type: row.type,
+                status: row.status,
+                sentAt: row.sentAt,
+              })),
+            profileChanges: profileRows
+              .filter((row) => row.contact.id === contact.id)
+              .map(({ history }) => ({
+                id: history.id,
+                changedFields: history.changedFields,
+                previousValues: history.previousValues,
+                newValues: history.newValues,
+                authorName: history.authorName,
+                approvalStatus: history.approvalStatus,
+                reviewedAt: history.reviewedAt,
+                createdAt: history.createdAt,
+              })),
+          }));
           const csv = [
             "first_name,last_name,email,title,company,bio,dietary,tshirt,linkedin,twitter,facebook,website,phone",
-            ...Array.from(grouped.values()).map(({ contact }) =>
+            ...directoryEntries.map(({ contact }) =>
               [
                 contact.firstName,
                 contact.lastName,
