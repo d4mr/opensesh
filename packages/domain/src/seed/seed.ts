@@ -28,6 +28,7 @@ import {
   portalFormResponses,
   portalForms,
   reviewerTracks,
+  resources,
   reminderRules,
   reviewCriteria,
   reviewRoundMembers,
@@ -1237,6 +1238,7 @@ export const seedDatabase = async (database: Database) => {
         },
       ]),
       transaction.insert(portalForms).values(rows(seedData.portalForms)),
+      transaction.insert(resources).values(rows(seedData.resources)),
       transaction.insert(fileRequests).values(rows(seedData.fileRequests)),
       transaction.insert(sessionFileRequirements).values(rows(seedData.sessionFileRequirements)),
     ]);

@@ -257,7 +257,7 @@ endobj
 5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
 trailer<</Root 1 0 R>>
 %%EOF`;
-const seedPlaceholder = (storageKey: string, contentType: string): Uint8Array | null => {
+export const seedPlaceholder = (storageKey: string, contentType: string): Uint8Array | null => {
   if (!storageKey.startsWith("seed/")) return null;
   if (contentType.includes("pdf")) return new TextEncoder().encode(SEED_PDF);
   return new TextEncoder().encode(`OpenSesh demo fixture file (${storageKey})`);

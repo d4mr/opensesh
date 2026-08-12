@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -8,6 +9,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { Schema } from "effect";
 
 import type { PortalFormSection } from "../../server/schema/portal";
@@ -17,13 +19,90 @@ import {
   deliverableStatus,
   fileKind,
   id,
+  resourceAttachmentKind,
+  resourceAudienceMode,
   targetType,
   taskStatus,
   timestamps,
 } from "../columns";
-import { events } from "./core";
+import { events, tracks } from "./core";
 import { users } from "./identity";
 import { contacts, submissions } from "./submissions";
+
+export const resources = pgTable(
+  "resources",
+  {
+    id: id(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    subtitle: text("subtitle").notNull(),
+    body: text("body").notNull(),
+    position: integer("position").notNull(),
+    published: boolean("published").notNull().default(false),
+    audienceMode: resourceAudienceMode("audience_mode").notNull().default("all"),
+    attachmentKind: resourceAttachmentKind("attachment_kind"),
+    linkUrl: text("link_url"),
+    embedUrl: text("embed_url"),
+    fileStorageKey: text("file_storage_key"),
+    fileName: text("file_name"),
+    fileContentType: text("file_content_type"),
+    fileSize: integer("file_size"),
+    ...timestamps,
+  },
+  (table) => [
+    index("resources_event_position_idx").on(table.eventId, table.position),
+    unique("resources_file_storage_key_unique").on(table.fileStorageKey),
+    check(
+      "resources_attachment_shape_check",
+      sql`(
+        (${table.attachmentKind} is null and ${table.linkUrl} is null and ${table.embedUrl} is null and ${table.fileStorageKey} is null and ${table.fileName} is null and ${table.fileContentType} is null and ${table.fileSize} is null)
+        or (${table.attachmentKind} = 'link' and ${table.linkUrl} is not null and ${table.embedUrl} is null and ${table.fileStorageKey} is null and ${table.fileName} is null and ${table.fileContentType} is null and ${table.fileSize} is null)
+        or (${table.attachmentKind} = 'embed' and ${table.linkUrl} is null and ${table.embedUrl} is not null and ${table.fileStorageKey} is null and ${table.fileName} is null and ${table.fileContentType} is null and ${table.fileSize} is null)
+        or (${table.attachmentKind} = 'file' and ${table.linkUrl} is null and ${table.embedUrl} is null and ${table.fileStorageKey} is not null and ${table.fileName} is not null and ${table.fileContentType} is not null and ${table.fileSize} is not null)
+      )`,
+    ),
+  ],
+);
+
+export const resourceTracks = pgTable(
+  "resource_tracks",
+  {
+    id: id(),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    trackId: text("track_id")
+      .notNull()
+      .references(() => tracks.id, { onDelete: "cascade" }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("resource_tracks_resource_track_unique").on(table.resourceId, table.trackId),
+    index("resource_tracks_resource_idx").on(table.resourceId),
+    index("resource_tracks_track_idx").on(table.trackId),
+  ],
+);
+
+export const resourceContacts = pgTable(
+  "resource_contacts",
+  {
+    id: id(),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("resource_contacts_resource_contact_unique").on(table.resourceId, table.contactId),
+    index("resource_contacts_resource_idx").on(table.resourceId),
+    index("resource_contacts_contact_idx").on(table.contactId),
+  ],
+);
 
 export const portalForms = pgTable(
   "portal_forms",

@@ -6,4 +6,5 @@ export * from "./communications";
 export * from "./forms";
 export * from "./portal";
 export * from "./reviews";
+export * from "./resources";
 export * from "./submissions";

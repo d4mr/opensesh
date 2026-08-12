@@ -188,6 +188,7 @@ const TAG_DESCRIPTIONS: Record<string, string> = {
     "The program lens over accepted submissions: readiness, cancellation with a recorded cause, reinstatement, and manual sessions.",
   Speakers: "The event speaker directory, workflow status, imports, and portal invites.",
   Reviews: "Review rounds, reviewer assignment, reminders, and AI reviews.",
+  Resources: "Organizer-authored pages and attachments published to speaker audiences.",
   Agenda: "The schedule, publishing, and AI-generated agenda drafts.",
   CRM: "Organization-level contacts: tags, notes, merge, and CSV import.",
   Pipeline: "Speaker-sourcing pipeline stages, cards, and segments.",

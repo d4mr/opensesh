@@ -5,6 +5,7 @@ import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarDaysIcon,
   Code2Icon,
+  BookOpenIcon,
   CheckSquareIcon,
   ClipboardCheckIcon,
   FileCheckIcon,
@@ -57,6 +58,7 @@ const allItems: ReadonlyArray<NavItem> = [
   { title: "Agenda", section: "agenda", icon: CalendarDaysIcon },
   { title: "Widgets", section: "widgets", icon: Code2Icon },
   { title: "Tasks", section: "tasks", icon: CheckSquareIcon },
+  { title: "Resources", section: "resources", icon: BookOpenIcon },
   { title: "Email delivery", section: "emails", icon: MailIcon },
   { title: "Communications", section: "communications", icon: SendIcon },
   { title: "Portal Forms", section: "portal-forms", icon: ListChecksIcon },
