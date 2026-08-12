@@ -60,10 +60,12 @@ export function SubmissionDetail({
   id,
   variant = "page",
   onClose,
+  onStatusChanged,
 }: {
   readonly id: string;
   readonly variant?: "page" | "spotlight";
   readonly onClose?: () => void;
+  readonly onStatusChanged?: (id: string) => void;
 }) {
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
@@ -119,7 +121,8 @@ export function SubmissionDetail({
       toast.error(result.error.message);
       return;
     }
-    void invalidateAfterMutation(queryClient, eventId);
+    await invalidateAfterMutation(queryClient, eventId);
+    onStatusChanged?.(submission.id);
     toast.success(`Marked ${submission.code} ${status}`);
   };
 
@@ -131,7 +134,7 @@ export function SubmissionDetail({
   const completeDecision = (result: DecisionResult) => {
     const updated = result.submissions.find((item) => item.id === submission.id);
     if (updated !== undefined) setDetail(updated.status, updated.notifiedAt);
-    void invalidateAfterMutation(queryClient, eventId);
+    void invalidateAfterMutation(queryClient, eventId).then(() => onStatusChanged?.(submission.id));
   };
 
   return (

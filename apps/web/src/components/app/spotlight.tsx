@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useRowHighlight } from "@/hooks/use-row-highlight";
 import { cn } from "@/lib/utils";
 
 interface SpotlightChangeOptions {
@@ -28,6 +29,7 @@ export interface SpotlightListRenderProps {
 export function SpotlightLayout({
   spotlightId,
   orderedIds,
+  highlightedIds: externalHighlightedIds,
   onSpotlightChange,
   clearFilters,
   list,
@@ -36,6 +38,7 @@ export function SpotlightLayout({
 }: {
   readonly spotlightId: string | undefined;
   readonly orderedIds: ReadonlyArray<string>;
+  readonly highlightedIds?: ReadonlySet<string>;
   readonly onSpotlightChange: (id: string | undefined, options: SpotlightChangeOptions) => void;
   readonly clearFilters?: () => void;
   readonly list: (props: SpotlightListRenderProps) => ReactNode;
@@ -47,12 +50,11 @@ export function SpotlightLayout({
   const previousId = useRef<string | undefined>(undefined);
   const firstLayout = useRef(true);
   const savedScrollTop = useRef(0);
-  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [highlightedId, setHighlightedId] = useState<string>();
+  const { highlightedIds: returnedRowIds, highlightRows, clearRowHighlights } = useRowHighlight();
   const [keyboardAction, setKeyboardAction] = useState(false);
   const compact = spotlightId !== undefined;
-  const inView = spotlightId !== undefined && orderedIds.includes(spotlightId);
+  const inView = compact && orderedIds.includes(spotlightId);
 
   const rememberScroll = useCallback(() => {
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
@@ -67,7 +69,7 @@ export function SpotlightLayout({
   const changeSpotlight = useCallback(
     (id: string | undefined, options: SpotlightChangeOptions) => {
       rememberScroll();
-      setHighlightedId(undefined);
+      clearRowHighlights();
       if (options.keyboard) markKeyboardAction(id === undefined ? 1500 : 240);
       else {
         setKeyboardAction(false);
@@ -75,7 +77,7 @@ export function SpotlightLayout({
       }
       onSpotlightChange(id, options);
     },
-    [markKeyboardAction, onSpotlightChange, rememberScroll],
+    [clearRowHighlights, markKeyboardAction, onSpotlightChange, rememberScroll],
   );
 
   useLayoutEffect(() => {
@@ -90,15 +92,19 @@ export function SpotlightLayout({
     } else {
       if (scroller !== null) scroller.scrollTop = savedScrollTop.current;
       if (previous !== undefined && spotlightId === undefined) {
-        setHighlightedId(previous);
         rowRefs.current.get(previous)?.scrollIntoView({ block: "nearest" });
-        if (highlightTimer.current !== null) clearTimeout(highlightTimer.current);
-        highlightTimer.current = setTimeout(() => setHighlightedId(undefined), 1500);
+        highlightRows([previous]);
       }
     }
 
     previousId.current = spotlightId;
-  }, [inView, spotlightId]);
+  }, [highlightRows, inView, spotlightId]);
+
+  useLayoutEffect(() => {
+    if (externalHighlightedIds?.size !== 1) return;
+    const id = externalHighlightedIds.values().next().value;
+    if (id !== undefined) rowRefs.current.get(id)?.scrollIntoView({ block: "nearest" });
+  }, [externalHighlightedIds]);
 
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -148,7 +154,6 @@ export function SpotlightLayout({
 
   useEffect(
     () => () => {
-      if (highlightTimer.current !== null) clearTimeout(highlightTimer.current);
       if (keyboardTimer.current !== null) clearTimeout(keyboardTimer.current);
     },
     [],
@@ -167,9 +172,10 @@ export function SpotlightLayout({
       cn(
         "spotlight-row relative border-l-2 border-l-transparent transition-colors [transition-duration:200ms] [transition-timing-function:var(--ease-out)]",
         id === spotlightId && "border-l-primary bg-muted hover:bg-muted",
-        id === highlightedId && "spotlight-row-highlight",
+        (returnedRowIds.has(id) || externalHighlightedIds?.has(id) === true) &&
+          "spotlight-row-highlight",
       ),
-    [highlightedId, spotlightId],
+    [externalHighlightedIds, returnedRowIds, spotlightId],
   );
 
   return (

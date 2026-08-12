@@ -259,12 +259,12 @@
 
 .spotlight-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 0fr;
+  grid-template-columns: minmax(18rem, 100%) minmax(0, 0%);
   transition: grid-template-columns 220ms var(--ease-out);
 }
 
 .spotlight-layout[data-open="true"] {
-  grid-template-columns: minmax(18rem, 45fr) minmax(0, 55fr);
+  grid-template-columns: minmax(18rem, 45%) minmax(0, 55%);
 }
 
 .spotlight-panel-inner {

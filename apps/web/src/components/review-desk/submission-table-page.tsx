@@ -72,6 +72,7 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRowHighlight } from "@/hooks/use-row-highlight";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { reviewDeskListQuery } from "@/lib/review-desk-queries";
 import { cn } from "@/lib/utils";
@@ -267,6 +268,7 @@ export function SubmissionTablePage({
   const [decision, setDecision] = useState<SubmissionDecision>("accept");
   const [decisionTargets, setDecisionTargets] = useState<ReadonlyArray<ReviewDeskListItem>>([]);
   const decisionSnapshot = useRef<ListResult | undefined>(undefined);
+  const { highlightedIds, highlightRows } = useRowHighlight();
 
   const storageKey = "opensesh-submissions-columns";
   useEffect(() => {
@@ -349,7 +351,8 @@ export function SubmissionTablePage({
           toast.error(result.error.message);
           return false;
         }
-        void invalidateAfterMutation(queryClient, eventId);
+        await invalidateAfterMutation(queryClient, eventId);
+        highlightRows([submission.id]);
         return true;
       };
       void save(nextStatus, previousStatus).then((saved) => {
@@ -362,7 +365,7 @@ export function SubmissionTablePage({
         });
       });
     },
-    [eventId, queryClient, setList],
+    [eventId, highlightRows, queryClient, setList],
   );
 
   const columns = useMemo(
@@ -584,7 +587,9 @@ export function SubmissionTablePage({
       }),
     }));
     table.resetRowSelection(true);
-    void invalidateAfterMutation(queryClient, eventId);
+    void invalidateAfterMutation(queryClient, eventId).then(() =>
+      highlightRows(result.submissions.map((submission) => submission.id)),
+    );
   };
 
   if (readyData.submissions.length === 0) {
@@ -617,6 +622,7 @@ export function SubmissionTablePage({
       <SpotlightLayout
         spotlightId={spotlightId}
         orderedIds={orderedIds}
+        highlightedIds={highlightedIds}
         onSpotlightChange={onSpotlightChange}
         clearFilters={() => {
           setSearch("");
@@ -927,6 +933,7 @@ export function SubmissionTablePage({
               <SubmissionDetail
                 id={spotlightId}
                 variant="spotlight"
+                onStatusChanged={(id) => highlightRows([id])}
                 onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
               />
             </Suspense>
