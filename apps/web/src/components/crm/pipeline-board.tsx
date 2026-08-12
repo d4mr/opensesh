@@ -475,7 +475,7 @@ function PipelineCard({
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <ArrowRightIcon className="mr-2 size-4 text-muted-foreground" /> Move to
+                <ArrowRightIcon className="size-3.5 text-muted-foreground" /> Move to
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
                 <DropdownMenuLabel>Stages</DropdownMenuLabel>
@@ -486,7 +486,7 @@ function PipelineCard({
                     onSelect={() => moveCard(card.id, column.stage.id, contactName)}
                   >
                     {column.stage.name}
-                    <span className="ml-auto text-xs text-muted-foreground capitalize">
+                    <span className="ml-auto text-[11px] text-muted-foreground capitalize">
                       {column.stage.semanticStatus}
                     </span>
                   </DropdownMenuItem>

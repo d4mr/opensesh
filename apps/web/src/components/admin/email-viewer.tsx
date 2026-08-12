@@ -275,7 +275,7 @@ function EmailViewerData({
       <Dialog open={selected !== null} onOpenChange={(open) => !open && select(undefined)}>
         {selected === null ? null : (
           <DialogContent className="max-h-[90vh] gap-3 overflow-hidden p-0 sm:max-w-4xl">
-            <DialogHeader className="border-b px-5 py-4 pr-12">
+            <DialogHeader className="m-0 border-b px-5 py-4 pr-12">
               <div className="flex items-center gap-2">
                 <DialogTitle className="truncate text-base">{selected.subject}</DialogTitle>
                 <DeliveryBadge status={selected.status} />

@@ -445,7 +445,7 @@ export function AgendaDraftsDialog({
       }}
     >
       <DialogContent className="flex max-h-[85svh] flex-col gap-0 p-0 sm:max-w-md">
-        <DialogHeader className="border-b p-4 text-left">
+        <DialogHeader className="m-0 border-b p-4 text-left">
           <div className="flex items-start justify-between gap-4 pr-7">
             <div>
               <DialogTitle>{mode === "list" ? "AI agenda drafts" : "New agenda draft"}</DialogTitle>

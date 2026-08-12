@@ -768,7 +768,7 @@ function HtmlViewerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[82svh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
+        <DialogHeader className="m-0 shrink-0 border-b px-5 py-4 pr-12 text-left">
           <DialogTitle className="text-base">Rendered HTML</DialogTitle>
           <DialogDescription className="text-xs">
             The live preview's current markup — target any class here from Custom CSS.

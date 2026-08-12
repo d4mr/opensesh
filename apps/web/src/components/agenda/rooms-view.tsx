@@ -410,7 +410,7 @@ function SessionPeek({
                 className="leading-relaxed text-muted-foreground"
               />
             </div>
-            <DialogFooter className="border-t pt-4 sm:justify-between">
+            <DialogFooter className="sm:justify-between">
               <Button
                 type="button"
                 size="sm"

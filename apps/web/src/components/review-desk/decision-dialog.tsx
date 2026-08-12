@@ -127,25 +127,25 @@ export function DecisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="flex max-h-[min(48rem,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
+        <DialogHeader className="m-0 shrink-0 gap-1 border-b px-5 py-4 pr-12">
+          <DialogTitle className="text-base">
             Decide {submissions.length === 1 ? first?.code : `${submissions.length} submissions`}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="max-w-3xl">
             This updates the program, creates acceptance tasks when applicable, and records the
             email below.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Decision</Label>
-              <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+        <div className="grid min-h-0 flex-1 sm:grid-cols-[18rem_minmax(0,1fr)]">
+          <div className="min-h-0 space-y-4 overflow-y-auto p-4 sm:border-r">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Decision</Label>
+              <div className="grid grid-cols-2 gap-0.5 rounded-md bg-muted p-0.5">
                 <Button
                   type="button"
-                  size="sm"
+                  size="xs"
                   variant={decision === "accept" ? "default" : "ghost"}
                   onClick={() => setDecision("accept")}
                 >
@@ -153,7 +153,7 @@ export function DecisionDialog({
                 </Button>
                 <Button
                   type="button"
-                  size="sm"
+                  size="xs"
                   variant={decision === "decline" ? "destructive" : "ghost"}
                   onClick={() => setDecision("decline")}
                 >
@@ -161,36 +161,38 @@ export function DecisionDialog({
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="decision-feedback">Personal message</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="decision-feedback" className="text-xs">
+                Personal message
+              </Label>
               <Textarea
                 id="decision-feedback"
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
                 placeholder="Optional feedback or requested changes"
-                className="min-h-32 resize-none text-sm"
+                className="min-h-24 resize-none px-2.5 py-2 text-[13px] leading-5"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[11px] leading-4 text-muted-foreground">
                 Review comments are prefilled when available. Edit freely before sending.
               </p>
             </div>
             {decision === "accept" ? (
               <div className="space-y-1.5">
-                <Label className="flex items-start gap-2 rounded-md border p-2 text-xs font-normal">
+                <Label className="flex items-start gap-2 rounded-md border p-2 text-xs leading-4 font-normal">
                   <Checkbox
                     checked={approveContent}
                     onCheckedChange={(checked) => setApproveContent(checked === true)}
                   />
                   Also approve content for publication
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] leading-4 text-muted-foreground">
                   Accepted sessions appear on public pages only after their content is approved —
                   here, or later from Content.
                 </p>
               </div>
             ) : null}
             {replacingDecision ? (
-              <Label className="flex items-start gap-2 rounded-md border p-2 text-xs font-normal">
+              <Label className="flex items-start gap-2 rounded-md border p-2 text-xs leading-4 font-normal">
                 <Checkbox
                   checked={confirmRedecide}
                   onCheckedChange={(checked) => setConfirmRedecide(checked === true)}
@@ -200,24 +202,31 @@ export function DecisionDialog({
             ) : null}
           </div>
 
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs font-medium text-muted-foreground">Email preview</p>
-            <p className="mt-2 text-sm font-semibold">{preview.subject}</p>
-            <div className="mt-3 whitespace-pre-wrap text-sm leading-6">{preview.text}</div>
+          <section className="min-h-0 overflow-y-auto border-t bg-muted/20 sm:border-t-0">
+            <div className="border-b px-4 py-3">
+              <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                Email preview
+              </p>
+              <p className="mt-1 text-[13px] font-semibold">{preview.subject}</p>
+            </div>
+            <div className="whitespace-pre-wrap px-4 py-3 text-[13px] leading-6">
+              {preview.text}
+            </div>
             {submissions.length > 1 || (first?.speakers.length ?? 0) > 1 ? (
-              <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
+              <p className="border-t px-4 py-3 text-[11px] leading-4 text-muted-foreground">
                 Previewing the first recipient. A separate personalized message is sent to every
                 recipient.
               </p>
             ) : null}
-          </div>
+          </section>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="m-0 shrink-0 border-t bg-background px-5 py-3">
+          <Button size="sm" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
+            size="sm"
             variant={decision === "decline" ? "destructive" : "default"}
             disabled={submitting || (replacingDecision && !confirmRedecide)}
             onClick={() => void submit()}

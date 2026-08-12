@@ -142,7 +142,7 @@ export function OrgSettingsDialog({
             </SidebarContent>
           </Sidebar>
           <main className="flex h-[600px] flex-1 flex-col overflow-hidden">
-            <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 text-sm">
+            <div className="flex flex-1 flex-col overflow-y-auto px-5 py-5 text-sm">
               {open ? (
                 <Suspense fallback={<SectionSkeleton />}>
                   <SectionContent section={section} />
