@@ -32,7 +32,11 @@ export const requestMagicLink = createServerFn({ method: "POST" })
     const program = Effect.tryPromise({
       try: () =>
         auth.api.signInMagicLink({
-          body: { email: data.email, name: data.email, callbackURL: data.callbackUrl ?? "/" },
+          body: {
+            email: data.email,
+            name: data.name?.trim() || data.email,
+            callbackURL: data.callbackUrl ?? "/",
+          },
           headers: request.headers,
         }),
       catch: (cause) => new DbError({ message: "Could not create magic link", cause }),

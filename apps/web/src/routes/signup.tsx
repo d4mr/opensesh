@@ -17,11 +17,11 @@ function Signup() {
   const [panelFailed, setPanelFailed] = useState(false);
   const [sent, setSent] = useState<{ readonly email: string; readonly demoLink?: string }>();
   const form = useForm({
-    defaultValues: { email: "" },
+    defaultValues: { name: "", email: "" },
     onSubmit: async ({ value }) => {
       setError(undefined);
       const result = await requestMagicLink({
-        data: { email: value.email, callbackUrl: "/onboarding" },
+        data: { name: value.name, email: value.email, callbackUrl: "/onboarding" },
       });
       if (!result.ok) {
         setError(result.error.message);
@@ -55,15 +55,30 @@ function Signup() {
                       Start with your work email. No password required.
                     </p>
                   </div>
-                  <form.Field name="email">
+                  <form.Field name="name">
                     {(field) => (
                       <Field className="mt-6">
+                        <FieldLabel htmlFor={field.name}>Your name</FieldLabel>
+                        <Input
+                          id={field.name}
+                          autoComplete="name"
+                          autoFocus
+                          required
+                          placeholder="Jordan Alvarez"
+                          value={field.state.value}
+                          onChange={(event) => field.handleChange(event.target.value)}
+                        />
+                      </Field>
+                    )}
+                  </form.Field>
+                  <form.Field name="email">
+                    {(field) => (
+                      <Field className="mt-4">
                         <FieldLabel htmlFor={field.name}>Email</FieldLabel>
                         <Input
                           id={field.name}
                           type="email"
                           autoComplete="email"
-                          autoFocus
                           required
                           placeholder="you@company.com"
                           value={field.state.value}

@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 export const MagicLinkRequest = Schema.Struct({
   email: Schema.String,
+  name: Schema.optionalKey(Schema.String),
   callbackUrl: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^\//))),
 });
 export type MagicLinkRequest = typeof MagicLinkRequest.Type;
