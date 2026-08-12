@@ -123,6 +123,13 @@ const criterionDraft = (type: ReviewCriterionType): CriterionDraft => ({
   weight: type === "numeric" ? 1 : 1,
 });
 
+const defaultScorecard = (): ReadonlyArray<CriterionDraft> => [
+  { ...criterionDraft("numeric"), label: "Originality", weight: 2 },
+  { ...criterionDraft("numeric"), label: "Relevance" },
+  { ...criterionDraft("dropdown"), label: "Recommendation" },
+  { ...criterionDraft("text"), label: "Comments" },
+];
+
 const roundDraft = (view: ReviewRoundAdminView | undefined, nextPosition: number): RoundDraft => {
   const now = new Date();
   const later = new Date(now.getTime() + 30 * 86_400_000);
@@ -144,7 +151,7 @@ const roundDraft = (view: ReviewRoundAdminView | undefined, nextPosition: number
         options: criterion.options,
         required: criterion.required,
         weight: criterion.weight,
-      })) ?? [],
+      })) ?? defaultScorecard(),
   };
 };
 
