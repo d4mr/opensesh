@@ -120,6 +120,7 @@ interface ReviewsService {
   readonly autoDistribute: (
     roundId: string,
     trackIds: ReadonlyArray<string>,
+    dryRun: boolean,
   ) => Effect.Effect<ReviewAssignmentBatch, DbError | NotFound | RoundClosed>;
   readonly unassign: (
     roundId: string,
@@ -367,18 +368,13 @@ export const ReviewsLive = Layer.effect(
                 )
                 .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
                 .leftJoin(users, eq(users.email, contacts.email))
-                .where(
-                  and(
-                    eq(submissions.eventId, eventId),
-                    isNotNull(submissions.sourceFormId),
-                  ),
-                )
+                .where(and(eq(submissions.eventId, eventId), isNotNull(submissions.sourceFormId)))
                 .orderBy(asc(submissions.code), asc(submissionParticipants.position))
                 .execute(),
             ),
             query(database, "Could not list evaluation tracks", (db) =>
               db
-                .select({ id: tracks.id, name: tracks.name })
+                .select({ id: tracks.id, name: tracks.name, color: tracks.color })
                 .from(tracks)
                 .where(eq(tracks.eventId, eventId))
                 .orderBy(asc(tracks.position))
@@ -1402,7 +1398,7 @@ export const ReviewsLive = Layer.effect(
             },
           ),
         ),
-      autoDistribute: (roundId, trackIds) =>
+      autoDistribute: (roundId, trackIds, dryRun) =>
         query(database, "Could not auto-distribute reviews", (db) =>
           db.transaction(async (transaction) => {
             const [round] = await transaction
@@ -1414,10 +1410,15 @@ export const ReviewsLive = Layer.effect(
             if (round === undefined) return { kind: "notFound" as const };
             if (ensureRoundOpen(round, new Date()) !== undefined)
               return { kind: "closed" as const };
-            const [members, existing, candidates, candidateTracks] = await Promise.all([
+            const [members, existing, candidates] = await Promise.all([
               transaction
-                .select()
+                .select({
+                  member: reviewRoundMembers,
+                  email: users.email,
+                })
                 .from(reviewRoundMembers)
+                .innerJoin(eventMembers, eq(eventMembers.id, reviewRoundMembers.eventMemberId))
+                .innerJoin(users, eq(users.id, eventMembers.userId))
                 .where(eq(reviewRoundMembers.roundId, roundId))
                 .execute(),
               transaction
@@ -1426,7 +1427,7 @@ export const ReviewsLive = Layer.effect(
                 .where(eq(reviewAssignments.roundId, roundId))
                 .execute(),
               transaction
-                .select({ id: submissions.id })
+                .select({ id: submissions.id, code: submissions.code })
                 .from(submissions)
                 .where(
                   and(
@@ -1435,40 +1436,103 @@ export const ReviewsLive = Layer.effect(
                   ),
                 )
                 .execute(),
-              trackIds.length === 0
+            ]);
+            const memberIds = members.map((row) => row.member.eventMemberId);
+            const candidateIds = candidates.map((candidate) => candidate.id);
+            const [candidateTracks, affinities, participantEmails] = await Promise.all([
+              candidateIds.length === 0
                 ? Promise.resolve([])
                 : transaction
-                    .select({ submissionId: submissionTracks.submissionId })
+                    .select({
+                      submissionId: submissionTracks.submissionId,
+                      trackId: submissionTracks.trackId,
+                    })
                     .from(submissionTracks)
-                    .where(inArray(submissionTracks.trackId, trackIds))
+                    .where(inArray(submissionTracks.submissionId, candidateIds))
+                    .execute(),
+              memberIds.length === 0
+                ? Promise.resolve([])
+                : transaction
+                    .select({
+                      eventMemberId: reviewerTracks.eventMemberId,
+                      trackId: reviewerTracks.trackId,
+                    })
+                    .from(reviewerTracks)
+                    .where(inArray(reviewerTracks.eventMemberId, memberIds))
+                    .execute(),
+              candidateIds.length === 0
+                ? Promise.resolve([])
+                : transaction
+                    .select({
+                      submissionId: submissionParticipants.submissionId,
+                      email: contacts.email,
+                    })
+                    .from(submissionParticipants)
+                    .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                    .where(inArray(submissionParticipants.submissionId, candidateIds))
                     .execute(),
             ]);
-            const allowed = new Set(candidateTracks.map((row) => row.submissionId));
-            const planned = planAutoDistribution({
-              submissionIds: candidates.flatMap((candidate) =>
-                trackIds.length === 0 || allowed.has(candidate.id) ? [candidate.id] : [],
+            const allowed = new Set(
+              candidateTracks.flatMap((row) =>
+                trackIds.length === 0 || trackIds.includes(row.trackId) ? [row.submissionId] : [],
               ),
-              members: members.map((member) => ({
+            );
+            const scopedCandidates = candidates.filter(
+              (candidate) => trackIds.length === 0 || allowed.has(candidate.id),
+            );
+            const normalizedParticipantEmails = new Map<string, Set<string>>();
+            for (const participant of participantEmails) {
+              const emails = normalizedParticipantEmails.get(participant.submissionId) ?? new Set();
+              emails.add(participant.email.trim().toLowerCase());
+              normalizedParticipantEmails.set(participant.submissionId, emails);
+            }
+            const plan = planAutoDistribution({
+              submissions: scopedCandidates.map((candidate) => ({
+                ...candidate,
+                trackIds: candidateTracks.flatMap((row) =>
+                  row.submissionId === candidate.id ? [row.trackId] : [],
+                ),
+              })),
+              members: members.map(({ member, email }) => ({
                 eventMemberId: member.eventMemberId,
                 assignmentCap: member.assignmentCap,
+                trackIds: affinities.flatMap((row) =>
+                  row.eventMemberId === member.eventMemberId ? [row.trackId] : [],
+                ),
+                conflictedSubmissionIds: scopedCandidates.flatMap((candidate) =>
+                  normalizedParticipantEmails.get(candidate.id)?.has(email.trim().toLowerCase()) ===
+                  true
+                    ? [candidate.id]
+                    : [],
+                ),
               })),
               existing: existing.map((assignment) => ({
                 submissionId: assignment.submissionId,
                 eventMemberId: assignment.eventMemberId,
+                status: assignment.status,
               })),
+              reviewsPerSubmission: round.reviewsPerSubmission,
             });
-            if (planned.length === 0)
-              return { kind: "ok" as const, rows: [], skipped: candidates.length };
+            if (dryRun || plan.planned.length === 0) {
+              return { kind: "ok" as const, plan, created: 0, skipped: 0 };
+            }
             const created = await transaction
               .insert(reviewAssignments)
-              .values(planned.map((item) => ({ ...item, roundId, assignedAt: new Date() })))
+              .values(
+                plan.planned.map(({ tier: _tier, ...item }) => ({
+                  ...item,
+                  roundId,
+                  assignedAt: new Date(),
+                })),
+              )
               .onConflictDoNothing()
               .returning()
               .execute();
             return {
               kind: "ok" as const,
-              rows: created,
-              skipped: candidates.length - created.length,
+              plan,
+              created: created.length,
+              skipped: plan.planned.length - created.length,
             };
           }),
         ).pipe(
@@ -1478,14 +1542,14 @@ export const ReviewsLive = Layer.effect(
                 return decodeFound(ReviewAssignmentBatch, "Review round", undefined);
               if (outcome.kind === "closed")
                 return Effect.fail(new RoundClosed({ message: "This review round is closed" }));
-              return decodeMany(ReviewAssignment, "review assignment", outcome.rows).pipe(
-                Effect.flatMap((assignments) =>
-                  decode(ReviewAssignmentBatch, "review assignment batch", {
-                    assignments,
-                    skipped: outcome.skipped,
-                  }),
-                ),
-              );
+              return decode(ReviewAssignmentBatch, "review assignment batch", {
+                planned: outcome.plan.planned,
+                created: outcome.created,
+                skipped: outcome.skipped,
+                outOfTrack: outcome.plan.stats.outOfTrack,
+                conflictsSkipped: outcome.plan.stats.conflictsSkipped,
+                shortfalls: outcome.plan.shortfalls,
+              });
             },
           ),
         ),

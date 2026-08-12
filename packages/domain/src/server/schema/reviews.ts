@@ -23,6 +23,7 @@ const reviewRoundFields = {
   opensAt: Schema.Date,
   closesAt: Schema.Date,
   blind: Schema.Boolean,
+  reviewsPerSubmission: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   position: Schema.Number,
   status: ReviewRoundStatus,
 };
@@ -89,9 +90,34 @@ export const ReviewAssignmentMutation = Schema.Struct({
 });
 export type ReviewAssignmentMutation = typeof ReviewAssignmentMutation.Type;
 
+export const AutoDistributionTier = Schema.Literals(["in_track", "generalist", "out_of_track"]);
+export type AutoDistributionTier = typeof AutoDistributionTier.Type;
+export const AutoDistributionPlanItem = Schema.Struct({
+  submissionId: Schema.String,
+  eventMemberId: Schema.String,
+  tier: AutoDistributionTier,
+});
+export type AutoDistributionPlanItem = typeof AutoDistributionPlanItem.Type;
+export const AutoDistributionShortfallReason = Schema.Literals([
+  "caps_exhausted",
+  "conflicts",
+  "no_reviewers",
+]);
+export const AutoDistributionShortfall = Schema.Struct({
+  submissionId: Schema.String,
+  code: Schema.String,
+  missing: Schema.Number,
+  reason: AutoDistributionShortfallReason,
+});
+export type AutoDistributionShortfall = typeof AutoDistributionShortfall.Type;
+
 export const ReviewAssignmentBatch = Schema.Struct({
-  assignments: Schema.Array(ReviewAssignment),
+  planned: Schema.Array(AutoDistributionPlanItem),
+  created: Schema.Number,
   skipped: Schema.Number,
+  outOfTrack: Schema.Number,
+  conflictsSkipped: Schema.Number,
+  shortfalls: Schema.Array(AutoDistributionShortfall),
 });
 export type ReviewAssignmentBatch = typeof ReviewAssignmentBatch.Type;
 
@@ -253,7 +279,9 @@ export type ReviewRoundAdminView = typeof ReviewRoundAdminView.Type;
 export const EvaluationAdminWorkspace = Schema.Struct({
   eventId: Schema.String,
   aiConfigured: Schema.Boolean,
-  tracks: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
+  tracks: Schema.Array(
+    Schema.Struct({ id: Schema.String, name: Schema.String, color: Schema.String }),
+  ),
   rounds: Schema.Array(ReviewRoundAdminView),
 });
 export type EvaluationAdminWorkspace = typeof EvaluationAdminWorkspace.Type;
@@ -314,6 +342,7 @@ export const SaveReviewRoundRequest = Schema.Struct({
   opensAt: Schema.String,
   closesAt: Schema.String,
   blind: Schema.Boolean,
+  reviewsPerSubmission: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   position: Schema.Number,
   criteria: Schema.Array(ReviewCriterionSave),
 });
@@ -334,6 +363,15 @@ export const AutoDistributeReviewsRequest = Schema.Struct({
   eventId: Schema.String,
   roundId: Schema.String,
   trackIds: Schema.Array(Schema.String),
+  dryRun: Schema.optionalKey(Schema.Boolean),
+});
+export const ListReviewerTracksRequest = Schema.Struct({ eventId: Schema.String });
+export const SetReviewerTracksRequest = Schema.Struct({
+  eventId: Schema.String,
+  eventMemberId: Schema.String,
+  trackIds: Schema.Array(Schema.String),
+  roundId: Schema.optionalKey(Schema.String),
+  assignmentCap: Schema.optionalKey(NullableNumber),
 });
 export const UnassignReviewRequest = Schema.Struct({
   eventId: Schema.String,
@@ -434,49 +472,121 @@ export const ensureRoundOpen = (
 export interface AutoDistributionMember {
   readonly eventMemberId: string;
   readonly assignmentCap: number | null;
+  readonly trackIds: ReadonlyArray<string>;
+  readonly conflictedSubmissionIds: ReadonlyArray<string>;
 }
 
 export interface AutoDistributionAssignment {
   readonly submissionId: string;
   readonly eventMemberId: string;
+  readonly status: ReviewAssignmentStatus;
 }
 
 export const planAutoDistribution = (input: {
-  readonly submissionIds: ReadonlyArray<string>;
+  readonly submissions: ReadonlyArray<{
+    readonly id: string;
+    readonly code: string;
+    readonly trackIds: ReadonlyArray<string>;
+  }>;
   readonly members: ReadonlyArray<AutoDistributionMember>;
   readonly existing: ReadonlyArray<AutoDistributionAssignment>;
+  readonly reviewsPerSubmission: number;
 }) => {
-  const members = [...input.members].sort((left, right) =>
-    left.eventMemberId.localeCompare(right.eventMemberId),
-  );
-  const submissions = [...new Set(input.submissionIds)].sort();
   const existingKeys = new Set(
-    input.existing.map((item) => `${item.submissionId}:${item.eventMemberId}`),
+    input.existing.map(({ submissionId, eventMemberId }) => `${submissionId}:${eventMemberId}`),
   );
-  const counts = new Map<string, number>();
+  const assignmentCounts = new Map<string, number>();
+  const reviewCounts = new Map<string, number>();
   for (const assignment of input.existing) {
-    counts.set(assignment.eventMemberId, (counts.get(assignment.eventMemberId) ?? 0) + 1);
+    if (assignment.status === "recused") continue;
+    assignmentCounts.set(
+      assignment.eventMemberId,
+      (assignmentCounts.get(assignment.eventMemberId) ?? 0) + 1,
+    );
+    reviewCounts.set(assignment.submissionId, (reviewCounts.get(assignment.submissionId) ?? 0) + 1);
   }
-  const planned: Array<AutoDistributionAssignment> = [];
-  for (const submissionId of submissions) {
-    const member = members.find((candidate) => {
-      const count = counts.get(candidate.eventMemberId) ?? 0;
-      return (
-        !existingKeys.has(`${submissionId}:${candidate.eventMemberId}`) &&
-        (candidate.assignmentCap === null || count < candidate.assignmentCap)
-      );
-    });
-    if (member === undefined) continue;
-    planned.push({ submissionId, eventMemberId: member.eventMemberId });
-    existingKeys.add(`${submissionId}:${member.eventMemberId}`);
-    counts.set(member.eventMemberId, (counts.get(member.eventMemberId) ?? 0) + 1);
-    members.sort((left, right) => {
-      const countDifference =
-        (counts.get(left.eventMemberId) ?? 0) - (counts.get(right.eventMemberId) ?? 0);
-      return countDifference || left.eventMemberId.localeCompare(right.eventMemberId);
-    });
+  const submissions = Array.from(
+    new Map(input.submissions.map((submission) => [submission.id, submission])).values(),
+  ).sort((left, right) => {
+    const countDifference = (reviewCounts.get(left.id) ?? 0) - (reviewCounts.get(right.id) ?? 0);
+    return countDifference || left.id.localeCompare(right.id);
+  });
+  const members = Array.from(
+    new Map(input.members.map((member) => [member.eventMemberId, member])).values(),
+  ).sort((left, right) => left.eventMemberId.localeCompare(right.eventMemberId));
+  const planned: Array<AutoDistributionPlanItem> = [];
+  const conflictKeys = new Set<string>();
+  const tierOrder = { in_track: 1, generalist: 2, out_of_track: 3 } as const;
+  const tierFor = (
+    member: AutoDistributionMember,
+    submissionTrackIds: ReadonlySet<string>,
+  ): AutoDistributionTier => {
+    if (member.trackIds.some((trackId) => submissionTrackIds.has(trackId))) return "in_track";
+    return member.trackIds.length === 0 ? "generalist" : "out_of_track";
+  };
+
+  for (let level = 1; level <= input.reviewsPerSubmission; level += 1) {
+    for (const submission of submissions) {
+      if ((reviewCounts.get(submission.id) ?? 0) >= level) continue;
+      const submissionTracks = new Set(submission.trackIds);
+      const candidates = members
+        .flatMap((member) => {
+          const key = `${submission.id}:${member.eventMemberId}`;
+          if (existingKeys.has(key)) return [];
+          if (member.conflictedSubmissionIds.includes(submission.id)) {
+            conflictKeys.add(key);
+            return [];
+          }
+          const load = assignmentCounts.get(member.eventMemberId) ?? 0;
+          if (member.assignmentCap !== null && load >= member.assignmentCap) return [];
+          return [{ member, load, tier: tierFor(member, submissionTracks) }];
+        })
+        .sort((left, right) => {
+          return (
+            tierOrder[left.tier] - tierOrder[right.tier] ||
+            left.load - right.load ||
+            left.member.eventMemberId.localeCompare(right.member.eventMemberId)
+          );
+        });
+      const candidate = candidates[0];
+      if (candidate === undefined) continue;
+      planned.push({
+        submissionId: submission.id,
+        eventMemberId: candidate.member.eventMemberId,
+        tier: candidate.tier,
+      });
+      existingKeys.add(`${submission.id}:${candidate.member.eventMemberId}`);
+      assignmentCounts.set(candidate.member.eventMemberId, candidate.load + 1);
+      reviewCounts.set(submission.id, (reviewCounts.get(submission.id) ?? 0) + 1);
+    }
   }
-  return planned;
+
+  const shortfalls: Array<AutoDistributionShortfall> = submissions.flatMap((submission) => {
+    const missing = Math.max(
+      0,
+      input.reviewsPerSubmission - (reviewCounts.get(submission.id) ?? 0),
+    );
+    if (missing === 0) return [];
+    const unassigned = members.filter(
+      (member) => !existingKeys.has(`${submission.id}:${member.eventMemberId}`),
+    );
+    const reason =
+      unassigned.length === 0
+        ? "no_reviewers"
+        : unassigned.every((member) => member.conflictedSubmissionIds.includes(submission.id))
+          ? "conflicts"
+          : "caps_exhausted";
+    return [{ submissionId: submission.id, code: submission.code, missing, reason }];
+  });
+
+  return {
+    planned,
+    stats: {
+      outOfTrack: planned.filter((assignment) => assignment.tier === "out_of_track").length,
+      conflictsSkipped: conflictKeys.size,
+    },
+    shortfalls,
+  };
 };
 
 export const redactBlindSubmission = (input: {

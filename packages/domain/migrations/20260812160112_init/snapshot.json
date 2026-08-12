@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "8da14fcc-5368-48b9-a75c-4eb169156e68",
+  "id": "5096238e-ab5f-4432-ae03-ddb5ed164d9d",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -6779,6 +6779,19 @@
       "generated": null,
       "identity": null,
       "name": "blind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "review_rounds"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "2",
+      "generated": null,
+      "identity": null,
+      "name": "reviews_per_submission",
       "entityType": "columns",
       "schema": "public",
       "table": "review_rounds"

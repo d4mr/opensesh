@@ -981,9 +981,7 @@ export const PortalLive = Layer.effect(
                     eq(submissions.id, sessionFileRequirementAssignments.submissionId),
                   )
                   .leftJoin(contacts, eq(contacts.id, sessionFileRequirementAssignments.contactId))
-                  .where(
-                    and(eq(sessionFileRequirements.eventId, eventId), activeSession),
-                  )
+                  .where(and(eq(sessionFileRequirements.eventId, eventId), activeSession))
                   .orderBy(asc(sessionFileRequirements.position), asc(submissions.code))
                   .execute(),
             ),

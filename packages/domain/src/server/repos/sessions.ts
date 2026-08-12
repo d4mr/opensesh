@@ -187,7 +187,10 @@ export const SessionsLive = Layer.effect(
             ),
           })
           .from(sessionFileRequirementAssignments)
-          .innerJoin(submissions, eq(submissions.id, sessionFileRequirementAssignments.submissionId))
+          .innerJoin(
+            submissions,
+            eq(submissions.id, sessionFileRequirementAssignments.submissionId),
+          )
           .where(eq(submissions.eventId, eventId))
           .groupBy(sessionFileRequirementAssignments.submissionId)
           .execute(),
@@ -342,7 +345,10 @@ export const SessionsLive = Layer.effect(
                 .innerJoin(events, eq(events.id, submissions.eventId))
                 .leftJoin(rooms, eq(rooms.id, submissions.roomId))
                 .where(
-                  and(eq(submissions.id, input.submissionId), eq(submissions.eventId, input.eventId)),
+                  and(
+                    eq(submissions.id, input.submissionId),
+                    eq(submissions.eventId, input.eventId),
+                  ),
                 )
                 .for("update", { of: submissions })
             )[0];
@@ -521,7 +527,10 @@ export const SessionsLive = Layer.effect(
                 .innerJoin(events, eq(events.id, submissions.eventId))
                 .leftJoin(rooms, eq(rooms.id, submissions.roomId))
                 .where(
-                  and(eq(submissions.id, input.submissionId), eq(submissions.eventId, input.eventId)),
+                  and(
+                    eq(submissions.id, input.submissionId),
+                    eq(submissions.eventId, input.eventId),
+                  ),
                 )
                 .for("update", { of: submissions })
             )[0];

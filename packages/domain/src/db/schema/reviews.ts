@@ -33,6 +33,7 @@ export const reviewRounds = pgTable(
     opensAt: timestamp("opens_at", { withTimezone: true }).notNull(),
     closesAt: timestamp("closes_at", { withTimezone: true }).notNull(),
     blind: boolean("blind").notNull().default(false),
+    reviewsPerSubmission: integer("reviews_per_submission").notNull().default(2),
     position: integer("position").notNull(),
     status: reviewRoundStatus("status").notNull().default("draft"),
     ...timestamps,

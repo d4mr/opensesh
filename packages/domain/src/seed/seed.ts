@@ -127,6 +127,22 @@ const devflowEventMembers = [
     createdAt: seededAt,
     updatedAt: seededAt,
   },
+  {
+    id: "mem_priya_devflow",
+    eventId: devflowEvent.id,
+    userId: "usr_priya",
+    role: "reviewer" as const,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
+  {
+    id: "mem_marcus_devflow",
+    eventId: devflowEvent.id,
+    userId: "usr_marcus",
+    role: "reviewer" as const,
+    createdAt: seededAt,
+    updatedAt: seededAt,
+  },
 ];
 const devflowTracks = [
   { id: "trk_devflow_ai", name: "AI Engineering", color: "#2563eb", position: 1 },
@@ -458,6 +474,7 @@ const devflowReviewRounds = [
     opensAt: new Date("2026-08-01T07:00:00.000Z"),
     closesAt: new Date("2026-10-16T06:59:59.000Z"),
     blind: true,
+    reviewsPerSubmission: 2,
     position: 1,
     status: "open" as const,
     createdAt: seededAt,
@@ -470,12 +487,25 @@ const devflowReviewRounds = [
     opensAt: new Date("2026-10-16T07:00:00.000Z"),
     closesAt: new Date("2026-12-01T07:59:59.000Z"),
     blind: false,
+    reviewsPerSubmission: 2,
     position: 2,
     status: "draft" as const,
     createdAt: seededAt,
     updatedAt: seededAt,
   },
 ];
+const devflowReviewerTracks = [
+  {
+    id: "rt_sam_devflow_ai",
+    eventMemberId: "mem_sam_devflow",
+    trackId: "trk_devflow_ai",
+  },
+  {
+    id: "rt_marcus_devflow_platform",
+    eventMemberId: "mem_marcus_devflow",
+    trackId: "trk_devflow_platform",
+  },
+].map((row) => ({ ...row, createdAt: seededAt, updatedAt: seededAt }));
 const devflowReviewCriteria = [
   {
     id: "crit_devflow_originality",
@@ -1212,7 +1242,9 @@ export const seedDatabase = async (database: Database) => {
     ]);
 
     await Promise.all([
-      transaction.insert(reviewerTracks).values(rows(seedData.reviewerTracks)),
+      transaction
+        .insert(reviewerTracks)
+        .values([...rows(seedData.reviewerTracks), ...devflowReviewerTracks]),
       transaction.insert(formFields).values([...rows(seedData.formFields), ...devflowFormFields]),
       transaction
         .insert(submissions)
@@ -1222,14 +1254,18 @@ export const seedDatabase = async (database: Database) => {
         ]),
       transaction.insert(taskTemplates).values(rows(seedData.taskTemplates)),
       transaction.insert(reviewCriteria).values(devflowReviewCriteria),
-      transaction.insert(reviewRoundMembers).values({
-        id: "rndmem_devflow_sam",
-        roundId: "rnd_devflow_initial",
-        eventMemberId: "mem_sam_devflow",
-        assignmentCap: null,
-        createdAt: seededAt,
-        updatedAt: seededAt,
-      }),
+      transaction.insert(reviewRoundMembers).values(
+        [
+          { id: "rndmem_devflow_sam", eventMemberId: "mem_sam_devflow", assignmentCap: null },
+          { id: "rndmem_devflow_priya", eventMemberId: "mem_priya_devflow", assignmentCap: 4 },
+          { id: "rndmem_devflow_marcus", eventMemberId: "mem_marcus_devflow", assignmentCap: 4 },
+        ].map((member) => ({
+          ...member,
+          roundId: "rnd_devflow_initial",
+          createdAt: seededAt,
+          updatedAt: seededAt,
+        })),
+      ),
       transaction.insert(organizationContactEvents).values(organizationContactEventRows),
       transaction.insert(organizationContactTags).values(organizationContactTagRows),
       transaction.insert(crmPipelineCards).values(crmPipelineCardRows),

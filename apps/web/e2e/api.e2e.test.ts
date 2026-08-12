@@ -552,6 +552,7 @@ describe.sequential("all opensesh REST operations through local workerd and Post
         opensAt: new Date(now - 86_400_000).toISOString(),
         closesAt: new Date(now + 30 * 86_400_000).toISOString(),
         blind: false,
+        reviewsPerSubmission: 2,
         position: 3,
         criteria: [
           {
@@ -584,16 +585,43 @@ describe.sequential("all opensesh REST operations through local workerd and Post
     const reviewerMember = asRecord(reviewer.member);
     const eventMemberId = stringField(reviewerMember, "eventMemberId");
 
+    await requestOperation("setReviewerTracks", {
+      params: { eventId: DEVFLOW_EVENT_ID, eventMemberId },
+      body: { trackIds: ["trk_devflow_ai"] },
+    });
+    const reviewerTracks = asArray(
+      await requestOperation("listReviewerTracks", { params: { eventId: DEVFLOW_EVENT_ID } }),
+    ).map(asRecord);
+    expect(
+      reviewerTracks.some(
+        (row) =>
+          row.eventMemberId === eventMemberId && asArray(row.trackIds).includes("trk_devflow_ai"),
+      ),
+    ).toBe(true);
+
     const assigned = await requestOperation("assignReviews", {
       params: { eventId: DEVFLOW_EVENT_ID, roundId: INITIAL_ROUND_ID },
       body: { eventMemberId, submissionIds: ["sub_devflow_2"] },
     });
     expect(numberField(assigned, "created")).toBe(1);
 
-    await requestOperation("autoDistributeReviews", {
+    const preview = asRecord(
+      await requestOperation("autoDistributeReviews", {
+        params: { eventId: DEVFLOW_EVENT_ID, roundId: INITIAL_ROUND_ID },
+        body: { trackIds: ["trk_devflow_ai"], dryRun: true },
+      }),
+    );
+    expect(asArray(preview.planned).length).toBeGreaterThan(0);
+    const distributed = await requestOperation("autoDistributeReviews", {
       params: { eventId: DEVFLOW_EVENT_ID, roundId: INITIAL_ROUND_ID },
-      body: { trackIds: ["trk_devflow_ai"] },
+      body: { trackIds: ["trk_devflow_ai"], dryRun: false },
     });
+    expect(numberField(distributed, "created")).toBe(asArray(preview.planned).length);
+    const repeated = await requestOperation("autoDistributeReviews", {
+      params: { eventId: DEVFLOW_EVENT_ID, roundId: INITIAL_ROUND_ID },
+      body: { trackIds: ["trk_devflow_ai"], dryRun: false },
+    });
+    expect(numberField(repeated, "created")).toBe(0);
 
     const afterAssignment = asRecord(
       await requestOperation("getEvaluation", { params: { eventId: DEVFLOW_EVENT_ID } }),

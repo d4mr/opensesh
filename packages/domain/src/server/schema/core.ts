@@ -135,6 +135,12 @@ export const ReviewerTrack = Schema.Struct({
 });
 export type ReviewerTrack = typeof ReviewerTrack.Type;
 
+export const ReviewerTrackSet = Schema.Struct({
+  eventMemberId: Schema.String,
+  trackIds: Schema.Array(Schema.String),
+});
+export type ReviewerTrackSet = typeof ReviewerTrackSet.Type;
+
 export const EventAdmin = Schema.Struct({
   id: Schema.String,
   name: Schema.String,

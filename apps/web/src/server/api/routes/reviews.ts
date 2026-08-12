@@ -2,12 +2,14 @@ import { ReviewCriterionSave, type ReviewCriterionSave as CriterionType } from "
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Reviews } from "@opensesh/domain/server/repos";
+import { Events, Reviews } from "@opensesh/domain/server/repos";
 import {
+  ReviewAssignmentBatch,
   AiReviewResult,
   EvaluationAdminWorkspace,
   ReviewerProvisioned,
 } from "@opensesh/domain/server/schema/reviews";
+import { ReviewerTrackSet } from "@opensesh/domain/server/schema/core";
 import { Effect, Schema } from "effect";
 
 import { endpoint, type ApiEndpoint } from "../types";
@@ -102,6 +104,7 @@ const RoundBody = Schema.Struct({
   opensAt: Schema.String,
   closesAt: Schema.String,
   blind: Schema.Boolean,
+  reviewsPerSubmission: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   position: Schema.Number,
   criteria: Schema.Array(ReviewCriterionSave),
 });
@@ -117,7 +120,11 @@ const AssignBody = Schema.Struct({
   submissionIds: Schema.Array(Schema.String),
 });
 
-const AutoDistributeBody = Schema.Struct({ trackIds: Schema.Array(Schema.String) });
+const AutoDistributeBody = Schema.Struct({
+  trackIds: Schema.Array(Schema.String),
+  dryRun: Schema.optionalKey(Schema.Boolean),
+});
+const ReviewerTracksBody = Schema.Struct({ trackIds: Schema.Array(Schema.String) });
 const RemindersBody = Schema.Struct({ eventMemberIds: Schema.Array(Schema.String) });
 const AiReviewBody = Schema.Struct({ submissionId: Schema.String });
 const AiOverrideBody = Schema.Struct({
@@ -189,6 +196,7 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
           opensAt,
           closesAt,
           blind: body.blind,
+          reviewsPerSubmission: body.reviewsPerSubmission,
           position: body.position,
           status,
         });
@@ -270,13 +278,10 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "autoDistributeReviews",
     summary: "Auto-distribute submissions across reviewers",
     description:
-      "Balances open submissions across the round's reviewers, honoring assignment caps and track scopes.",
+      "Fills the round's review quorum breadth-first, preferring track affinity while honoring caps and conflicts. Set dryRun to preview without inserting.",
     tag: "Reviews",
     bodySchema: AutoDistributeBody,
-    successSchema: Schema.Struct({
-      created: Schema.Number,
-      skipped: Schema.Number,
-    }),
+    successSchema: ReviewAssignmentBatch,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AutoDistributeBody.Type;
@@ -284,8 +289,43 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const roundId = context.params.roundId ?? "";
         yield* requireRound(access.event.id, roundId);
         const reviews = yield* Reviews;
-        const result = yield* reviews.autoDistribute(roundId, body.trackIds);
-        return { created: result.assignments.length, skipped: result.skipped };
+        return yield* reviews.autoDistribute(roundId, body.trackIds, body.dryRun ?? false);
+      }),
+  }),
+  endpoint({
+    method: "GET",
+    path: "/events/{eventId}/reviewer-tracks",
+    operationId: "listReviewerTracks",
+    summary: "List reviewer track affinities",
+    description: "Returns the event-scoped affinity set for every event member.",
+    tag: "Reviews",
+    successSchema: Schema.Array(ReviewerTrackSet),
+    handler: (context) =>
+      Effect.gen(function* () {
+        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
+        const events = yield* Events;
+        return yield* events.listReviewerTracks(access.event.id);
+      }),
+  }),
+  endpoint({
+    method: "PUT",
+    path: "/events/{eventId}/reviewer-tracks/{eventMemberId}",
+    operationId: "setReviewerTracks",
+    summary: "Set reviewer track affinities",
+    description: "Replaces the event member's track affinities with the supplied set.",
+    tag: "Reviews",
+    bodySchema: ReviewerTracksBody,
+    successSchema: ReviewerTrackSet,
+    handler: (context) =>
+      Effect.gen(function* () {
+        const body = context.body as typeof ReviewerTracksBody.Type;
+        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
+        const events = yield* Events;
+        return yield* events.setReviewerTracks(
+          access.event.id,
+          context.params.eventMemberId ?? "",
+          body.trackIds,
+        );
       }),
   }),
   endpoint({

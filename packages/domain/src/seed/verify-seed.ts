@@ -70,8 +70,8 @@ const expectedTables: ReadonlyArray<{
   { name: "agenda_drafts", table: agendaDrafts, expected: 0 },
   { name: "users", table: users, expected: 9 },
   { name: "accounts", table: accounts, expected: 9 },
-  { name: "event_members", table: eventMembers, expected: 3 },
-  { name: "reviewer_tracks", table: reviewerTracks, expected: 2 },
+  { name: "event_members", table: eventMembers, expected: 5 },
+  { name: "reviewer_tracks", table: reviewerTracks, expected: 4 },
   { name: "tracks", table: tracks, expected: 7 },
   { name: "tags", table: tags, expected: 8 },
   { name: "formats", table: formats, expected: 10 },
@@ -106,7 +106,7 @@ const expectedTables: ReadonlyArray<{
   { name: "submission_activity", table: submissionActivity, expected: 17 },
   { name: "review_rounds", table: reviewRounds, expected: 2 },
   { name: "review_criteria", table: reviewCriteria, expected: 6 },
-  { name: "review_round_members", table: reviewRoundMembers, expected: 1 },
+  { name: "review_round_members", table: reviewRoundMembers, expected: 3 },
   { name: "review_assignments", table: reviewAssignments, expected: 0 },
   { name: "review_answers", table: reviewAnswers, expected: 0 },
   { name: "ai_review_results", table: aiReviewResults, expected: 0 },
@@ -248,6 +248,7 @@ export const verifySeed = async (database: Database) => {
     devflowLibrary.join(",") === "3,5,4,4";
   const roundsMatch =
     new Set(rounds.map((row) => row.round.id)).size === 2 &&
+    rounds.every((row) => row.round.reviewsPerSubmission === 2) &&
     rounds.filter((row) => row.round.id === "rnd_devflow_initial").length === 4 &&
     rounds.filter((row) => row.round.id === "rnd_devflow_final").length === 2;
   const deliverablesMatch =

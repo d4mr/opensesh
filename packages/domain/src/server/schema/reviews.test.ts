@@ -68,33 +68,178 @@ describe("review domain", () => {
     expect(error?._tag).toBe("InvalidInput");
   });
 
-  it("honors assignment caps during deterministic auto-distribution", () => {
-    const planned = planAutoDistribution({
-      submissionIds: ["s3", "s1", "s2"],
-      members: [{ eventMemberId: "sam", assignmentCap: 2 }],
+  const submission = (id: string, trackIds: ReadonlyArray<string> = ["track-a"]) => ({
+    id,
+    code: id.toUpperCase(),
+    trackIds,
+  });
+  const member = (
+    eventMemberId: string,
+    input: {
+      readonly cap?: number | null;
+      readonly trackIds?: ReadonlyArray<string>;
+      readonly conflicts?: ReadonlyArray<string>;
+    } = {},
+  ) => ({
+    eventMemberId,
+    assignmentCap: input.cap ?? null,
+    trackIds: input.trackIds ?? [],
+    conflictedSubmissionIds: input.conflicts ?? [],
+  });
+  const existing = (
+    submissionId: string,
+    eventMemberId: string,
+    status: "pending" | "completed" | "recused" = "pending",
+  ) => ({ submissionId, eventMemberId, status });
+
+  it("fills the configured quorum breadth-first", () => {
+    const result = planAutoDistribution({
+      submissions: [submission("s2"), submission("s1")],
+      members: [member("reviewer-b"), member("reviewer-a")],
       existing: [],
+      reviewsPerSubmission: 2,
     });
 
-    expect(planned).toEqual([
-      { submissionId: "s1", eventMemberId: "sam" },
-      { submissionId: "s2", eventMemberId: "sam" },
+    expect(
+      result.planned.map(({ submissionId, eventMemberId }) => ({
+        submissionId,
+        eventMemberId,
+      })),
+    ).toEqual([
+      { submissionId: "s1", eventMemberId: "reviewer-a" },
+      { submissionId: "s2", eventMemberId: "reviewer-b" },
+      { submissionId: "s1", eventMemberId: "reviewer-b" },
+      { submissionId: "s2", eventMemberId: "reviewer-a" },
+    ]);
+    expect(result.shortfalls).toEqual([]);
+  });
+
+  it("counts existing non-recused assignments toward quorum", () => {
+    const result = planAutoDistribution({
+      submissions: [submission("s1")],
+      members: [member("reviewer-a"), member("reviewer-b"), member("reviewer-c")],
+      existing: [
+        existing("s1", "reviewer-a", "completed"),
+        existing("s1", "reviewer-b", "recused"),
+      ],
+      reviewsPerSubmission: 2,
+    });
+
+    expect(result.planned).toEqual([
+      { submissionId: "s1", eventMemberId: "reviewer-c", tier: "generalist" },
     ]);
   });
 
-  it("never duplicates an existing assignment", () => {
-    const planned = planAutoDistribution({
-      submissionIds: ["s1", "s1", "s2"],
+  it("prefers in-track reviewers, then generalists, then out-of-track reviewers", () => {
+    const result = planAutoDistribution({
+      submissions: [submission("s1", ["track-a"])],
       members: [
-        { eventMemberId: "reviewer-a", assignmentCap: 2 },
-        { eventMemberId: "reviewer-b", assignmentCap: 2 },
+        member("out", { trackIds: ["track-b"] }),
+        member("generalist"),
+        member("match", { trackIds: ["track-a"] }),
       ],
-      existing: [{ submissionId: "s1", eventMemberId: "reviewer-a" }],
+      existing: [],
+      reviewsPerSubmission: 3,
     });
 
-    expect(planned).not.toContainEqual({ submissionId: "s1", eventMemberId: "reviewer-a" });
-    expect(new Set(planned.map((item) => `${item.submissionId}:${item.eventMemberId}`)).size).toBe(
-      planned.length,
-    );
+    expect(result.planned.map((assignment) => assignment.eventMemberId)).toEqual([
+      "match",
+      "generalist",
+      "out",
+    ]);
+    expect(result.stats.outOfTrack).toBe(1);
+  });
+
+  it("enforces assignment caps across existing and planned load", () => {
+    const result = planAutoDistribution({
+      submissions: [submission("s1"), submission("s2"), submission("s3")],
+      members: [member("reviewer", { cap: 2 })],
+      existing: [existing("outside", "reviewer")],
+      reviewsPerSubmission: 1,
+    });
+
+    expect(result.planned).toHaveLength(1);
+    expect(result.shortfalls).toEqual([
+      { submissionId: "s2", code: "S2", missing: 1, reason: "caps_exhausted" },
+      { submissionId: "s3", code: "S3", missing: 1, reason: "caps_exhausted" },
+    ]);
+  });
+
+  it("never plans conflicts and counts each skipped pair once", () => {
+    const result = planAutoDistribution({
+      submissions: [submission("s1")],
+      members: [member("speaker", { conflicts: ["s1"] })],
+      existing: [],
+      reviewsPerSubmission: 2,
+    });
+
+    expect(result.planned).toEqual([]);
+    expect(result.stats.conflictsSkipped).toBe(1);
+    expect(result.shortfalls).toEqual([
+      { submissionId: "s1", code: "S1", missing: 2, reason: "conflicts" },
+    ]);
+  });
+
+  it("spills over out of track only when earlier tiers cannot meet quorum", () => {
+    const result = planAutoDistribution({
+      submissions: [submission("s1", ["track-a"])],
+      members: [
+        member("match", { cap: 1, trackIds: ["track-a"] }),
+        member("spill", { trackIds: ["track-b"] }),
+      ],
+      existing: [],
+      reviewsPerSubmission: 2,
+    });
+
+    expect(result.planned).toEqual([
+      { submissionId: "s1", eventMemberId: "match", tier: "in_track" },
+      { submissionId: "s1", eventMemberId: "spill", tier: "out_of_track" },
+    ]);
+    expect(result.stats.outOfTrack).toBe(1);
+  });
+
+  it("distinguishes no-reviewer and cap-exhausted shortfalls", () => {
+    const noReviewers = planAutoDistribution({
+      submissions: [submission("s1")],
+      members: [],
+      existing: [],
+      reviewsPerSubmission: 1,
+    });
+    const capped = planAutoDistribution({
+      submissions: [submission("s1")],
+      members: [member("reviewer", { cap: 1 })],
+      existing: [existing("other", "reviewer")],
+      reviewsPerSubmission: 1,
+    });
+
+    expect(noReviewers.shortfalls[0]?.reason).toBe("no_reviewers");
+    expect(capped.shortfalls[0]?.reason).toBe("caps_exhausted");
+  });
+
+  it("is deterministic when submissions, members, tracks, and existing rows are shuffled", () => {
+    const input = {
+      submissions: [submission("s2", ["track-b"]), submission("s1", ["track-a"])],
+      members: [
+        member("reviewer-b", { trackIds: ["track-b", "track-a"] }),
+        member("reviewer-a", { trackIds: ["track-a"] }),
+      ],
+      existing: [existing("s2", "reviewer-a")],
+      reviewsPerSubmission: 2,
+    } as const;
+    const shuffled = {
+      ...input,
+      submissions: [...input.submissions].reverse().map((item) => ({
+        ...item,
+        trackIds: [...item.trackIds].reverse(),
+      })),
+      members: [...input.members].reverse().map((item) => ({
+        ...item,
+        trackIds: [...item.trackIds].reverse(),
+      })),
+      existing: [...input.existing].reverse(),
+    };
+
+    expect(planAutoDistribution(shuffled)).toEqual(planAutoDistribution(input));
   });
 
   it("removes every identity field from a blind submission", () => {

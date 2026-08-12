@@ -42,6 +42,7 @@ import {
   Track,
   type TrackCreate,
   type TrackUpdate,
+  ReviewerTrackSet,
 } from "../schema/core";
 import { decode, decodeFound, decodeMany, query } from "./shared";
 
@@ -76,6 +77,14 @@ interface EventsService {
     userId: string,
   ) => Effect.Effect<"removed" | "reviewer", DbError | NotFound>;
   readonly listTracks: (eventId: string) => Effect.Effect<ReadonlyArray<Track>, DbError>;
+  readonly listReviewerTracks: (
+    eventId: string,
+  ) => Effect.Effect<ReadonlyArray<ReviewerTrackSet>, DbError>;
+  readonly setReviewerTracks: (
+    eventId: string,
+    eventMemberId: string,
+    trackIds: ReadonlyArray<string>,
+  ) => Effect.Effect<ReviewerTrackSet, DbError | InvalidInput | NotFound>;
   readonly createTrack: (input: TrackCreate) => Effect.Effect<Track, DbError>;
   readonly updateTrack: (
     id: string,
@@ -411,6 +420,83 @@ export const EventsLive = Layer.effect(
             .orderBy(asc(tracks.position))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Track, "track", rows))),
+      listReviewerTracks: (eventId) =>
+        query(database, "Could not list reviewer tracks", (db) =>
+          db
+            .select({ eventMemberId: eventMembers.id, trackId: reviewerTracks.trackId })
+            .from(eventMembers)
+            .leftJoin(reviewerTracks, eq(reviewerTracks.eventMemberId, eventMembers.id))
+            .where(eq(eventMembers.eventId, eventId))
+            .orderBy(asc(eventMembers.id), asc(reviewerTracks.trackId))
+            .execute(),
+        ).pipe(
+          Effect.flatMap((rows) =>
+            decodeMany(
+              ReviewerTrackSet,
+              "reviewer track set",
+              Array.from(new Set(rows.map((row) => row.eventMemberId))).map((eventMemberId) => ({
+                eventMemberId,
+                trackIds: rows.flatMap((row) =>
+                  row.eventMemberId === eventMemberId && row.trackId !== null ? [row.trackId] : [],
+                ),
+              })),
+            ),
+          ),
+        ),
+      setReviewerTracks: (eventId, eventMemberId, trackIds) => {
+        const normalizedTrackIds = Array.from(new Set(trackIds)).sort();
+        return query(database, "Could not set reviewer tracks", (db) =>
+          db.transaction(async (transaction) => {
+            const [member] = await transaction
+              .select({ id: eventMembers.id })
+              .from(eventMembers)
+              .where(and(eq(eventMembers.id, eventMemberId), eq(eventMembers.eventId, eventId)))
+              .limit(1)
+              .execute();
+            if (member === undefined) return { kind: "notFound" as const };
+            const matchingTracks =
+              normalizedTrackIds.length === 0
+                ? []
+                : await transaction
+                    .select({ id: tracks.id })
+                    .from(tracks)
+                    .where(and(eq(tracks.eventId, eventId), inArray(tracks.id, normalizedTrackIds)))
+                    .execute();
+            if (matchingTracks.length !== normalizedTrackIds.length) {
+              return { kind: "invalid" as const };
+            }
+            await transaction
+              .delete(reviewerTracks)
+              .where(eq(reviewerTracks.eventMemberId, eventMemberId))
+              .execute();
+            if (normalizedTrackIds.length > 0) {
+              await transaction
+                .insert(reviewerTracks)
+                .values(normalizedTrackIds.map((trackId) => ({ eventMemberId, trackId })))
+                .onConflictDoNothing()
+                .execute();
+            }
+            return { kind: "ok" as const };
+          }),
+        ).pipe(
+          Effect.flatMap(
+            (outcome): Effect.Effect<ReviewerTrackSet, DbError | InvalidInput | NotFound> => {
+              if (outcome.kind === "notFound") {
+                return Effect.fail(new NotFound({ message: "Event member not found" }));
+              }
+              if (outcome.kind === "invalid") {
+                return Effect.fail(
+                  new InvalidInput({ message: "Every reviewer track must belong to this event" }),
+                );
+              }
+              return decode(ReviewerTrackSet, "reviewer track set", {
+                eventMemberId,
+                trackIds: normalizedTrackIds,
+              });
+            },
+          ),
+        );
+      },
       createTrack: (input) =>
         query(database, "Could not create track", (db) =>
           db.insert(tracks).values(input).returning().execute(),

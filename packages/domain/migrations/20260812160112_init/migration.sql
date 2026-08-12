@@ -673,6 +673,7 @@ CREATE TABLE "review_rounds" (
 	"opens_at" timestamp with time zone NOT NULL,
 	"closes_at" timestamp with time zone NOT NULL,
 	"blind" boolean DEFAULT false NOT NULL,
+	"reviews_per_submission" integer DEFAULT 2 NOT NULL,
 	"position" integer NOT NULL,
 	"status" "review_round_status" DEFAULT 'draft'::"review_round_status" NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,

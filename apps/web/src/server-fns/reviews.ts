@@ -7,9 +7,11 @@ import {
   Forbidden,
   GenerateAiReviewRequest,
   InvalidInput,
+  ListReviewerTracksRequest,
   OverrideAiReviewRequest,
   RecuseReviewRequest,
   SaveReviewRoundRequest,
+  SetReviewerTracksRequest,
   SendReviewRemindersRequest,
   SubmitReviewAnswersRequest,
   UnassignReviewRequest,
@@ -17,7 +19,7 @@ import {
 } from "@opensesh/domain";
 import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Reviews } from "@opensesh/domain/server/repos";
+import { Events, Reviews } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
@@ -182,6 +184,7 @@ export const saveReviewRound = createServerFn({ method: "POST" })
           opensAt,
           closesAt,
           blind: data.blind,
+          reviewsPerSubmission: data.reviewsPerSubmission,
           position: data.position,
           status,
         });
@@ -254,8 +257,54 @@ export const autoDistributeReviews = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         yield* requireRound(data.eventId, data.roundId);
         const reviews = yield* Reviews;
-        const result = yield* reviews.autoDistribute(data.roundId, data.trackIds);
-        return { created: result.assignments.length, skipped: result.skipped };
+        return yield* reviews.autoDistribute(data.roundId, data.trackIds, data.dryRun ?? false);
+      }),
+      { require: "staff" },
+    ),
+  );
+
+export const getReviewerTracks = createServerFn({ method: "GET" })
+  .validator(Schema.toStandardSchemaV1(ListReviewerTracksRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        const events = yield* Events;
+        return yield* events.listReviewerTracks(data.eventId);
+      }),
+      { require: "staff" },
+    ),
+  );
+
+export const setReviewerTracks = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(SetReviewerTracksRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        yield* requireAdminEvent(data.eventId);
+        if (data.roundId !== undefined) {
+          yield* requireRound(data.eventId, data.roundId);
+          if (
+            data.assignmentCap !== undefined &&
+            data.assignmentCap !== null &&
+            (!Number.isInteger(data.assignmentCap) || data.assignmentCap < 1)
+          ) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "Assignment cap must be a whole number of at least 1" }),
+            );
+          }
+        }
+        const events = yield* Events;
+        const trackSet = yield* events.setReviewerTracks(
+          data.eventId,
+          data.eventMemberId,
+          data.trackIds,
+        );
+        if (data.roundId !== undefined && data.assignmentCap !== undefined) {
+          const reviews = yield* Reviews;
+          yield* reviews.addMember(data.roundId, data.eventMemberId, data.assignmentCap);
+        }
+        return trackSet;
       }),
       { require: "staff" },
     ),

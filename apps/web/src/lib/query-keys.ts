@@ -46,6 +46,7 @@ export const qk = {
   submissionTimeline: (eventId: string, submissionId: string) =>
     [...event(eventId), "timeline", submissionId] as const,
   evaluationAdmin: (eventId: string) => [...event(eventId), "evaluation", "admin"] as const,
+  reviewerTracks: (eventId: string) => [...event(eventId), "reviewer-tracks"] as const,
   evaluationReviewer: (eventId: string) => [...event(eventId), "evaluation", "reviewer"] as const,
   agenda: (eventId: string) => [...event(eventId), "agenda"] as const,
   agendaDrafts: (eventId: string) => [...event(eventId), "agenda-drafts"] as const,

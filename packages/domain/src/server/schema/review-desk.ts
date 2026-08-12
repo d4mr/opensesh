@@ -91,7 +91,6 @@ export const ReviewDeskAnswer = Schema.Struct({
 });
 export type ReviewDeskAnswer = typeof ReviewDeskAnswer.Type;
 
-
 export const ReviewDeskEmail = Schema.Struct({
   id: Schema.String,
   contactId: NullableString,

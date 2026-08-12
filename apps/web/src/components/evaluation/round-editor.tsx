@@ -1,10 +1,11 @@
 import type {
+  ReviewAssignmentBatch,
   EvaluationAdminWorkspace,
   EvaluationResultRow,
   ReviewCriterionType,
   ReviewRoundAdminView,
 } from "@opensesh/domain";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownIcon,
@@ -22,6 +23,7 @@ import {
   PlusIcon,
   SaveIcon,
   SparklesIcon,
+  SlidersHorizontalIcon,
   Trash2Icon,
   UserPlusIcon,
   XIcon,
@@ -72,6 +74,7 @@ import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
+import { reviewerTracksQuery } from "@/lib/evaluation-queries";
 import { cn } from "@/lib/utils";
 import {
   addReviewMember,
@@ -82,6 +85,7 @@ import {
   overrideAiReview,
   saveReviewRound,
   sendReviewReminders,
+  setReviewerTracks,
   unassignReview,
 } from "@/server-fns/reviews";
 
@@ -102,6 +106,7 @@ interface RoundDraft {
   readonly opensAt: string;
   readonly closesAt: string;
   readonly blind: boolean;
+  readonly reviewsPerSubmission: number;
   readonly position: number;
   readonly criteria: ReadonlyArray<CriterionDraft>;
 }
@@ -126,6 +131,7 @@ const roundDraft = (view: ReviewRoundAdminView | undefined, nextPosition: number
     opensAt: view?.configuration.round.opensAt.toISOString() ?? now.toISOString(),
     closesAt: view?.configuration.round.closesAt.toISOString() ?? later.toISOString(),
     blind: view?.configuration.round.blind ?? false,
+    reviewsPerSubmission: view?.configuration.round.reviewsPerSubmission ?? 2,
     position: view?.configuration.round.position ?? nextPosition,
     criteria:
       view?.configuration.criteria.map((criterion) => ({
@@ -190,6 +196,7 @@ export function EvaluationRoundEditor({
         opensAt: draft.opensAt,
         closesAt: draft.closesAt,
         blind: draft.blind,
+        reviewsPerSubmission: draft.reviewsPerSubmission,
         position: draft.position,
         criteria: draft.criteria.map((criterion, index) => ({
           id: criterion.id,
@@ -282,7 +289,12 @@ export function EvaluationRoundEditor({
             />
           </TabsContent>
           <TabsContent value="reviewers" className="mt-0 min-h-0 overflow-y-auto">
-            <ReviewersPane eventId={eventId} view={view} refresh={refresh} />
+            <ReviewersPane
+              eventId={eventId}
+              tracks={workspace.tracks}
+              view={view}
+              refresh={refresh}
+            />
           </TabsContent>
           <TabsContent value="assignments" className="mt-0 flex min-h-0 flex-1 flex-col">
             <AssignmentsPane
@@ -365,6 +377,20 @@ function SetupPane({
                   step={1}
                   value={draft.position}
                   onChange={(event) => setDraft({ ...draft, position: Number(event.target.value) })}
+                />
+              </div>
+              <div className="grid max-w-48 gap-1.5">
+                <Label htmlFor="round-quorum">Reviews per submission</Label>
+                <Input
+                  id="round-quorum"
+                  type="number"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={draft.reviewsPerSubmission}
+                  onChange={(event) =>
+                    setDraft({ ...draft, reviewsPerSubmission: Number(event.target.value) })
+                  }
                 />
               </div>
               <label className="flex items-center justify-between rounded-lg border px-3 py-2.5 sm:col-span-2">
@@ -667,13 +693,16 @@ function SetupPane({
 
 function ReviewersPane({
   eventId,
+  tracks,
   view,
   refresh,
 }: {
   readonly eventId: string;
+  readonly tracks: EvaluationAdminWorkspace["tracks"];
   readonly view: ReviewRoundAdminView;
   readonly refresh: () => Promise<unknown>;
 }) {
+  const reviewerTracks = useQuery(reviewerTracksQuery(eventId));
   const [email, setEmail] = useState("");
   const [cap, setCap] = useState("5");
   const [adding, setAdding] = useState(false);
@@ -777,6 +806,14 @@ function ReviewersPane({
             eventId={eventId}
             roundId={view.configuration.round.id}
             reviewer={reviewer}
+            tracks={tracks}
+            trackIds={
+              reviewerTracks.data?.ok === true
+                ? (reviewerTracks.data.data.find(
+                    (row) => row.eventMemberId === reviewer.member.eventMemberId,
+                  )?.trackIds ?? [])
+                : []
+            }
             refresh={refresh}
           />
         ))}
@@ -794,27 +831,44 @@ function ReviewerRow({
   eventId,
   roundId,
   reviewer,
+  tracks,
+  trackIds,
   refresh,
 }: {
   readonly eventId: string;
   readonly roundId: string;
   readonly reviewer: ReviewRoundAdminView["reviewers"][number];
+  readonly tracks: EvaluationAdminWorkspace["tracks"];
+  readonly trackIds: ReadonlyArray<string>;
   readonly refresh: () => Promise<unknown>;
 }) {
+  const [open, setOpen] = useState(false);
   const [cap, setCap] = useState(reviewer.member.assignmentCap?.toString() ?? "");
+  const [selectedTrackIds, setSelectedTrackIds] = useState<ReadonlySet<string>>(
+    () => new Set(trackIds),
+  );
+  const [saving, setSaving] = useState(false);
+  const openEditor = () => {
+    setCap(reviewer.member.assignmentCap?.toString() ?? "");
+    setSelectedTrackIds(new Set(trackIds));
+    setOpen(true);
+  };
   const save = async () => {
-    const result = await addReviewMember({
+    setSaving(true);
+    const result = await setReviewerTracks({
       data: {
         eventId,
         roundId,
-        email: reviewer.email,
+        eventMemberId: reviewer.member.eventMemberId,
+        trackIds: [...selectedTrackIds],
         assignmentCap: cap.length === 0 ? null : Number(cap),
-        accessPath: `${window.location.origin}/login`,
       },
     });
+    setSaving(false);
     if (!result.ok) return toast.error(result.error.message);
+    setOpen(false);
     await refresh();
-    toast.success("Saved assignment cap");
+    toast.success("Saved reviewer routing");
   };
   return (
     <div className="flex min-h-12 items-center gap-3 border-b px-3 last:border-b-0">
@@ -822,21 +876,107 @@ function ReviewerRow({
         <p className="truncate text-[13px] font-medium">{reviewer.name}</p>
         <p className="truncate text-xs text-muted-foreground">{reviewer.email}</p>
       </div>
-      <Label className="text-xs text-muted-foreground" htmlFor={`${reviewer.member.id}-cap`}>
-        Cap
-      </Label>
-      <Input
-        id={`${reviewer.member.id}-cap`}
-        className="h-8 w-20"
-        type="number"
-        min={1}
-        placeholder="None"
-        value={cap}
-        onChange={(event) => setCap(event.target.value)}
-      />
-      <Button size="sm" variant="outline" className="pressable" onClick={() => void save()}>
-        Save cap
+      <div className="flex max-w-sm flex-wrap justify-end gap-1">
+        {trackIds.length === 0 ? (
+          <span className="text-xs text-muted-foreground">Generalist</span>
+        ) : (
+          trackIds.flatMap((trackId) => {
+            const track = tracks.find((item) => item.id === trackId);
+            return track === undefined
+              ? []
+              : [
+                  <Badge
+                    key={track.id}
+                    variant="outline"
+                    className="gap-1 px-1.5 py-0.5 text-[11px]"
+                    style={{
+                      borderColor: track.color,
+                      color: track.color,
+                      backgroundColor: `color-mix(in srgb, ${track.color} 9%, transparent)`,
+                    }}
+                  >
+                    <span
+                      className="size-1.5 rounded-full"
+                      style={{ backgroundColor: track.color }}
+                    />
+                    {track.name}
+                  </Badge>,
+                ];
+          })
+        )}
+      </div>
+      <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
+        Cap {reviewer.member.assignmentCap ?? "—"}
+      </span>
+      <Button size="sm" variant="outline" className="pressable" onClick={openEditor}>
+        <SlidersHorizontalIcon /> Edit
       </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit {reviewer.name}</DialogTitle>
+            <DialogDescription>
+              Track affinity guides auto-routing. No selected tracks makes this reviewer a
+              generalist.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${reviewer.member.id}-cap`}>Assignment cap</Label>
+              <Input
+                id={`${reviewer.member.id}-cap`}
+                type="number"
+                min={1}
+                placeholder="No cap"
+                value={cap}
+                onChange={(event) => setCap(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Track affinity</Label>
+              <div className="grid gap-0.5 rounded-lg border p-1.5">
+                {tracks.map((track) => {
+                  const checked = selectedTrackIds.has(track.id);
+                  return (
+                    <label
+                      key={track.id}
+                      className={cn(
+                        "pressable flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] hover:bg-muted/60",
+                        checked && "bg-muted",
+                      )}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(next) =>
+                          setSelectedTrackIds((current) => {
+                            const updated = new Set(current);
+                            if (next === true) updated.add(track.id);
+                            else updated.delete(track.id);
+                            return updated;
+                          })
+                        }
+                      />
+                      <span
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: track.color }}
+                      />
+                      {track.name}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={saving} onClick={() => void save()}>
+              {saving ? "Saving…" : "Save reviewer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -855,6 +995,10 @@ function AssignmentsPane({
   const [trackId, setTrackId] = useState("all");
   const [reviewerId, setReviewerId] = useState(view.reviewers[0]?.member.eventMemberId ?? "");
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [preview, setPreview] = useState<ReviewAssignmentBatch>();
+  const [previewing, setPreviewing] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [confirmAssignment, setConfirmAssignment] =
     useState<ReviewRoundAdminView["assignments"][number]>();
   const reviewerItems = useMemo(
@@ -869,24 +1013,15 @@ function AssignmentsPane({
     (submission) => trackId === "all" || submission.trackIds.includes(trackId),
   );
   const pages = usePagination(filtered, { resetKey: trackId, getId: (item) => item.id });
-  const mutate = async (mode: "assign" | "auto") => {
-    const result =
-      mode === "assign"
-        ? await assignReviews({
-            data: {
-              eventId,
-              roundId: view.configuration.round.id,
-              eventMemberId: reviewerId,
-              submissionIds: [...selected],
-            },
-          })
-        : await autoDistributeReviews({
-            data: {
-              eventId,
-              roundId: view.configuration.round.id,
-              trackIds: trackId === "all" ? [] : [trackId],
-            },
-          });
+  const assign = async () => {
+    const result = await assignReviews({
+      data: {
+        eventId,
+        roundId: view.configuration.round.id,
+        eventMemberId: reviewerId,
+        submissionIds: [...selected],
+      },
+    });
     if (!result.ok) return toast.error(result.error.message);
     setSelected(new Set());
     await refresh();
@@ -900,6 +1035,48 @@ function AssignmentsPane({
         ? undefined
         : { description: `Skipped ${result.data.skipped} already assigned or capped.` },
     );
+  };
+  const openAutoDistribution = async () => {
+    setAutoOpen(true);
+    setPreview(undefined);
+    setPreviewing(true);
+    const result = await autoDistributeReviews({
+      data: {
+        eventId,
+        roundId: view.configuration.round.id,
+        trackIds: trackId === "all" ? [] : [trackId],
+        dryRun: true,
+      },
+    });
+    setPreviewing(false);
+    if (!result.ok) {
+      setAutoOpen(false);
+      return toast.error(result.error.message);
+    }
+    setPreview(result.data);
+  };
+  const applyAutoDistribution = async () => {
+    setApplying(true);
+    const result = await autoDistributeReviews({
+      data: {
+        eventId,
+        roundId: view.configuration.round.id,
+        trackIds: trackId === "all" ? [] : [trackId],
+        dryRun: false,
+      },
+    });
+    setApplying(false);
+    if (!result.ok) return toast.error(result.error.message);
+    setAutoOpen(false);
+    await refresh();
+    const description = [
+      `${result.data.outOfTrack} out of track`,
+      `${result.data.conflictsSkipped} conflicts skipped`,
+      `${result.data.shortfalls.length} shortfalls`,
+    ].join(" · ");
+    toast.success(`Created ${result.data.created} ${plural(result.data.created, "assignment")}`, {
+      description,
+    });
   };
   const unassign = async () => {
     if (confirmAssignment === undefined) return;
@@ -950,7 +1127,7 @@ function AssignmentsPane({
             variant="outline"
             className="pressable"
             disabled={view.reviewers.length === 0}
-            onClick={() => void mutate("auto")}
+            onClick={() => void openAutoDistribution()}
           >
             <ArrowUpDownIcon /> Auto-distribute
           </Button>
@@ -993,7 +1170,7 @@ function AssignmentsPane({
           size="sm"
           className="pressable"
           disabled={selected.size === 0 || reviewerId.length === 0}
-          onClick={() => void mutate("assign")}
+          onClick={() => void assign()}
         >
           Assign selected ({selected.size})
         </Button>
@@ -1100,6 +1277,112 @@ function AssignmentsPane({
           </TableBody>
         </Table>
       </TableShell>
+      <Dialog open={autoOpen} onOpenChange={setAutoOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Auto-distribute reviews</DialogTitle>
+            <DialogDescription>
+              Previewing {trackId === "all" ? "all tracks" : "the selected track"} at{" "}
+              {view.configuration.round.reviewsPerSubmission} reviews per submission.
+            </DialogDescription>
+          </DialogHeader>
+          {previewing ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">Planning assignments…</p>
+          ) : preview === undefined ? null : preview.planned.length === 0 &&
+            preview.shortfalls.length === 0 ? (
+            <div className="rounded-lg border px-4 py-6 text-center">
+              <p className="text-[13px] font-medium">Nothing to distribute</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Every submission has {view.configuration.round.reviewsPerSubmission} reviews.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <div className="grid grid-cols-3 divide-x rounded-lg border">
+                {[
+                  [preview.planned.length, "New assignments"],
+                  [preview.outOfTrack, "Out of track"],
+                  [preview.conflictsSkipped, "Conflicts skipped"],
+                ].map(([value, label]) => (
+                  <div key={label} className="px-3 py-2.5 text-center">
+                    <p className="text-base font-semibold tabular-nums">{value}</p>
+                    <p className="text-[11px] text-muted-foreground">{label}</p>
+                  </div>
+                ))}
+              </div>
+              {preview.planned.length === 0 ? null : (
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Reviewer load
+                  </p>
+                  <div className="mt-2 overflow-hidden rounded-lg border divide-y">
+                    {view.reviewers.flatMap((reviewer) => {
+                      const added = preview.planned.filter(
+                        (assignment) => assignment.eventMemberId === reviewer.member.eventMemberId,
+                      ).length;
+                      if (added === 0) return [];
+                      const current = view.assignments.filter(
+                        (assignment) =>
+                          assignment.eventMemberId === reviewer.member.eventMemberId &&
+                          assignment.status !== "recused",
+                      ).length;
+                      return [
+                        <div
+                          key={reviewer.member.eventMemberId}
+                          className="flex h-9 items-center justify-between px-3 text-[13px]"
+                        >
+                          <span className="truncate font-medium">{reviewer.name}</span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {current} → {current + added} (+{added})
+                          </span>
+                        </div>,
+                      ];
+                    })}
+                  </div>
+                </div>
+              )}
+              {preview.shortfalls.length === 0 ? null : (
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Shortfalls
+                  </p>
+                  <div className="mt-2 overflow-hidden rounded-lg border divide-y">
+                    {preview.shortfalls.map((shortfall) => (
+                      <div
+                        key={shortfall.submissionId}
+                        className="flex min-h-9 items-center justify-between gap-3 px-3 py-2 text-xs"
+                      >
+                        <span className="font-mono tabular-nums">{shortfall.code}</span>
+                        <span className="text-right text-muted-foreground">
+                          Missing {shortfall.missing} ·{" "}
+                          {shortfall.reason === "caps_exhausted"
+                            ? "caps exhausted"
+                            : shortfall.reason === "no_reviewers"
+                              ? "no reviewers"
+                              : "conflicts"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAutoOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                applying || previewing || preview === undefined || preview.planned.length === 0
+              }
+              onClick={() => void applyAutoDistribution()}
+            >
+              {applying ? "Distributing…" : `Create ${preview?.planned.length ?? 0} assignments`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={confirmAssignment !== undefined}
         onOpenChange={(open) => {
