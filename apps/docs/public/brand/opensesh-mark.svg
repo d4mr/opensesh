@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    :root { color: #183f2b; }
+    @media (prefers-color-scheme: dark) { :root { color: #4caf82; } }
+  </style>
+  <defs>
+    <path id="quarter" d="M27 4H16.5C9.596 4 4 9.596 4 16.5V27C4 28.105 4.895 29 6 29H17V25H21V21H25V17H29V6C29 4.895 28.105 4 27 4Z"/>
+  </defs>
+  <g fill="currentColor">
+    <use href="#quarter"/>
+    <use href="#quarter" transform="translate(64 0) scale(-1 1)"/>
+    <use href="#quarter" transform="translate(0 64) scale(1 -1)"/>
+    <use href="#quarter" transform="translate(64 64) scale(-1 -1)"/>
+  </g>
+</svg>

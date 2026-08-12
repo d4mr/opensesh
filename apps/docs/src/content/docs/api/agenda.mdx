@@ -1,0 +1,160 @@
+---
+sidebar:
+  order: 6
+title: "Agenda"
+---
+
+8 operations. All requests need an `Authorization: Bearer osk_...` header — see the [API overview](/api) for authentication and conventions.
+
+## Get the agenda
+`GET /events/{eventId}/agenda`
+Rooms, scheduled and unscheduled sessions, conflicts, and publication state.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+```bash
+curl https://app.opensesh.io/api/v1/events/eventId/agenda \
+  -H "Authorization: Bearer osk_..."
+```
+---
+
+## List AI agenda drafts
+`GET /events/{eventId}/agenda/drafts`
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+```bash
+curl https://app.opensesh.io/api/v1/events/eventId/agenda/drafts \
+  -H "Authorization: Bearer osk_..."
+```
+---
+
+## Generate an AI agenda draft
+`POST /events/{eventId}/agenda/drafts`
+Anthropic-backed schedule proposal from your criteria and free-text rules (max 12). Requires ANTHROPIC_API_KEY on the deployment.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | `string` | yes |  |
+| `criteria` | `object` | yes |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events/eventId/agenda/drafts \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"name":"...","criteria":{}}'
+```
+---
+
+## Duplicate or discard a draft
+`POST /events/{eventId}/agenda/drafts/{draftId}`
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+| `draftId` | yes |  |
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `action` | `"duplicate" \| "discard"` | yes |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events/eventId/agenda/drafts/draftId \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"action":"duplicate"}'
+```
+---
+
+## Accept placements from a draft
+`POST /events/{eventId}/agenda/drafts/{draftId}/accept`
+Applies the draft's placements for the given submission ids to the live schedule.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+| `draftId` | yes |  |
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `submissionIds` | `string[]` | yes |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events/eventId/agenda/drafts/draftId/accept \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"submissionIds":[]}'
+```
+---
+
+## Publish the agenda
+`POST /events/{eventId}/agenda/publish`
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events/eventId/agenda/publish \
+  -H "Authorization: Bearer osk_..."
+```
+---
+
+## Place or clear a session on the schedule
+`PUT /events/{eventId}/agenda/schedule`
+Pass roomId/startsAt/endsAt as null to unschedule the session.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `submissionId` | `string` | yes |  |
+| `roomId` | `string \| null` | yes |  |
+| `startsAt` | `string \| null` | yes |  |
+| `endsAt` | `string \| null` | yes |  |
+
+```bash
+curl -X PUT https://app.opensesh.io/api/v1/events/eventId/agenda/schedule \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"submissionId":"...","roomId":"...","startsAt":"...","endsAt":"..."}'
+```
+---
+
+## Unpublish the agenda
+`POST /events/{eventId}/agenda/unpublish`
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events/eventId/agenda/unpublish \
+  -H "Authorization: Bearer osk_..."
+```

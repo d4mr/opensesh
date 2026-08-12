@@ -1,0 +1,42 @@
+---
+title: "Evaluation"
+---
+
+**Evaluation** runs structured review rounds over your submissions. A round bundles criteria, a reviewer pool, assignments, and results — you can run several (for example a broad first pass, then a shortlist round).
+
+## Set up a round
+
+Create a round from **Evaluation** (`/admin/evaluation`) and open it (`/admin/evaluation/<roundId>`). The round page has five tabs: **Setup**, **Reviewers (n)**, **Assignments (n)**, **Progress**, and **Results**.
+
+On **Setup**, give the round a **Name**, an **Opens** / **Closes** window, a **Position** (ordering among rounds), and optionally enable **Blind review** — reviewers then see submissions without speaker identities, so scores reflect content, not names.
+
+Criteria come in three shapes:
+
+- **Numeric score** — configurable min/max plus a **Weight** for the overall rating roll-up.
+- **Dropdown** — categorical calls; the default options are Accept, Maybe, Reject.
+- **Long text** — free-form comments. These are also what the decision email composer pulls from when prefilling feedback.
+
+## Reviewers and assignments
+
+On **Reviewers**, add people by email with an optional **Assignment cap**, then click **Add reviewer**. Each reviewer gets a copyable **Reviewer access path** — reviewers sign in and see a stripped-down sidebar with just **Overview** and **My Reviews**.
+
+On **Assignments**, distribute the work:
+
+- Filter by track, select submissions, and **Assign selected (n)** to chosen reviewers — or unassign the same way.
+- **Auto-distribute** spreads unassigned submissions evenly across the pool while respecting each reviewer's cap.
+
+## Track progress
+
+The **Progress** tab shows a per-reviewer table: how many assignments each person has completed versus outstanding. From here you can send reminder emails to reviewers who are behind — reminders report honestly whether they were sent or captured in the demo inbox.
+
+## Results
+
+The **Results** tab is the scoreboard: one column per criterion, aggregated per submission, with **Export CSV** for offline analysis. Decided submissions remain visible here — deciding never removes a row from results.
+
+### AI-assisted review
+
+If the deployment has an Anthropic API key configured, **Run AI review** scores submissions against your criteria automatically. Without a key the button is disabled (see [Deployment](/deployment)).
+
+AI scores are advisory, and humans stay in charge: any reviewer or admin can override an AI score, and the row is labeled **"Overrode AI score"** so it's always clear which numbers came from a person.
+
+When the round closes, ratings flow back to the [Submissions desk](/guides/submissions) — sort by Rating there and start making decisions.

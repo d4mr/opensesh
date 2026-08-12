@@ -1,0 +1,45 @@
+---
+title: "Workspace & roles"
+---
+
+An opensesh workspace is an **organization**: it owns events, members, the [Speaker CRM](/guides/speakers), and API keys. Access is layered — organization roles first, event roles on top.
+
+## Organizations
+
+The organization settings dialog has three sections:
+
+- **Profile** — name and identity.
+- **Members** — everyone in the workspace, with their org role.
+- **Invitations** — pending invites. Invitees accept at an `/accept-invitation/<id>` link; until then the invite is listed and revocable.
+
+Organization roles are **Owner**, **Admin**, and **Member**.
+
+## How event access is derived
+
+Event access is computed from org role plus event membership, in that order:
+
+1. **Org owners and admins are admins of every event** in the organization, automatically. No per-event setup.
+2. **Org members** get access per event: an event membership overlays an `admin` or `reviewer` role for that event only.
+
+So a program chair is an org admin (touches everything), a track chair is an org member with `admin` on one event, and an external reviewer is a member with `reviewer` on one event.
+
+What each event role sees:
+
+- **Event admins** get the full sidebar: Overview, Speaker CRM, Submissions, Sessions, Content, Speakers, Call for Papers, Evaluation, Agenda, Widgets, Tasks, Email delivery, Communications, Portal Forms, Deliverables, Files, and Event Settings.
+- **Reviewers** get a collapsed sidebar: **Overview** and **My Reviews** — their [evaluation assignments](/guides/evaluation) and nothing else. Under blind review they don't see speaker identities either.
+
+Speakers and CFP submitters aren't workspace members at all: they authenticate by magic link and only reach the [speaker portal](/guides/speaker-portal) or the submission wizard.
+
+## Event settings
+
+Each event's **Event Settings** page covers: **Basics** (name, slug, dates), **Schedule** (days and time boundaries the agenda builds on), **Branding**, **Submissions**, **Access** (event memberships and overlay roles), and **Integrations** (the [Accelevents connection](/guides/integrations)).
+
+## API keys
+
+API keys live at the organization level, under **Organization settings → API keys**. A key (prefix `osk_`) authenticates as the organization for the [REST API](/api) — treat it like a password: it's shown once at creation, and revocation is immediate.
+
+## Rules of thumb
+
+- Keep the **Owner** circle minimal; use org **Admin** for the core team.
+- Default collaborators to org **Member** + per-event roles — least privilege falls out naturally.
+- Never share dashboard logins with reviewers; the reviewer role plus their access path is the supported flow.

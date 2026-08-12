@@ -28,3 +28,4 @@ peerDependencyRules:
     vite: "*"
 minimumReleaseAgeExclude:
   - '@cloudflare/workers-types@5.20260810.1'
+  - '@cloudflare/nimbus-docs@0.10.0'

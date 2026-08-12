@@ -331,3 +331,16 @@ morning deploy — everything here ships in the next deploy.
   SSRs full content but the vocs/waku client bundle crashes on hydration and blanks the page
   (paused per owner instruction; flagged as a spawn-task chip), and the prod ANTHROPIC_API_KEY
   must be set by the owner (`pnpm exec wrangler secret put ANTHROPIC_API_KEY` in apps/web).
+- Aug 12 — Docs migrated from vocs to Cloudflare Nimbus (owner request, screenshot-verified
+  local + prod): apps/docs is now a Nimbus (Astro 7 static) scaffold — all 26 pages carried
+  over with title frontmatter, sidebar mirrors the old nav exactly (Overview / Guides / API
+  reference with Overview first, via autogenerate + sidebar.order), tokens rebranded to
+  opensesh green (#1d6b4c → oklch, light + dark), opensesh mark favicon, same opensesh-docs
+  worker + docs.opensesh.io custom domain. Root docs page renders at "/" by mapping the
+  "index" entry to the undefined rest segment in the catch-all — the same convention Nimbus's
+  own .md/.mdx twin routes use. Two defects died with the migration: the vocs/waku hydration
+  crash that blanked every page in prod (fresh-tab console now clean, spawn-task chip
+  withdrawn), and literal \{eventId\} backslashes the vocs pipeline rendered in API paths
+  (normalized to {eventId} during migration). Strict upgrades gained: working client-side
+  search (pagefind), llms.txt + per-page markdown twins ("View as Markdown"), OG images,
+  sitemap, dark/light toggle. astro check, nimbus-docs lint (26 clean), and build all green.

@@ -1,0 +1,138 @@
+---
+sidebar:
+  order: 2
+title: "Events"
+---
+
+7 operations. All requests need an `Authorization: Bearer osk_...` header — see the [API overview](/api) for authentication and conventions.
+
+## List events
+`GET /events`
+```bash
+curl https://app.opensesh.io/api/v1/events \
+  -H "Authorization: Bearer osk_..."
+```
+---
+
+## Create an event
+`POST /events`
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | `string` | yes |  |
+| `type` | `"conference" \| "summit" \| "meetup"` | yes |  |
+| `timezone` | `string` | yes |  |
+| `startsAt` | `string` | yes |  |
+| `endsAt` | `string` | yes |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"name":"...","type":"conference","timezone":"...","startsAt":"...","endsAt":"..."}'
+```
+---
+
+## Get an event
+`GET /events/{eventId}`
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+```bash
+curl https://app.opensesh.io/api/v1/events/eventId \
+  -H "Authorization: Bearer osk_..."
+```
+---
+
+## Update an event
+`PATCH /events/{eventId}`
+Partial update — omitted fields keep their current value.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | `string` | no |  |
+| `tagline` | `string \| null` | no |  |
+| `description` | `string \| null` | no | CommonMark markdown; raw HTML renders as literal text |
+| `type` | `"conference" \| "summit" \| "meetup"` | no |  |
+| `websiteUrl` | `string \| null` | no |  |
+| `location` | `string \| null` | no |  |
+| `timezone` | `string` | no |  |
+| `startsAt` | `string` | no |  |
+| `endsAt` | `string` | no |  |
+| `defaultSubmissionLimit` | `number` | no |  |
+
+```bash
+curl -X PATCH https://app.opensesh.io/api/v1/events/eventId \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+---
+
+## Get the event library
+`GET /events/{eventId}/library`
+Tracks, formats, rooms, tags, and levels for the event.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+```bash
+curl https://app.opensesh.io/api/v1/events/eventId/library \
+  -H "Authorization: Bearer osk_..."
+```
+---
+
+## Create or update a library item
+`POST /events/{eventId}/library`
+Pass id: null to create; an existing id updates that item.
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+
+#### Request body
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `kind` | `"track" \| "format" \| "room" \| "tag" \| "level"` | yes |  |
+| `id` | `string \| null` | yes |  |
+| `name` | `string` | yes |  |
+| `color` | `string \| null` | no |  |
+| `durationMinutes` | `number \| null` | no |  |
+
+```bash
+curl -X POST https://app.opensesh.io/api/v1/events/eventId/library \
+  -H "Authorization: Bearer osk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"track","id":"...","name":"..."}'
+```
+---
+
+## Delete a library item
+`DELETE /events/{eventId}/library/{kind}/{itemId}`
+#### Path parameters
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `eventId` | yes |  |
+| `kind` | yes |  |
+| `itemId` | yes |  |
+
+```bash
+curl -X DELETE https://app.opensesh.io/api/v1/events/eventId/library/kind/itemId \
+  -H "Authorization: Bearer osk_..."
+```
