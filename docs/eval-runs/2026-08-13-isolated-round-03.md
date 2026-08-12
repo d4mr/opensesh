@@ -55,7 +55,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | CFP-S3 | Organizer assigns a reviewer; reviewer scores | Complete | `033`–`039`; round `6u-T1pevz5n35zzKKElXH`, only `SESS-1` assigned |
 | CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Complete | `040`–`052`; accepted session created, both decision emails logged, public CFP closed |
 | ABS-S1 | Speaker seeds submissions with a co-author | Complete | `053`–`057`; Marcus persisted as Co-presenter, three proposals visible |
-| ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Pending | — |
+| ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Complete | `058`–`067`; two independent rounds, exact 2 assignments, 2/0 baseline, reminder log |
 | ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Pending | — |
 | SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Pending | — |
 | SPK-S2 | Speaker completes onboarding in the portal | Pending | — |
@@ -144,6 +144,19 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `053-abs-s1-co-speaker-before-save.png` through `057-abs-s1-co-speaker-detail.png`. Every file was written and size-verified in this run.
 
+### ABS-S2 — Organizer configures rounds, pools, assignments, reminders
+
+- Signed in as Jordan and verified all three Round 03 submissions in the organizer table, including both Priya Raman and Marcus Okafor on `SESS-1`.
+- Created blinded round `Initial Review` (`LDolbdBVTU-BQv2bhY_3z`) open Aug 1–Oct 15, 2026 with one review per submission and four criteria: Originality 1–5 weight 2, Relevance 1–5 weight 1, Recommendation Accept/Maybe/Reject, and Comments long text. The editor preview explicitly displayed `Blind` and both weights.
+- Created distinct round `Final Review` (`58kAFOpgA7vjyOZ2WpT5u`) for Oct 16–Nov 30, 2026 with its own two-field scorecard: Final Score 1–10 weight 1 and Comments long text. Reloaded the rounds index; it showed Initial Review as Blind with four criteria and Final Review as Identified with two criteria and zero reviewers.
+- Added Sam Whitfield only to the Initial Review pool at the existing Round 03 reviewer email. The round-specific pool showed `1 reviewer in this round only`, `Generalist`, and `Cap 5`; the Final Review row remained at zero reviewers. A fresh copyable reviewer access path was displayed.
+- The assignment UI provided both an `Auto-distribute` control and an All tracks filter. Assigned exactly `SESS-1` and `SESS-2` to Sam and deliberately left `SESS-3` unassigned. The resulting state showed two pending Sam assignments and one Unassigned row.
+- Progress showed Sam with Assigned 2, Completed 0, Recused 0, Remaining 2, Completion 0%.
+- Selected Sam and triggered Send reminders. The action provided no visible toast or in-page confirmation and cleared the selection asynchronously. A verification retry therefore sent a second reminder. Email Delivery subsequently showed two Round 03 records with subject `Initial Review: 2 pending reviews`, recipient Sam, status Demo. This proves sending worked but also records the duplicate caused by absent feedback.
+- No AI evaluation/triage/persona/score control was visible in the round setup, assignment, progress, or results navigation; the optional AI step was recorded absent.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `058-abs-s2-organizer-three-submissions.png` through `067-abs-s2-reminder-email-log.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -155,6 +168,8 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 7. **Decision email subjects are not editable.** The acceptance composer exposes only a Personal message field; its generated subject is fixed. The fixture acceptance body could be included, but the required fixture subject could not be used exactly. Sending, notification indicators, activity, and email history otherwise worked.
 8. **Publication approval state did not match the unchecked decision control.** `Also approve content for publication` was deliberately left unchecked during acceptance, but the resulting session immediately displayed `Approved` / `Content approved for publication`. Either the checkbox is not authoritative or another undocumented approval path took precedence; the UI gives the organizer no explanation.
 9. **Saving co-presenters momentarily renders stale participant state.** The save toast said `Speakers saved`, but the tab immediately changed from `Speakers (2)` to `Speakers (1)` and displayed only Priya. A clean reload restored both persisted participants. This false-negative success state is highly likely to make an evaluator retry or assume data loss.
+10. **Reminder sending has no visible confirmation and invites duplicate email.** After `Send reminders (1)`, the selection eventually cleared but there was no toast, sent count, timestamp, or activity record in the progress view. Retrying to verify the action created a second identical reminder. Only the separate Email Delivery page exposed the duplicate sends.
+11. **No AI evaluation/triage workflow was discoverable.** The evaluation area exposes setup, pools, assignment, progress, and human results, but no advertised AI score, reasoning, persona, or override control was present during this scenario.
 
 ## Score
 
