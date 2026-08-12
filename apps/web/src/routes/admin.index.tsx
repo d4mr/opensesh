@@ -4,6 +4,7 @@ import { CalendarClockIcon, ExternalLinkIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 
 import { qk } from "@/lib/query-keys";
+import { eventAccessFor } from "@/lib/event-access";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Timestamp } from "@/components/app/timestamp";
 import { DashboardAttention } from "@/components/dashboard-attention";
@@ -28,7 +29,11 @@ export const Route = createFileRoute("/admin/")({
   // The overview is an organizer surface (event-wide KPIs, every recent
   // submission) — a reviewer's home is their review queue.
   beforeLoad: ({ context }) => {
-    if (!context.user.roles.admin) throw redirect({ to: "/admin/evaluation" });
+    const admin =
+      context.activeEventId === null
+        ? context.user.roles.admin
+        : eventAccessFor(context.user, context.activeEventId).admin;
+    if (!admin) throw redirect({ to: "/admin/evaluation" });
   },
   component: Dashboard,
 });

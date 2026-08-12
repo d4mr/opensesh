@@ -4,10 +4,15 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { EvaluationRoundEditor } from "@/components/evaluation/round-editor";
 import { adminEvaluationQuery } from "@/lib/evaluation-queries";
+import { eventAccessFor } from "@/lib/event-access";
 
 export const Route = createFileRoute("/admin/evaluation_/$roundId")({
   beforeLoad: ({ context }) => {
-    if (!context.user.roles.admin) throw redirect({ to: "/admin/evaluation" });
+    const admin =
+      context.activeEventId === null
+        ? context.user.roles.admin
+        : eventAccessFor(context.user, context.activeEventId).admin;
+    if (!admin) throw redirect({ to: "/admin/evaluation" });
   },
   component: EvaluationRoundRoute,
 });

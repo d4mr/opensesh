@@ -137,14 +137,14 @@ export const getReviewerEvaluation = createServerFn({ method: "GET" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const user = yield* getCurrentUser;
-        if (!user.roles.reviewer || user.roles.admin) {
+        const access = yield* requireEventAccess(data.eventId, "reviewer");
+        if (access.admin) {
           return yield* Effect.fail(new Forbidden({ message: "You do not have reviewer access" }));
         }
         const reviews = yield* Reviews;
-        return yield* reviews.reviewerWorkspace(data.eventId, user.userId);
+        return yield* reviews.reviewerWorkspace(data.eventId, access.user.userId);
       }),
-      { require: "reviewer" },
+      { require: "session" },
     ),
   );
 
@@ -330,15 +330,15 @@ export const submitReviewAnswers = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const user = yield* getCurrentUser;
-        if (!user.roles.reviewer || user.roles.admin) {
+        const access = yield* requireEventAccess(data.eventId, "reviewer");
+        if (access.admin) {
           return yield* Effect.fail(new Forbidden({ message: "You cannot submit this review" }));
         }
         const reviews = yield* Reviews;
-        const eventMemberId = yield* reviews.eventMemberId(data.eventId, user.userId);
+        const eventMemberId = yield* reviews.eventMemberId(data.eventId, access.user.userId);
         return yield* reviews.submitAnswers(data.assignmentId, eventMemberId, data.answers);
       }),
-      { require: "reviewer" },
+      { require: "session" },
     ),
   );
 
@@ -347,15 +347,15 @@ export const recuseReview = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        const user = yield* getCurrentUser;
-        if (!user.roles.reviewer || user.roles.admin) {
+        const access = yield* requireEventAccess(data.eventId, "reviewer");
+        if (access.admin) {
           return yield* Effect.fail(new Forbidden({ message: "You cannot recuse this review" }));
         }
         const reviews = yield* Reviews;
-        const eventMemberId = yield* reviews.eventMemberId(data.eventId, user.userId);
+        const eventMemberId = yield* reviews.eventMemberId(data.eventId, access.user.userId);
         return yield* reviews.recuse(data.assignmentId, eventMemberId, data.reason.trim());
       }),
-      { require: "reviewer" },
+      { require: "session" },
     ),
   );
 

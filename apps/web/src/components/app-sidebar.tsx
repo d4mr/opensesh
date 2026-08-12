@@ -71,6 +71,7 @@ export function AppSidebar({
   eventCreated,
   pathname,
   user,
+  eventAdmin,
   pendingContentChanges = 0,
   organizationMode = false,
   organizationName,
@@ -84,6 +85,7 @@ export function AppSidebar({
   readonly eventCreated: (eventId: string) => Promise<void>;
   readonly pathname: string;
   readonly user: CurrentUserValue;
+  readonly eventAdmin: boolean;
   readonly pendingContentChanges?: number;
   readonly organizationMode?: boolean;
   readonly organizationName?: string;
@@ -117,22 +119,22 @@ export function AppSidebar({
             dates={eventDates}
             onSelect={selectEvent}
             onCreated={eventCreated}
-            canCreate={user.roles.admin}
+            canCreate={eventAdmin}
           />
         )}
       </SidebarHeader>
       <SidebarContent>
         {/* The overview is an organizer surface; reviewers land on their queue. */}
-        {user.roles.admin ? <NavMain items={dashboard} pathname={pathname} /> : null}
-        {user.roles.admin ? (
+        {eventAdmin ? <NavMain items={dashboard} pathname={pathname} /> : null}
+        {eventAdmin ? (
           <NavMain label="Organization" items={organization} pathname={pathname} />
         ) : null}
         <NavMain
           label="Program"
           items={program
-            .filter((item) => user.roles.admin || item.section === "evaluation")
+            .filter((item) => eventAdmin || item.section === "evaluation")
             .map((item) =>
-              !user.roles.admin && item.section === "evaluation"
+              !eventAdmin && item.section === "evaluation"
                 ? { ...item, title: "My Reviews" }
                 : item.section === "content"
                   ? { ...item, badge: pendingContentChanges }
@@ -140,8 +142,8 @@ export function AppSidebar({
             )}
           pathname={pathname}
         />
-        {user.roles.admin ? <NavMain label="Portals" items={portals} pathname={pathname} /> : null}
-        {user.roles.admin ? (
+        {eventAdmin ? <NavMain label="Portals" items={portals} pathname={pathname} /> : null}
+        {eventAdmin ? (
           <NavSecondary item={settings} pathname={pathname} className="mt-auto" />
         ) : null}
       </SidebarContent>

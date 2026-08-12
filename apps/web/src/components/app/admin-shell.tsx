@@ -39,6 +39,7 @@ import {
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { crmWorkspaceQuery } from "@/lib/crm-queries";
+import { eventAccessFor } from "@/lib/event-access";
 
 interface NavItem {
   readonly title: string;
@@ -110,10 +111,11 @@ export function AdminShell({
   }, []);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
-  const portal = useQuery({ ...adminPortalQuery(event.id), enabled: user.roles.admin });
+  const eventAccess = eventAccessFor(user, event.id);
+  const portal = useQuery({ ...adminPortalQuery(event.id), enabled: eventAccess.admin });
   const crmMode = pathname === "/admin/crm" || pathname.startsWith("/admin/crm/");
   const organizationMode = crmMode;
-  const crm = useQuery({ ...crmWorkspaceQuery, enabled: crmMode && user.roles.admin });
+  const crm = useQuery({ ...crmWorkspaceQuery, enabled: crmMode && eventAccess.admin });
   const organizationName = crm.data?.ok === true ? crm.data.data.organization.name : undefined;
   const organizationLogo = crm.data?.ok === true ? crm.data.data.organization.logo : null;
   const pendingContentChanges =
@@ -124,7 +126,7 @@ export function AdminShell({
       : 0;
   // Reviewers only get their queue — the overview is an organizer surface
   // (and /admin redirects them here).
-  const navigationItems = user.roles.admin
+  const navigationItems = eventAccess.admin
     ? allItems
     : [{ title: "My Reviews", section: "evaluation", icon: ClipboardCheckIcon }];
   const activeTitle =
@@ -211,6 +213,7 @@ export function AdminShell({
           eventCreated={eventCreated}
           pathname={pathname}
           user={user}
+          eventAdmin={eventAccess.admin}
           pendingContentChanges={pendingContentChanges}
           organizationMode={organizationMode}
           organizationName={organizationName}

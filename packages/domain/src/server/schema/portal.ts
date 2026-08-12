@@ -1,7 +1,7 @@
 import { Schema, Struct } from "effect";
 
 import { EntityFields, JsonObject, NullableDate, NullableNumber, NullableString } from "./common";
-import { FormFieldDefinition } from "./forms";
+import { FormFieldDefinition, ParticipantAnswers } from "./forms";
 import { DietaryRequirement, Submission, SubmissionEditHistory, TshirtSize } from "./submissions";
 
 export const TargetType = Schema.Literals(["contact", "submission"]);
@@ -221,6 +221,10 @@ export const PortalSessionCancelRequest = Schema.Struct({
 export const PortalSubmissionEditRequest = Schema.Struct({
   submissionId: Schema.String,
   answers: JsonObject,
+});
+export const PortalSubmissionParticipantsRequest = Schema.Struct({
+  submissionId: Schema.String,
+  participants: Schema.Array(ParticipantAnswers),
 });
 export const PortalProfileUpdateRequest = Schema.Struct({
   firstName: Schema.optionalKey(Schema.String),

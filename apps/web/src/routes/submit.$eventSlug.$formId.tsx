@@ -509,6 +509,7 @@ function Wizard({
                   </div>
                   <div className="p-4">
                     <FormRenderer
+                      idPrefix={`participant-${index}-`}
                       className="wizard-fields"
                       fields={participantFields}
                       timezone={event.timezone}

@@ -90,6 +90,7 @@ export function FormRenderer({
   footerStart,
   className,
   timezone,
+  idPrefix = "",
 }: {
   readonly fields: ReadonlyArray<FormFieldDefinition>;
   readonly library: FormRendererLibrary;
@@ -102,6 +103,7 @@ export function FormRenderer({
   readonly footerStart?: ReactNode;
   readonly className?: string;
   readonly timezone: string;
+  readonly idPrefix?: string;
 }) {
   const form = useForm({
     defaultValues: initialAnswers(fields, answers),
@@ -133,6 +135,7 @@ export function FormRenderer({
                   <div className="min-h-0 overflow-hidden">
                     <form.Field name={definition.id}>
                       {(field) => {
+                        const inputId = `${idPrefix}${field.name}`;
                         const message = errorMessage(field.state.meta.errors);
                         const textValue =
                           typeof field.state.value === "string" ? field.state.value : "";
@@ -144,7 +147,7 @@ export function FormRenderer({
                         return (
                           <Field data-invalid={message !== undefined} className="pb-1">
                             <div className="flex items-center justify-between gap-3">
-                              <FieldLabel htmlFor={field.name}>
+                              <FieldLabel htmlFor={inputId}>
                                 {definition.label}
                                 {definition.required ? " *" : ""}
                               </FieldLabel>
@@ -156,7 +159,7 @@ export function FormRenderer({
                             </div>
                             {definition.fieldType === "datetime" ? (
                               <DateTimePicker
-                                id={field.name}
+                                id={inputId}
                                 value={textValue}
                                 timezone={timezone}
                                 onChange={(value) => {
@@ -166,7 +169,7 @@ export function FormRenderer({
                               />
                             ) : definition.fieldType === "textarea" ? (
                               <Textarea
-                                id={field.name}
+                                id={inputId}
                                 rows={5}
                                 maxLength={definition.maxChars ?? undefined}
                                 value={textValue}
@@ -192,7 +195,7 @@ export function FormRenderer({
                                   update(definition.id, value);
                                 }}
                               >
-                                <SelectTrigger id={field.name} className="w-full">
+                                <SelectTrigger id={inputId} className="w-full">
                                   <SelectValue placeholder="Select an option" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -251,7 +254,7 @@ export function FormRenderer({
                               </div>
                             ) : (
                               <Input
-                                id={field.name}
+                                id={inputId}
                                 type={
                                   definition.fieldType === "email"
                                     ? "email"

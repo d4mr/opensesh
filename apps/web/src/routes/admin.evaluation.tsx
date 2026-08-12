@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableShell } from "@/components/ui/table";
 import { adminEvaluationQuery, reviewerEvaluationQuery } from "@/lib/evaluation-queries";
+import { eventAccessFor } from "@/lib/event-access";
 
 export const Route = createFileRoute("/admin/evaluation")({
   component: EvaluationRoute,
@@ -19,18 +20,19 @@ function EvaluationRoute() {
   const { user } = Route.useRouteContext();
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
+  const access = eventAccessFor(user, eventId);
   const admin = useQuery({
     ...adminEvaluationQuery(eventId),
-    enabled: user.roles.admin && eventId.length > 0,
+    enabled: access.admin && eventId.length > 0,
   });
   const reviewer = useQuery({
     ...reviewerEvaluationQuery(eventId),
-    enabled: !user.roles.admin && user.roles.reviewer && eventId.length > 0,
+    enabled: !access.admin && access.reviewer && eventId.length > 0,
   });
 
   if (context === null) return null;
-  if (!user.roles.admin) {
-    if (!user.roles.reviewer) {
+  if (!access.admin) {
+    if (!access.reviewer) {
       return (
         <AdminEmptyState
           icon={ClipboardCheckIcon}

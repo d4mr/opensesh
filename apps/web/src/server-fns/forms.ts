@@ -48,7 +48,10 @@ export const createForm = createServerFn({ method: "POST" })
             heading: "Participant",
             instructions: "Add each speaker for this session.",
           },
-          participantRoles: [{ role: "speaker", enabled: true, min: 1, max: 3 }],
+          participantRoles: [
+            { role: "Primary speaker", enabled: true, min: 1, max: 1 },
+            { role: "Co-presenter", enabled: true, min: 0, max: 3 },
+          ],
           closeDate: null,
           submissionLimit: null,
           allowMultipleDrafts: false,

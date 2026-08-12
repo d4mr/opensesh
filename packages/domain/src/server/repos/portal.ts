@@ -181,6 +181,10 @@ export interface SpeakerPortalBootstrap {
     readonly format: typeof formats.$inferSelect | null;
     readonly form: typeof forms.$inferSelect | null;
   }>;
+  readonly participants: ReadonlyArray<{
+    readonly participant: typeof submissionParticipants.$inferSelect;
+    readonly contact: typeof contacts.$inferSelect;
+  }>;
   readonly tasks: ReadonlyArray<{
     readonly assignment: typeof taskAssignments.$inferSelect;
     readonly template: typeof taskTemplates.$inferSelect;
@@ -533,6 +537,34 @@ export const PortalLive = Layer.effect(
                   ),
                 )
                 .orderBy(desc(submissions.updatedAt))
+                .execute(),
+            ),
+            participants: query(database, "Could not load submission participants", (db) =>
+              db
+                .select({ participant: submissionParticipants, contact: contacts })
+                .from(submissionParticipants)
+                .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                .where(
+                  inArray(
+                    submissionParticipants.submissionId,
+                    db
+                      .select({ id: submissions.id })
+                      .from(submissions)
+                      .where(
+                        or(
+                          eq(submissions.submitterContactId, contactId),
+                          inArray(
+                            submissions.id,
+                            db
+                              .select({ submissionId: submissionParticipants.submissionId })
+                              .from(submissionParticipants)
+                              .where(eq(submissionParticipants.contactId, contactId)),
+                          ),
+                        ),
+                      ),
+                  ),
+                )
+                .orderBy(asc(submissionParticipants.position))
                 .execute(),
             ),
             tasks: query(database, "Could not load speaker tasks", (db) =>

@@ -1,10 +1,11 @@
 import { Effect, Schema } from "effect";
 
 import { enrichContact } from "./contact-enrichment";
-import { InvalidInput } from "./errors";
+import { Forbidden, FormClosed, InvalidInput } from "./errors";
 import { confirmation } from "./mail/templates";
 import { Contacts } from "./repos/contacts";
 import { EmailLog } from "./repos/email-log";
+import { Events } from "./repos/events";
 import { ReadModels } from "./repos/read-models";
 import { Submissions } from "./repos/submissions";
 import type { ContactCreate, ContactUpdate, Submission } from "./schema/submissions";
@@ -188,6 +189,67 @@ const upsertParticipants = Effect.fn("upsertCfpParticipants")(function* (
     links.push({ contactId: contact.id, role: participant.role, position });
   }
   return yield* submissions.replaceParticipants(submissionId, links);
+});
+
+export const editCfpParticipants = Effect.fn("editCfpParticipants")(function* (
+  contactId: string,
+  submissionId: string,
+  input: ReadonlyArray<ParticipantAnswers>,
+) {
+  const submissions = yield* Submissions;
+  const submission = yield* submissions.get(submissionId);
+  const currentParticipants = yield* submissions.listParticipants(submissionId);
+  if (
+    submission.submitterContactId !== contactId &&
+    !currentParticipants.some((participant) => participant.contactId === contactId)
+  ) {
+    return yield* Effect.fail(
+      new Forbidden({ message: "You cannot edit this submission's speakers" }),
+    );
+  }
+  if (submission.sourceFormId === null) {
+    return yield* Effect.fail(new InvalidInput({ message: "This session has no submission form" }));
+  }
+  const events = yield* Events;
+  const event = yield* events.get(submission.eventId);
+  const bundle = yield* loadCfpForm(event.slug, submission.sourceFormId);
+  if (
+    bundle.form.status === "closed" ||
+    (bundle.form.closeDate !== null && bundle.form.closeDate <= new Date())
+  ) {
+    return yield* Effect.fail(new FormClosed({ message: "This submission form is closed" }));
+  }
+  if (!bundle.form.collectParticipants) {
+    return yield* Effect.fail(new InvalidInput({ message: "This form does not collect speakers" }));
+  }
+  const participants = normalizeParticipants(input, bundle.form.participantRoles);
+  const participantFields = bundle.fields.filter((field) => field.section === "participant");
+  for (const role of bundle.form.participantRoles.filter((item) => item.enabled)) {
+    const count = participants.filter((participant) => participant.role === role.role).length;
+    if (count < role.min || count > role.max) {
+      return yield* Effect.fail(
+        new InvalidInput({
+          message: `${role.role} requires between ${role.min} and ${role.max} participants`,
+        }),
+      );
+    }
+  }
+  for (const participant of participants) {
+    yield* Schema.decodeUnknownEffect(makeFormAnswersSchema(participantFields))(
+      participant.answers,
+    ).pipe(
+      Effect.mapError(
+        () => new InvalidInput({ message: "Complete the required participant fields" }),
+      ),
+    );
+  }
+  return yield* upsertParticipants(
+    submission.eventId,
+    submissionId,
+    participants,
+    participantFields,
+    bundle.form.participantRoles,
+  );
 });
 
 export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraftInput) {

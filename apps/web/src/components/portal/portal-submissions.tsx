@@ -1,11 +1,13 @@
-import type { FormAnswers, FormFieldDefinition } from "@opensesh/domain";
+import type { FormAnswers, FormFieldDefinition, ParticipantAnswers } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
   ChevronRightIcon,
   Clock3Icon,
   HistoryIcon,
+  PlusIcon,
   RotateCcwIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -28,12 +30,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import { Textarea } from "@/components/ui/textarea";
 import {
   cancelPortalSession,
+  editPortalParticipants,
   editPortalSubmission,
   restorePortalHistory,
   withdrawPortalSubmission,
@@ -87,6 +97,16 @@ function SubmissionContent({
         ),
     [data.fields, selected?.submission.sourceFormId],
   );
+  const participantFields = useMemo(
+    () =>
+      data.fields
+        .map((item) => item.field)
+        .filter(
+          (field) =>
+            field.formId === selected?.submission.sourceFormId && field.section === "participant",
+        ),
+    [data.fields, selected?.submission.sourceFormId],
+  );
   const initialAnswers = useMemo(
     () =>
       selected === undefined
@@ -106,11 +126,36 @@ function SubmissionContent({
   // Drafts are keyed by submission so the form hydrates synchronously on
   // spotlight open/swap; TanStack Form only reads answers at mount.
   const [draftAnswers, setDraftAnswers] = useState<Record<string, FormAnswers>>({});
+  const initialParticipants = useMemo(
+    () =>
+      selected === undefined
+        ? []
+        : data.participants
+            .filter((item) => item.participant.submissionId === selected.submission.id)
+            .map((item) => ({
+              role: item.participant.role,
+              answers: answersForParticipant(item.contact, participantFields),
+            })),
+    [data.participants, participantFields, selected],
+  );
+  const [draftParticipants, setDraftParticipants] = useState<
+    Record<string, ReadonlyArray<ParticipantAnswers>>
+  >({});
   const answers =
     (selected === undefined ? undefined : draftAnswers[selected.submission.id]) ?? initialAnswers;
+  const participants =
+    (selected === undefined ? undefined : draftParticipants[selected.submission.id]) ??
+    initialParticipants;
   const setAnswers = (next: FormAnswers) => {
     if (selected === undefined) return;
     setDraftAnswers((previous) => ({ ...previous, [selected.submission.id]: next }));
+  };
+  const setParticipants = (next: ReadonlyArray<ParticipantAnswers>) => {
+    if (selected === undefined) return;
+    setDraftParticipants((previous) => ({
+      ...previous,
+      [selected.submission.id]: next,
+    }));
   };
   const invalidate = () => invalidateAfterMutation(queryClient);
   const edit = useMutation({
@@ -130,6 +175,24 @@ function SubmissionContent({
           : "Submission saved",
       );
       setDraftAnswers({});
+      await invalidate();
+    },
+  });
+  const editParticipants = useMutation({
+    mutationFn: () =>
+      selected === undefined
+        ? Promise.resolve(null)
+        : editPortalParticipants({
+            data: { submissionId: selected.submission.id, participants },
+          }),
+    onSuccess: async (result) => {
+      if (result === null) return;
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Speakers saved");
+      setDraftParticipants({});
       await invalidate();
     },
   });
@@ -273,6 +336,13 @@ function SubmissionContent({
   }
 
   const sessionCancelled = selected.submission.cancelledAt !== null;
+  const enabledRoles = selected.form?.participantRoles.filter((role) => role.enabled) ?? [];
+  const participantRoleCount = (role: string) =>
+    participants.filter((participant) => participant.role === role).length;
+  const nextParticipantRole = enabledRoles.find(
+    (role) => participantRoleCount(role.role) < role.max,
+  );
+  const showParticipants = selected.form?.collectParticipants === true || participants.length > 0;
   // Withdrawing is a proposal-stage act; once accepted, the exit is
   // cancelling the session (which notifies the organizers), and a cancelled
   // session offers no further action from here.
@@ -374,6 +444,9 @@ function SubmissionContent({
           <Tabs defaultValue="details" className="mt-6">
             <TabsList variant="line">
               <TabsTrigger value="details">Details</TabsTrigger>
+              {showParticipants ? (
+                <TabsTrigger value="speakers">Speakers ({participants.length})</TabsTrigger>
+              ) : null}
               <TabsTrigger value="history">History ({history.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="pt-4">
@@ -411,6 +484,131 @@ function SubmissionContent({
                 <div className="mt-5 flex justify-end border-t pt-4">{withdrawAction}</div>
               ) : null}
             </TabsContent>
+            {showParticipants ? (
+              <TabsContent value="speakers" className="pt-4">
+                {closed ? (
+                  <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                    <Clock3Icon className="size-4" />
+                    This submission form is closed. Speakers are read-only.
+                  </div>
+                ) : null}
+                <div className="grid gap-3">
+                  {participants.map((participant, index) => {
+                    const currentRole = enabledRoles.find((role) => role.role === participant.role);
+                    return (
+                      <section key={index} className="overflow-hidden rounded-lg border">
+                        <div className="flex h-10 items-center gap-2 border-b bg-muted/40 pr-1.5 pl-3">
+                          {closed || enabledRoles.length < 2 ? (
+                            <span className="text-[13px] font-medium">{participant.role}</span>
+                          ) : (
+                            <Select
+                              value={participant.role}
+                              onValueChange={(role) =>
+                                setParticipants(
+                                  participants.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, role } : item,
+                                  ),
+                                )
+                              }
+                            >
+                              <SelectTrigger
+                                aria-label={`Role for speaker ${index + 1}`}
+                                className="h-7 w-auto min-w-36 border-0 bg-transparent px-1.5 shadow-none"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {enabledRoles.map((role) => (
+                                  <SelectItem
+                                    key={role.role}
+                                    value={role.role}
+                                    disabled={
+                                      role.role !== participant.role &&
+                                      (participantRoleCount(role.role) >= role.max ||
+                                        (currentRole !== undefined &&
+                                          participantRoleCount(participant.role) <=
+                                            currentRole.min))
+                                    }
+                                  >
+                                    {role.role}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            className="ml-auto text-muted-foreground"
+                            aria-label={`Remove speaker ${index + 1}`}
+                            disabled={
+                              closed ||
+                              currentRole === undefined ||
+                              participantRoleCount(participant.role) <= currentRole.min
+                            }
+                            onClick={() =>
+                              setParticipants(
+                                participants.filter((_, itemIndex) => itemIndex !== index),
+                              )
+                            }
+                          >
+                            <Trash2Icon />
+                          </Button>
+                        </div>
+                        <div className={closed ? "pointer-events-none p-4 opacity-70" : "p-4"}>
+                          <FormRenderer
+                            key={`${selected.submission.id}-${index}`}
+                            idPrefix={`portal-participant-${selected.submission.id}-${index}-`}
+                            className="wizard-fields"
+                            fields={participantFields}
+                            timezone={data.event.timezone}
+                            library={data.library}
+                            answers={participant.answers}
+                            onAnswersChange={(next) =>
+                              setParticipants(
+                                participants.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, answers: next } : item,
+                                ),
+                              )
+                            }
+                            onContinue={() => undefined}
+                            showContinue={false}
+                          />
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="pressable text-muted-foreground"
+                    disabled={closed || nextParticipantRole === undefined}
+                    onClick={() => {
+                      if (nextParticipantRole === undefined) return;
+                      setParticipants([
+                        ...participants,
+                        participantForRole(participantFields, nextParticipantRole.role),
+                      ]);
+                    }}
+                  >
+                    <PlusIcon /> Add speaker
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="pressable"
+                    disabled={closed || editParticipants.isPending}
+                    onClick={() => editParticipants.mutate()}
+                  >
+                    Save speakers
+                  </Button>
+                </div>
+              </TabsContent>
+            ) : null}
             <TabsContent value="history" className="pt-4">
               {history.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No content edits yet.</p>
@@ -599,6 +797,29 @@ function answersForSubmission(
       answers[field.id] = field.fieldType === "checkbox" ? trackIds : (trackIds[0] ?? "");
     if (field.mapsTo === "tags")
       answers[field.id] = field.fieldType === "checkbox" ? tagIds : (tagIds[0] ?? "");
+  }
+  return answers;
+}
+
+const emptyParticipantAnswers = (fields: ReadonlyArray<FormFieldDefinition>): FormAnswers =>
+  Object.fromEntries(fields.map((field) => [field.id, field.fieldType === "checkbox" ? [] : ""]));
+
+const participantForRole = (
+  fields: ReadonlyArray<FormFieldDefinition>,
+  role: string,
+): ParticipantAnswers => ({ role, answers: emptyParticipantAnswers(fields) });
+
+function answersForParticipant(
+  contact: SpeakerData["participants"][number]["contact"],
+  fields: ReadonlyArray<FormFieldDefinition & { readonly mapsTo: string | null }>,
+): FormAnswers {
+  const answers: Record<string, import("effect").Schema.Json> = { ...contact.custom };
+  for (const field of fields) {
+    if (field.mapsTo === "first_name") answers[field.id] = contact.firstName;
+    if (field.mapsTo === "last_name") answers[field.id] = contact.lastName;
+    if (field.mapsTo === "email") answers[field.id] = contact.email;
+    if (field.mapsTo === "phone") answers[field.id] = contact.phone ?? "";
+    if (field.mapsTo === "bio") answers[field.id] = contact.bio ?? "";
   }
   return answers;
 }

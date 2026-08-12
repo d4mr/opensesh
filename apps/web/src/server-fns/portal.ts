@@ -18,6 +18,7 @@ import {
   PortalFormResponseRequest,
   PortalProfileUpdateRequest,
   PortalSubmissionEditRequest,
+  PortalSubmissionParticipantsRequest,
   PortalSubmissionRequest,
   RestoreHistoryRequest,
   SessionFileRequirementMutationRequest,
@@ -26,6 +27,7 @@ import {
   TaskAssignmentRequest,
   TaskTemplateMutationRequest,
 } from "@opensesh/domain";
+import { editCfpParticipants } from "@opensesh/domain/server/cfp";
 import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Contacts, Events, Portal, Sessions } from "@opensesh/domain/server/repos";
 import { Mail } from "@opensesh/domain/server/mail";
@@ -434,6 +436,18 @@ export const editPortalSubmission = createServerFn({ method: "POST" })
         const { contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
         return yield* portal.editSubmission(contactId, data.submissionId, data.answers);
+      }),
+      { require: "speaker" },
+    ),
+  );
+
+export const editPortalParticipants = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(PortalSubmissionParticipantsRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const { contactId } = yield* requireSpeaker();
+        return yield* editCfpParticipants(contactId, data.submissionId, data.participants);
       }),
       { require: "speaker" },
     ),
