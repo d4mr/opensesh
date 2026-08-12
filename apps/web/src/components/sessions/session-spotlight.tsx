@@ -69,33 +69,48 @@ function TimelineList({
   }
   const entries: ReadonlyArray<TimelineEntry> = timeline.data.data;
   return (
-    <ol className="space-y-0.5">
-      {entries.map((entry) => (
-        <li key={entry.id} className="flex items-baseline gap-2 px-2 py-1 text-xs">
-          <span
-            className={cn(
-              "size-1.5 shrink-0 translate-y-[-1px] rounded-full",
-              entry.kind === "cancelled"
-                ? "bg-destructive"
-                : entry.kind === "decided" || entry.kind === "reinstated"
-                  ? "bg-status-accepted"
-                  : "bg-muted-foreground/40",
-            )}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="font-medium">{entry.label}</span>
-            {entry.detail === null ? null : (
-              <span className="text-muted-foreground"> — {entry.detail}</span>
-            )}
-            {entry.actorName === null ? null : (
-              <span className="text-muted-foreground"> · {entry.actorName}</span>
+    <ol className="px-2 py-1">
+      {entries.map((entry, index) => (
+        <li key={entry.id} className="flex gap-2.5 text-xs">
+          {/* The rail: each entry draws its dot plus the segment down to the
+              next dot, so the line never overshoots the first or last entry. */}
+          <span className="flex w-1.5 shrink-0 flex-col items-center">
+            {/* The 5px above each dot is drawn as rail (not margin) so the
+                incoming segment meets the dot instead of stopping short. */}
+            <span
+              className={cn("h-[5px] w-px shrink-0", index === 0 ? "" : "bg-border")}
+              aria-hidden
+            />
+            <span
+              className={cn(
+                "size-1.5 shrink-0 rounded-full",
+                entry.kind === "cancelled"
+                  ? "bg-destructive"
+                  : entry.kind === "decided" || entry.kind === "reinstated"
+                    ? "bg-status-accepted"
+                    : "bg-muted-foreground/40",
+              )}
+            />
+            {index === entries.length - 1 ? null : (
+              <span className="w-px flex-1 bg-border" aria-hidden />
             )}
           </span>
-          <Timestamp
-            value={entry.at}
-            timezone={timezone}
-            className="shrink-0 text-muted-foreground"
-          />
+          <span className="flex min-w-0 flex-1 items-baseline gap-2 pb-2.5">
+            <span className="min-w-0 flex-1">
+              <span className="font-medium">{entry.label}</span>
+              {entry.detail === null ? null : (
+                <span className="text-muted-foreground"> — {entry.detail}</span>
+              )}
+              {entry.actorName === null ? null : (
+                <span className="text-muted-foreground"> · {entry.actorName}</span>
+              )}
+            </span>
+            <Timestamp
+              value={entry.at}
+              timezone={timezone}
+              className="shrink-0 text-muted-foreground"
+            />
+          </span>
         </li>
       ))}
     </ol>

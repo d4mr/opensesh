@@ -389,20 +389,34 @@ export function SubmissionDetail({
               )}
             </DetailSection>
 
-            <DetailSection title="Activity" className="space-y-3 p-3">
-              {data.activity.map((activity) => (
-                <div key={activity.id} className="flex gap-2">
-                  <CircleIcon
-                    className={cn(
-                      "mt-1 size-2.5",
-                      activity.kind === "cancelled"
-                        ? "fill-destructive text-destructive"
-                        : activity.kind === "decided" || activity.kind === "reinstated"
-                          ? "fill-status-accepted text-status-accepted"
-                          : "fill-muted-foreground text-muted-foreground",
+            <DetailSection title="Activity" className="p-3">
+              {data.activity.map((activity, index) => (
+                <div key={activity.id} className="flex gap-2.5">
+                  {/* Rail: dot plus the segment down to the next entry, so
+                      the line stops cleanly at the last one. */}
+                  <div className="flex w-2.5 shrink-0 flex-col items-center">
+                    {/* The 4px above each dot is drawn as rail (not margin) so
+                        the incoming segment meets the dot instead of stopping
+                        short. */}
+                    <div
+                      className={cn("h-1 w-px shrink-0", index === 0 ? "" : "bg-border")}
+                      aria-hidden
+                    />
+                    <CircleIcon
+                      className={cn(
+                        "size-2.5 shrink-0",
+                        activity.kind === "cancelled"
+                          ? "fill-destructive text-destructive"
+                          : activity.kind === "decided" || activity.kind === "reinstated"
+                            ? "fill-status-accepted text-status-accepted"
+                            : "fill-muted-foreground text-muted-foreground",
+                      )}
+                    />
+                    {index === data.activity.length - 1 ? null : (
+                      <div className="w-px flex-1 bg-border" aria-hidden />
                     )}
-                  />
-                  <div className="min-w-0">
+                  </div>
+                  <div className="min-w-0 pb-3">
                     <p className="text-xs font-medium">
                       {activity.label}
                       {activity.detail === null ? null : (
