@@ -45,7 +45,12 @@ export const saveAgendaSchedule = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const agenda = yield* Agenda;
         yield* requireAgendaEvent(data.eventId);
-        return yield* agenda.saveSchedule(data);
+        const user = yield* getCurrentUser;
+        return yield* agenda.saveSchedule(data, {
+          kind: "user",
+          userId: user.userId,
+          name: user.name,
+        });
       }),
       { require: "admin" },
     ),
@@ -97,7 +102,11 @@ export const acceptAgendaDraft = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const agenda = yield* Agenda;
         yield* requireAgendaEvent(data.eventId);
-        return yield* agenda.acceptDraft(data);
+        const user = yield* getCurrentUser;
+        return yield* agenda.acceptDraft({
+          ...data,
+          actor: { kind: "user", userId: user.userId, name: user.name },
+        });
       }),
       { require: "admin" },
     ),

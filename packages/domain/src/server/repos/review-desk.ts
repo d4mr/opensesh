@@ -18,6 +18,7 @@ import {
   reviews,
   sessionFileRequirementAssignments,
   sessionFileRequirements,
+  submissionActivity,
   submissionParticipants,
   submissions,
   submissionTags,
@@ -31,7 +32,13 @@ import {
 import { Db, type Database } from "../db";
 import { AlreadyDecided, type DbError, Forbidden, InvalidInput, NotFound } from "../errors";
 import type { OutboundMail } from "../mail";
-import { JsonObject, NullableDate, NullableNumber, NullableString } from "../schema/common";
+import {
+  JsonObject,
+  NullableDate,
+  NullableNumber,
+  NullableString,
+  type AuditActor,
+} from "../schema/common";
 import { FormFieldType, FormSection } from "../schema/forms";
 import {
   DecisionResult,
@@ -56,15 +63,17 @@ import {
   ReviewAssignment,
   ReviewCriterion,
 } from "../schema/reviews";
-import { ReviewDecision, SubmissionKind, SubmissionStatus } from "../schema/submissions";
-import { decode, decodeFound, decodeMany, query } from "./shared";
+import { ReviewDecision, SessionCancelledBy, SubmissionStatus } from "../schema/submissions";
+import { activityActorColumns, decode, decodeFound, decodeMany, query } from "./shared";
+import { loadTimeline } from "./timeline";
 
 const RawListRow = Schema.Struct({
   submissionId: Schema.String,
   eventId: Schema.String,
   code: Schema.String,
-  kind: SubmissionKind,
   status: SubmissionStatus,
+  cancelledAt: NullableDate,
+  cancelledBy: Schema.NullOr(SessionCancelledBy),
   title: Schema.String,
   description: Schema.String,
   answers: JsonObject,
@@ -155,8 +164,9 @@ const makeListItems = (rows: ReadonlyArray<RawListRow>) => {
           id: row.submissionId,
           eventId: row.eventId,
           code: row.code,
-          kind: row.kind,
           status: row.status,
+          cancelledAt: row.cancelledAt,
+          cancelledBy: row.cancelledBy,
           title: row.title,
           description: row.description,
           format: row.formatName,
@@ -242,8 +252,9 @@ const rawListSelection = {
   submissionId: submissions.id,
   eventId: submissions.eventId,
   code: submissions.code,
-  kind: submissions.kind,
   status: submissions.status,
+  cancelledAt: submissions.cancelledAt,
+  cancelledBy: submissions.cancelledBy,
   title: submissions.title,
   description: submissions.description,
   answers: submissions.answers,
@@ -280,8 +291,11 @@ const rawListSelection = {
 };
 
 // Access was decided at the boundary (requireEventAccess); the query only
-// tenant-scopes by the trusted eventId.
-const listQuery = (database: Database, eventId: string, kind: typeof SubmissionKind.Type) =>
+// tenant-scopes by the trusted eventId. The desk is the CFP lens: every
+// form-origin row across its whole lifecycle, acceptance included. Manual
+// sessions (source_form_id null) have no submission to track and never
+// appear here — they live on the Sessions surface only.
+const listQuery = (database: Database, eventId: string) =>
   query(database, "Could not load submissions", (db) =>
     db
       .select(rawListSelection)
@@ -297,14 +311,7 @@ const listQuery = (database: Database, eventId: string, kind: typeof SubmissionK
       .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
       .leftJoin(reviews, eq(reviews.submissionId, submissions.id))
       .leftJoin(users, eq(users.id, reviews.reviewerId))
-      .where(
-        and(
-          eq(submissions.eventId, eventId),
-          // Abstracts desk tracks the CFP lifecycle even after acceptance
-          // graduates a row to kind='session'; Sessions desk is kind-based.
-          kind === "abstract" ? isNotNull(submissions.sourceFormId) : eq(submissions.kind, kind),
-        ),
-      )
+      .where(and(eq(submissions.eventId, eventId), isNotNull(submissions.sourceFormId)))
       .orderBy(
         desc(submissions.submittedAt),
         desc(submissions.createdAt),
@@ -404,10 +411,7 @@ interface ReviewDeskViewer {
 }
 
 interface ReviewDeskService {
-  readonly list: (
-    eventId: string,
-    kind: typeof SubmissionKind.Type,
-  ) => Effect.Effect<ReviewDeskList, DbError>;
+  readonly list: (eventId: string) => Effect.Effect<ReviewDeskList, DbError>;
   readonly detail: (
     eventId: string,
     submissionId: string,
@@ -430,6 +434,7 @@ interface ReviewDeskService {
     eventId: string,
     submissionId: string,
     status: typeof SubmissionStatus.Type,
+    actor: AuditActor,
   ) => Effect.Effect<typeof StatusChangeResult.Type, DbError | Forbidden | InvalidInput | NotFound>;
   readonly decide: (input: {
     readonly eventId: string;
@@ -438,6 +443,7 @@ interface ReviewDeskService {
     readonly feedback: string;
     readonly confirmRedecide: boolean;
     readonly approveContent: boolean;
+    readonly actor: AuditActor;
   }) => Effect.Effect<DecisionSuccess, ReviewDeskFailure>;
   readonly markEmail: (logId: string, status: "sent" | "failed") => Effect.Effect<void, DbError>;
 }
@@ -455,8 +461,8 @@ export const ReviewDeskLive = Layer.effect(
     return {
       // An empty result is just an empty desk; access was decided at the
       // boundary.
-      list: (eventId, kind) =>
-        listQuery(database, eventId, kind).pipe(
+      list: (eventId) =>
+        listQuery(database, eventId).pipe(
           Effect.flatMap((rows) => decodeMany(RawListRow, "review desk row", rows)),
           Effect.flatMap((rows) =>
             Effect.gen(function* () {
@@ -705,36 +711,9 @@ export const ReviewDeskLive = Layer.effect(
                   value: answerValue(row),
                 });
               }
-              const activity = [
-                { id: "created", label: "Submission created", at: submission.createdAt },
-                ...(submission.submittedAt === null
-                  ? []
-                  : [
-                      {
-                        id: "submitted",
-                        label: "Submitted for review",
-                        at: submission.submittedAt,
-                      },
-                    ]),
-                ...(submission.updatedAt.getTime() === submission.createdAt.getTime()
-                  ? []
-                  : [
-                      {
-                        id: "status",
-                        label: `Status is ${submission.status}`,
-                        at: submission.updatedAt,
-                      },
-                    ]),
-                ...(submission.notifiedAt === null
-                  ? []
-                  : [
-                      {
-                        id: "notified",
-                        label: "Decision notification sent",
-                        at: submission.notifiedAt,
-                      },
-                    ]),
-              ].sort((left, right) => right.at.getTime() - left.at.getTime());
+              // The real merged timeline — activity log, emails, edits,
+              // files, tasks — not a reconstruction from row timestamps.
+              const activity = yield* loadTimeline(database, eventId, submissionId);
               return yield* decode(ReviewDeskDetail, "submission detail", {
                 submission: {
                   ...item,
@@ -987,7 +966,7 @@ export const ReviewDeskLive = Layer.effect(
             }),
           ),
         ),
-      changeStatus: (eventId, submissionId, status) => {
+      changeStatus: (eventId, submissionId, status, actor) => {
         if (status === "accepted" || status === "declined" || status === "draft") {
           return Effect.fail(
             new InvalidInput({
@@ -999,19 +978,61 @@ export const ReviewDeskLive = Layer.effect(
           );
         }
         return query(database, "Could not change submission status", (db) =>
-          db
-            .update(submissions)
-            // Leaving accepted un-graduates form-origin rows back to
-            // kind='abstract'; manually created sessions keep their kind.
-            .set({
-              status,
-              updatedAt: new Date(),
-              kind: sql`case when ${submissions.sourceFormId} is not null then 'abstract' else ${submissions.kind} end`,
-            })
-            .where(and(eq(submissions.id, submissionId), eq(submissions.eventId, eventId)))
-            .returning()
-            .execute(),
-        ).pipe(Effect.flatMap((rows) => decodeFound(StatusChangeResult, "Submission", rows[0])));
+          db.transaction(
+            async (
+              transaction,
+            ): Promise<
+              | { readonly kind: "notFound" }
+              | { readonly kind: "accepted" }
+              | { readonly kind: "success"; readonly row: { id: string; status: string } }
+            > => {
+              const current = (
+                await transaction
+                  .select({ id: submissions.id, status: submissions.status })
+                  .from(submissions)
+                  .where(and(eq(submissions.id, submissionId), eq(submissions.eventId, eventId)))
+                  .for("update")
+              )[0];
+              if (current === undefined) return { kind: "notFound" };
+              // Acceptance is not undone by a status shuffle: the only exits
+              // from accepted are cancelling the session (or reinstating it).
+              if (current.status === "accepted") return { kind: "accepted" };
+              if (current.status === status) return { kind: "success", row: current };
+              const updated = (
+                await transaction
+                  .update(submissions)
+                  .set({ status, updatedAt: new Date() })
+                  .where(eq(submissions.id, submissionId))
+                  .returning({ id: submissions.id, status: submissions.status })
+              )[0];
+              if (updated === undefined) return { kind: "notFound" };
+              await transaction.insert(submissionActivity).values({
+                submissionId,
+                type: "status_changed",
+                ...activityActorColumns(actor),
+                payload: { from: current.status, to: status },
+              });
+              return { kind: "success", row: updated };
+            },
+          ),
+        ).pipe(
+          Effect.flatMap((outcome) =>
+            Effect.gen(function* () {
+              if (outcome.kind === "notFound") {
+                return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
+              }
+              if (outcome.kind === "accepted") {
+                return yield* Effect.fail(
+                  new InvalidInput({
+                    message:
+                      "This submission was accepted — cancel its session instead of changing the status",
+                  }),
+                );
+              }
+              return yield* decodeFound(StatusChangeResult, "Submission", outcome.row);
+            }),
+          ),
+        );
       },
       decide: (input) => {
         const uniqueIds = Array.from(new Set(input.submissionIds));
@@ -1024,10 +1045,12 @@ export const ReviewDeskLive = Layer.effect(
               .select({
                 submissionId: submissions.id,
                 status: submissions.status,
+                cancelledAt: submissions.cancelledAt,
                 notifiedAt: submissions.notifiedAt,
                 title: submissions.title,
                 eventId: submissions.eventId,
                 eventName: events.name,
+                speakerConfirmationEnabled: events.speakerConfirmationEnabled,
                 contactId: contacts.id,
                 contactEmail: contacts.email,
                 contactFirstName: contacts.firstName,
@@ -1055,8 +1078,30 @@ export const ReviewDeskLive = Layer.effect(
                 message: "Draft and withdrawn submissions cannot receive decision emails",
               };
             }
+            // Acceptance is a decision that stands: what happens to the
+            // session afterwards is cancellation, never a re-decide.
+            if (
+              input.decision === "decline" &&
+              targetRows.some((row) => row.status === "accepted")
+            ) {
+              return {
+                kind: "invalid",
+                message:
+                  "Accepted submissions cannot be declined — cancel the session from Sessions instead",
+              };
+            }
+            if (
+              input.decision === "accept" &&
+              targetRows.some((row) => row.status === "accepted" && row.cancelledAt !== null)
+            ) {
+              return {
+                kind: "invalid",
+                message: "This session was cancelled — reinstate it from Sessions instead",
+              };
+            }
             const nextStatus: "accepted" | "declined" =
               input.decision === "accept" ? "accepted" : "declined";
+            // The only surviving re-decide: declined → accepted.
             const priorFinal = targetRows.find(
               (row) =>
                 (row.status === "accepted" || row.status === "declined") &&
@@ -1079,6 +1124,7 @@ export const ReviewDeskLive = Layer.effect(
               return { kind: "invalid", message: "Every submission must have a speaker" };
             }
             const now = new Date();
+            const confirmationRequested = targetRows[0]?.speakerConfirmationEnabled === true;
             const templates = await transaction
               .select()
               .from(taskTemplates)
@@ -1102,7 +1148,9 @@ export const ReviewDeskLive = Layer.effect(
                   ),
                 ).values(),
               );
-              if (distinctContacts.length > 0) {
+              // With speaker confirmation on, confirming is the speaker's own
+              // act in the portal; with it off, acceptance confirms everyone.
+              if (!confirmationRequested && distinctContacts.length > 0) {
                 await transaction
                   .update(contacts)
                   .set({ confirmedAt: now, updatedAt: now })
@@ -1193,6 +1241,7 @@ export const ReviewDeskLive = Layer.effect(
                 speakerName: row.contactFirstName,
                 submissionTitle: row.title,
                 feedback: input.feedback,
+                confirmationRequested,
               });
               return [
                 {
@@ -1258,23 +1307,18 @@ export const ReviewDeskLive = Layer.effect(
             });
             const updated = await transaction
               .update(submissions)
-              // Accepted abstracts graduate into sessions (Sessionboard
-              // lifecycle); the row keeps its code, reviews, and history.
-              // Re-deciding to declined reverts form-origin rows to
-              // kind='abstract'; manually created sessions keep their kind.
-              // Acceptance does NOT publish: content stays pending_review
-              // (public surfaces filter on approved) unless the organizer
-              // opted into approve-on-accept, which snapshots the current
-              // content as the approved public version. A previously approved
-              // session keeps its approval on re-accept.
+              // Accepting makes the row a session (the Sessions surface is
+              // the projection of accepted submissions) while it keeps its
+              // code, reviews, and history on the desk. Acceptance does NOT
+              // publish: content stays pending_review (public surfaces filter
+              // on approved) unless the organizer opted into
+              // approve-on-accept, which snapshots the current content as the
+              // approved public version. A previously approved session keeps
+              // its approval on re-accept.
               .set({
                 status: nextStatus,
                 notifiedAt: now,
                 updatedAt: now,
-                kind:
-                  nextStatus === "accepted"
-                    ? ("session" as const)
-                    : sql`case when ${submissions.sourceFormId} is not null then 'abstract' else ${submissions.kind} end`,
                 ...(nextStatus === "accepted"
                   ? input.approveContent
                     ? {
@@ -1297,6 +1341,22 @@ export const ReviewDeskLive = Layer.effect(
                 status: submissions.status,
                 notifiedAt: submissions.notifiedAt,
               });
+            if (updated.length > 0) {
+              const previousStatus = new Map(
+                targetRows.map((row) => [row.submissionId, row.status]),
+              );
+              await transaction.insert(submissionActivity).values(
+                updated.map((submission) => ({
+                  submissionId: submission.id,
+                  type: "decided" as const,
+                  ...activityActorColumns(input.actor),
+                  payload: {
+                    decision: input.decision,
+                    from: previousStatus.get(submission.id) ?? "pending",
+                  },
+                })),
+              );
+            }
             const updatedMap = new Map(updated.map((submission) => [submission.id, submission]));
             const originalMap = new Map(
               targetRows.map((submission) => [submission.submissionId, submission]),

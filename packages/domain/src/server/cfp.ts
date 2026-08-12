@@ -213,7 +213,6 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
   const draft = yield* submissions.saveDraft(
     {
       eventId: bundle.event.id,
-      kind: bundle.form.kind,
       status: "draft",
       sourceFormId: bundle.form.id,
       submitterContactId: submitter.id,
@@ -237,6 +236,8 @@ export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraft
       // Nothing about a CFP draft is publication-approved: acceptance and
       // content approval are separate, later judgments.
       contentReviewStatus: "pending_review",
+      cancelledAt: null,
+      cancelledBy: null,
     },
     input.submissionId,
   );

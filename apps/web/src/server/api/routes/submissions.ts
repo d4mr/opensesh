@@ -1,14 +1,14 @@
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
-import { Forbidden, InvalidInput, NotFound } from "@opensesh/domain/server/errors";
+import { InvalidInput, NotFound } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
-import { Contacts, Events, Portal, ReviewDesk, Submissions } from "@opensesh/domain/server/repos";
+import { Contacts, ReviewDesk } from "@opensesh/domain/server/repos";
 import {
   DecisionResult,
   ReviewDeskDetail,
   ReviewDeskList,
   StatusChangeResult,
 } from "@opensesh/domain/server/schema/review-desk";
-import { Contact, Submission } from "@opensesh/domain/server/schema/submissions";
+import { Contact } from "@opensesh/domain/server/schema/submissions";
 import { Effect, Schema } from "effect";
 
 import { endpoint, type ApiEndpoint } from "../types";
@@ -25,16 +25,6 @@ const StatusBody = Schema.Struct({
   status: Schema.Literals(["draft", "pending", "maybe", "accepted", "declined", "withdrawn"]),
 });
 
-const ManualSessionBody = Schema.Struct({
-  title: Schema.String,
-  description: Schema.NullOr(Schema.String),
-  formatId: Schema.NullOr(Schema.String),
-  speakerIds: Schema.Array(Schema.String),
-});
-
-const submissionKind = (value: string | null) =>
-  value === "abstract" ? ("abstract" as const) : ("session" as const);
-
 export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
   endpoint({
     method: "GET",
@@ -42,13 +32,9 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "listSubmissions",
     summary: "List submissions",
     description:
-      "The review-desk view of submissions: status, code, title, tracks, format, speakers, rating, review counts.",
+      "The review-desk view of CFP submissions across their whole lifecycle: status, code, title, tracks, format, speakers, rating, review counts. Sessions (accepted submissions and manually created sessions) live under the Sessions endpoints.",
     tag: "Submissions",
     queryParams: [
-      {
-        name: "kind",
-        description: 'The submission stage: "abstract" (CFP inbox) or "session" (default).',
-      },
       { name: "status", description: "Filter to one status (pending, accepted, declined, …)." },
     ],
     successSchema: ReviewDeskList,
@@ -56,10 +42,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const reviewDesk = yield* ReviewDesk;
-        const list = yield* reviewDesk.list(
-          access.event.id,
-          submissionKind(context.query.get("kind")),
-        );
+        const list = yield* reviewDesk.list(access.event.id);
         const status = context.query.get("status");
         return status === null
           ? list
@@ -98,6 +81,11 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           access.event.id,
           context.params.submissionId ?? "",
           body.status,
+          {
+            kind: "api_key",
+            apiKeyId: context.principal.keyId,
+            name: `API key: ${context.principal.keyName}`,
+          },
         );
       }),
   }),
@@ -129,6 +117,11 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           feedback: body.feedback,
           confirmRedecide: body.confirmRedecide ?? false,
           approveContent: body.approveContent ?? false,
+          actor: {
+            kind: "api_key",
+            apiKeyId: context.principal.keyId,
+            name: `API key: ${context.principal.keyName}`,
+          },
         });
         yield* Effect.forEach(
           decision.deliveries,
@@ -136,83 +129,6 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           { concurrency: 5 },
         );
         return decision.result;
-      }),
-  }),
-  endpoint({
-    method: "POST",
-    path: "/events/{eventId}/sessions",
-    operationId: "createSession",
-    summary: "Create a session directly",
-    description:
-      "Creates an accepted session without a CFP submission — the manual-add path. Speakers must already be event contacts.",
-    tag: "Submissions",
-    bodySchema: ManualSessionBody,
-    successStatus: 201,
-    successSchema: Submission,
-    handler: (context) =>
-      Effect.gen(function* () {
-        const body = context.body as typeof ManualSessionBody.Type;
-        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
-        const eventId = access.event.id;
-        const title = body.title.trim();
-        const speakerIds = Array.from(new Set(body.speakerIds));
-        if (title.length === 0) {
-          return yield* Effect.fail(new InvalidInput({ message: "Enter a session title" }));
-        }
-        if (speakerIds.length === 0) {
-          return yield* Effect.fail(
-            new InvalidInput({ message: "Every session must have a speaker" }),
-          );
-        }
-        const contacts = yield* Contacts;
-        const events = yield* Events;
-        const [eventContacts, eventFormats] = yield* Effect.all([
-          contacts.listByEvent(eventId),
-          events.listFormats(eventId),
-        ]);
-        const availableContactIds = new Set(eventContacts.map((contact) => contact.id));
-        if (speakerIds.some((id) => !availableContactIds.has(id))) {
-          return yield* Effect.fail(
-            new Forbidden({ message: "One or more speakers do not belong to this event" }),
-          );
-        }
-        if (body.formatId !== null && !eventFormats.some((format) => format.id === body.formatId)) {
-          return yield* Effect.fail(
-            new InvalidInput({ message: "Choose a format from this event" }),
-          );
-        }
-        const submissions = yield* Submissions;
-        const created = yield* submissions.create({
-          eventId,
-          kind: "session",
-          status: "accepted",
-          sourceFormId: null,
-          submitterContactId: null,
-          title,
-          description: body.description ?? "",
-          formatId: body.formatId,
-          levelId: null,
-          language: "en",
-          startsAt: null,
-          endsAt: null,
-          roomId: null,
-          icsSequence: 0,
-          scheduleDirty: false,
-          capacity: null,
-          ceuCredits: null,
-          clientSessionId: null,
-          notifiedAt: null,
-          submittedAt: new Date(),
-          answers: {},
-          approvedSnapshot: {},
-          contentReviewStatus: "approved",
-        });
-        yield* submissions.replaceParticipants(
-          created.id,
-          speakerIds.map((contactId, position) => ({ contactId, role: "speaker", position })),
-        );
-        const portal = yield* Portal;
-        return yield* portal.acceptSubmission(eventId, created.id, { approveContent: true });
       }),
   }),
   endpoint({

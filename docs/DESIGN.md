@@ -191,3 +191,41 @@ on the server during SSR and on the client during navigation, and both must
 resolve the SAME event the layout renders. Loaders resolve it with
 `resolveActiveEvent(events, context.activeEventId)` from the `/admin` route
 context — never `events[0]`.
+
+## 10. The submissions → sessions pipeline
+
+A session IS an accepted submission — one `submissions` table, no `kind`
+column, no session copy. The two admin surfaces are lenses over it:
+**Submissions** shows every row born from a CFP form (`source_form_id IS NOT
+NULL`) across its whole lifecycle; **Sessions** shows every accepted row —
+CFP-origin and manually added (`source_form_id IS NULL`) alike. Origin is
+encoded solely by `source_form_id`; never reintroduce a discriminator column.
+
+Acceptance is a decided fact and stays on record. From `accepted` the only
+exits are the session's own lifecycle: **cancel** (sets `cancelled_at` +
+`cancelled_by` — organizer or speaker — as data, not a status enum) and
+**reinstate** (clears them, reopens the tasks the cancellation waived, and
+flags the schedule for fresh invites). You cannot decline a session, and the
+desk refuses status changes on accepted rows. The schedule is KEPT on
+cancellation — it is the record of what was planned — and everything that
+feeds public surfaces filters on the one active-session predicate
+(`status = 'accepted' AND cancelled_at IS NULL`, `activeSession` in
+`packages/domain/src/server/repos/shared.ts`). Never write that condition
+inline.
+
+Sessions have no stored state beyond that: readiness (speakers confirmed,
+scheduled, deliverables, tasks, publication) is always derived in the read
+model, never persisted. Speaker confirmation is the speaker's own act (portal
+CTA, driven by the event's `speaker_confirmation_enabled` setting); when the
+setting is off, accepting confirms speakers automatically, as before.
+
+History is constructible, not reconstructed: transitions that overwrite
+columns (status changes, decisions, schedule moves, cancel/reinstate,
+content approval) append to `submission_activity` with actor provenance; the
+timeline read model (`packages/domain/src/server/repos/timeline.ts`) merges
+that log with the facts already stored elsewhere (emails, edit history, file
+versions, task completions, confirmations). Never dual-write an activity row
+for something another table already records. Seeded history must sit in the
+PAST relative to the demo day — only deadlines, the CFP close, and the event
+itself live in the future — or live actions sort under seeded ones and the
+timeline reads as nonsense.

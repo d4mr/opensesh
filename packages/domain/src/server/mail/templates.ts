@@ -104,12 +104,17 @@ const decision = (input: {
   readonly feedback: string;
   readonly portalUrl: string;
   readonly logoUrl?: string | null;
+  // Events with speaker confirmation on ask the speaker to confirm their
+  // participation in the portal; the acceptance email leads with that ask.
+  readonly confirmationRequested?: boolean;
 }): RenderedEmail => {
   const subject = input.accepted
     ? `You're speaking at ${input.eventName}`
     : `An update on your ${input.eventName} submission`;
   const introduction = input.accepted
-    ? `We are delighted to accept “${input.submissionTitle}.” Your onboarding tasks are ready in the speaker portal.`
+    ? input.confirmationRequested === true
+      ? `We are delighted to accept “${input.submissionTitle}.” Please confirm your participation in the speaker portal — your onboarding tasks are ready there too.`
+      : `We are delighted to accept “${input.submissionTitle}.” Your onboarding tasks are ready in the speaker portal.`
     : `Thank you for the thoughtful proposal “${input.submissionTitle}.” We are not able to include it in this year's program.`;
   const feedback = input.feedback.trim();
   const feedbackText =
@@ -124,7 +129,7 @@ const decision = (input: {
     html: layout(
       input.eventName,
       input.logoUrl,
-      `${paragraph(`Hi ${input.speakerName},`)}${paragraph(introduction)}${feedbackHtml}<p style="margin:0 0 20px">${link("Open speaker portal", input.portalUrl)}</p>${paragraph("The OpenSesh program team")}`,
+      `${paragraph(`Hi ${input.speakerName},`)}${paragraph(introduction)}${feedbackHtml}<p style="margin:0 0 20px">${link(input.accepted && input.confirmationRequested === true ? "Confirm participation" : "Open speaker portal", input.portalUrl)}</p>${paragraph("The OpenSesh program team")}`,
     ),
   };
 };
@@ -134,6 +139,39 @@ export const accepted = (input: Omit<Parameters<typeof decision>[0], "accepted">
 
 export const declined = (input: Omit<Parameters<typeof decision>[0], "accepted">) =>
   decision({ ...input, accepted: false });
+
+// Session cancellation is not a declined decision: the talk was accepted and
+// the session got called off afterward, by the organizers or by the speaker.
+export const cancelled = (input: {
+  readonly eventName: string;
+  readonly speakerName: string;
+  readonly submissionTitle: string;
+  readonly cause: "organizer" | "speaker";
+  readonly message: string;
+  readonly portalUrl: string;
+  readonly logoUrl?: string | null;
+}): RenderedEmail => {
+  const subject = `Your ${input.eventName} session has been cancelled`;
+  const introduction =
+    input.cause === "speaker"
+      ? `This confirms the cancellation of “${input.submissionTitle}.” We are sorry it did not work out and hope to see you at a future event.`
+      : `We are sorry to let you know that “${input.submissionTitle}” has been cancelled and removed from the ${input.eventName} program.`;
+  const message = input.message.trim();
+  const messageText = message.length === 0 ? "" : `\n\nA note from the program team:\n${message}`;
+  const messageHtml =
+    message.length === 0
+      ? ""
+      : `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:20px 0;border:1px solid #dfe3dd;border-radius:8px"><tr><td style="padding:14px"><strong>A note from the program team</strong><p style="margin:8px 0 0;white-space:pre-wrap;line-height:1.6">${escapeHtml(message)}</p></td></tr></table>`;
+  return {
+    subject,
+    text: `Hi ${input.speakerName},\n\n${introduction}${messageText}\n\nSpeaker portal: ${input.portalUrl}\n\nThe OpenSesh program team`,
+    html: layout(
+      input.eventName,
+      input.logoUrl,
+      `${paragraph(`Hi ${input.speakerName},`)}${paragraph(introduction)}${messageHtml}<p style="margin:0 0 20px">${link("Open speaker portal", input.portalUrl)}</p>${paragraph("The OpenSesh program team")}`,
+    ),
+  };
+};
 
 export const taskReminder = (input: {
   readonly eventName: string;

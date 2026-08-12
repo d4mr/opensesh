@@ -94,6 +94,7 @@ const emailTypeLabels: Readonly<Record<SpeakerDirectoryRow["emails"][number]["ty
   magic_link: "Magic link",
   accepted: "Accepted",
   declined: "Declined",
+  cancelled: "Cancelled",
   task_reminder: "Task reminder",
   calendar_invite: "Calendar invite",
   custom: "Custom",
@@ -947,7 +948,7 @@ function Directory({
                           <Link
                             key={session.id}
                             to="/admin/sessions"
-                            search={{ status: "all", spotlight: session.id }}
+                            search={{ state: "all", spotlight: session.id }}
                             className="pressable flex h-8 min-w-0 items-center gap-2 px-3 transition-colors hover:bg-muted/50 hover:text-foreground"
                           >
                             <span className="shrink-0 font-mono tabular-nums">{session.code}</span>
@@ -1174,7 +1175,7 @@ function Directory({
                 <SectionLabel>Session</SectionLabel>
                 <Link
                   to="/admin/sessions"
-                  search={{ status: "all", spotlight: peekAssignment.submission.id }}
+                  search={{ state: "all", spotlight: peekAssignment.submission.id }}
                   className="pressable mt-1 flex min-w-0 items-center gap-2 rounded-sm py-1 text-xs hover:text-foreground"
                 >
                   <span className="font-mono tabular-nums">{peekAssignment.submission.code}</span>

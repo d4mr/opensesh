@@ -69,7 +69,7 @@ const main = async () => {
     const program = Effect.gen(function* () {
       const admin = yield* outcome("dana devflow admin", requireEventAccess(devflow, "admin"));
       const desk = yield* ReviewDesk;
-      const list = yield* desk.list(devflow, "abstract");
+      const list = yield* desk.list(devflow);
       const detailTarget = list.submissions[0];
       const detail =
         detailTarget === undefined ? null : yield* desk.detail(devflow, detailTarget.id);

@@ -60,7 +60,14 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
         const body = context.body as typeof ScheduleBody.Type;
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const agenda = yield* Agenda;
-        return yield* agenda.saveSchedule({ ...body, eventId: access.event.id });
+        return yield* agenda.saveSchedule(
+          { ...body, eventId: access.event.id },
+          {
+            kind: "api_key",
+            apiKeyId: context.principal.keyId,
+            name: `API key: ${context.principal.keyName}`,
+          },
+        );
       }),
   }),
   endpoint({
@@ -167,6 +174,11 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
           eventId: access.event.id,
           draftId: context.params.draftId ?? "",
           submissionIds: body.submissionIds,
+          actor: {
+            kind: "api_key",
+            apiKeyId: context.principal.keyId,
+            name: `API key: ${context.principal.keyName}`,
+          },
         });
       }),
   }),

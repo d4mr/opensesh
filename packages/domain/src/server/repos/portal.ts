@@ -55,7 +55,7 @@ import type {
   TaskTemplateMutationRequest,
 } from "../schema/portal";
 import { Contact, Submission } from "../schema/submissions";
-import { decode, decodeFound, query } from "./shared";
+import { activeSession, decode, decodeFound, query } from "./shared";
 
 const commentAuthorContacts = alias(contacts, "comment_author_contacts");
 const commentAuthorUsers = alias(users, "comment_author_users");
@@ -307,10 +307,19 @@ interface PortalService {
     contactId: string,
     input: typeof PortalProfileUpdateRequest.Type,
   ) => Effect.Effect<Contact, DbError | NotFound>;
+  // The speaker's own act of confirming participation (the acceptance email
+  // CTA when the event asks for confirmation). Idempotent.
+  readonly confirmParticipation: (contactId: string) => Effect.Effect<Contact, DbError | NotFound>;
+  // Boundary guard for session actions a speaker takes on their own
+  // submission (cancelling from the portal): participant or submitter.
+  readonly assertParticipant: (
+    contactId: string,
+    submissionId: string,
+  ) => Effect.Effect<void, DbError | Forbidden>;
   readonly withdrawSubmission: (
     contactId: string,
     submissionId: string,
-  ) => Effect.Effect<Submission, DbError | Forbidden | NotFound>;
+  ) => Effect.Effect<Submission, DbError | Forbidden | InvalidInput | NotFound>;
   readonly editSubmission: (
     contactId: string,
     submissionId: string,
@@ -590,7 +599,7 @@ export const PortalLive = Layer.effect(
                   )
                   .where(
                     and(
-                      eq(submissions.status, "accepted"),
+                      activeSession,
                       eq(submissionParticipants.contactId, contactId),
                       or(
                         eq(sessionFileRequirementAssignments.contactId, contactId),
@@ -973,10 +982,7 @@ export const PortalLive = Layer.effect(
                   )
                   .leftJoin(contacts, eq(contacts.id, sessionFileRequirementAssignments.contactId))
                   .where(
-                    and(
-                      eq(sessionFileRequirements.eventId, eventId),
-                      eq(submissions.status, "accepted"),
-                    ),
+                    and(eq(sessionFileRequirements.eventId, eventId), activeSession),
                   )
                   .orderBy(asc(sessionFileRequirements.position), asc(submissions.code))
                   .execute(),
@@ -1152,7 +1158,7 @@ export const PortalLive = Layer.effect(
               .execute(),
           );
           const current = yield* decodeFound(Submission, "Session", loaded[0]);
-          if (current.kind !== "session" || current.status !== "accepted") {
+          if (current.status !== "accepted") {
             return yield* Effect.fail(
               new Forbidden({ message: "Only accepted sessions can be edited here" }),
             );
@@ -1295,7 +1301,22 @@ export const PortalLive = Layer.effect(
                 inputRecord[key] !== undefined &&
                 JSON.stringify(inputRecord[key] ?? null) !== JSON.stringify(existing[key] ?? null),
             );
-            if (existing.confirmedAt === null || gatedChanges.length === 0) {
+            // Once a speaker is on the program (any accepted submission),
+            // public-profile edits go through review; before that they flow
+            // freely. Confirmation is the speaker's own participation signal
+            // and no longer gates content review.
+            const acceptedRows = await transaction
+              .select({ id: submissionParticipants.id })
+              .from(submissionParticipants)
+              .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+              .where(
+                and(
+                  eq(submissionParticipants.contactId, contactId),
+                  eq(submissions.status, "accepted"),
+                ),
+              )
+              .limit(1);
+            if (acceptedRows.length === 0 || gatedChanges.length === 0) {
               return await transaction
                 .update(contacts)
                 .set({ ...input, updatedAt: now })
@@ -1330,14 +1351,59 @@ export const PortalLive = Layer.effect(
               .returning();
           }),
         ).pipe(Effect.flatMap((rows) => decodeFound(Contact, "Contact", rows[0]))),
+      confirmParticipation: (contactId) =>
+        query(database, "Could not confirm participation", (db) =>
+          db
+            .update(contacts)
+            // Confirming also advances the organizer-facing workflow pipeline
+            // when it still says invited/onboarding — one-way, never back.
+            .set({
+              confirmedAt: sql`coalesce(${contacts.confirmedAt}, now())`,
+              workflowStatus: sql`case when ${contacts.workflowStatus} in ('invited', 'onboarding') then 'confirmed' else ${contacts.workflowStatus} end`,
+              updatedAt: new Date(),
+            })
+            .where(eq(contacts.id, contactId))
+            .returning()
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeFound(Contact, "Contact", rows[0]))),
+      assertParticipant: (contactId, submissionId) =>
+        query(database, "Could not verify session speaker", (db) =>
+          db
+            .select({ id: submissions.id })
+            .from(submissions)
+            .leftJoin(
+              submissionParticipants,
+              eq(submissionParticipants.submissionId, submissions.id),
+            )
+            .where(
+              and(
+                eq(submissions.id, submissionId),
+                or(
+                  eq(submissions.submitterContactId, contactId),
+                  eq(submissionParticipants.contactId, contactId),
+                ),
+              ),
+            )
+            .limit(1)
+            .execute(),
+        ).pipe(
+          Effect.filterOrFail(
+            (rows) => rows.length > 0,
+            () => new Forbidden({ message: "This session is not yours" }),
+          ),
+          Effect.asVoid,
+        ),
       withdrawSubmission: (contactId, submissionId) =>
         query(database, "Could not withdraw submission", (db) =>
           db
             .update(submissions)
+            // Withdrawing is the pre-acceptance exit; once accepted, the
+            // speaker cancels the session instead (which keeps the history).
             .set({ status: "withdrawn", updatedAt: new Date() })
             .where(
               and(
                 eq(submissions.id, submissionId),
+                inArray(submissions.status, ["draft", "pending", "maybe"]),
                 or(
                   eq(submissions.submitterContactId, contactId),
                   inArray(
@@ -1636,7 +1702,7 @@ export const PortalLive = Layer.effect(
                   .where(
                     and(
                       eq(sessionFileRequirements.id, requirementId),
-                      eq(submissions.status, "accepted"),
+                      activeSession,
                       eq(submissionParticipants.contactId, contactId),
                       or(
                         eq(sessionFileRequirementAssignments.contactId, contactId),
@@ -1818,9 +1884,20 @@ export const PortalLive = Layer.effect(
                 if (existing === undefined) return;
                 const now = new Date();
                 const organizerEdit = input.adminApproved || input.uploaderUserId !== null;
-                // Confirmed speakers' own uploads wait for review. Organizer
+                // Program speakers' own uploads wait for review. Organizer
                 // uploads are attributed and approved in the same write.
-                const requiresReview = !organizerEdit && existing.confirmedAt !== null;
+                const acceptedRows = await transaction
+                  .select({ id: submissionParticipants.id })
+                  .from(submissionParticipants)
+                  .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+                  .where(
+                    and(
+                      eq(submissionParticipants.contactId, headshotContactId),
+                      eq(submissions.status, "accepted"),
+                    ),
+                  )
+                  .limit(1);
+                const requiresReview = !organizerEdit && acceptedRows.length > 0;
                 if (organizerEdit || requiresReview) {
                   await transaction.insert(contactEditHistory).values({
                     contactId: headshotContactId,
@@ -2567,14 +2644,14 @@ export const PortalLive = Layer.effect(
           const updatedRows = yield* query(database, "Could not accept submission", (db) =>
             db
               .update(submissions)
-              // Accepted abstracts graduate into sessions (Sessionboard
-              // lifecycle); the row keeps its code, reviews, and history.
-              // Acceptance does not publish: content stays pending_review
-              // until approved (here, when opted in, or from the Content
-              // dashboard). Prior approval survives a re-accept.
+              // Accepting makes the row a session (the Sessions surface is
+              // the projection of accepted submissions); it keeps its code,
+              // reviews, and history. Acceptance does not publish: content
+              // stays pending_review until approved (here, when opted in, or
+              // from the Content dashboard). Prior approval survives a
+              // re-accept.
               .set({
                 status: "accepted",
-                kind: "session",
                 ...(approveContent
                   ? {
                       approvedSnapshot: snapshot(current),

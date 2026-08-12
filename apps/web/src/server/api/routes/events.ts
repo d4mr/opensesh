@@ -147,6 +147,7 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
             logoKey: null,
             backgroundUrl: null,
             defaultSubmissionLimit: 3,
+            speakerConfirmationEnabled: true,
             agendaPublishedAt: null,
             publishedAgenda: [],
             agendaDirty: false,

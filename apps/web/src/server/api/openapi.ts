@@ -183,7 +183,9 @@ const pathParams = (path: string) =>
 const TAG_DESCRIPTIONS: Record<string, string> = {
   Organization: "The workspace profile, members, and pending invitations.",
   Events: "Events and the shared event library: tracks, formats, rooms, tags, levels.",
-  Submissions: "The review desk: list, inspect, decide, and create sessions directly.",
+  Submissions: "The review desk: list, inspect, and decide CFP submissions.",
+  Sessions:
+    "The program lens over accepted submissions: readiness, cancellation with a recorded cause, reinstatement, and manual sessions.",
   Speakers: "The event speaker directory, workflow status, imports, and portal invites.",
   Reviews: "Review rounds, reviewer assignment, reminders, and AI reviews.",
   Agenda: "The schedule, publishing, and AI-generated agenda drafts.",

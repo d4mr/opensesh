@@ -113,6 +113,7 @@ const verifyFailure = Effect.gen(function* () {
     feedback: "Strong practical proposal.",
     confirmRedecide: false,
     approveContent: true,
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
   const deliveries = yield* Effect.forEach(
     decision.deliveries,

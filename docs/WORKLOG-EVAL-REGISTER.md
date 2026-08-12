@@ -593,3 +593,37 @@ after. Checks clean, tests 57/57.
 **Note.** Local DB had to be reseeded mid-verification: the API-provenance
 commit (70dfe2b) landed schema columns (`author_api_key_id` on the edit
 history tables) + squashed migrations while this fix was in flight.
+
+## Arc H — Submissions → sessions pipeline rework (2026-08-12, owner directive)
+
+Owner call: boundaries between abstracts/submissions/sessions were muddled — `kind` mutated in
+place on decide, sessions desk had accept/decline, declining left phantom schedule data.
+
+- [x] Schema: drop `submissions.kind` + `forms.kind`; add `cancelled_at`/`cancelled_by`
+      (organizer|speaker), append-only `submission_activity` (actor provenance + payload),
+      `events.speaker_confirmation_enabled` (default on); squashed init migration
+- [x] Domain: session = projection of accepted submission; one `activeSession` predicate
+      (agenda/widgets/mail/portal all swapped); decide() blocks accepted→decline and
+      accept-on-cancelled; cancel/reinstate/deleteManual in new Sessions service (ICS
+      METHOD:CANCEL, task waive/reopen, agendaDirty); timeline read model merging activity +
+      emails + edits + files + tasks + confirmations
+- [x] Speaker confirmation: real speaker act via portal CTA when the event asks for it;
+      acceptance email leads with "Confirm participation"; organizer override via workflow
+      status sets confirmedAt one-way; review gating moved off confirmedAt
+- [x] Web: Sessions surface rebuilt around readiness (confirmed/scheduled/deliverables/tasks/
+      publication) with Cancelled state + reinstate + manual-delete; cancel dialog (cause
+      toggle, notify checkbox, live email preview, ICS warning); desk shows static Accepted +
+      "Session cancelled" annotation; Content lists active sessions only, Accept button gone;
+      portal: confirm banner, "Cancel my session" (replaces withdraw once accepted),
+      cancelled state; /admin/abstracts → /admin/submissions
+- [x] REST API: Sessions tag — list (readiness + state filter), cancel, reinstate, delete
+      (manual only, CFP delete refused), timeline; createSession moved from Submissions tag;
+      openapi.json + docs regenerated
+- [x] Seed: Mateo's speaker-cancelled SESS-17 (ICS sequence bumped, cancelled email),
+      unconfirmed accepted speakers (con_16, con_22), activity rows for decisions/schedule/
+      cancellation; seeded history shifted 60 days into the past (was future-dated → live
+      actions sorted under seed history); verify scripts updated (confirmation-requested
+      assertion replaces auto-confirm check)
+- [x] Verified locally end-to-end in browser: cancel→reinstate→re-cancel loop, portal
+      confirm + speaker cancel (activity actor = contact), settings toggle, API smoke
+      (all 5 endpoints + delete guard)

@@ -39,7 +39,7 @@ const organization: ReadonlyArray<AdminNavItem> = [
 ];
 const program: ReadonlyArray<AdminNavItem> = [
   { title: "Call for Papers", section: "forms", icon: <FileInputIcon /> },
-  { title: "Submissions", section: "abstracts", icon: <FileTextIcon /> },
+  { title: "Submissions", section: "submissions", icon: <FileTextIcon /> },
   { title: "Evaluation", section: "evaluation", icon: <ClipboardCheckIcon /> },
   { title: "Sessions", section: "sessions", icon: <SquareStackIcon /> },
   { title: "Content", section: "content", icon: <FileCheckIcon /> },

@@ -24,7 +24,7 @@ export function SectionCards({
       value: String(stats.submitted),
       badge: stats.drafts > 0 ? `${stats.drafts} drafts` : "All formats",
       detail: `${stats.pending} pending · ${stats.maybe} maybe · ${stats.accepted} accepted`,
-      section: "abstracts",
+      section: "submissions",
     },
     {
       label: "Review progress",
@@ -99,10 +99,10 @@ export function SectionCards({
           >
             {content}
           </Link>
-        ) : card.section === "abstracts" ? (
+        ) : card.section === "submissions" ? (
           <Link
             key={card.label}
-            to="/admin/abstracts"
+            to="/admin/submissions"
             search={{ status: "all", spotlight: undefined }}
             className="group/stat block"
           >

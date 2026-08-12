@@ -22,11 +22,13 @@ import {
   RestoreHistoryRequest,
   SessionFileRequirementMutationRequest,
   SessionFileRequirementDeleteRequest,
+  PortalSessionCancelRequest,
   TaskAssignmentRequest,
   TaskTemplateMutationRequest,
 } from "@opensesh/domain";
 import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
-import { Contacts, Events, Portal } from "@opensesh/domain/server/repos";
+import { Contacts, Events, Portal, Sessions } from "@opensesh/domain/server/repos";
+import { Mail } from "@opensesh/domain/server/mail";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
@@ -359,6 +361,53 @@ export const updatePortalProfile = createServerFn({ method: "POST" })
         const { contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
         return yield* portal.updateProfile(contactId, data);
+      }),
+      { require: "speaker" },
+    ),
+  );
+
+export const confirmPortalParticipation = createServerFn({ method: "POST" }).handler(async () =>
+  runServer(
+    Effect.gen(function* () {
+      const { contactId } = yield* requireSpeaker();
+      const portal = yield* Portal;
+      return yield* portal.confirmParticipation(contactId);
+    }),
+    { require: "speaker" },
+  ),
+);
+
+// The speaker's own session cancellation: same lifecycle transition as the
+// admin cancel, cause "speaker", always notifying (the speaker gets the
+// confirmation email, the organizer sees it on the desk and timeline).
+export const cancelPortalSession = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(PortalSessionCancelRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const { contactId } = yield* requireSpeaker();
+        const portal = yield* Portal;
+        yield* portal.assertParticipant(contactId, data.submissionId);
+        const contacts = yield* Contacts;
+        const contact = yield* contacts.get(contactId);
+        const sessions = yield* Sessions;
+        const mail = yield* Mail;
+        const cancelled = yield* sessions.cancel({
+          eventId: contact.eventId,
+          submissionId: data.submissionId,
+          cause: "speaker",
+          message: data.message,
+          notifySpeakers: true,
+          actor: {
+            kind: "contact",
+            contactId,
+            name: `${contact.firstName} ${contact.lastName}`,
+          },
+        });
+        yield* Effect.forEach(cancelled.logIds, (logId) => mail.sendQueued(logId), {
+          concurrency: 5,
+        });
+        return cancelled.result;
       }),
       { require: "speaker" },
     ),

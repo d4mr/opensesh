@@ -56,6 +56,7 @@ const typeLabels: Readonly<Record<AdminEmail["type"], string>> = {
   magic_link: "Magic link",
   accepted: "Accepted",
   declined: "Declined",
+  cancelled: "Cancelled",
   task_reminder: "Task reminder",
   calendar_invite: "Calendar invite",
   custom: "Custom",

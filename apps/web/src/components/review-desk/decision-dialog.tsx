@@ -39,6 +39,7 @@ export function DecisionDialog({
   onOpenChange,
   eventId,
   eventName,
+  confirmationRequested = false,
   submissions,
   initialDecision,
   onOptimistic,
@@ -49,6 +50,9 @@ export function DecisionDialog({
   readonly onOpenChange: (open: boolean) => void;
   readonly eventId: string;
   readonly eventName: string;
+  // Mirrors the event's speaker-confirmation setting so the preview shows
+  // the same acceptance email the server sends (confirm CTA vs. plain).
+  readonly confirmationRequested?: boolean;
   readonly submissions: ReadonlyArray<DecisionDialogSubmission>;
   readonly initialDecision: SubmissionDecision;
   readonly onOptimistic: (decision: SubmissionDecision) => void;
@@ -84,6 +88,7 @@ export function DecisionDialog({
     speakerName: speaker?.name.split(" ")[0] ?? "Speaker",
     submissionTitle: first?.title ?? "Submission",
     feedback,
+    confirmationRequested,
   });
   const replacingDecision = submissions.some(
     (submission) =>

@@ -28,15 +28,15 @@ function NavItemLink({
         {content}
       </Link>
     );
-  if (item.section === "abstracts")
+  if (item.section === "submissions")
     return (
-      <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }} {...props}>
+      <Link to="/admin/submissions" search={{ status: "all", spotlight: undefined }} {...props}>
         {content}
       </Link>
     );
   if (item.section === "sessions")
     return (
-      <Link to="/admin/sessions" search={{ status: "all", spotlight: undefined }} {...props}>
+      <Link to="/admin/sessions" search={{ state: "all", spotlight: undefined }} {...props}>
         {content}
       </Link>
     );

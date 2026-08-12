@@ -1586,7 +1586,7 @@ function ResultSpotlightPanel({
         actions={
           <Button size="icon-sm" variant="ghost" className="pressable" asChild>
             <Link
-              to="/admin/abstracts/$id"
+              to="/admin/submissions/$id"
               params={{ id: row.submission.id }}
               search={{ status: "all" }}
               aria-label="Open full submission page"

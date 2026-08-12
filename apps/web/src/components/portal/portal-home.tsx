@@ -1,18 +1,34 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { CalendarDaysIcon, CheckSquareIcon, UserRoundIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckSquareIcon, UserRoundCheckIcon, UserRoundIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/app/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { speakerPortalQuery } from "@/lib/portal-queries";
+import { confirmPortalParticipation } from "@/server-fns/portal";
 
 const initials = (firstName: string, lastName: string) =>
   `${firstName.slice(0, 1)}${lastName.slice(0, 1)}`.toUpperCase();
 
 export function PortalHome() {
   const portal = useSuspenseQuery(speakerPortalQuery);
+  const queryClient = useQueryClient();
   const [enter, setEnter] = useState(false);
+  const confirm = useMutation({
+    mutationFn: () => confirmPortalParticipation(),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Participation confirmed — see you there!");
+      await invalidateAfterMutation(queryClient);
+    },
+  });
 
   useEffect(() => {
     const key = "opensesh-portal-home-entered";
@@ -67,9 +83,38 @@ export function PortalHome() {
       ),
     ).length;
 
+  // The acceptance email's "Confirm participation" CTA lands here: shown
+  // while the event asks for confirmation and this speaker has an accepted,
+  // uncancelled session they have not yet confirmed.
+  const needsConfirmation =
+    data.event.speakerConfirmationEnabled &&
+    data.contact.confirmedAt === null &&
+    data.submissions.some(
+      (item) => item.submission.status === "accepted" && item.submission.cancelledAt === null,
+    );
+
   return (
     <main className="h-[calc(100svh-3rem)] overflow-y-auto">
       <div className="mx-auto grid w-full max-w-5xl content-start gap-4 px-4 py-8 md:grid-cols-2">
+        {needsConfirmation ? (
+          <section className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 md:col-span-2">
+            <UserRoundCheckIcon className="size-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Please confirm your participation</p>
+              <p className="text-xs text-muted-foreground">
+                {data.event.name} is waiting on your confirmation to lock in the program.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="pressable shrink-0"
+              disabled={confirm.isPending}
+              onClick={() => confirm.mutate()}
+            >
+              {confirm.isPending ? "Confirming…" : "Confirm participation"}
+            </Button>
+          </section>
+        ) : null}
         <section
           className={`min-w-0 rounded-xl border bg-card ${enter ? "portal-home-card portal-home-card-1" : ""}`}
         >

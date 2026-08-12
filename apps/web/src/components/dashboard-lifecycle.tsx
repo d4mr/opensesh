@@ -133,7 +133,7 @@ function PhaseLink({
     case "collect":
       return (
         <Link
-          to="/admin/abstracts"
+          to="/admin/submissions"
           search={{ status: "all", spotlight: undefined }}
           className={className}
         >
@@ -149,7 +149,7 @@ function PhaseLink({
     case "decide":
       return (
         <Link
-          to="/admin/abstracts"
+          to="/admin/submissions"
           search={{
             status: stats.pending > 0 ? "pending" : stats.maybe > 0 ? "maybe" : "all",
             spotlight: undefined,

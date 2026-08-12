@@ -25,7 +25,7 @@ export const getReviewDeskList = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.list(data.eventId, data.kind);
+        return yield* reviewDesk.list(data.eventId);
       }),
       { require: "staff" },
     ),
@@ -65,9 +65,13 @@ export const changeSubmissionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        yield* requireEventAccess(data.eventId, "admin");
+        const access = yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.changeStatus(data.eventId, data.submissionId, data.status);
+        return yield* reviewDesk.changeStatus(data.eventId, data.submissionId, data.status, {
+          kind: "user",
+          userId: access.user.userId,
+          name: access.user.name,
+        });
       }),
       { require: "staff" },
     ),
@@ -111,7 +115,6 @@ export const createManualSession = createServerFn({ method: "POST" })
         const submissions = yield* Submissions;
         const created = yield* submissions.create({
           eventId: data.eventId,
-          kind: "session",
           status: "accepted",
           sourceFormId: null,
           submitterContactId: null,
@@ -133,6 +136,8 @@ export const createManualSession = createServerFn({ method: "POST" })
           answers: {},
           approvedSnapshot: {},
           contentReviewStatus: "approved",
+          cancelledAt: null,
+          cancelledBy: null,
         });
         yield* submissions.replaceParticipants(
           created.id,
@@ -156,10 +161,13 @@ export const decideSubmissions = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     runServer(
       Effect.gen(function* () {
-        yield* requireEventAccess(data.eventId, "admin");
+        const access = yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
         const mail = yield* Mail;
-        const decision = yield* reviewDesk.decide(data);
+        const decision = yield* reviewDesk.decide({
+          ...data,
+          actor: { kind: "user", userId: access.user.userId, name: access.user.name },
+        });
         yield* Effect.forEach(
           decision.deliveries,
           (delivery) => mail.sendLogged(delivery.logId, delivery.mail),
@@ -204,7 +212,7 @@ export const exportSubmissionsCsv = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        const list = yield* reviewDesk.list(data.eventId, data.kind);
+        const list = yield* reviewDesk.list(data.eventId);
         const included = new Set(data.submissionIds);
         const rows = list.submissions.filter((submission) => included.has(submission.id));
         return [
@@ -228,7 +236,7 @@ export const exportSubmissionsCsv = createServerFn({ method: "POST" })
     });
     return new Response(stream, {
       headers: {
-        "Content-Disposition": `attachment; filename="${data.kind}s.csv"`,
+        "Content-Disposition": 'attachment; filename="submissions.csv"',
         "Content-Type": "text/csv; charset=utf-8",
       },
     });

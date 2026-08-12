@@ -10,6 +10,7 @@ import {
   events,
   formats,
   rooms,
+  submissionActivity,
   submissionParticipants,
   submissions,
   submissionTracks,
@@ -45,12 +46,14 @@ import {
 } from "../schema/agenda";
 import { Event, Format, Room, Track } from "../schema/core";
 import { Contact, Submission, SubmissionParticipant, SubmissionTrack } from "../schema/submissions";
-import { decode, decodeFound, decodeMany, query } from "./shared";
+import { activeSession, activityActorColumns, decode, decodeFound, decodeMany, query } from "./shared";
+import type { AuditActor } from "../schema/common";
 
 interface AgendaService {
   readonly admin: (eventId: string) => Effect.Effect<AgendaAdminData, DbError | NotFound>;
   readonly saveSchedule: (
     input: ScheduleChange,
+    actor: AuditActor,
   ) => Effect.Effect<AgendaAdminData, DbError | InvalidInput | NotFound>;
   readonly publish: (eventId: string) => Effect.Effect<AgendaAdminData, DbError | NotFound>;
   readonly unpublish: (eventId: string) => Effect.Effect<AgendaAdminData, DbError | NotFound>;
@@ -66,6 +69,7 @@ interface AgendaService {
     readonly eventId: string;
     readonly draftId: string;
     readonly submissionIds: ReadonlyArray<string>;
+    readonly actor: AuditActor;
   }) => Effect.Effect<
     typeof AcceptAgendaDraftResult.Type,
     DbError | InvalidInput | NotFound | ScheduleConflict
@@ -243,7 +247,7 @@ export const AgendaLive = Layer.effect(
                 db
                   .select()
                   .from(submissions)
-                  .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "accepted")))
+                  .where(and(eq(submissions.eventId, eventId), activeSession))
                   .orderBy(asc(submissions.code))
                   .execute(),
               ),
@@ -253,7 +257,7 @@ export const AgendaLive = Layer.effect(
                   .from(submissionTracks)
                   .innerJoin(submissions, eq(submissions.id, submissionTracks.submissionId))
                   .innerJoin(tracks, eq(tracks.id, submissionTracks.trackId))
-                  .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "accepted")))
+                  .where(and(eq(submissions.eventId, eventId), activeSession))
                   .orderBy(asc(tracks.position))
                   .execute(),
               ),
@@ -263,7 +267,7 @@ export const AgendaLive = Layer.effect(
                   .from(submissionParticipants)
                   .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
                   .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
-                  .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "accepted")))
+                  .where(and(eq(submissions.eventId, eventId), activeSession))
                   .orderBy(asc(submissionParticipants.position))
                   .execute(),
               ),
@@ -384,12 +388,19 @@ export const AgendaLive = Layer.effect(
       eventId: string,
       changes: ReadonlyArray<ScheduleChange>,
       now: Date,
+      actor: AuditActor,
       committedDraftId?: string,
     ) =>
       query(database, "Could not save agenda schedule", (db) =>
         db.transaction(async (transaction) => {
+          const roomRows = await transaction
+            .select({ id: rooms.id, name: rooms.name })
+            .from(rooms)
+            .where(eq(rooms.eventId, eventId))
+            .execute();
+          const roomNames = new Map(roomRows.map((room) => [room.id, room.name]));
           for (const change of changes) {
-            await transaction
+            const applied = await transaction
               .update(submissions)
               .set({
                 roomId: change.roomId,
@@ -402,10 +413,29 @@ export const AgendaLive = Layer.effect(
                 and(
                   eq(submissions.id, change.submissionId),
                   eq(submissions.eventId, eventId),
-                  eq(submissions.status, "accepted"),
+                  activeSession,
                 ),
               )
+              .returning({ id: submissions.id })
               .execute();
+            // Schedule columns are overwritten in place — the activity log is
+            // the only durable record of every move.
+            if (applied.length > 0) {
+              await transaction
+                .insert(submissionActivity)
+                .values({
+                  submissionId: change.submissionId,
+                  type: "scheduled",
+                  ...activityActorColumns(actor),
+                  payload: {
+                    startsAt: change.startsAt,
+                    endsAt: change.endsAt,
+                    roomId: change.roomId,
+                    roomName: change.roomId === null ? null : (roomNames.get(change.roomId) ?? null),
+                  },
+                })
+                .execute();
+            }
           }
           await transaction
             .update(events)
@@ -478,7 +508,7 @@ export const AgendaLive = Layer.effect(
 
     return {
       admin: loadAdmin,
-      saveSchedule: (input) =>
+      saveSchedule: (input, actor) =>
         Effect.gen(function* () {
           const agenda = yield* loadAdmin(input.eventId);
           const session = agenda.sessions.find((item) => item.id === input.submissionId);
@@ -497,7 +527,7 @@ export const AgendaLive = Layer.effect(
             return yield* Effect.fail(new InvalidInputError({ message: validation }));
           }
           const now = new Date(yield* Clock.currentTimeMillis);
-          yield* persistScheduleChanges(input.eventId, [input], now);
+          yield* persistScheduleChanges(input.eventId, [input], now, actor);
           return yield* loadAdmin(input.eventId);
         }),
       publish: (eventId) => setPublication(eventId, true),
@@ -516,7 +546,7 @@ export const AgendaLive = Layer.effect(
               .where(
                 and(
                   eq(submissions.eventId, event.id),
-                  eq(submissions.status, "accepted"),
+                  activeSession,
                   eq(submissions.contentReviewStatus, "approved"),
                 ),
               )
@@ -730,7 +760,7 @@ export const AgendaLive = Layer.effect(
             endsAt: placement.endsAt,
           }));
           const now = new Date(yield* Clock.currentTimeMillis);
-          yield* persistScheduleChanges(input.eventId, changes, now, draft.id);
+          yield* persistScheduleChanges(input.eventId, changes, now, input.actor, draft.id);
           const [updatedAgenda, updatedDraft] = yield* Effect.all([
             loadAdmin(input.eventId),
             loadStoredDraft(input.eventId, draft.id).pipe(Effect.flatMap(toAgendaDraft)),

@@ -154,7 +154,7 @@ export function SubmissionDetail({
           actions={
             <Button size="icon-sm" variant="ghost" className="pressable" asChild>
               <Link
-                to="/admin/abstracts/$id"
+                to="/admin/submissions/$id"
                 params={{ id: submission.id }}
                 search={{ status: "all" }}
                 aria-label="Open full submission page"
@@ -178,8 +178,8 @@ export function SubmissionDetail({
             {variant === "page" ? (
               <>
                 <Button variant="ghost" size="xs" asChild className="mb-2 -ml-2">
-                  <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
-                    <ArrowLeftIcon /> Back to abstracts
+                  <Link to="/admin/submissions" search={{ status: "all", spotlight: undefined }}>
+                    <ArrowLeftIcon /> Back to submissions
                   </Link>
                 </Button>
                 <div className="flex flex-wrap items-center gap-2">
@@ -213,7 +213,7 @@ export function SubmissionDetail({
           )}
         >
           <div className="min-w-0 space-y-4">
-            {submission.kind !== "session" || contentSubmission === undefined ? null : (
+            {submission.status !== "accepted" || contentSubmission === undefined ? null : (
               <SessionContentEditor
                 eventId={eventId}
                 timezone={context.event.timezone}
@@ -271,25 +271,53 @@ export function SubmissionDetail({
                 <span className="text-muted-foreground">Current status</span>
                 <StatusBadge status={submission.status} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button size="sm" onClick={() => openDecision("accept")}>
-                  Accept
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => openDecision("decline")}>
-                  Decline
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-1 border-t pt-3">
-                <Button size="xs" variant="ghost" onClick={() => void changeStatus("pending")}>
-                  Pending
-                </Button>
-                <Button size="xs" variant="ghost" onClick={() => void changeStatus("maybe")}>
-                  Maybe
-                </Button>
-                <Button size="xs" variant="ghost" onClick={() => void changeStatus("withdrawn")}>
-                  Withdrawn
-                </Button>
-              </div>
+              {submission.status === "accepted" ? (
+                // Accepted is a decided fact — the only exits from here are the
+                // session's own lifecycle (cancel / reinstate) over on Sessions.
+                <div className="space-y-2 border-t pt-3">
+                  {submission.cancelledAt === null ? null : (
+                    <p className="text-xs text-muted-foreground">
+                      Session cancelled by the {submission.cancelledBy ?? "organizer"}{" "}
+                      <Timestamp value={submission.cancelledAt} timezone={context.event.timezone} />
+                      .
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    This submission is a session — manage it from the Sessions page.
+                  </p>
+                  <Button size="xs" variant="outline" asChild className="pressable">
+                    <Link to="/admin/sessions" search={{ state: "all", spotlight: submission.id }}>
+                      View session
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button size="sm" onClick={() => openDecision("accept")}>
+                      Accept
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => openDecision("decline")}>
+                      Decline
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1 border-t pt-3">
+                    <Button size="xs" variant="ghost" onClick={() => void changeStatus("pending")}>
+                      Pending
+                    </Button>
+                    <Button size="xs" variant="ghost" onClick={() => void changeStatus("maybe")}>
+                      Maybe
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => void changeStatus("withdrawn")}
+                    >
+                      Withdrawn
+                    </Button>
+                  </div>
+                </>
+              )}
             </DetailSection>
 
             <DetailSection
@@ -364,11 +392,29 @@ export function SubmissionDetail({
             <DetailSection title="Activity" className="space-y-3 p-3">
               {data.activity.map((activity) => (
                 <div key={activity.id} className="flex gap-2">
-                  <CircleIcon className="mt-1 size-2.5 fill-muted-foreground text-muted-foreground" />
-                  <div>
-                    <p className="text-xs font-medium">{activity.label}</p>
+                  <CircleIcon
+                    className={cn(
+                      "mt-1 size-2.5",
+                      activity.kind === "cancelled"
+                        ? "fill-destructive text-destructive"
+                        : activity.kind === "decided" || activity.kind === "reinstated"
+                          ? "fill-status-accepted text-status-accepted"
+                          : "fill-muted-foreground text-muted-foreground",
+                    )}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">
+                      {activity.label}
+                      {activity.detail === null ? null : (
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          — {activity.detail}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       <Timestamp value={activity.at} timezone={context.event.timezone} />
+                      {activity.actorName === null ? null : <> · {activity.actorName}</>}
                     </p>
                   </div>
                 </div>
@@ -406,6 +452,7 @@ export function SubmissionDetail({
         onOpenChange={setDecisionOpen}
         eventId={eventId}
         eventName={context.event.name}
+        confirmationRequested={context.event.speakerConfirmationEnabled}
         submissions={[submission]}
         initialDecision={decision}
         onOptimistic={(next) => {

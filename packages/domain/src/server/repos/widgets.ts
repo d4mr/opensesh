@@ -35,7 +35,7 @@ import {
   type WidgetOptions,
   type WidgetView,
 } from "../schema/widgets";
-import { decode, decodeFound, decodeMany, query } from "./shared";
+import { activeSession, decode, decodeFound, decodeMany, query } from "./shared";
 
 type EventRow = typeof events.$inferSelect;
 type SubmissionRow = typeof submissions.$inferSelect;
@@ -302,7 +302,7 @@ export const WidgetsLive = Layer.effect(
           submissions,
           and(
             eq(submissions.eventId, events.id),
-            eq(submissions.status, "accepted"),
+            activeSession,
             eq(submissions.contentReviewStatus, "approved"),
           ),
         )
@@ -358,7 +358,7 @@ export const WidgetsLive = Layer.effect(
                 submissions,
                 and(
                   eq(submissions.eventId, events.id),
-                  eq(submissions.status, "accepted"),
+                  activeSession,
                   eq(submissions.contentReviewStatus, "approved"),
                 ),
               )

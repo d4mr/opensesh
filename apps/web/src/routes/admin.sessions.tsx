@@ -1,65 +1,43 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { SessionsPage, type SessionStateFilter } from "@/components/sessions/sessions-page";
 import { resolveActiveEvent } from "@/lib/active-event";
-import {
-  SubmissionTablePage,
-  type SubmissionStatusFilter,
-} from "@/components/review-desk/submission-table-page";
-import {
-  adminEventsQuery,
-  reviewDeskDetailQuery,
-  reviewDeskListQuery,
-} from "@/lib/review-desk-queries";
+import { adminEventsQuery, sessionListQuery } from "@/lib/review-desk-queries";
 import { adminPortalQuery } from "@/lib/portal-queries";
 
-const parseStatus = (value: unknown): SubmissionStatusFilter => {
-  if (
-    value === "pending" ||
-    value === "maybe" ||
-    value === "accepted" ||
-    value === "declined" ||
-    value === "withdrawn" ||
-    value === "draft"
-  ) {
-    return value;
-  }
-  return "all";
-};
+const parseState = (value: unknown): SessionStateFilter =>
+  value === "active" || value === "cancelled" ? value : "all";
 
 export const Route = createFileRoute("/admin/sessions")({
   validateSearch: (search: Record<string, unknown>) => ({
-    status: parseStatus(search.status),
+    state: parseState(search.state),
     spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
   }),
-  loaderDeps: ({ search }) => ({ spotlight: search.spotlight }),
-  loader: async ({ context, deps }) => {
+  loader: async ({ context }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
     const eventId = events.ok
       ? resolveActiveEvent(events.data, context.activeEventId)?.id
       : undefined;
     if (eventId !== undefined) {
       await Promise.all([
-        context.queryClient.ensureQueryData(reviewDeskListQuery(eventId, "session")),
+        context.queryClient.ensureQueryData(sessionListQuery(eventId)),
+        // The Add-session dialog needs the speaker directory.
         context.queryClient.ensureQueryData(adminPortalQuery(eventId)),
       ]);
-      if (deps.spotlight !== undefined) {
-        void context.queryClient.prefetchQuery(reviewDeskDetailQuery(eventId, deps.spotlight));
-      }
     }
   },
   component: SessionsRoute,
 });
 
 function SessionsRoute() {
-  const { status, spotlight } = Route.useSearch();
+  const { state, spotlight } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   return (
-    <SubmissionTablePage
-      kind="session"
-      status={status}
+    <SessionsPage
+      state={state}
       spotlightId={spotlight}
-      onStatusChange={(next) =>
-        void navigate({ search: (current) => ({ ...current, status: next }), replace: true })
+      onStateChange={(next) =>
+        void navigate({ search: (current) => ({ ...current, state: next }), replace: true })
       }
       onSpotlightChange={(id, options) =>
         void navigate({

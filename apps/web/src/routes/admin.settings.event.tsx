@@ -15,6 +15,7 @@ import { TimezoneCombobox } from "@/components/forms/timezone-combobox";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -103,6 +104,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
       timezone: event.timezone,
       logoUrl: event.logoUrl ?? "",
       defaultSubmissionLimit: event.defaultSubmissionLimit,
+      speakerConfirmationEnabled: event.speakerConfirmationEnabled,
     },
     onSubmit: async ({ value, formApi }) => {
       if (new Date(value.endsAt) <= new Date(value.startsAt)) {
@@ -133,6 +135,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
           logoUrl: value.logoUrl || null,
           logoUpload,
           defaultSubmissionLimit: value.defaultSubmissionLimit,
+          speakerConfirmationEnabled: value.speakerConfirmationEnabled,
         },
       });
       if (!result.ok) {
@@ -466,6 +469,30 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
                   <FieldDescription>
                     Gates how many CFP submissions one person can create unless a form overrides it.
                   </FieldDescription>
+                </Field>
+              )}
+            </form.Field>
+          </SettingsSection>
+
+          <SettingsSection title="Speakers">
+            <form.Field name="speakerConfirmationEnabled">
+              {(field) => (
+                <Field className="max-w-lg">
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="space-y-1">
+                      <FieldLabel htmlFor={field.name}>Speaker confirmation</FieldLabel>
+                      <FieldDescription className="text-xs">
+                        Acceptance emails ask speakers to confirm their participation in the portal.
+                        When off, accepting a submission confirms its speakers automatically.
+                      </FieldDescription>
+                    </div>
+                    <Switch
+                      id={field.name}
+                      className="mt-0.5"
+                      checked={field.state.value}
+                      onCheckedChange={field.handleChange}
+                    />
+                  </div>
                 </Field>
               )}
             </form.Field>

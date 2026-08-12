@@ -29,5 +29,6 @@ export * from "./server/schema/organization";
 export * from "./server/schema/portal";
 export * from "./server/schema/reviews";
 export * from "./server/schema/review-desk";
+export * from "./server/schema/sessions";
 export * from "./server/schema/submissions";
 export * from "./server/schema/widgets";

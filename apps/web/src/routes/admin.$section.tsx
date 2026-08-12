@@ -7,7 +7,6 @@ import { adminPortalQuery } from "@/lib/portal-queries";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
 
 const titles: Readonly<Record<string, string>> = {
-  abstracts: "Abstracts",
   sessions: "Sessions",
   content: "Content",
   forms: "Forms",

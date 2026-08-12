@@ -12,6 +12,7 @@ export const EmailType = Schema.Literals([
   "magic_link",
   "accepted",
   "declined",
+  "cancelled",
   "task_reminder",
   "calendar_invite",
   "custom",
@@ -211,6 +212,11 @@ export type EmailLogCreate = typeof EmailLogCreate.Type;
 
 export const PortalSection = Schema.Literals(["submissions", "profile", "tasks"]);
 export const PortalSubmissionRequest = Schema.Struct({ submissionId: Schema.String });
+// A speaker cancelling their own accepted session from the portal.
+export const PortalSessionCancelRequest = Schema.Struct({
+  submissionId: Schema.String,
+  message: Schema.String,
+});
 export const PortalSubmissionEditRequest = Schema.Struct({
   submissionId: Schema.String,
   answers: JsonObject,

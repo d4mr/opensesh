@@ -48,7 +48,7 @@ interface NavItem {
 const allItems: ReadonlyArray<NavItem> = [
   { title: "Overview", icon: GaugeIcon },
   { title: "Speaker CRM", section: "crm", icon: ContactRoundIcon },
-  { title: "Submissions", section: "abstracts", icon: FileTextIcon },
+  { title: "Submissions", section: "submissions", icon: FileTextIcon },
   { title: "Sessions", section: "sessions", icon: SquareStackIcon },
   { title: "Content", section: "content", icon: FileCheckIcon },
   { title: "Speakers", section: "speakers", icon: UsersIcon },
@@ -150,15 +150,15 @@ export function AdminShell({
   const go = (section?: string) => {
     setCommandOpen(false);
     if (section === undefined) return navigate({ to: "/admin" });
-    if (section === "abstracts")
+    if (section === "submissions")
       return navigate({
-        to: "/admin/abstracts",
+        to: "/admin/submissions",
         search: { status: "all", spotlight: undefined },
       });
     if (section === "sessions")
       return navigate({
         to: "/admin/sessions",
-        search: { status: "all", spotlight: undefined },
+        search: { state: "all", spotlight: undefined },
       });
     if (section === "forms") return navigate({ to: "/admin/forms" });
     if (section === "evaluation") return navigate({ to: "/admin/evaluation" });

@@ -50,7 +50,7 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
       count: stats.drafts,
       one: "draft never submitted",
       many: "drafts never submitted",
-      section: "abstracts",
+      section: "submissions",
       destructive: false,
     },
   ]
@@ -108,9 +108,9 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
                 ) : (
                   <Link
                     key={item.label}
-                    to="/admin/abstracts"
+                    to="/admin/submissions"
                     search={{
-                      status: item.section === "abstracts" ? "draft" : "all",
+                      status: item.section === "submissions" ? "draft" : "all",
                       spotlight: undefined,
                     }}
                     className={className}

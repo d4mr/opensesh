@@ -13,7 +13,6 @@ export const timestamps = {
 };
 
 export const eventMemberRole = pgEnum("event_member_role", ["admin", "reviewer"]);
-export const submissionKind = pgEnum("submission_kind", ["abstract", "session"]);
 export const formStatus = pgEnum("form_status", ["open", "closed"]);
 export const formSection = pgEnum("form_section", ["abstract", "participant"]);
 export const formFieldType = pgEnum("form_field_type", [
@@ -49,6 +48,7 @@ export const emailType = pgEnum("email_type", [
   "magic_link",
   "accepted",
   "declined",
+  "cancelled",
   "task_reminder",
   "calendar_invite",
   "custom",
@@ -61,6 +61,22 @@ export const submissionStatus = pgEnum("submission_status", [
   "accepted",
   "declined",
   "withdrawn",
+]);
+// Cancellation is a session lifecycle event, not an acceptance decision: the
+// submission stays "accepted" as historical fact, and the cause records who
+// pulled out. "Declined"/"withdrawn" are strictly pre-acceptance exits.
+export const sessionCancelledBy = pgEnum("session_cancelled_by", ["organizer", "speaker"]);
+// Append-only log of the lifecycle transitions that would otherwise be lossy
+// (columns overwritten in place). Events with their own durable record —
+// emails, edit history, file versions, task completions — are NOT dual-written
+// here; the timeline read model merges all sources.
+export const submissionActivityType = pgEnum("submission_activity_type", [
+  "status_changed",
+  "decided",
+  "cancelled",
+  "reinstated",
+  "scheduled",
+  "content_approved",
 ]);
 export const agendaDraftStatus = pgEnum("agenda_draft_status", [
   "draft",

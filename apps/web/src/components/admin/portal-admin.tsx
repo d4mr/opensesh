@@ -17,9 +17,8 @@ import {
   ListTodoIcon,
   PencilIcon,
   SendIcon,
-  UserRoundCheckIcon,
 } from "lucide-react";
-import { Fragment, useLayoutEffect, useMemo, useState } from "react";
+import { Fragment, useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { RichText } from "@/components/forms/rich-text";
@@ -82,7 +81,6 @@ import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { adminPortalQuery } from "@/lib/portal-queries";
-import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { rememberPortalFormList, takePortalFormListReturn } from "@/lib/portal-form-navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -1715,7 +1713,6 @@ function AdminSessions({
   ) => void;
 }) {
   const queryClient = useQueryClient();
-  const eventName = useAdminEvent()?.event.name ?? "";
   const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const review = useMutation({
     mutationFn: ({
@@ -1734,31 +1731,6 @@ function AdminSessions({
       await refresh();
     },
   });
-  // Accepting from Content goes through the SAME decision dialog as the
-  // review desk — decisions always carry the email and publication checkbox.
-  const [decideId, setDecideId] = useState<string>();
-  const decideTarget = data.submissions.find((item) => item.id === decideId);
-  const decideSubmissions = useMemo(
-    () =>
-      decideTarget === undefined
-        ? []
-        : [
-            {
-              id: decideTarget.id,
-              code: decideTarget.code,
-              title: decideTarget.title,
-              status: decideTarget.status,
-              speakers: data.participants
-                .filter((row) => row.submission.id === decideTarget.id)
-                .map((row) => ({
-                  name: `${row.contact.firstName} ${row.contact.lastName}`,
-                  role: row.participant.role,
-                })),
-              reviewComments: [],
-            },
-          ],
-    [decideTarget, data.participants],
-  );
   const approvePublication = useMutation({
     mutationFn: (submissionIds: ReadonlyArray<string>) =>
       approveSessionContent({ data: { eventId, submissionIds: [...submissionIds] } }),
@@ -1771,23 +1743,19 @@ function AdminSessions({
       await refresh();
     },
   });
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted">("all");
   const pendingHistory = data.history
     .map((item) => item.history)
     .filter((item) => item.approvalStatus === "pending_review");
   const pendingProfiles = data.profileHistory.filter(
     (item) => item.history.approvalStatus === "pending_review",
   );
+  // Content is a session surface: accepted submissions with an active session.
+  // Cancelled sessions leave the publication pipeline until reinstated.
   const contentSubmissions = data.submissions.filter(
-    (item) => item.status === "accepted" || item.status === "pending",
+    (item) => item.status === "accepted" && item.cancelledAt === null,
   );
-  const unapproved = contentSubmissions.filter(
-    (item) => item.status === "accepted" && item.contentReviewStatus !== "approved",
-  );
-  const visibleSubmissions = contentSubmissions.filter(
-    (item) => statusFilter === "all" || item.status === statusFilter,
-  );
-  const submissionPages = usePagination(visibleSubmissions, {
+  const unapproved = contentSubmissions.filter((item) => item.contentReviewStatus !== "approved");
+  const submissionPages = usePagination(contentSubmissions, {
     spotlightId,
     getId: (submission) => submission.id,
   });
@@ -1795,7 +1763,7 @@ function AdminSessions({
     <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
       <SpotlightLayout
         spotlightId={spotlightId}
-        orderedIds={visibleSubmissions.map((submission) => submission.id)}
+        orderedIds={contentSubmissions.map((submission) => submission.id)}
         onSpotlightChange={onSpotlightChange}
         list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
           <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
@@ -1806,28 +1774,6 @@ function AdminSessions({
                   Accepted session content, speakers, and approval history.
                 </p>
               </div>
-              {contentSubmissions.length === 0 ? null : (
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => {
-                    if (value === "all" || value === "pending" || value === "accepted")
-                      setStatusFilter(value);
-                  }}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    aria-label="Filter by status"
-                    className="h-8 w-fit gap-1.5 text-xs"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    <SelectItem value="all">All statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="accepted">Accepted</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
             </div>
             {contentSubmissions.length === 0 ? (
               <AdminEmptyState
@@ -1836,7 +1782,7 @@ function AdminSessions({
                 description="Accept a submission before speaker content and approvals can appear here."
                 action={
                   <Button asChild size="sm" className="pressable">
-                    <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
+                    <Link to="/admin/submissions" search={{ status: "all", spotlight: undefined }}>
                       Review submissions
                     </Link>
                   </Button>
@@ -1963,7 +1909,7 @@ function AdminSessions({
                     <PaginationFooter
                       page={submissionPages.page}
                       pageSize={submissionPages.pageSize}
-                      total={visibleSubmissions.length}
+                      total={contentSubmissions.length}
                       onPageChange={submissionPages.setPage}
                     />
                   }
@@ -1972,20 +1918,19 @@ function AdminSessions({
                     <TableHeader>
                       <TableRow>
                         <TableHead>Session</TableHead>
-                        <TableHead>Status</TableHead>
-                        {compact ? null : <TableHead>Content</TableHead>}
+                        <TableHead>Content</TableHead>
                         {compact ? null : <TableHead>Speakers</TableHead>}
                         {compact ? null : <TableHead className="text-right">Action</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {visibleSubmissions.length === 0 ? (
+                      {contentSubmissions.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={compact ? 2 : 5}
+                            colSpan={compact ? 2 : 4}
                             className="h-12 text-center text-xs text-muted-foreground"
                           >
-                            No {statusFilter} sessions.
+                            No sessions yet.
                           </TableCell>
                         </TableRow>
                       ) : null}
@@ -2014,13 +1959,8 @@ function AdminSessions({
                               </span>
                             </TableCell>
                             <TableCell className="h-9 py-1.5">
-                              <StatusBadge status={submission.status} />
+                              <ContentStateBadge submission={submission} />
                             </TableCell>
-                            {compact ? null : (
-                              <TableCell className="h-9 py-1.5">
-                                <ContentStateBadge submission={submission} />
-                              </TableCell>
-                            )}
                             {compact ? null : (
                               <TableCell className="h-9 py-1.5">
                                 {speakers.length === 0 ? (
@@ -2039,18 +1979,7 @@ function AdminSessions({
                             )}
                             {compact ? null : (
                               <TableCell className="h-9 py-1.5 text-right">
-                                {submission.status === "pending" ? (
-                                  <Button
-                                    size="xs"
-                                    className="pressable"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setDecideId(submission.id);
-                                    }}
-                                  >
-                                    <UserRoundCheckIcon /> Accept
-                                  </Button>
-                                ) : contentStateFor(submission) === "awaiting" ? (
+                                {contentStateFor(submission) === "awaiting" ? (
                                   <Button
                                     size="xs"
                                     variant="outline"
@@ -2087,19 +2016,6 @@ function AdminSessions({
             onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
           />
         }
-      />
-      <DecisionDialog
-        open={decideId !== undefined}
-        onOpenChange={(open) => {
-          if (!open) setDecideId(undefined);
-        }}
-        eventId={eventId}
-        eventName={eventName}
-        submissions={decideSubmissions}
-        initialDecision="accept"
-        onOptimistic={() => {}}
-        onFailure={() => void refresh()}
-        onComplete={() => void refresh()}
       />
     </main>
   );
@@ -2166,7 +2082,7 @@ function SessionPeek({
         actions={
           <Button size="icon-sm" variant="ghost" className="pressable" asChild>
             <Link
-              to="/admin/abstracts/$id"
+              to="/admin/submissions/$id"
               params={{ id: submission.id }}
               search={{ status: "all" }}
               aria-label="Open full session page"

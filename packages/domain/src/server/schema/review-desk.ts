@@ -9,8 +9,9 @@ import {
   Score,
   Text255,
 } from "./common";
-import { ReviewDecision, SubmissionKind, SubmissionStatus } from "./submissions";
+import { ReviewDecision, SessionCancelledBy, SubmissionStatus } from "./submissions";
 import { HumanReviewResult } from "./reviews";
+import { TimelineEntry } from "./sessions";
 import { accepted, declined } from "../mail/templates";
 
 export const ReviewDeskTrack = Schema.Struct({
@@ -51,8 +52,11 @@ export const ReviewDeskListItem = Schema.Struct({
   id: Schema.String,
   eventId: Schema.String,
   code: Schema.String,
-  kind: SubmissionKind,
   status: SubmissionStatus,
+  // Accepted rows whose session was later cancelled keep their acceptance
+  // (it is historical fact) — the desk annotates them instead.
+  cancelledAt: NullableDate,
+  cancelledBy: Schema.NullOr(SessionCancelledBy),
   title: Schema.String,
   description: Schema.String,
   format: NullableString,
@@ -87,12 +91,6 @@ export const ReviewDeskAnswer = Schema.Struct({
 });
 export type ReviewDeskAnswer = typeof ReviewDeskAnswer.Type;
 
-export const ReviewDeskActivity = Schema.Struct({
-  id: Schema.String,
-  label: Schema.String,
-  at: Schema.Date,
-});
-export type ReviewDeskActivity = typeof ReviewDeskActivity.Type;
 
 export const ReviewDeskEmail = Schema.Struct({
   id: Schema.String,
@@ -112,7 +110,7 @@ export const ReviewDeskDetail = Schema.Struct({
   answers: Schema.Array(ReviewDeskAnswer),
   reviews: Schema.Array(ReviewDeskReview),
   roundReviews: Schema.Array(HumanReviewResult),
-  activity: Schema.Array(ReviewDeskActivity),
+  activity: Schema.Array(TimelineEntry),
   emails: Schema.Array(ReviewDeskEmail),
 });
 export type ReviewDeskDetail = typeof ReviewDeskDetail.Type;
@@ -136,7 +134,6 @@ export type EvaluationQueue = typeof EvaluationQueue.Type;
 
 export const ReviewDeskListRequest = Schema.Struct({
   eventId: Schema.String,
-  kind: SubmissionKind,
 });
 
 export const ReviewDeskDetailRequest = Schema.Struct({
@@ -204,7 +201,6 @@ export type CsvColumn = typeof CsvColumn.Type;
 
 export const CsvExportRequest = Schema.Struct({
   eventId: Schema.String,
-  kind: SubmissionKind,
   submissionIds: Schema.Array(Schema.String),
   columns: Schema.Array(CsvColumn),
 });
@@ -215,6 +211,9 @@ export interface DecisionEmailInput {
   readonly speakerName: string;
   readonly submissionTitle: string;
   readonly feedback: string;
+  // True when the event asks speakers to confirm participation themselves —
+  // the acceptance email then leads with the confirm CTA.
+  readonly confirmationRequested?: boolean;
 }
 
 export const renderDecisionEmail = (input: DecisionEmailInput) => {

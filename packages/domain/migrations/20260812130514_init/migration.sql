@@ -6,7 +6,7 @@ CREATE TYPE "deliverable_status" AS ENUM('outstanding', 'uploaded');--> statemen
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_campaign_status" AS ENUM('draft', 'sending', 'sent');--> statement-breakpoint
 CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
-CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
+CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'cancelled', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
 CREATE TYPE "embed_view" AS ENUM('sessions', 'speakers', 'speaker_gallery', 'agenda', 'itinerary');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
 CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
@@ -18,8 +18,9 @@ CREATE TYPE "review_assignment_status" AS ENUM('pending', 'completed', 'recused'
 CREATE TYPE "review_criterion_type" AS ENUM('numeric', 'dropdown', 'text');--> statement-breakpoint
 CREATE TYPE "review_decision" AS ENUM('approve', 'maybe', 'deny');--> statement-breakpoint
 CREATE TYPE "review_round_status" AS ENUM('draft', 'open', 'closed');--> statement-breakpoint
+CREATE TYPE "session_cancelled_by" AS ENUM('organizer', 'speaker');--> statement-breakpoint
 CREATE TYPE "speaker_workflow_status" AS ENUM('invited', 'onboarding', 'confirmed', 'ready', 'declined');--> statement-breakpoint
-CREATE TYPE "submission_kind" AS ENUM('abstract', 'session');--> statement-breakpoint
+CREATE TYPE "submission_activity_type" AS ENUM('status_changed', 'decided', 'cancelled', 'reinstated', 'scheduled', 'content_approved');--> statement-breakpoint
 CREATE TYPE "submission_status" AS ENUM('draft', 'pending', 'maybe', 'accepted', 'declined', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "target_type" AS ENUM('contact', 'submission');--> statement-breakpoint
 CREATE TYPE "task_status" AS ENUM('todo', 'done', 'waived');--> statement-breakpoint
@@ -133,6 +134,7 @@ CREATE TABLE "events" (
 	"logo_key" text,
 	"background_url" text,
 	"default_submission_limit" integer DEFAULT 3 NOT NULL,
+	"speaker_confirmation_enabled" boolean DEFAULT true NOT NULL,
 	"agenda_published_at" timestamp with time zone,
 	"published_agenda" jsonb DEFAULT '[]' NOT NULL,
 	"agenda_dirty" boolean DEFAULT false NOT NULL,
@@ -379,7 +381,6 @@ CREATE TABLE "forms" (
 	"event_id" text NOT NULL,
 	"internal_name" text NOT NULL,
 	"external_title" text NOT NULL,
-	"kind" "submission_kind" NOT NULL,
 	"collect_participants" boolean DEFAULT true NOT NULL,
 	"status" "form_status" DEFAULT 'open'::"form_status" NOT NULL,
 	"welcome_heading" text NOT NULL,
@@ -742,6 +743,19 @@ CREATE TABLE "reviews" (
 	CONSTRAINT "reviews_submission_reviewer_unique" UNIQUE("submission_id","reviewer_id")
 );
 --> statement-breakpoint
+CREATE TABLE "submission_activity" (
+	"id" text PRIMARY KEY,
+	"submission_id" text NOT NULL,
+	"type" "submission_activity_type" NOT NULL,
+	"actor_contact_id" text,
+	"actor_user_id" text,
+	"actor_api_key_id" text,
+	"actor_name" text NOT NULL,
+	"payload" jsonb DEFAULT '{}' NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "submission_edit_history" (
 	"id" text PRIMARY KEY,
 	"submission_id" text NOT NULL,
@@ -793,7 +807,6 @@ CREATE TABLE "submissions" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"code" text NOT NULL,
-	"kind" "submission_kind" NOT NULL,
 	"status" "submission_status" NOT NULL,
 	"source_form_id" text,
 	"submitter_contact_id" text,
@@ -815,6 +828,8 @@ CREATE TABLE "submissions" (
 	"answers" jsonb NOT NULL,
 	"approved_snapshot" jsonb DEFAULT '{}' NOT NULL,
 	"content_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
+	"cancelled_at" timestamp with time zone,
+	"cancelled_by" "session_cancelled_by",
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "submissions_event_code_unique" UNIQUE("event_id","code")
@@ -878,6 +893,7 @@ CREATE INDEX "review_rounds_event_position_idx" ON "review_rounds" ("event_id","
 CREATE INDEX "contact_edit_history_contact_idx" ON "contact_edit_history" ("contact_id");--> statement-breakpoint
 CREATE INDEX "contacts_event_idx" ON "contacts" ("event_id");--> statement-breakpoint
 CREATE INDEX "reviews_reviewer_idx" ON "reviews" ("reviewer_id");--> statement-breakpoint
+CREATE INDEX "submission_activity_submission_idx" ON "submission_activity" ("submission_id");--> statement-breakpoint
 CREATE INDEX "submission_edit_history_submission_idx" ON "submission_edit_history" ("submission_id");--> statement-breakpoint
 CREATE INDEX "submission_participants_contact_idx" ON "submission_participants" ("contact_id");--> statement-breakpoint
 CREATE INDEX "submission_tags_tag_idx" ON "submission_tags" ("tag_id");--> statement-breakpoint
@@ -988,6 +1004,10 @@ ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_reviewed
 ALTER TABLE "contacts" ADD CONSTRAINT "contacts_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_reviewer_id_users_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "submission_activity" ADD CONSTRAINT "submission_activity_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "submission_activity" ADD CONSTRAINT "submission_activity_actor_contact_id_contacts_id_fkey" FOREIGN KEY ("actor_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "submission_activity" ADD CONSTRAINT "submission_activity_actor_user_id_users_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "submission_activity" ADD CONSTRAINT "submission_activity_actor_api_key_id_api_keys_id_fkey" FOREIGN KEY ("actor_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_author_contact_id_contacts_id_fkey" FOREIGN KEY ("author_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_author_user_id_users_id_fkey" FOREIGN KEY ("author_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint

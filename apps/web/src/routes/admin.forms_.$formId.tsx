@@ -13,8 +13,6 @@ import { resolveActiveEvent } from "@/lib/active-event";
 import {
   BellIcon,
   CheckIcon,
-  CircleCheckIcon,
-  CircleDashedIcon,
   ClipboardIcon,
   ExternalLinkIcon,
   EyeIcon,
@@ -156,7 +154,6 @@ function FormEditor({
   const publicPath = `/submit/${eventSlug}/${data.form.id}`;
   const form = useForm({
     defaultValues: {
-      kind: data.form.kind,
       collectParticipants: data.form.collectParticipants,
       status: data.form.status,
       internalName: data.form.internalName,
@@ -185,7 +182,6 @@ function FormEditor({
       eventId: data.form.eventId,
       formId: data.form.id,
       form: {
-        kind: value.kind,
         collectParticipants: value.collectParticipants,
         status: value.status,
         internalName: value.internalName,
@@ -363,46 +359,6 @@ function FormEditor({
           <div className="grid gap-5">
             {step === 0 ? (
               <>
-                <form.Field name="kind">
-                  {(field) => (
-                    <Field>
-                      <FieldLabel>What do you want to collect?</FieldLabel>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {(["abstract", "session"] as const).map((kind) => {
-                          const selected = field.state.value === kind;
-                          return (
-                            <button
-                              key={kind}
-                              type="button"
-                              aria-pressed={selected}
-                              className={cn(
-                                "pressable flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors duration-200 [transition-timing-function:var(--ease-out)]",
-                                selected ? "border-primary/40 bg-muted/50" : "hover:bg-muted/40",
-                              )}
-                              onClick={() => field.handleChange(kind)}
-                            >
-                              {selected ? (
-                                <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-                              ) : (
-                                <CircleDashedIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground/50" />
-                              )}
-                              <span className="min-w-0">
-                                <span className="block text-sm font-medium capitalize">
-                                  {kind}s
-                                </span>
-                                <span className="mt-0.5 block text-xs text-muted-foreground">
-                                  {kind === "abstract"
-                                    ? "Collect proposals for review."
-                                    : "Collect complete session details."}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </Field>
-                  )}
-                </form.Field>
                 <SettingPanel>
                   <form.Field name="collectParticipants">
                     {(field) => (

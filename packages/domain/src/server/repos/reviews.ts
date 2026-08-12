@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull, notInArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 
 import {
@@ -370,7 +370,7 @@ export const ReviewsLive = Layer.effect(
                 .where(
                   and(
                     eq(submissions.eventId, eventId),
-                    or(isNotNull(submissions.sourceFormId), eq(submissions.kind, "abstract")),
+                    isNotNull(submissions.sourceFormId),
                   ),
                 )
                 .orderBy(asc(submissions.code), asc(submissionParticipants.position))

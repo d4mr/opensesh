@@ -45,6 +45,7 @@ import {
   rooms,
   sessionFileRequirements,
   sessionFileRequirementAssignments,
+  submissionActivity,
   submissionParticipants,
   submissionEditHistory,
   submissions,
@@ -100,7 +101,9 @@ const expectedTables: ReadonlyArray<{
   { name: "contact_edit_history", table: contactEditHistory, expected: 1 },
   { name: "task_templates", table: taskTemplates, expected: 4 },
   { name: "task_assignments", table: taskAssignments, expected: 54 },
-  { name: "email_log", table: emailLog, expected: 4 },
+  { name: "email_log", table: emailLog, expected: 5 },
+  // 8 decisions + 8 schedule placements + Mateo's cancellation of SESS-17.
+  { name: "submission_activity", table: submissionActivity, expected: 17 },
   { name: "review_rounds", table: reviewRounds, expected: 2 },
   { name: "review_criteria", table: reviewCriteria, expected: 6 },
   { name: "review_round_members", table: reviewRoundMembers, expected: 1 },

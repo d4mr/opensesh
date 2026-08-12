@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e3491a01-fa99-45f9-a9b0-a4f924e9e2f8",
+  "id": "c04fcf19-97c1-4244-a21a-4fd3f6769454",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -95,6 +95,7 @@
         "magic_link",
         "accepted",
         "declined",
+        "cancelled",
         "task_reminder",
         "calendar_invite",
         "custom"
@@ -221,6 +222,15 @@
     },
     {
       "values": [
+        "organizer",
+        "speaker"
+      ],
+      "name": "session_cancelled_by",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
         "invited",
         "onboarding",
         "confirmed",
@@ -233,10 +243,14 @@
     },
     {
       "values": [
-        "abstract",
-        "session"
+        "status_changed",
+        "decided",
+        "cancelled",
+        "reinstated",
+        "scheduled",
+        "content_approved"
       ],
-      "name": "submission_kind",
+      "name": "submission_activity_type",
       "entityType": "enums",
       "schema": "public"
     },
@@ -606,6 +620,12 @@
     {
       "isRlsEnabled": false,
       "name": "reviews",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "submission_activity",
       "entityType": "tables",
       "schema": "public"
     },
@@ -1701,6 +1721,19 @@
       "generated": null,
       "identity": null,
       "name": "default_submission_limit",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "speaker_confirmation_enabled",
       "entityType": "columns",
       "schema": "public",
       "table": "events"
@@ -3885,19 +3918,6 @@
       "generated": null,
       "identity": null,
       "name": "external_title",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "forms"
-    },
-    {
-      "type": "submission_kind",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
       "entityType": "columns",
       "schema": "public",
       "table": "forms"
@@ -7501,6 +7521,136 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "submission_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "submission_activity_type",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_contact_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_api_key_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "payload",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "submission_edit_history"
     },
     {
@@ -7946,19 +8096,6 @@
       "table": "submissions"
     },
     {
-      "type": "submission_kind",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "submissions"
-    },
-    {
       "type": "submission_status",
       "typeSchema": "public",
       "notNull": true,
@@ -8227,6 +8364,32 @@
       "generated": null,
       "identity": null,
       "name": "content_review_status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submissions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cancelled_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submissions"
+    },
+    {
+      "type": "session_cancelled_by",
+      "typeSchema": "public",
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cancelled_by",
       "entityType": "columns",
       "schema": "public",
       "table": "submissions"
@@ -9565,6 +9728,27 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "submission_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "submission_activity_submission_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "submission_activity"
     },
     {
       "nameExplicit": true,
@@ -11493,6 +11677,74 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "submission_activity_submission_id_submissions_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_contact_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "contacts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "submission_activity_actor_contact_id_contacts_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "submission_activity_actor_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "submission_activity_actor_api_key_id_api_keys_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "submission_activity"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "submission_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "submissions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "submission_edit_history_submission_id_submissions_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -12325,6 +12577,16 @@
       "name": "reviews_pkey",
       "schema": "public",
       "table": "reviews",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "submission_activity_pkey",
+      "schema": "public",
+      "table": "submission_activity",
       "entityType": "pks"
     },
     {

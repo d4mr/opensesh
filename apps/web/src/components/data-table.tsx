@@ -32,10 +32,6 @@ const columns = columnHelper.columns([
     header: "Title",
     cell: ({ row }) => <span className="font-medium">{row.original.title}</span>,
   }),
-  columnHelper.accessor("kind", {
-    header: "Kind",
-    cell: ({ row }) => <span className="capitalize">{row.original.kind}</span>,
-  }),
   columnHelper.accessor("track", {
     header: "Track",
     cell: ({ row }) => row.original.track ?? <span className="text-muted-foreground">—</span>,
@@ -76,12 +72,10 @@ export function DataTable({ data }: { readonly data: ReadonlyArray<DashboardSubm
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold">Recent submissions</h2>
-          <p className="text-sm text-muted-foreground">
-            Newest first, across abstracts and sessions.
-          </p>
+          <p className="text-sm text-muted-foreground">Newest first, from the call for papers.</p>
         </div>
         <Button variant="link" size="sm" asChild className="shrink-0">
-          <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
+          <Link to="/admin/submissions" search={{ status: "all", spotlight: undefined }}>
             View all
             <ArrowRightIcon />
           </Link>
@@ -151,7 +145,7 @@ export function DataTable({ data }: { readonly data: ReadonlyArray<DashboardSubm
                   className="pressable cursor-pointer hover:bg-muted/50"
                   onClick={() =>
                     void navigate({
-                      to: "/admin/abstracts",
+                      to: "/admin/submissions",
                       search: { status: "all", spotlight: row.original.id },
                     })
                   }

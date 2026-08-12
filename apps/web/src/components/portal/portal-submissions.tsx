@@ -31,7 +31,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { speakerPortalQuery } from "@/lib/portal-queries";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  cancelPortalSession,
   editPortalSubmission,
   restorePortalHistory,
   withdrawPortalSubmission,
@@ -146,6 +148,28 @@ function SubmissionContent({
       await invalidate();
     },
   });
+  // A speaker cancelling their accepted session is a different act from
+  // withdrawing a proposal under review — it goes through the session
+  // cancellation flow (organizers are the recorded recipients of the "why").
+  const [cancelMessage, setCancelMessage] = useState("");
+  const cancelSession = useMutation({
+    mutationFn: () =>
+      selected === undefined
+        ? Promise.resolve(null)
+        : cancelPortalSession({
+            data: { submissionId: selected.submission.id, message: cancelMessage },
+          }),
+    onSuccess: async (result) => {
+      if (result === null) return;
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Session cancelled — the organizers have been notified");
+      setCancelMessage("");
+      await invalidate();
+    },
+  });
   const restore = useMutation({
     mutationFn: (historyId: string) => restorePortalHistory({ data: { historyId } }),
     onSuccess: async (result) => {
@@ -215,6 +239,11 @@ function SubmissionContent({
                       {submission.code}
                     </span>
                     <StatusBadge status={submission.status} />
+                    {submission.cancelledAt !== null ? (
+                      <span className="rounded-md border border-destructive/40 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+                        Session cancelled
+                      </span>
+                    ) : null}
                     {submission.contentReviewStatus === "pending_review" ? (
                       <span className="rounded-md bg-[var(--status-pending-bg)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-pending)]">
                         Edits pending approval
@@ -243,34 +272,70 @@ function SubmissionContent({
     );
   }
 
-  const withdrawAction =
-    selected.submission.status === "withdrawn" ? null : (
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button variant="destructive" size="sm">
-            Withdraw submission
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Withdraw {selected.submission.code}?</DialogTitle>
-            <DialogDescription>
-              This removes the submission from consideration. Its history remains available.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <DialogClose asChild>
-              <Button variant="destructive" onClick={() => withdraw.mutate()}>
-                Withdraw
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
+  const sessionCancelled = selected.submission.cancelledAt !== null;
+  // Withdrawing is a proposal-stage act; once accepted, the exit is
+  // cancelling the session (which notifies the organizers), and a cancelled
+  // session offers no further action from here.
+  const withdrawAction = ["draft", "pending", "maybe"].includes(selected.submission.status) ? (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="destructive" size="sm">
+          Withdraw submission
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Withdraw {selected.submission.code}?</DialogTitle>
+          <DialogDescription>
+            This removes the submission from consideration. Its history remains available.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button variant="destructive" onClick={() => withdraw.mutate()}>
+              Withdraw
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ) : selected.submission.status === "accepted" && !sessionCancelled ? (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="destructive" size="sm">
+          Cancel my session
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel your session?</DialogTitle>
+          <DialogDescription>
+            {selected.submission.code} comes off the program and the organizers are notified. If
+            plans change, they can reinstate it for you.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={cancelMessage}
+          onChange={(event) => setCancelMessage(event.target.value)}
+          placeholder="Let the organizers know why (optional)"
+          className="min-h-20 resize-none text-sm"
+        />
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Keep session</Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button variant="destructive" onClick={() => cancelSession.mutate()}>
+              Cancel session
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ) : null;
 
   return (
     <main className="h-[calc(100svh-3rem)] overflow-y-auto">
@@ -292,6 +357,13 @@ function SubmissionContent({
           </span>
         </div>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">{selected.submission.title}</h1>
+        {sessionCancelled ? (
+          <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
+            {selected.submission.cancelledBy === "speaker"
+              ? "You cancelled this session. If your plans change, contact the organizers to reinstate it."
+              : "The organizers cancelled this session. Reach out to them if you have questions."}
+          </div>
+        ) : null}
         {selected.submission.contentReviewStatus === "pending_review" ? (
           <div className="mt-4 rounded-md border border-[var(--status-pending)]/30 bg-[var(--status-pending-bg)] px-3 py-2 text-xs text-[var(--status-pending)]">
             Your content changes are pending organizer approval. The last approved version remains

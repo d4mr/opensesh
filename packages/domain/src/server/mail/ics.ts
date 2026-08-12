@@ -65,6 +65,32 @@ export const buildCalendarInvite = (input: IcsEventInput) => {
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
 };
 
+// Cancelling a session that already sent invites must also leave calendars:
+// same UID as the invite, bumped SEQUENCE, METHOD:CANCEL. Without this the
+// event lingers in every attendee's calendar after the email goes out.
+export const buildCalendarCancellation = (input: IcsEventInput) => {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//opensesh.io//Program Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:CANCEL",
+    `X-WR-TIMEZONE:${escapeText(input.timezone)}`,
+    "BEGIN:VEVENT",
+    `UID:sess-${input.id}@opensesh.io`,
+    `DTSTAMP:${utc(input.stamp ?? new Date())}`,
+    `DTSTART:${utc(input.startsAt)}`,
+    `DTEND:${utc(input.endsAt)}`,
+    `SEQUENCE:${input.sequence}`,
+    `SUMMARY:${escapeText(input.title)}`,
+    `LOCATION:${escapeText(input.room)}`,
+    "STATUS:CANCELLED",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
+};
+
 export const buildPersonalScheduleCalendar = (input: {
   readonly name: string;
   readonly timezone: string;

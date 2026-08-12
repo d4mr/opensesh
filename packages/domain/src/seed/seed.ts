@@ -45,6 +45,7 @@ import {
   taskTemplates,
   tracks,
   users,
+  submissionActivity,
 } from "../db/schema";
 import { hashPassword } from "better-auth/crypto";
 import { type Database, wipeSeedData } from "../server/db";
@@ -171,7 +172,6 @@ const devflowForm = {
   eventId: devflowEvent.id,
   internalName: "DevFlow Conf 2027 CFP",
   externalTitle: "Speak at DevFlow Conf 2027",
-  kind: "abstract" as const,
   collectParticipants: true,
   status: "open" as const,
   welcomeHeading: "Welcome",
@@ -428,7 +428,6 @@ const devflowSubmissions = [
 ].map(({ trackId, notes, ...submission }) => ({
   ...submission,
   eventId: devflowEvent.id,
-  kind: "abstract" as const,
   status: "pending" as const,
   sourceFormId: devflowForm.id,
   language: "en",
@@ -614,16 +613,87 @@ const submissionRows = seedData.submissions.map((submission) => {
         answers,
       }
     : {};
+  // Mateo cancelled SESS-17 after acceptance: the acceptance stands as
+  // history, the session left the agenda, and the demo shows the full
+  // cancelled state (annotated desk row, cancelled Sessions row, timeline).
+  const cancelled = submission.id === "sub_17";
   return {
     ...submission,
-    // Accepted submissions have graduated to sessions (see review-desk accept).
-    kind: approved ? ("session" as const) : submission.kind,
     scheduleDirty: false,
     answers,
     approvedSnapshot,
     contentReviewStatus: approved ? ("approved" as const) : ("pending_review" as const),
+    cancelledAt: cancelled ? new Date(1783820400000) : null,
+    cancelledBy: cancelled ? ("speaker" as const) : null,
+    // The cancellation email carried an ICS CANCEL, which bumps the sequence.
+    ...(cancelled ? { icsSequence: 1 } : {}),
   };
 });
+
+// The activity log a live pipeline would have written: decisions for every
+// decided row, the schedule moves for placed sessions, and Mateo's
+// cancellation — so timelines are rich on a fresh seed.
+const submissionActivityRows = [
+  ...submissionRows.flatMap((submission) => {
+    if (submission.status !== "accepted" && submission.status !== "declined") return [];
+    if (submission.sourceFormId === null) return [];
+    return [
+      {
+        id: `act_decided_${submission.id}`,
+        submissionId: submission.id,
+        type: "decided" as const,
+        actorContactId: null,
+        actorUserId: "usr_dana",
+        actorApiKeyId: null,
+        actorName: "Dana Organizer",
+        payload: {
+          decision: submission.status === "accepted" ? "accept" : "decline",
+          from: "pending",
+        },
+        createdAt: new Date(1783080000000),
+        updatedAt: new Date(1783080000000),
+      },
+    ];
+  }),
+  ...submissionRows.flatMap((submission) =>
+    submission.status !== "accepted" || submission.startsAt === null
+      ? []
+      : [
+          {
+            id: `act_scheduled_${submission.id}`,
+            submissionId: submission.id,
+            type: "scheduled" as const,
+            actorContactId: null,
+            actorUserId: "usr_dana",
+            actorApiKeyId: null,
+            actorName: "Dana Organizer",
+            payload: {
+              startsAt: submission.startsAt.toISOString(),
+              endsAt: submission.endsAt?.toISOString() ?? null,
+              roomId: submission.roomId,
+              roomName:
+                submission.roomId === null
+                  ? null
+                  : (seedData.rooms.find((room) => room.id === submission.roomId)?.name ?? null),
+            },
+            createdAt: new Date(1783616000000),
+            updatedAt: new Date(1783616000000),
+          },
+        ],
+  ),
+  {
+    id: "act_cancelled_sub_17",
+    submissionId: "sub_17",
+    type: "cancelled" as const,
+    actorContactId: "con_14",
+    actorUserId: null,
+    actorApiKeyId: null,
+    actorName: "Mateo Silva",
+    payload: { cause: "speaker" },
+    createdAt: new Date(1783820400000),
+    updatedAt: new Date(1783820400000),
+  },
+];
 
 // The demo ships with the agenda already published — the same snapshot the
 // publish action would write — so public views work on a judge's first load.
@@ -668,7 +738,16 @@ const emailLogRows = seedData.emailLog.map((row) => {
               submissionTitle: submission.title,
               feedback: "",
             })
-          : null;
+          : row.type === "cancelled"
+            ? mailTemplates.cancelled({
+                ...template,
+                speakerName: contact.firstName,
+                submissionTitle: submission.title,
+                cause: "speaker",
+                message:
+                  "Completely understood about the travel conflict — we hope to see this talk at the next edition.",
+              })
+            : null;
   return rendered === null
     ? row
     : { ...row, subject: rendered.subject, body: rendered.text, htmlBody: rendered.html };
@@ -679,6 +758,7 @@ const publishedAgenda = submissionRows
       submission.roomId === null ? undefined : roomNameById.get(submission.roomId ?? "");
     if (
       submission.status !== "accepted" ||
+      submission.cancelledAt !== null ||
       submission.startsAt == null ||
       submission.endsAt == null ||
       roomName === undefined
@@ -994,12 +1074,19 @@ export const seedDatabase = async (database: Database) => {
                   profileReviewStatus: "pending_review" as const,
                 }
               : {}),
+            // With speaker confirmation on, a couple of accepted speakers
+            // have not confirmed yet — Sessions readiness shows real gaps.
             workflowStatus: accepted
-              ? ("confirmed" as const)
+              ? contact.id === "con_22" || contact.id === "con_16"
+                ? ("onboarding" as const)
+                : ("confirmed" as const)
               : declined
                 ? ("declined" as const)
                 : ("invited" as const),
-            confirmedAt: accepted ? new Date(1788264000000) : null,
+            confirmedAt:
+              accepted && contact.id !== "con_22" && contact.id !== "con_16"
+                ? new Date(1783080000000)
+                : null,
           };
         }),
         ...devflowContacts,
@@ -1203,6 +1290,7 @@ export const seedDatabase = async (database: Database) => {
       transaction.insert(taskAssignments).values(rows(seedData.taskAssignments)),
       transaction.insert(portalFormResponses).values(rows(seedData.portalFormResponses)),
       transaction.insert(emailLog).values(rows(emailLogRows)),
+      transaction.insert(submissionActivity).values(submissionActivityRows),
       transaction.insert(crmStageHistory).values(crmStageHistoryRows),
       transaction.insert(contactEditHistory).values({
         id: "che_maya_bio",

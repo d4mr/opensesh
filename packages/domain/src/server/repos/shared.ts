@@ -1,7 +1,29 @@
+import { sql } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
+import { submissions } from "../../db/schema";
 import type { Database } from "../db";
 import { DbError, NotFound } from "../errors";
+import type { AuditActor } from "../schema/common";
+
+// Who performed a lifecycle transition, for the submission activity log.
+// Staff and API keys arrive as AuditActor; portal actions (a speaker
+// cancelling their own session) carry the contact.
+export type ActivityActor =
+  | AuditActor
+  | { readonly kind: "contact"; readonly contactId: string; readonly name: string };
+
+export const activityActorColumns = (actor: ActivityActor) => ({
+  actorUserId: actor.kind === "user" ? actor.userId : null,
+  actorApiKeyId: actor.kind === "api_key" ? actor.apiKeyId : null,
+  actorContactId: actor.kind === "contact" ? actor.contactId : null,
+  actorName: actor.name,
+});
+
+// SQL twin of sessionIsActive: the one definition of "this session is on".
+// Cancelled sessions keep status='accepted' (the acceptance is history) but
+// leave the agenda, invites, deliverable nags, and every public surface.
+export const activeSession = sql`${submissions.status} = 'accepted' and ${submissions.cancelledAt} is null`;
 
 // The client envelope only carries the generic operation label; the underlying
 // cause must reach Worker logs here or nowhere.

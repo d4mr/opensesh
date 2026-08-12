@@ -418,7 +418,7 @@ function SessionPeek({
                 className="pressable text-muted-foreground"
                 asChild
               >
-                <Link to="/admin/sessions" search={{ status: "all", spotlight: session.id }}>
+                <Link to="/admin/sessions" search={{ state: "all", spotlight: session.id }}>
                   <ExternalLinkIcon /> Open session
                 </Link>
               </Button>

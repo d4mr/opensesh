@@ -11,8 +11,6 @@ import {
   Text255,
 } from "./common";
 
-export const FormKind = Schema.Literals(["abstract", "session"]);
-export type FormKind = typeof FormKind.Type;
 export const FormStatus = Schema.Literals(["open", "closed"]);
 export type FormStatus = typeof FormStatus.Type;
 export const FormSection = Schema.Literals(["abstract", "participant"]);
@@ -70,7 +68,6 @@ const formFields = {
   eventId: Schema.String,
   internalName: Text255,
   externalTitle: Text255,
-  kind: FormKind,
   collectParticipants: Schema.Boolean,
   status: FormStatus,
   welcomeHeading: Heading15,

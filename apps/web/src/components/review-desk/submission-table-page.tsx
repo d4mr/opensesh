@@ -35,7 +35,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
-import { AddSessionDialog } from "@/components/admin/add-session-dialog";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
@@ -182,6 +181,23 @@ function StatusEditor({
   ) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Acceptance stands: what happens to an accepted talk afterwards is session
+  // lifecycle (cancel/reinstate on Sessions), never a status shuffle here.
+  if (submission.status === "accepted") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <StatusBadge status="accepted" />
+        {submission.cancelledAt === null ? null : (
+          <span
+            className="rounded-sm border px-1 py-px text-[10px] text-muted-foreground"
+            title={`Session cancelled by the ${submission.cancelledBy ?? "organizer"}`}
+          >
+            Session cancelled
+          </span>
+        )}
+      </span>
+    );
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -223,13 +239,11 @@ function StatusEditor({
 }
 
 export function SubmissionTablePage({
-  kind,
   status,
   spotlightId,
   onStatusChange,
   onSpotlightChange,
 }: {
-  readonly kind: "abstract" | "session";
   readonly status: SubmissionStatusFilter;
   readonly spotlightId: string | undefined;
   readonly onStatusChange: (status: SubmissionStatusFilter) => void;
@@ -241,7 +255,7 @@ export function SubmissionTablePage({
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
   const eventTimezone = context?.event.timezone ?? "UTC";
-  const list = useSuspenseQuery(reviewDeskListQuery(eventId, kind));
+  const list = useSuspenseQuery(reviewDeskListQuery(eventId));
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [track, setTrack] = useState("all");
@@ -254,7 +268,7 @@ export function SubmissionTablePage({
   const [decisionTargets, setDecisionTargets] = useState<ReadonlyArray<ReviewDeskListItem>>([]);
   const decisionSnapshot = useRef<ListResult | undefined>(undefined);
 
-  const storageKey = `opensesh-${kind}-columns`;
+  const storageKey = "opensesh-submissions-columns";
   useEffect(() => {
     const saved = window.localStorage.getItem(storageKey);
     if (saved !== null) {
@@ -299,12 +313,11 @@ export function SubmissionTablePage({
 
   const setList = useCallback(
     (update: (current: ReviewDeskList) => ReviewDeskList) => {
-      queryClient.setQueryData<ListResult>(
-        reviewDeskListQuery(eventId, kind).queryKey,
-        (current) => (current?.ok ? { ...current, data: update(current.data) } : current),
+      queryClient.setQueryData<ListResult>(reviewDeskListQuery(eventId).queryKey, (current) =>
+        current?.ok ? { ...current, data: update(current.data) } : current,
       );
     },
-    [eventId, kind, queryClient],
+    [eventId, queryClient],
   );
 
   const openDecision = useCallback(
@@ -514,14 +527,10 @@ export function SubmissionTablePage({
     counts.set(submission.status, (counts.get(submission.status) ?? 0) + 1);
   }
   const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
+  // Accepted rows are already decided — the exits from accepted live on the
+  // Sessions surface (cancel/reinstate), so bulk decisions skip them.
+  const decidableRows = selectedRows.filter((row) => row.status !== "accepted");
   const orderedIds = tableRows.map((row) => row.original.id);
-  const addSessionAction =
-    kind === "session" ? (
-      <AddSessionDialog
-        eventId={eventId}
-        onCreated={(id) => onSpotlightChange(id, { replace: false, keyboard: false })}
-      />
-    ) : null;
   const exportRows = async (rows: ReadonlyArray<ReviewDeskListItem>) => {
     const columns = table
       .getVisibleLeafColumns()
@@ -530,7 +539,6 @@ export function SubmissionTablePage({
     const response = await exportSubmissionsCsv({
       data: {
         eventId,
-        kind,
         submissionIds: rows.map((row) => row.id),
         columns,
       },
@@ -542,15 +550,17 @@ export function SubmissionTablePage({
     const url = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${kind}s.csv`;
+    anchor.download = "submissions.csv";
     anchor.click();
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"} to ${kind}s.csv`);
+    toast.success(
+      `Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"} to submissions.csv`,
+    );
   };
 
   const applyDecisionOptimistic = (nextDecision: SubmissionDecision) => {
     decisionSnapshot.current = queryClient.getQueryData<ListResult>(
-      reviewDeskListQuery(eventId, kind).queryKey,
+      reviewDeskListQuery(eventId).queryKey,
     );
     const ids = new Set(decisionTargets.map((submission) => submission.id));
     const nextStatus = nextDecision === "accept" ? "accepted" : "declined";
@@ -582,37 +592,20 @@ export function SubmissionTablePage({
       <main className="p-4 text-sm lg:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold">
-              {kind === "abstract" ? "Submissions" : "Sessions"}
-            </h1>
+            <h1 className="text-lg font-semibold">Submissions</h1>
             <p className="text-sm text-muted-foreground">
-              Review and manage {kind} submissions for {context.event.name}.
+              Review and decide CFP submissions for {context.event.name}.
             </p>
           </div>
-          {addSessionAction}
         </div>
         <AdminEmptyState
           icon={FileInputIcon}
-          title={
-            kind === "abstract" ? "Collect your first submission" : "No sessions are ready yet"
-          }
-          description={
-            kind === "abstract"
-              ? "Publish a call for papers before proposals can arrive here."
-              : "Accept a submission to graduate it into the session workspace."
-          }
+          title="Collect your first submission"
+          description="Publish a call for papers before proposals can arrive here."
           action={
-            kind === "abstract" ? (
-              <Button asChild size="sm" className="pressable">
-                <Link to="/admin/forms">Create call for papers</Link>
-              </Button>
-            ) : (
-              <Button asChild size="sm" variant="outline" className="pressable">
-                <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
-                  Review submissions
-                </Link>
-              </Button>
-            )
+            <Button asChild size="sm" className="pressable">
+              <Link to="/admin/forms">Create call for papers</Link>
+            </Button>
           }
         />
       </main>
@@ -636,14 +629,11 @@ export function SubmissionTablePage({
           <div className="flex h-full min-h-0 flex-col p-4 lg:p-6">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-lg font-semibold">
-                  {kind === "abstract" ? "Submissions" : "Sessions"}
-                </h1>
+                <h1 className="text-lg font-semibold">Submissions</h1>
                 <p className="text-sm text-muted-foreground">
-                  Review and manage {kind} submissions for {context.event.name}.
+                  Review and decide CFP submissions for {context.event.name}.
                 </p>
               </div>
-              {addSessionAction}
             </div>
 
             <Tabs
@@ -686,7 +676,7 @@ export function SubmissionTablePage({
                     <Input
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
-                      placeholder={`Search ${kind}s…`}
+                      placeholder="Search submissions…"
                       className="h-8 pl-8"
                     />
                   </div>
@@ -789,14 +779,22 @@ export function SubmissionTablePage({
                   <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
                     <span className="mr-auto text-xs font-medium tabular-nums">
                       {selectedRows.length} selected
+                      {selectedRows.length === decidableRows.length
+                        ? ""
+                        : " · accepted rows are decided; manage them in Sessions"}
                     </span>
-                    <Button size="xs" onClick={() => openDecision(selectedRows, "accept")}>
+                    <Button
+                      size="xs"
+                      disabled={decidableRows.length === 0}
+                      onClick={() => openDecision(decidableRows, "accept")}
+                    >
                       Accept
                     </Button>
                     <Button
                       size="xs"
                       variant="destructive"
-                      onClick={() => openDecision(selectedRows, "decline")}
+                      disabled={decidableRows.length === 0}
+                      onClick={() => openDecision(decidableRows, "decline")}
                     >
                       Decline
                     </Button>
@@ -941,13 +939,14 @@ export function SubmissionTablePage({
         onOpenChange={setDecisionOpen}
         eventId={eventId}
         eventName={context.event.name}
+        confirmationRequested={context.event.speakerConfirmationEnabled}
         submissions={decisionTargets}
         initialDecision={decision}
         onOptimistic={applyDecisionOptimistic}
         onFailure={() => {
           if (decisionSnapshot.current !== undefined) {
             queryClient.setQueryData(
-              reviewDeskListQuery(eventId, kind).queryKey,
+              reviewDeskListQuery(eventId).queryKey,
               decisionSnapshot.current,
             );
           }

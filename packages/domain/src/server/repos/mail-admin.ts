@@ -19,7 +19,7 @@ import { buildCalendarInvite } from "../mail/ics";
 import { calendarInvite, deliverableReminder, taskReminder } from "../mail/templates";
 import type { AdminEmail, CalendarInviteSummary } from "../schema/mail";
 import { EmailLogEntry } from "../schema/portal";
-import { decodeFound, decodeMany, query } from "./shared";
+import { activeSession, decodeFound, decodeMany, query } from "./shared";
 
 interface QueuedMail {
   readonly logId: string;
@@ -83,7 +83,7 @@ const calendarRows = (database: Database, eventId: string) =>
       .where(
         and(
           eq(submissions.eventId, eventId),
-          eq(submissions.status, "accepted"),
+          activeSession,
           isNotNull(submissions.startsAt),
           isNotNull(submissions.endsAt),
           isNotNull(submissions.roomId),
@@ -390,7 +390,7 @@ export const MailAdminLive = Layer.effect(
                     and(
                       eq(sessionFileRequirements.eventId, eventId),
                       eq(sessionFileRequirementAssignments.status, "outstanding"),
-                      eq(submissions.status, "accepted"),
+                      activeSession,
                       requirementId === null
                         ? undefined
                         : eq(sessionFileRequirements.id, requirementId),
@@ -410,7 +410,7 @@ export const MailAdminLive = Layer.effect(
                   .from(submissionParticipants)
                   .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
                   .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                  .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "accepted")))
+                  .where(and(eq(submissions.eventId, eventId), activeSession))
                   .execute(),
               ),
             ],

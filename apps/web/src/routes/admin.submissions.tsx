@@ -22,7 +22,7 @@ const parseStatus = (value: unknown): SubmissionStatusFilter => {
   return "all";
 };
 
-export const Route = createFileRoute("/admin/abstracts")({
+export const Route = createFileRoute("/admin/submissions")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: parseStatus(search.status),
     spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
@@ -34,21 +34,20 @@ export const Route = createFileRoute("/admin/abstracts")({
       ? resolveActiveEvent(events.data, context.activeEventId)?.id
       : undefined;
     if (eventId !== undefined) {
-      await context.queryClient.ensureQueryData(reviewDeskListQuery(eventId, "abstract"));
+      await context.queryClient.ensureQueryData(reviewDeskListQuery(eventId));
       if (deps.spotlight !== undefined) {
         void context.queryClient.prefetchQuery(reviewDeskDetailQuery(eventId, deps.spotlight));
       }
     }
   },
-  component: AbstractsRoute,
+  component: SubmissionsRoute,
 });
 
-function AbstractsRoute() {
+function SubmissionsRoute() {
   const { status, spotlight } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   return (
     <SubmissionTablePage
-      kind="abstract"
       status={status}
       spotlightId={spotlight}
       onStatusChange={(next) =>

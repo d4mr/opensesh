@@ -33,7 +33,6 @@ export const createForm = createServerFn({ method: "POST" })
           eventId: data.eventId,
           internalName: "Untitled submission form",
           externalTitle: "Submit your session",
-          kind: "session",
           collectParticipants: true,
           status: "open",
           welcomeHeading: "Welcome",

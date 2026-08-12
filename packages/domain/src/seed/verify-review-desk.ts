@@ -46,6 +46,7 @@ const verify = Effect.gen(function* () {
     feedback,
     confirmRedecide: false,
     approveContent: true,
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
   yield* Effect.forEach(firstDecision.deliveries, (delivery) =>
     reviewDesk.markEmail(delivery.logId, "sent"),
@@ -70,6 +71,7 @@ const verify = Effect.gen(function* () {
     feedback,
     confirmRedecide: false,
     approveContent: true,
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
   const taskGroupsAfterRetry = yield* Effect.all(
     [
@@ -85,7 +87,7 @@ const verify = Effect.gen(function* () {
     0,
   );
 
-  const abstracts = yield* reviewDesk.list(eventId, "abstract");
+  const abstracts = yield* reviewDesk.list(eventId);
   const undoTarget = abstracts.submissions.find(
     (submission) => submission.status === "pending" && submission.id !== acceptTarget.submission.id,
   );
@@ -94,8 +96,8 @@ const verify = Effect.gen(function* () {
       new InvalidInput({ message: "Review desk verification needs an inline status target" }),
     );
   }
-  yield* reviewDesk.changeStatus(eventId, undoTarget.id, "maybe");
-  const undone = yield* reviewDesk.changeStatus(eventId, undoTarget.id, "pending");
+  yield* reviewDesk.changeStatus(eventId, undoTarget.id, "maybe", { kind: "user", userId: "usr_dana", name: "Seed verification" });
+  const undone = yield* reviewDesk.changeStatus(eventId, undoTarget.id, "pending", { kind: "user", userId: "usr_dana", name: "Seed verification" });
   const declineTargets = abstracts.submissions
     .filter(
       (submission) =>
@@ -116,6 +118,7 @@ const verify = Effect.gen(function* () {
     feedback: "A thoughtful proposal, but the program is full in this track.",
     confirmRedecide: false,
     approveContent: false,
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
   yield* Effect.forEach(declined.deliveries, (delivery) =>
     reviewDesk.markEmail(delivery.logId, "sent"),
@@ -130,9 +133,12 @@ const verify = Effect.gen(function* () {
     ["review progress", reviewedQueue.reviewed === initialQueue.reviewed + 1],
     ["accepted status", acceptedDetail.submission.status === "accepted"],
     ["notified timestamp", acceptedDetail.submission.notifiedAt !== null],
+    // The seed event asks speakers to confirm participation themselves, so
+    // accepting must NOT auto-confirm — the email carries the confirm ask.
     [
-      "contacts confirmed",
-      acceptedDetail.submission.speakers.every((speaker) => speaker.confirmedAt !== null),
+      "confirmation requested, not auto-set",
+      acceptedDetail.submission.speakers.every((speaker) => speaker.confirmedAt === null) &&
+        acceptedEmails.every((email) => email.body.includes("confirm your participation")),
     ],
     ["accept tasks created", firstDecision.result.createdTasks > 0 && taskCount > 0],
     [

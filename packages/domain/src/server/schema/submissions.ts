@@ -11,7 +11,8 @@ import {
   Text255,
 } from "./common";
 
-export const SubmissionKind = Schema.Literals(["abstract", "session"]);
+// The acceptance pipeline. A session is the projection of an accepted
+// submission (status "accepted" and not cancelled) — never a stored kind.
 export const SubmissionStatus = Schema.Literals([
   "draft",
   "pending",
@@ -21,6 +22,10 @@ export const SubmissionStatus = Schema.Literals([
   "withdrawn",
 ]);
 export type SubmissionStatus = typeof SubmissionStatus.Type;
+// Cancellation is a session lifecycle event, not an acceptance decision: the
+// acceptance stands as historical fact and the cause records who pulled out.
+export const SessionCancelledBy = Schema.Literals(["organizer", "speaker"]);
+export type SessionCancelledBy = typeof SessionCancelledBy.Type;
 export const ContentApprovalStatus = Schema.Literals(["approved", "pending_review", "rejected"]);
 export type ContentApprovalStatus = typeof ContentApprovalStatus.Type;
 export const DietaryRequirement = Schema.Literals([
@@ -85,7 +90,6 @@ export type ContactUpdate = typeof ContactUpdate.Type;
 const submissionFields = {
   eventId: Schema.String,
   code: Schema.String,
-  kind: SubmissionKind,
   status: SubmissionStatus,
   sourceFormId: NullableString,
   submitterContactId: NullableString,
@@ -107,7 +111,16 @@ const submissionFields = {
   answers: JsonObject,
   approvedSnapshot: JsonObject,
   contentReviewStatus: ContentApprovalStatus,
+  cancelledAt: NullableDate,
+  cancelledBy: Schema.NullOr(SessionCancelledBy),
 };
+
+// The one definition of "this session is on": accepted and not cancelled.
+// Agenda, conflicts, public program, widgets, and ICS all gate on this.
+export const sessionIsActive = (submission: {
+  readonly status: SubmissionStatus;
+  readonly cancelledAt: Date | null;
+}) => submission.status === "accepted" && submission.cancelledAt === null;
 
 export const Submission = Schema.Struct({ ...EntityFields, ...submissionFields });
 export type Submission = typeof Submission.Type;
@@ -116,7 +129,7 @@ export const DashboardSubmissionRow = Schema.Struct({
   submissionId: Schema.String,
   code: Schema.String,
   title: Schema.String,
-  kind: SubmissionKind,
+  sourceFormId: NullableString,
   status: SubmissionStatus,
   createdAt: Schema.Date,
   startsAt: NullableDate,
@@ -133,7 +146,6 @@ export const DashboardSubmission = Schema.Struct({
   id: Schema.String,
   code: Schema.String,
   title: Schema.String,
-  kind: SubmissionKind,
   status: SubmissionStatus,
   track: NullableString,
   reviewer: Schema.NullOr(
@@ -151,6 +163,28 @@ export const SubmissionUpdate = Schema.Struct(
   Struct.map(Struct.omit(submissionFields, ["eventId", "code"]), Schema.optionalKey),
 );
 export type SubmissionUpdate = typeof SubmissionUpdate.Type;
+
+export const SubmissionActivityType = Schema.Literals([
+  "status_changed",
+  "decided",
+  "cancelled",
+  "reinstated",
+  "scheduled",
+  "content_approved",
+]);
+export type SubmissionActivityType = typeof SubmissionActivityType.Type;
+
+export const SubmissionActivity = Schema.Struct({
+  ...EntityFields,
+  submissionId: Schema.String,
+  type: SubmissionActivityType,
+  actorContactId: NullableString,
+  actorUserId: NullableString,
+  actorApiKeyId: NullableString,
+  actorName: Schema.String,
+  payload: JsonObject,
+});
+export type SubmissionActivity = typeof SubmissionActivity.Type;
 
 export const SubmissionEditHistory = Schema.Struct({
   ...EntityFields,

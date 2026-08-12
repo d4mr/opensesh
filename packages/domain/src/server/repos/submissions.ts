@@ -206,7 +206,7 @@ export const SubmissionsLive = Layer.effect(
               submissionId: submissions.id,
               code: submissions.code,
               title: submissions.title,
-              kind: submissions.kind,
+              sourceFormId: submissions.sourceFormId,
               status: submissions.status,
               createdAt: submissions.createdAt,
               trackName: tracks.name,
@@ -245,7 +245,6 @@ export const SubmissionsLive = Layer.effect(
                 id: row.submissionId,
                 code: row.code,
                 title: row.title,
-                kind: row.kind,
                 status: row.status,
                 track: row.trackName,
                 reviewer:
@@ -273,7 +272,7 @@ export const SubmissionsLive = Layer.effect(
                   submissionId: submissions.id,
                   code: submissions.code,
                   title: submissions.title,
-                  kind: submissions.kind,
+                  sourceFormId: submissions.sourceFormId,
                   status: submissions.status,
                   createdAt: submissions.createdAt,
                   startsAt: submissions.startsAt,
@@ -426,7 +425,6 @@ export const SubmissionsLive = Layer.effect(
               row.submissionId === null ||
               row.code === null ||
               row.title === null ||
-              row.kind === null ||
               row.status === null ||
               row.createdAt === null
                 ? []
@@ -435,7 +433,7 @@ export const SubmissionsLive = Layer.effect(
                       submissionId: row.submissionId,
                       code: row.code,
                       title: row.title,
-                      kind: row.kind,
+                      sourceFormId: row.sourceFormId,
                       status: row.status,
                       createdAt: row.createdAt,
                       startsAt: row.startsAt,
@@ -472,7 +470,9 @@ export const SubmissionsLive = Layer.effect(
                 for (const submission of unique) {
                   const date = submission.createdAt.toISOString().slice(0, 10);
                   const point = activity.get(date) ?? { abstracts: 0, sessions: 0 };
-                  if (submission.kind === "abstract") point.abstracts += 1;
+                  // CFP-origin rows chart as proposals; manual rows are
+                  // sessions added directly to the program.
+                  if (submission.sourceFormId !== null) point.abstracts += 1;
                   else point.sessions += 1;
                   activity.set(date, point);
                 }
@@ -485,7 +485,7 @@ export const SubmissionsLive = Layer.effect(
                 // counts as handled even without a recorded review.
                 const eligibleRows = unique.filter(
                   (submission) =>
-                    submission.kind === "abstract" &&
+                    submission.sourceFormId !== null &&
                     submission.status !== "draft" &&
                     submission.status !== "withdrawn",
                 );
@@ -593,7 +593,6 @@ export const SubmissionsLive = Layer.effect(
                     id: submission.submissionId,
                     code: submission.code,
                     title: submission.title,
-                    kind: submission.kind,
                     status: submission.status,
                     track:
                       submission.trackNames.length === 0 ? null : submission.trackNames.join(", "),

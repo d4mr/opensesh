@@ -15,8 +15,9 @@ import {
   dietaryRequirement,
   id,
   reviewDecision,
+  sessionCancelledBy,
   speakerWorkflowStatus,
-  submissionKind,
+  submissionActivityType,
   submissionStatus,
   timestamps,
   tshirtSize,
@@ -82,7 +83,11 @@ export const submissions = pgTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     code: text("code").notNull(),
-    kind: submissionKind("kind").notNull(),
+    // The acceptance pipeline. A "session" is not a separate row or a stored
+    // kind: it is the projection of an accepted submission (status='accepted'
+    // AND cancelled_at IS NULL — see sessionIsActive). Origin is encoded by
+    // source_form_id: CFP-origin rows carry the form, manual sessions carry
+    // null and never appear on the Submissions desk.
     status: submissionStatus("status").notNull(),
     sourceFormId: text("source_form_id").references(() => forms.id, { onDelete: "set null" }),
     submitterContactId: text("submitter_contact_id").references(() => contacts.id, {
@@ -111,6 +116,13 @@ export const submissions = pgTable(
     contentReviewStatus: contentApprovalStatus("content_review_status")
       .notNull()
       .default("approved"),
+    // Session cancellation, distinct from the acceptance decision. Schedule
+    // fields are deliberately KEPT on cancellation (they are part of the
+    // record: "was scheduled Tue 10:00"); the active-session predicate keeps
+    // cancelled rows off the agenda, conflicts, and public surfaces, and
+    // reinstating restores the slot.
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: sessionCancelledBy("cancelled_by"),
     ...timestamps,
   },
   (table) => [
@@ -153,6 +165,36 @@ export const submissionEditHistory = pgTable(
     ...timestamps,
   },
   (table) => [index("submission_edit_history_submission_idx").on(table.submissionId)],
+);
+
+// Append-only. Records only lifecycle transitions whose columns are otherwise
+// overwritten in place (status changes, decisions, cancellation/reinstate,
+// schedule moves, publication approval). Emails, content edits, file versions,
+// and task completions already have durable records of their own and are never
+// dual-written here — the timeline read model merges every source at read
+// time, one source of truth per event type.
+export const submissionActivity = pgTable(
+  "submission_activity",
+  {
+    id: id(),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    type: submissionActivityType("type").notNull(),
+    actorContactId: text("actor_contact_id").references(() => contacts.id, {
+      onDelete: "set null",
+    }),
+    actorUserId: text("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorApiKeyId: text("actor_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
+    }),
+    actorName: text("actor_name").notNull(),
+    payload: jsonb("payload").$type<Readonly<Record<string, Schema.Json>>>().notNull().default({}),
+    ...timestamps,
+  },
+  (table) => [index("submission_activity_submission_idx").on(table.submissionId)],
 );
 
 export const contactEditHistory = pgTable(

@@ -7,7 +7,7 @@ import type {
   ParticipantRole,
 } from "../../server/schema/forms";
 
-import { formFieldType, formSection, formStatus, id, submissionKind, timestamps } from "../columns";
+import { formFieldType, formSection, formStatus, id, timestamps } from "../columns";
 import { events } from "./core";
 
 export const forms = pgTable(
@@ -19,7 +19,6 @@ export const forms = pgTable(
       .references(() => events.id, { onDelete: "cascade" }),
     internalName: text("internal_name").notNull(),
     externalTitle: text("external_title").notNull(),
-    kind: submissionKind("kind").notNull(),
     collectParticipants: boolean("collect_participants").notNull().default(true),
     status: formStatus("status").notNull().default("open"),
     welcomeHeading: text("welcome_heading").notNull(),

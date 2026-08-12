@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -261,7 +261,16 @@ export const SpeakerCommsLive = Layer.effect(
         query(database, "Could not update speaker workflow", (db) =>
           db
             .update(contacts)
-            .set({ workflowStatus, updatedAt: new Date() })
+            // Marking a speaker confirmed/ready on their behalf is a real
+            // confirmation ("they emailed me") — record the timestamp too.
+            // One-way: moving the pipeline back never un-confirms.
+            .set({
+              workflowStatus,
+              ...(workflowStatus === "confirmed" || workflowStatus === "ready"
+                ? { confirmedAt: sql`coalesce(${contacts.confirmedAt}, now())` }
+                : {}),
+              updatedAt: new Date(),
+            })
             .where(and(eq(contacts.id, contactId), eq(contacts.eventId, eventId)))
             .returning()
             .execute(),

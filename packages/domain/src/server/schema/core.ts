@@ -25,6 +25,7 @@ const eventFields = {
   logoKey: NullableString,
   backgroundUrl: NullableString,
   defaultSubmissionLimit: Schema.Number,
+  speakerConfirmationEnabled: Schema.Boolean,
   agendaPublishedAt: Schema.NullOr(Schema.Date),
   publishedAgenda: Schema.Array(PublishedAgendaSession),
   agendaDirty: Schema.Boolean,
@@ -184,6 +185,7 @@ export const EventSettingsRequest = Schema.Struct({
   type: EventType,
   websiteUrl: NullableString,
   defaultSubmissionLimit: Schema.Number,
+  speakerConfirmationEnabled: Schema.Boolean,
   logoUrl: NullableString,
   logoUpload: Schema.NullOr(
     Schema.Struct({

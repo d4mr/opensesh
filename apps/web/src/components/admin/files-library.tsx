@@ -813,7 +813,7 @@ function FileSpotlight({
                   <dd className="min-w-0 text-sm">
                     <Link
                       to="/admin/sessions"
-                      search={{ status: "all", spotlight: row.submission.id }}
+                      search={{ state: "all", spotlight: row.submission.id }}
                       className="pressable inline-flex max-w-full items-baseline gap-1.5 truncate hover:underline"
                     >
                       <span className="font-mono text-xs tabular-nums">{row.submission.code}</span>

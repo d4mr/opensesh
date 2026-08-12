@@ -48,6 +48,10 @@ export const events = pgTable("events", {
   logoKey: text("logo_key"),
   backgroundUrl: text("background_url"),
   defaultSubmissionLimit: integer("default_submission_limit").notNull().default(3),
+  // When on, acceptance emails carry a portal CTA and speakers confirm
+  // participation themselves (contacts.confirmed_at stays null until they
+  // do). When off, acceptance auto-confirms every participant.
+  speakerConfirmationEnabled: boolean("speaker_confirmation_enabled").notNull().default(true),
   agendaPublishedAt: timestamp("agenda_published_at", { withTimezone: true }),
   publishedAgenda: jsonb("published_agenda")
     .$type<ReadonlyArray<PublishedAgendaRecord>>()

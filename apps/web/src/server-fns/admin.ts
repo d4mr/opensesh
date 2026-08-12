@@ -109,6 +109,7 @@ export const createEvent = createServerFn({ method: "POST" })
             logoKey: null,
             backgroundUrl: null,
             defaultSubmissionLimit: 3,
+            speakerConfirmationEnabled: true,
             agendaPublishedAt: null,
             publishedAgenda: [],
             agendaDirty: false,
@@ -190,6 +191,7 @@ export const updateEventSettings = createServerFn({ method: "POST" })
           type: data.type,
           websiteUrl: data.websiteUrl,
           defaultSubmissionLimit: data.defaultSubmissionLimit,
+          speakerConfirmationEnabled: data.speakerConfirmationEnabled,
           logoUrl,
           logoKey,
         });

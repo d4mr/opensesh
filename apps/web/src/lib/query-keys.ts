@@ -39,10 +39,12 @@ export const qk = {
   },
 
   dashboard: (eventId: string) => [...event(eventId), "dashboard"] as const,
-  reviewDesk: (eventId: string, kind: "abstract" | "session") =>
-    [...event(eventId), "review-desk", kind] as const,
+  reviewDesk: (eventId: string) => [...event(eventId), "review-desk"] as const,
   reviewDeskDetail: (eventId: string, submissionId: string) =>
     [...event(eventId), "review-desk", "detail", submissionId] as const,
+  sessions: (eventId: string) => [...event(eventId), "sessions"] as const,
+  submissionTimeline: (eventId: string, submissionId: string) =>
+    [...event(eventId), "timeline", submissionId] as const,
   evaluationAdmin: (eventId: string) => [...event(eventId), "evaluation", "admin"] as const,
   evaluationReviewer: (eventId: string) => [...event(eventId), "evaluation", "reviewer"] as const,
   agenda: (eventId: string) => [...event(eventId), "agenda"] as const,

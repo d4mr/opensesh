@@ -455,7 +455,7 @@ export function AgendaPage({
           description="Accepted sessions appear here ready to place into rooms and time slots."
           action={
             <Button asChild size="sm" className="pressable">
-              <Link to="/admin/abstracts" search={{ status: "all", spotlight: undefined }}>
+              <Link to="/admin/submissions" search={{ status: "all", spotlight: undefined }}>
                 Review submissions
               </Link>
             </Button>
