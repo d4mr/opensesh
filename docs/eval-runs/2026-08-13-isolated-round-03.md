@@ -53,7 +53,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | CFP-S1 | Organizer builds and publishes the CFP | Complete | `001`–`018`; public form `https://app.opensesh.io/submit/devflow-conf-2027-3/O37jjey2KkezEeX6Rb4xd` |
 | CFP-S2 | Speaker drafts, submits, and edits proposals | Complete | `019`–`032`; new submissions `SESS-1` and `SESS-2` |
 | CFP-S3 | Organizer assigns a reviewer; reviewer scores | Complete | `033`–`039`; round `6u-T1pevz5n35zzKKElXH`, only `SESS-1` assigned |
-| CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Pending | — |
+| CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Complete | `040`–`052`; accepted session created, both decision emails logged, public CFP closed |
 | ABS-S1 | Speaker seeds submissions with a co-author | Pending | — |
 | ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Pending | — |
 | ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Pending | — |
@@ -120,6 +120,19 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `033-cfp-s3-organizer-two-submissions.png` through `039-cfp-s3-review-completed.png`. Every file was written and size-verified in this run.
 
+### CFP-S4 — Organizer decides, notifies, hands off, and closes the CFP
+
+- Signed in as Jordan and opened `SESS-1`. The organizer spotlight showed Sam Whitfield's completed review with Originality 4, Relevance 4, Recommendation Accept, and the full fixture comment.
+- Accepted `SESS-1` through the decision composer. The fixture acceptance body was entered in Personal message, but the product-generated subject `You're speaking at DevFlow Conf 2027` was not editable and therefore could not be replaced by the fixture subject. The send completed with `1 submission accepted`; the spotlight showed `Notified`, an `Acceptance email sent` activity entry, and a demo email-history record.
+- Declined `SESS-2` with the brief personal message `Thank you for the thoughtful proposal. We cannot include it in this year's program, but we hope you will submit again.` The send completed with `1 submission declined`; the spotlight showed `Notified`, a `Decline email sent` activity entry, and a demo email-history record.
+- Closed the spotlight and verified the submissions table side by side: `SESS-1 accepted Sent` and `SESS-2 declined Sent`.
+- Opened Sessions. Acceptance had automatically created exactly one `SESS-1` session. Its spotlight showed the fixture title, `Talk · Platform & Infra`, Priya Raman, and the updated abstract.
+- Set the CFP close date to Aug 12, 2026, 9:00 AM PDT. The form briefly showed `Unsaved`, then `Saved`; both states were captured and the saved state was used for verification.
+- Signed out and loaded the exact public CFP URL. It showed `Submissions are closed` and `This form is no longer accepting new or updated submissions.` with no entry control.
+- Signed in as Priya. Her dashboard showed exactly `SESS-1 ... accepted` and `SESS-2 ... declined`, plus the accepted-session participation prompt. Opening `SESS-1` showed `This submission form is closed. Your content is now read-only.` and no edit control.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `040-cfp-s4-organizer-sees-review.png` through `052-cfp-s4-speaker-editing-locked.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -128,6 +141,8 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 4. **Confirmation rich text is rendered as escaped markup.** The confirmation page visibly says `<p>Thank you. Your submission has been received.</p>` rather than rendering the paragraph. Confirmation delivery text is otherwise explicit and correct.
 5. **Autosave/navigation has an ambiguous intermediate state.** Continue/Review/Submit clicks frequently left the current page visible with a `Checking…` or saving state before navigation completed. The action did complete, but an evaluator can interpret the first click as ineffective and click again. No duplicate submissions resulted in this scenario.
 6. **Review administration has the same stale-success ambiguity.** Immediately after creating Sam, the reviewer count briefly remained zero before updating. Saving the review round also appeared to require a second click because the first click provided no immediate transition. The final state was correct and no duplicate reviewer or round was created, but the delayed feedback invites retries.
+7. **Decision email subjects are not editable.** The acceptance composer exposes only a Personal message field; its generated subject is fixed. The fixture acceptance body could be included, but the required fixture subject could not be used exactly. Sending, notification indicators, activity, and email history otherwise worked.
+8. **Publication approval state did not match the unchecked decision control.** `Also approve content for publication` was deliberately left unchecked during acceptance, but the resulting session immediately displayed `Approved` / `Content approved for publication`. Either the checkbox is not authoritative or another undocumented approval path took precedence; the UI gives the organizer no explanation.
 
 ## Score
 
