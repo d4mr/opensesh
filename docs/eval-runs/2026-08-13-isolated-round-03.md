@@ -26,7 +26,7 @@ This is a sealed evaluation run.
 | Organizer | Jordan Alvarez — `sbek-organizer+r03-20260813-001@example.com` | Created in Round 03 |
 | Speaker 1 | Priya Raman — `sbek-speaker+r03-20260813-001@example.com` | Created in Round 03 |
 | Speaker 2 | Marcus Chen — `sbek-speaker2+r03-20260813-001@example.com` | Pending |
-| Reviewer | Sam Whitfield — `sbek-reviewer+r03-20260813-001@example.com` | Pending |
+| Reviewer | Sam Whitfield — `sbek-reviewer+r03-20260813-001@example.com` | Created in Round 03 |
 | Attendee | Alex Attendee — `alex.attendee+r03-20260813-001@example.com` | Pending |
 | Organization | `DevFlow Eval R03 20260813-001` | Created in Round 03 |
 | Event | `DevFlow Conf 2027` | Created in Round 03 |
@@ -52,7 +52,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | --- | --- | --- | --- |
 | CFP-S1 | Organizer builds and publishes the CFP | Complete | `001`–`018`; public form `https://app.opensesh.io/submit/devflow-conf-2027-3/O37jjey2KkezEeX6Rb4xd` |
 | CFP-S2 | Speaker drafts, submits, and edits proposals | Complete | `019`–`032`; new submissions `SESS-1` and `SESS-2` |
-| CFP-S3 | Organizer assigns a reviewer; reviewer scores | Pending | — |
+| CFP-S3 | Organizer assigns a reviewer; reviewer scores | Complete | `033`–`039`; round `6u-T1pevz5n35zzKKElXH`, only `SESS-1` assigned |
 | CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Pending | — |
 | ABS-S1 | Speaker seeds submissions with a co-author | Pending | — |
 | ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Pending | — |
@@ -107,6 +107,19 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `019-cfp-s2-speaker-signup.png` through `032-cfp-s2-dashboard-two-submissions.png`. Every file was written and size-verified in this run.
 
+### CFP-S3 — Organizer assigns a reviewer; reviewer scores
+
+- Signed in as the Round 03 organizer and verified the event submission list contains exactly `SESS-1` and `SESS-2`. Opened `SESS-1` and verified its title, Platform & Infra track, Talk format, Intermediate level, Priya Raman speaker identity and biography, and the persisted `Updated: now includes 2026 benchmark data.` sentence.
+- Created review round `Round 03 CFP review` (`6u-T1pevz5n35zzKKElXH`) with the default prefilled scorecard: Originality numeric 1–5 weight 2, Relevance numeric 1–5 weight 1, Recommendation Accept/Maybe/Reject, and Comments long text. Set one review per submission, opened the round, and set its close date to Sep 11, 2026.
+- Created the Round 03-only reviewer Sam Whitfield at `sbek-reviewer+r03-20260813-001@example.com`. The product supplied this access path: `https://app.opensesh.io/login?email=sbek-reviewer%2Br03-20260813-001%40example.com`.
+- Assigned Sam to `SESS-1` only and left `SESS-2` unassigned. Signed out of the organizer account and signed in through Sam's fresh magic link.
+- Sam's reviewer-only navigation exposed My Reviews, not the organizer surfaces. The queue contained exactly one assigned proposal across one round: `SESS-1`; it reported `1 pending · 0 completed · 0 recused`.
+- Probed the Round 03 `SESS-2` URL while signed in as Sam. The product returned a visible `You do not have access` message and did not expose the proposal.
+- Submitted Originality 4, Relevance 4, Recommendation Accept, and the fixture comment: `Strong practical content and a clear narrative arc; abstract could name the specific tooling used. Recommend accept for the Platform track.`
+- Verified the queue changed to `0 pending · 1 completed · 0 recused` and `SESS-1` showed `completed` with the entered values retained.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `033-cfp-s3-organizer-two-submissions.png` through `039-cfp-s3-review-completed.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -114,6 +127,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 3. **Public form cannot be field-tested anonymously.** This is allowed by the eval, but it moves dropdown, conditional, and required-field validation evidence into the speaker scenario and adds an account transition before the first data-entry page.
 4. **Confirmation rich text is rendered as escaped markup.** The confirmation page visibly says `<p>Thank you. Your submission has been received.</p>` rather than rendering the paragraph. Confirmation delivery text is otherwise explicit and correct.
 5. **Autosave/navigation has an ambiguous intermediate state.** Continue/Review/Submit clicks frequently left the current page visible with a `Checking…` or saving state before navigation completed. The action did complete, but an evaluator can interpret the first click as ineffective and click again. No duplicate submissions resulted in this scenario.
+6. **Review administration has the same stale-success ambiguity.** Immediately after creating Sam, the reviewer count briefly remained zero before updating. Saving the review round also appeared to require a second click because the first click provided no immediate transition. The final state was correct and no duplicate reviewer or round was created, but the delayed feedback invites retries.
 
 ## Score
 
