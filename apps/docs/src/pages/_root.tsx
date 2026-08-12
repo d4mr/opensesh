@@ -6,11 +6,8 @@ export default async function RootElement({ children }: { children: ReactNode })
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Per-page title/description/OG live in <PageMeta> inside DocPage. */}
         <link rel="icon" type="image/svg+xml" href="/brand/opensesh-mark.svg" />
-        <meta
-          name="description"
-          content="Documentation for opensesh — the open program OS for conferences. Call for papers, review, agenda, speakers, and embeds, self-hosted on Cloudflare Workers."
-        />
       </head>
       <body className="flex flex-col min-h-screen">
         <Provider>{children}</Provider>
