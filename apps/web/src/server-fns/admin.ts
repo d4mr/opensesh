@@ -79,18 +79,18 @@ export const createEvent = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const events = yield* Events;
         const user = yield* getCurrentUser;
-        const [startsAt, endsAt, organizationEvents] = yield* Effect.all([
+        const [startsAt, endsAt, allEvents] = yield* Effect.all([
           dateOrFail(data.startsAt),
           dateOrFail(data.endsAt),
-          events.listByOrganization(user.orgId),
+          events.list(),
         ]);
         const base = slugify(data.name) || "event";
         if (endsAt <= startsAt) {
           return yield* Effect.fail(new InvalidInput({ message: "Event end must be after start" }));
         }
-        const slug = organizationEvents.some((event) => event.slug === base)
-          ? `${base}-${organizationEvents.length + 1}`
-          : base;
+        const existingSlugs = new Set(allEvents.map((event) => event.slug));
+        let slug = base;
+        for (let suffix = 2; existingSlugs.has(slug); suffix += 1) slug = `${base}-${suffix}`;
         return yield* events.create(
           {
             organizationId: user.orgId,

@@ -106,6 +106,9 @@ const dateFromKey = (value: string) => {
 const formatDateOnly = (value: string) =>
   new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(dateFromKey(value));
 
+const calendarStartMonth = new Date(2000, 0);
+const calendarEndMonth = new Date(2100, 11);
+
 export function TimeSelect({
   value,
   onChange,
@@ -174,6 +177,9 @@ export function DatePicker({
       <PopoverContent align="start" collisionPadding={8} className="w-auto p-0">
         <Calendar
           mode="single"
+          captionLayout="dropdown"
+          startMonth={calendarStartMonth}
+          endMonth={calendarEndMonth}
           selected={selected}
           onSelect={(date) => {
             if (date === undefined) return;
@@ -245,6 +251,9 @@ export function DateTimePicker({
       <PopoverContent align="start" collisionPadding={8} className="w-auto p-0">
         <Calendar
           mode="single"
+          captionLayout="dropdown"
+          startMonth={calendarStartMonth}
+          endMonth={calendarEndMonth}
           selected={selected}
           onSelect={(date) => {
             if (date !== undefined) update(date, minutes);
