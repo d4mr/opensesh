@@ -56,7 +56,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Complete | `040`–`052`; accepted session created, both decision emails logged, public CFP closed |
 | ABS-S1 | Speaker seeds submissions with a co-author | Complete | `053`–`057`; Marcus persisted as Co-presenter, three proposals visible |
 | ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Complete | `058`–`067`; two independent rounds, exact 2 assignments, 2/0 baseline, reminder log |
-| ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Pending | — |
+| ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Complete | `068`–`080`; blind queue, exact stored reviews, weighted 3.33/5.00, sorts, 2/2, export |
 | SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Pending | — |
 | SPK-S2 | Speaker completes onboarding in the portal | Pending | — |
 | SPK-S3 | Organizer tracks progress and sends bulk communications | Pending | — |
@@ -157,6 +157,20 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `058-abs-s2-organizer-three-submissions.png` through `067-abs-s2-reminder-email-log.png`. Every file was written and size-verified in this run.
 
+### ABS-S3 — Reviewer scores blind; organizer checks aggregates and export
+
+- Signed in as Sam through his Round 03 magic link. His queue showed three total assignments across two Round 03 rounds: the already-completed `SESS-1` in Round 03 CFP review, and exactly the two expected pending Initial Review assignments (`SESS-1`, `SESS-2`). `SESS-3 Docs That Answer Back` was absent.
+- Opened Initial Review `SESS-1`. The page was explicitly labeled `Blind review`; Priya Raman, Marcus Okafor, Latticework Systems, emails, biographies, and the prior round's score were all absent. The control was worded exactly `Recuse`; it was observed but not clicked so the assigned review remained available.
+- Submitted and retained Originality 4, Relevance 2, Recommendation Accept, and the full fixture comment. The queue moved to 1 pending / 1 completed; the still-open scorecard showed the stored values after submission.
+- Submitted `SESS-2` with Originality 5, Relevance 5, Recommendation Accept, and `Excellent fit for the AI Engineering track.` The queue moved to 0 pending / 2 completed and both Initial Review entries showed completed.
+- Signed in as Jordan and opened Initial Review Results. It explicitly labeled the table `weighted numeric criteria`. `SESS-1` displayed 3.33, matching `(4×2 + 2×1) / 3`; `SESS-2` displayed 5.00. The earlier CFP-S3 review was correctly isolated to its own round and not pooled into this round's aggregate.
+- Captured descending order `SESS-2 (5.00), SESS-1 (3.33), SESS-3 (—)`, clicked Aggregate, and captured ascending numeric order `SESS-1 (3.33), SESS-2 (5.00), SESS-3 (—)`.
+- Opened the `SESS-1` result spotlight: it showed Priya's Round 03 email as Primary speaker, Marcus Okafor as Co-presenter, the exact stored scorecard, weighted aggregate 3.33, Sam's human review, and the fixture comment. The linked full organizer submission page showed Priya Raman and Marcus Okafor by name, both emails and biographies, including Latticework Systems and Cloudreach Labs.
+- The result spotlight exposed an `AI first-pass` section, but it said `Anthropic key not configured` and offered no runnable or override control. The optional AI score could not be produced in this production deployment.
+- Progress showed Sam Assigned 2, Completed 2, Remaining 0, Completion 100%. Export CSV was triggered and the product confirmed `Exported 3 submissions`.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `068-abs-s3-reviewer-queue.png` through `080-abs-s3-export-triggered.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -169,7 +183,9 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 8. **Publication approval state did not match the unchecked decision control.** `Also approve content for publication` was deliberately left unchecked during acceptance, but the resulting session immediately displayed `Approved` / `Content approved for publication`. Either the checkbox is not authoritative or another undocumented approval path took precedence; the UI gives the organizer no explanation.
 9. **Saving co-presenters momentarily renders stale participant state.** The save toast said `Speakers saved`, but the tab immediately changed from `Speakers (2)` to `Speakers (1)` and displayed only Priya. A clean reload restored both persisted participants. This false-negative success state is highly likely to make an evaluator retry or assume data loss.
 10. **Reminder sending has no visible confirmation and invites duplicate email.** After `Send reminders (1)`, the selection eventually cleared but there was no toast, sent count, timestamp, or activity record in the progress view. Retrying to verify the action created a second identical reminder. Only the separate Email Delivery page exposed the duplicate sends.
-11. **No AI evaluation/triage workflow was discoverable.** The evaluation area exposes setup, pools, assignment, progress, and human results, but no advertised AI score, reasoning, persona, or override control was present during this scenario.
+11. **AI first-pass is deployed but unusable without an Anthropic key.** The capability is discoverable only after opening a submission in Results, where it reports `Anthropic key not configured`. There is no score, written reasoning, run control, or override available in production, so the optional AI rubric cannot be exercised.
+12. **The identified reviewer view duplicates participant labels after a co-presenter edit.** The earlier non-blind Round 03 CFP review rendered `Priya Raman · Primary speaker` twice and `Marcus Okafor · Co-presenter` twice. The blind Initial Review correctly hid all identity, and organizer submission data itself contained each participant once, so this is a presentation duplication in the identified reviewer view.
+13. **Results initially labels the primary participant by email rather than name.** The Initial Review Results table and spotlight showed Priya as her email address while Marcus appeared by name. The linked full submission page correctly showed `Priya Raman`; the mismatch weakens organizer scanability and suggests incomplete contact-name normalization.
 
 ## Score
 
