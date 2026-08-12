@@ -184,3 +184,10 @@ While a refetch or mutation is in flight past ~300 ms, the `SyncIndicator`
 the shell header — admin and portal both. It hides instantly when the cache is
 settled. Never add per-surface "refreshing…" text; the indicator is the one
 sync affordance.
+
+The selected admin event is a cookie (`opensesh-event-id`, read/written via
+`apps/web/src/lib/active-event.ts`), never localStorage: route loaders prefetch
+on the server during SSR and on the client during navigation, and both must
+resolve the SAME event the layout renders. Loaders resolve it with
+`resolveActiveEvent(events, context.activeEventId)` from the `/admin` route
+context — never `events[0]`.

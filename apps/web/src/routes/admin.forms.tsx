@@ -1,6 +1,8 @@
 import type { FormSummary } from "@opensesh/domain";
 import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+
+import { resolveActiveEvent } from "@/lib/active-event";
 import {
   CopyIcon,
   EllipsisIcon,
@@ -47,7 +49,9 @@ const formsQuery = (eventId: string) =>
 export const Route = createFileRoute("/admin/forms")({
   loader: async ({ context }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
-    const eventId = events.ok ? events.data[0]?.id : undefined;
+    const eventId = events.ok
+      ? resolveActiveEvent(events.data, context.activeEventId)?.id
+      : undefined;
     if (eventId !== undefined) await context.queryClient.ensureQueryData(formsQuery(eventId));
   },
   component: FormsList,

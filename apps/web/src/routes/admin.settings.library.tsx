@@ -2,6 +2,8 @@ import type { LibraryKind } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+
+import { resolveActiveEvent } from "@/lib/active-event";
 import { PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -33,7 +35,9 @@ const eventLibraryQuery = (eventId: string) =>
 export const Route = createFileRoute("/admin/settings/library")({
   loader: async ({ context }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
-    const eventId = events.ok ? events.data[0]?.id : undefined;
+    const eventId = events.ok
+      ? resolveActiveEvent(events.data, context.activeEventId)?.id
+      : undefined;
     if (eventId !== undefined) {
       await context.queryClient.ensureQueryData(eventLibraryQuery(eventId));
     }

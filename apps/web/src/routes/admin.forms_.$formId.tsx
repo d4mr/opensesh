@@ -8,6 +8,8 @@ import type {
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+
+import { resolveActiveEvent } from "@/lib/active-event";
 import {
   BellIcon,
   CheckIcon,
@@ -55,7 +57,9 @@ const formEditorQuery = (eventId: string, formId: string) =>
 export const Route = createFileRoute("/admin/forms_/$formId")({
   loader: async ({ context, params }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
-    const eventId = events.ok ? events.data[0]?.id : undefined;
+    const eventId = events.ok
+      ? resolveActiveEvent(events.data, context.activeEventId)?.id
+      : undefined;
     if (eventId !== undefined) {
       await context.queryClient.ensureQueryData(formEditorQuery(eventId, params.formId));
     }

@@ -1,6 +1,7 @@
 import type { AgendaView } from "@opensesh/domain";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { resolveActiveEvent } from "@/lib/active-event";
 import { AgendaPage } from "@/components/agenda/agenda-page";
 import { agendaDraftsQuery, agendaQuery } from "@/lib/agenda-queries";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
@@ -19,7 +20,9 @@ export const Route = createFileRoute("/admin/agenda")({
   }),
   loader: async ({ context }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
-    const eventId = events.ok ? events.data[0]?.id : undefined;
+    const eventId = events.ok
+      ? resolveActiveEvent(events.data, context.activeEventId)?.id
+      : undefined;
     if (eventId !== undefined) {
       await Promise.all([
         context.queryClient.ensureQueryData(agendaQuery(eventId)),

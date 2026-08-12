@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
+import { resolveActiveEvent } from "@/lib/active-event";
 import {
   SubmissionTablePage,
   type SubmissionStatusFilter,
@@ -33,7 +34,9 @@ export const Route = createFileRoute("/admin/sessions")({
   loaderDeps: ({ search }) => ({ spotlight: search.spotlight }),
   loader: async ({ context, deps }) => {
     const events = await context.queryClient.ensureQueryData(adminEventsQuery);
-    const eventId = events.ok ? events.data[0]?.id : undefined;
+    const eventId = events.ok
+      ? resolveActiveEvent(events.data, context.activeEventId)?.id
+      : undefined;
     if (eventId !== undefined) {
       await Promise.all([
         context.queryClient.ensureQueryData(reviewDeskListQuery(eventId, "session")),

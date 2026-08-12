@@ -1,9 +1,15 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import {
+  activeEventIdFromCookieHeader,
+  resolveActiveEvent,
+  storeActiveEventId,
+} from "@/lib/active-event";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { qk } from "@/lib/query-keys";
+import { getActiveEventIdCookie } from "@/server-fns/active-event";
 import { AdminShell } from "@/components/app/admin-shell";
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { getStaffViewer } from "@/server-fns/auth";
@@ -29,24 +35,26 @@ export const Route = createFileRoute("/admin")({
               : "/portal",
       });
     }
-    return { user: viewer.data };
+    // The selected event travels as a cookie so this resolves identically on
+    // the server (SSR) and the client (navigations) — child loaders prefetch
+    // the SAME event the layout renders.
+    const activeEventId =
+      typeof document === "undefined"
+        ? await getActiveEventIdCookie()
+        : activeEventIdFromCookieHeader(document.cookie);
+    return { user: viewer.data, activeEventId };
   },
   loader: ({ context }) => context.queryClient.ensureQueryData(adminEventsQuery),
   component: AdminLayout,
 });
 
 function AdminLayout() {
-  const { user } = Route.useRouteContext();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { user, activeEventId } = Route.useRouteContext();
+  const [selectedId, setSelectedId] = useState<string | null>(activeEventId);
   const bootstrap = useSuspenseQuery(adminEventsQuery);
 
-  useEffect(() => {
-    setSelectedId(window.localStorage.getItem("opensesh-event-id"));
-  }, []);
-
   if (!bootstrap.data.ok) return <p className="p-6">{bootstrap.data.error.message}</p>;
-  const event =
-    bootstrap.data.data.find((item) => item.id === selectedId) ?? bootstrap.data.data[0];
+  const event = resolveActiveEvent(bootstrap.data.data, selectedId);
   if (event === undefined)
     return (
       <main className="min-h-svh bg-background">
@@ -67,7 +75,7 @@ function AdminLayout() {
             <CreateEventForm
               onCreated={async (eventId) => {
                 await bootstrap.refetch();
-                window.localStorage.setItem("opensesh-event-id", eventId);
+                storeActiveEventId(eventId);
                 window.location.assign("/admin");
               }}
             />
@@ -77,7 +85,7 @@ function AdminLayout() {
     );
 
   const selectEvent = (eventId: string) => {
-    window.localStorage.setItem("opensesh-event-id", eventId);
+    storeActiveEventId(eventId);
     setSelectedId(eventId);
   };
 

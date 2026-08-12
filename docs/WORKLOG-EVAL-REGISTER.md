@@ -502,3 +502,29 @@ only the active event's queries (`getAdminBootstrap`, `getPortalAdmin`,
 `getReviewDeskList`, `getReviewDeskDetail`, all `evt_aie_nyc_2026`) plus viewer scope —
 zero `evt_devflow_2027` refetches, where the blanket version refetched both events.
 Checks clean (222 files), tests 57/57 (guard test included).
+
+## 2026-08-12 — Active event as a cookie: loaders stop guessing "first event"
+
+**Found during prod verification of the key tree.** Opening a spotlight on
+DevFlow (the org's second event) fired a detail prefetch for
+`evt_aie_nyc_2026` + a DevFlow submission id → 404. Root cause: the selected
+event lived in localStorage, applied in a post-mount `useEffect` — invisible to
+the 12 route loaders, which all guessed `events.data[0]` (the org's first
+event). Every loader prefetch was wrong whenever a non-first event was
+selected, and reloads flashed the first event before the effect ran.
+
+**Fix (structural).** Selection moved to a cookie
+(`opensesh-event-id`, `apps/web/src/lib/active-event.ts`) so server and client
+resolve it identically: `/admin`'s `beforeLoad` reads it (server: request
+header via a tiny server fn; client: `document.cookie`) and exposes
+`activeEventId` in router context; all 12 loaders resolve through
+`resolveActiveEvent(events, context.activeEventId)`; the layout initialises
+from the same context value — the post-mount localStorage `useEffect` (and its
+first-event flash) is gone. Documented in DESIGN.md §9.
+
+**Verified in browser (local dev).** Switch to DevFlow → cookie set → full
+reload on `/admin/abstracts?spotlight=sub_devflow_2` SSRs straight into
+DevFlow with the spotlight populated, zero client refetches of review-desk
+data and zero wrong-event requests; client-side spotlight click prefetches
+`evt_devflow_2027`+`sub_devflow_1` → 200 (the exact request shape that 404'd
+on prod). Checks clean (227 files), tests 57/57.
