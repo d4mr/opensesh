@@ -1,0 +1,60 @@
+---
+title: "Speakers & speaker CRM"
+---
+
+opensesh tracks speakers at two levels: a per-event **Speakers** directory for running _this_ conference, and an organization-wide **Speaker CRM** that persists across events.
+
+## Event speakers: the Spotlight view
+
+**Speakers** (`/admin/speakers`) is a master-detail directory. The table shows **Speaker, Role, Profile readiness, Workflow, Task progress**; selecting a row opens the **Spotlight** detail pane. Each speaker moves through a workflow: `invited` → `onboarding` → `confirmed` → `ready` (or `declined`).
+
+<Callout title="Built for working through a long list fast">
+  Navigate with `j` / `k` and close with `Escape`. The URL carries
+  `?spotlight=<id>`, so views are shareable.
+</Callout>
+
+The Spotlight pane shows:
+
+| Panel                     | What it shows                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| **Awaiting your review**  | Portal edits pending approval, one click from the [Content](/guides/sessions) flow. |
+| **Workflow status**       | Where they are in onboarding.                                                       |
+| **Profile readiness**     | A checklist of Bio, Headshot, Dietary, T-shirt, and Profile approval.               |
+| **Contact and logistics** | The practical details.                                                              |
+
+The toolbar has **Export CSV** and **Import CSV** for bulk work.
+
+## Organization CRM
+
+**Speaker CRM** (`/admin/crm`) is the long-lived contact database for your whole organization, with four tabs:
+
+<Tabs items={["Directory", "Pipeline", "Segments", "Overview"]}>
+<Tab>
+
+Columns: **Contact, Title, Company, Tags, Events** (which of your events they've touched). From here you can:
+
+- **Import CSV** — with header mapping, a per-row preview before commit, and dedupe by email so re-imports don't create duplicates.
+- **Merge duplicate contacts** — pick the surviving record; history and event links consolidate.
+- Start a **campaign** from the current selection (see [Email](/guides/email)).
+
+</Tab>
+<Tab>
+
+A stage board for speaker outreach. The seeded stages are **Prospect** and **Contacted** (open), **Confirmed** (won), and **Declined** (lost) — every stage move is recorded in the contact's stage history, so you can see how a relationship developed across events.
+
+</Tab>
+<Tab>
+
+**Segments** are saved filters (by tags, stage, event participation) you can reuse for campaigns.
+
+</Tab>
+<Tab>
+
+**Overview** shows the health of the database: **Total contacts, Events reached, Open, Lost, Profile complete %**, top companies, and tag distribution.
+
+</Tab>
+</Tabs>
+
+## How the two levels connect
+
+Event speakers are linked to CRM contacts. Accept someone's talk at one event and next year they're already in the Directory with their history, tags, and pipeline stage — invite them straight from the CRM instead of starting cold. The [Accelevents integration](/guides/integrations) also imports into the CRM, tagging attendees so you can target them as future speakers.

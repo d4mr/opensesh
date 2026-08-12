@@ -1,11 +1,3 @@
 {
-  "pages": [
-    "index",
-    "getting-started",
-    "deployment",
-    "---Guides---",
-    "...guides",
-    "---API reference---",
-    "...api"
-  ]
+  "pages": ["(main)", "api"]
 }

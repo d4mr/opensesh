@@ -1,0 +1,65 @@
+---
+title: "Speaker portal"
+---
+
+The speaker portal (`/portal`) is the self-serve side of opensesh: accepted speakers complete onboarding, upload materials, and maintain their public profile without emailing organizers. Speakers sign in with a magic link — same as CFP submitters.
+
+The portal navigation is **Home, My Submissions, My Sessions, Tasks, Profile**.
+
+## Tasks
+
+The **Tasks** page groups work into **My tasks** (personal onboarding items), **Submission tasks** (per-session items), **Done**, and **Session files**. Each task is **Open**, **Done**, or **Waived** — organizers can waive items that don't apply to a particular speaker.
+
+<Callout title="A ready-made checklist">
+  Tasks are assigned automatically when a submission is accepted (from templates the organizer
+  defines), so a freshly accepted speaker logs in to a ready-made checklist.
+</Callout>
+
+## Deliverables and files
+
+File-based tasks — slides, headshots, one-pagers — are **deliverables**, shown as **Outstanding** or **Uploaded**. Uploads are versioned and stored in the deployment's R2 bucket: a speaker can replace a file and organizers keep every version. Organizers define the requirements per session or as file requests, with accepted file types, a max size, and due dates.
+
+## Profile editing with approval
+
+<Steps>
+<Step>
+
+### The speaker edits on Profile
+
+Speakers edit their own bio, headshot, and logistics on **Profile** — but edits don't go live directly.
+
+</Step>
+<Step>
+
+### Submit changes for approval
+
+The speaker clicks **Submit changes for approval**, and the change lands in the organizer's [Content](/guides/sessions) queue as a diff.
+
+</Step>
+<Step>
+
+### The organizer approves
+
+Until it's approved, public pages keep showing the last approved version. Previous profile versions can be restored if an edit needs rolling back.
+
+</Step>
+</Steps>
+
+This closes the classic conference-website failure mode: speakers keep their info current, and nothing unreviewed ever reaches the audience.
+
+## The organizer's side
+
+Three admin pages drive the portal:
+
+| Page                                     | What you do there                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Tasks** (`/admin/tasks`)               | Define reusable task **Templates**, track everyone on the **Assignments board**, and **Remind** stragglers by email. |
+| **Portal Forms** (`/admin/portal-forms`) | Build extra forms for speakers (dietary needs, AV requirements), review **Responses**, and **Export CSV**.           |
+| **Deliverables**                         | Configure session file requirements and file requests (accept types, max size, due dates).                           |
+
+Per-speaker progress rolls up into the **Task progress** column of the [Speakers](/guides/speakers) directory, so you can see at a glance who's ready and who needs a nudge.
+
+<Callout title="The three typical states">
+  The demo personas show them: Maya (all tasks complete), Lina (tasks pending), and Jamal (missing
+  bio).
+</Callout>

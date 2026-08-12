@@ -1,9 +1,24 @@
 import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
 import { InvalidInput } from "@opensesh/domain/server/errors";
 import { Events, Organization, ReadModels } from "@opensesh/domain/server/repos";
+import {
+  Event,
+  EventAdmin,
+  Format,
+  Level,
+  Room,
+  Tag,
+  Track,
+} from "@opensesh/domain/server/schema/core";
+import {
+  OrganizationInvitationView,
+  OrganizationMemberView,
+  OrganizationProfile,
+  OrganizationRole,
+} from "@opensesh/domain/server/schema/organization";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const slugify = (value: string) =>
   value
@@ -49,7 +64,7 @@ const LibraryItemBody = Schema.Struct({
 });
 
 export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/organization",
     operationId: "getOrganization",
@@ -57,6 +72,12 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "The organization the API key belongs to, with its members and pending invitations.",
     tag: "Organization",
+    successSchema: Schema.Struct({
+      organization: OrganizationProfile,
+      viewerRole: OrganizationRole,
+      members: Schema.Array(OrganizationMemberView),
+      pendingInvitations: Schema.Array(OrganizationInvitationView),
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const organization = yield* Organization;
@@ -69,20 +90,21 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
         ]);
         return { ...profile, members, pendingInvitations: invitations };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events",
     operationId: "listEvents",
     summary: "List events",
     tag: "Events",
+    successSchema: Schema.Array(Event),
     handler: (context) =>
       Effect.gen(function* () {
         const events = yield* Events;
         return yield* events.listByOrganization(context.principal.organizationId);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events",
     operationId: "createEvent",
@@ -90,6 +112,7 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Events",
     bodySchema: CreateEventBody,
     successStatus: 201,
+    successSchema: Event,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof CreateEventBody.Type;
@@ -133,21 +156,22 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
           null,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}",
     operationId: "getEvent",
     summary: "Get an event",
     tag: "Events",
+    successSchema: Event,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const events = yield* Events;
         return yield* events.get(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PATCH",
     path: "/events/{eventId}",
     operationId: "updateEvent",
@@ -155,6 +179,7 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
     description: "Partial update — omitted fields keep their current value.",
     tag: "Events",
     bodySchema: UpdateEventBody,
+    successSchema: Event,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof UpdateEventBody.Type;
@@ -191,22 +216,30 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
           logoKey: event.logoKey,
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/library",
     operationId: "getEventLibrary",
     summary: "Get the event library",
     description: "Tracks, formats, rooms, tags, and levels for the event.",
     tag: "Events",
+    successSchema: Schema.Struct({
+      tracks: Schema.Array(Track),
+      formats: Schema.Array(Format),
+      rooms: Schema.Array(Room),
+      tags: Schema.Array(Tag),
+      levels: Schema.Array(Level),
+      admins: Schema.Array(EventAdmin),
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const reads = yield* ReadModels;
         return yield* reads.eventLibraryForAdmin(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/library",
     operationId: "saveLibraryItem",
@@ -214,6 +247,7 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
     description: "Pass id: null to create; an existing id updates that item.",
     tag: "Events",
     bodySchema: LibraryItemBody,
+    successSchema: Schema.Union([Track, Format, Room, Tag, Level]),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof LibraryItemBody.Type;
@@ -259,13 +293,15 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
           ? yield* events.createLevel({ ...input, eventId })
           : yield* events.updateLevel(body.id, input);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "DELETE",
     path: "/events/{eventId}/library/{kind}/{itemId}",
     operationId: "deleteLibraryItem",
     summary: "Delete a library item",
     tag: "Events",
+    successStatus: 204,
+    successSchema: Schema.Void,
     handler: (context) =>
       Effect.gen(function* () {
         yield* requireEventAccess(context.params.eventId ?? "", "admin");
@@ -281,5 +317,5 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
           new InvalidInput({ message: "kind must be one of track, format, room, tag, level" }),
         );
       }),
-  },
+  }),
 ];

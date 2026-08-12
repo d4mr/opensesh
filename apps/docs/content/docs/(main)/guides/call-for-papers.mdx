@@ -8,14 +8,55 @@ The CFP surface has two halves: a form builder for organizers under **Call for P
 
 Go to **Call for Papers** (`/admin/forms`) and click **Create form**. The editor walks through six steps:
 
-1. **Setup** — name the form and pick basics.
-2. **Welcome** — an optional welcome message shown before the wizard starts.
-3. **Submission questions** — the questions about the talk itself (the _abstract_ section).
-4. **Participant questions** — the questions about each speaker (the _participant_ section).
-5. **Settings** — open/close and behavior toggles.
-6. **Notifications** — confirmation and alert emails.
+<Steps>
+<Step>
 
-Everything autosaves; the header shows a **Saving / Saved / Unsaved** indicator and a **Copy link** button for the public URL.
+### Setup
+
+Name the form and pick basics.
+
+</Step>
+<Step>
+
+### Welcome
+
+An optional welcome message shown before the wizard starts.
+
+</Step>
+<Step>
+
+### Submission questions
+
+The questions about the talk itself (the _abstract_ section).
+
+</Step>
+<Step>
+
+### Participant questions
+
+The questions about each speaker (the _participant_ section).
+
+</Step>
+<Step>
+
+### Settings
+
+Open/close and behavior toggles.
+
+</Step>
+<Step>
+
+### Notifications
+
+Confirmation and alert emails.
+
+</Step>
+</Steps>
+
+<Callout title="Everything autosaves">
+  The header shows a **Saving / Saved / Unsaved** indicator and a **Copy link** button for the
+  public URL.
+</Callout>
 
 ### Field types and library bindings
 
@@ -27,11 +68,13 @@ Every question starts as "Always shown — add condition". Click it to build a v
 
 ### Settings that matter
 
-- **Collect participants** — whether the wizard asks for speaker details at all.
-- **Speaker role** and **Speakers per submission** min/max — control co-speaker collection.
-- **Form open** — the master switch for accepting submissions.
-- **Allow multiple drafts** — lets a submitter keep several drafts in flight.
-- **Send submitter confirmation** and admin alert recipients — see [Email](/guides/email).
+| Setting                                                    | What it controls                                    |
+| ---------------------------------------------------------- | --------------------------------------------------- |
+| **Collect participants**                                   | Whether the wizard asks for speaker details at all. |
+| **Speaker role** and **Speakers per submission** min/max   | Control co-speaker collection.                      |
+| **Form open**                                              | The master switch for accepting submissions.        |
+| **Allow multiple drafts**                                  | Lets a submitter keep several drafts in flight.     |
+| **Send submitter confirmation** and admin alert recipients | See [Email](/guides/email).                         |
 
 ## The public wizard
 
@@ -40,6 +83,9 @@ Submitters open `/submit/<eventSlug>/<formId>` and get a five-step wizard with a
 - **Drafts** — progress persists locally _and_ server-side, so a half-finished submission survives a closed tab or a device switch.
 - **Magic-link auth** — partway through, the wizard asks the submitter to **Sign in to continue** via an emailed magic link. No password, no separate signup. Returning submitters see "Resume a draft below, or start a new submission".
 
-When a form is published, opensesh validates it first — you can't publish a form with broken conditional references or an empty question set.
+<Callout title="Publishing is validated">
+  When a form is published, opensesh validates it first — you can't publish a form with broken
+  conditional references or an empty question set.
+</Callout>
 
 Submissions arrive on the [Submissions desk](/guides/submissions) with status `pending` (or `draft` while unfinished). From there the review flow takes over.

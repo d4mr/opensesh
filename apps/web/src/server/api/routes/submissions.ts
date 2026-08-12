@@ -2,9 +2,16 @@ import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput, NotFound } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
 import { Contacts, Events, Portal, ReviewDesk, Submissions } from "@opensesh/domain/server/repos";
+import {
+  DecisionResult,
+  ReviewDeskDetail,
+  ReviewDeskList,
+  StatusChangeResult,
+} from "@opensesh/domain/server/schema/review-desk";
+import { Contact, Submission } from "@opensesh/domain/server/schema/submissions";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const DecideBody = Schema.Struct({
   submissionIds: Schema.Array(Schema.String),
@@ -29,7 +36,7 @@ const submissionKind = (value: string | null) =>
   value === "abstract" ? ("abstract" as const) : ("session" as const);
 
 export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/submissions",
     operationId: "listSubmissions",
@@ -44,6 +51,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
       },
       { name: "status", description: "Filter to one status (pending, accepted, declined, …)." },
     ],
+    successSchema: ReviewDeskList,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
@@ -57,28 +65,30 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           ? list
           : { ...list, submissions: list.submissions.filter((item) => item.status === status) };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/submissions/{submissionId}",
     operationId: "getSubmission",
     summary: "Get a submission",
     description: "Full detail: answers, participants, reviews, decision state, and history.",
     tag: "Submissions",
+    successSchema: ReviewDeskDetail,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const reviewDesk = yield* ReviewDesk;
         return yield* reviewDesk.detail(access.event.id, context.params.submissionId ?? "");
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PATCH",
     path: "/events/{eventId}/submissions/{submissionId}",
     operationId: "changeSubmissionStatus",
     summary: "Change a submission's status",
     tag: "Submissions",
     bodySchema: StatusBody,
+    successSchema: StatusChangeResult,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof StatusBody.Type;
@@ -90,8 +100,8 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           body.status,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/submissions/decide",
     operationId: "decideSubmissions",
@@ -100,6 +110,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
       "Applies the decision to every submission id, snapshots accepted content for the program, and sends decision emails. Set confirmRedecide to change already-decided submissions.",
     tag: "Submissions",
     bodySchema: DecideBody,
+    successSchema: DecisionResult,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof DecideBody.Type;
@@ -126,8 +137,8 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
         );
         return decision.result;
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/sessions",
     operationId: "createSession",
@@ -137,6 +148,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Submissions",
     bodySchema: ManualSessionBody,
     successStatus: 201,
+    successSchema: Submission,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof ManualSessionBody.Type;
@@ -202,13 +214,14 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
         const portal = yield* Portal;
         return yield* portal.acceptSubmission(eventId, created.id, { approveContent: true });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/speakers/{contactId}",
     operationId: "getSpeaker",
     summary: "Get an event speaker",
     tag: "Speakers",
+    successSchema: Contact,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
@@ -219,5 +232,5 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
         }
         return contact;
       }),
-  },
+  }),
 ];

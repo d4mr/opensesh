@@ -23,12 +23,26 @@ Event access is computed from org role plus event membership, in that order:
 
 So a program chair is an org admin (touches everything), a track chair is an org member with `admin` on one event, and an external reviewer is a member with `reviewer` on one event.
 
-What each event role sees:
+### What each event role sees
 
-- **Event admins** get the full sidebar: Overview, Speaker CRM, Submissions, Sessions, Content, Speakers, Call for Papers, Evaluation, Agenda, Widgets, Tasks, Email delivery, Communications, Portal Forms, Deliverables, Files, and Event Settings.
-- **Reviewers** get a collapsed sidebar: **Overview** and **My Reviews** — their [evaluation assignments](/guides/evaluation) and nothing else. Under blind review they don't see speaker identities either.
+<Tabs items={["Event admins", "Reviewers"]}>
+<Tab value="Event admins">
+
+The full sidebar: Overview, Speaker CRM, Submissions, Sessions, Content, Speakers, Call for Papers, Evaluation, Agenda, Widgets, Tasks, Email delivery, Communications, Portal Forms, Deliverables, Files, and Event Settings.
+
+</Tab>
+<Tab value="Reviewers">
+
+A collapsed sidebar: **Overview** and **My Reviews** — their [evaluation assignments](/guides/evaluation) and nothing else. Under blind review they don't see speaker identities either.
+
+</Tab>
+</Tabs>
+
+<Callout title="Speakers and submitters are not members">
 
 Speakers and CFP submitters aren't workspace members at all: they authenticate by magic link and only reach the [speaker portal](/guides/speaker-portal) or the submission wizard.
+
+</Callout>
 
 ## Event settings
 
@@ -36,7 +50,13 @@ Each event's **Event Settings** page covers: **Basics** (name, slug, dates), **S
 
 ## API keys
 
-API keys live at the organization level, under **Organization settings → API keys**. A key (prefix `osk_`) authenticates as the organization for the [REST API](/api) — treat it like a password: it's shown once at creation, and revocation is immediate.
+API keys live at the organization level, under **Organization settings → API keys**. A key (prefix `osk_`) authenticates as the organization for the [REST API](/api).
+
+<Callout title="Treat a key like a password" type="warn">
+
+It's shown once at creation, and revocation is immediate.
+
+</Callout>
 
 ## Rules of thumb
 

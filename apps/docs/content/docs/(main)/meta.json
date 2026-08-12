@@ -1,0 +1,7 @@
+{
+  "title": "Documentation",
+  "description": "Guides and concepts",
+  "icon": "BookOpen",
+  "root": true,
+  "pages": ["index", "getting-started", "deployment", "---Guides---", "...guides"]
+}

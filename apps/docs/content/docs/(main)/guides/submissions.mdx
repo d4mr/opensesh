@@ -12,11 +12,12 @@ Submission statuses are: `draft`, `pending`, `maybe`, `accepted`, `declined`, `w
 
 ## Making decisions
 
-Open a submission and choose accept or decline. The decision dialog does more than flip a status:
+Open a submission and choose accept or decline. The decision dialog does more than flip a status: it composes a **decision email preview** addressed to the submitter, with an editable feedback section prefilled from up to three reviewer comments. Edit freely before sending. The confirm buttons are explicit: **Accept and send** / **Decline and send**.
 
-- It composes a **decision email preview** addressed to the submitter, with an editable feedback section prefilled from up to three reviewer comments. Edit freely before sending.
-- The confirm buttons are explicit: **Accept and send** / **Decline and send**.
-- Re-deciding an already-decided submission asks for confirmation first, so you don't accidentally re-notify someone.
+<Callout title="Re-deciding asks first">
+  Re-deciding an already-decided submission asks for confirmation first, so you don't accidentally
+  re-notify someone.
+</Callout>
 
 Accepting a submission _graduates_ it: a session is created and appears on the [Sessions desk](/guides/sessions), and speaker onboarding tasks are assigned. The **Notified** column tracks whether the decision email actually went out.
 
@@ -32,7 +33,33 @@ The **Source** column distinguishes CFP submissions from ones added by admins di
 
 ## A typical week of triage
 
-1. Filter to **Pending**, sort by Rating once reviews are in.
-2. Move borderline talks to `maybe` to keep the pending queue honest.
-3. Batch-accept the clear yeses; personalize feedback in the decision dialog for the rest.
-4. Watch **Notified** to confirm every decision email landed — failures are retryable from the [Email delivery page](/guides/email).
+<Steps>
+<Step>
+
+### Work the pending queue
+
+Filter to **Pending**, sort by Rating once reviews are in.
+
+</Step>
+<Step>
+
+### Triage the borderline talks
+
+Move borderline talks to `maybe` to keep the pending queue honest.
+
+</Step>
+<Step>
+
+### Decide in batches
+
+Batch-accept the clear yeses; personalize feedback in the decision dialog for the rest.
+
+</Step>
+<Step>
+
+### Confirm the emails landed
+
+Watch **Notified** to confirm every decision email landed — failures are retryable from the [Email delivery page](/guides/email).
+
+</Step>
+</Steps>

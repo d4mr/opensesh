@@ -32,7 +32,7 @@ export interface ApiQueryParam {
 // One entry describes an endpoint completely: the dispatcher validates and
 // routes from it, and the OpenAPI document is generated from the same entry —
 // a single source of truth, so the spec can never drift from the behavior.
-export interface ApiEndpoint {
+export interface ApiEndpoint<A = unknown> {
   readonly method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   readonly path: string; // OpenAPI style: /events/{eventId}/submissions
   readonly operationId: string;
@@ -42,5 +42,13 @@ export interface ApiEndpoint {
   readonly bodySchema?: Schema.ConstraintDecoder<unknown>;
   readonly queryParams?: ReadonlyArray<ApiQueryParam>;
   readonly successStatus?: 200 | 201 | 204;
-  readonly handler: (context: ApiRequestContext) => Effect.Effect<unknown, AppError, ApiServices>;
+  readonly successSchema: Schema.ConstraintDecoder<A>;
+  readonly handler: (
+    context: ApiRequestContext,
+  ) => Effect.Effect<NoInfer<A>, AppError, ApiServices>;
 }
+
+// Pins the endpoint's success payload to its schema: A is inferred from
+// successSchema alone, so the handler must return (at least) what the schema
+// documents — a field the spec claims but the handler omits is a type error.
+export const endpoint = <A>(definition: ApiEndpoint<A>): ApiEndpoint => definition;

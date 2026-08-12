@@ -2,9 +2,11 @@ import { WidgetOptions } from "@opensesh/domain";
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { NotFound } from "@opensesh/domain/server/errors";
 import { Events, MailAdmin, Widgets } from "@opensesh/domain/server/repos";
+import { AdminEmail } from "@opensesh/domain/server/schema/mail";
+import { PublicProgram, Widget } from "@opensesh/domain/server/schema/widgets";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const WidgetView = Schema.Literals([
   "sessions",
@@ -23,7 +25,7 @@ const WidgetUpdateBody = Schema.Struct({
 });
 
 export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/program",
     operationId: "getProgram",
@@ -31,6 +33,7 @@ export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "The public program feed: accepted sessions with approved content, speakers, tracks, and the published agenda. Same data the embeds render.",
     tag: "Widgets",
+    successSchema: PublicProgram,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
@@ -39,21 +42,22 @@ export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
         const widgets = yield* Widgets;
         return yield* widgets.publicProgram(event.slug);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/widgets",
     operationId: "listWidgets",
     summary: "List embed widgets",
     tag: "Widgets",
+    successSchema: Schema.Array(Widget),
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const widgets = yield* Widgets;
         return yield* widgets.list(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/widgets",
     operationId: "createWidget",
@@ -61,6 +65,7 @@ export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Widgets",
     bodySchema: WidgetCreateBody,
     successStatus: 201,
+    successSchema: Widget,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof WidgetCreateBody.Type;
@@ -68,8 +73,8 @@ export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
         const widgets = yield* Widgets;
         return yield* widgets.create(access.event.id, body.name, body.view);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PATCH",
     path: "/events/{eventId}/widgets/{widgetId}",
     operationId: "updateWidget",
@@ -78,6 +83,7 @@ export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
       "Full widget update: name, view, enabled flag, and every option (filters, theme, visible fields, custom CSS).",
     tag: "Widgets",
     bodySchema: WidgetUpdateBody,
+    successSchema: Widget,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof WidgetUpdateBody.Type;
@@ -97,19 +103,20 @@ export const widgetEndpoints: ReadonlyArray<ApiEndpoint> = [
           options: body.options,
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/emails",
     operationId: "listEmails",
     summary: "List sent and queued emails",
     description: "The event's full email log — decisions, reminders, invites, campaigns.",
     tag: "Mail",
+    successSchema: Schema.Array(AdminEmail),
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const mailAdmin = yield* MailAdmin;
         return yield* mailAdmin.list(access.event.id);
       }),
-  },
+  }),
 ];

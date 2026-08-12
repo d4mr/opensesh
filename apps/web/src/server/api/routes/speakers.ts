@@ -3,9 +3,16 @@ import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
 import { SpeakerComms, Widgets } from "@opensesh/domain/server/repos";
+import {
+  CommunicationCenter,
+  EmailCampaign,
+  PortalInvitationResult,
+} from "@opensesh/domain/server/schema/communications";
+import { Contact } from "@opensesh/domain/server/schema/submissions";
+import { SpeakerDirectory } from "@opensesh/domain/server/schema/widgets";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const SpeakerBody = Schema.Struct({
   id: Schema.NullOr(Schema.String),
@@ -38,7 +45,7 @@ const CampaignBody = Schema.Struct({
 });
 
 export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/speakers",
     operationId: "listSpeakers",
@@ -46,14 +53,15 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "The speaker directory: profile readiness, workflow status, task progress, and sessions per speaker.",
     tag: "Speakers",
+    successSchema: SpeakerDirectory,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const widgets = yield* Widgets;
         return yield* widgets.directory(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/speakers",
     operationId: "saveSpeaker",
@@ -62,6 +70,7 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Speakers",
     bodySchema: SpeakerBody,
     successStatus: 201,
+    successSchema: Contact,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof SpeakerBody.Type;
@@ -88,14 +97,15 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           { userId: context.principal.keyId, name: `API key: ${context.principal.keyName}` },
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PATCH",
     path: "/events/{eventId}/speakers/{contactId}/workflow",
     operationId: "setSpeakerWorkflow",
     summary: "Set a speaker's workflow status",
     tag: "Speakers",
     bodySchema: WorkflowBody,
+    successSchema: Contact,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof WorkflowBody.Type;
@@ -107,8 +117,8 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           body.status,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/speakers/import",
     operationId: "importSpeakers",
@@ -117,6 +127,11 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
       'Rich per-row import (profile, socials, dietary, t-shirt) with per-row action: "create", "update", or "skip".',
     tag: "Speakers",
     bodySchema: SpeakerImportBody,
+    successSchema: Schema.Struct({
+      created: Schema.Number,
+      updated: Schema.Number,
+      skipped: Schema.Number,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof SpeakerImportBody.Type;
@@ -137,8 +152,8 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
         const widgets = yield* Widgets;
         return yield* widgets.importSpeakers(access.event.id, body.rows);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/speakers/invite",
     operationId: "inviteSpeakerPortals",
@@ -146,6 +161,10 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     description: "Queues and sends portal invitation emails for the given event contacts.",
     tag: "Speakers",
     bodySchema: InviteBody,
+    successSchema: Schema.Struct({
+      invitations: Schema.Array(PortalInvitationResult),
+      sent: Schema.Number,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof InviteBody.Type;
@@ -166,22 +185,23 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
         yield* Effect.forEach(logIds, (logId) => mail.sendQueued(logId), { concurrency: 5 });
         return { invitations, sent: logIds.length };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/communications",
     operationId: "getCommunications",
     summary: "Get the communication center",
     description: "Templates, campaign history, reminder rules, and per-speaker email history.",
     tag: "Mail",
+    successSchema: CommunicationCenter,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const communications = yield* SpeakerComms;
         return yield* communications.center(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/campaigns",
     operationId: "sendCampaign",
@@ -191,6 +211,11 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Mail",
     bodySchema: CampaignBody,
     successStatus: 201,
+    successSchema: Schema.Struct({
+      campaign: EmailCampaign,
+      sent: Schema.Number,
+      failed: Schema.Number,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof CampaignBody.Type;
@@ -225,5 +250,5 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           failed: results.filter((result) => result.status === "failed").length,
         };
       }),
-  },
+  }),
 ];

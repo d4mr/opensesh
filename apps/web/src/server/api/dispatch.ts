@@ -238,6 +238,8 @@ export const dispatchApiRequest = async (
     const outcome = await runtime.runPromise(Effect.result(endpoint.handler(context)));
     if (Result.isFailure(outcome)) return appErrorResponse(outcome.failure);
     if (outcome.success instanceof Response) return outcome.success;
+    // A 204 must not carry a body — Response throws on one, even "null".
+    if (endpoint.successStatus === 204) return new Response(null, { status: 204 });
     return jsonResponse(outcome.success, endpoint.successStatus ?? 200);
   } catch (cause) {
     console.error("api: unhandled failure", cause);

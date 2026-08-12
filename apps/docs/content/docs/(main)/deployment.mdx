@@ -1,5 +1,6 @@
 ---
 title: "Deployment"
+description: "Self-host opensesh on Cloudflare Workers with Postgres, R2, and Hyperdrive."
 ---
 
 opensesh is MIT-licensed and self-hostable. The app is a single Cloudflare Worker (SSR + API) in front of a Postgres database, connected through Cloudflare Hyperdrive. File uploads go to R2 and transactional email goes out through a send-email binding.
@@ -11,7 +12,12 @@ opensesh is MIT-licensed and self-hostable. The app is a single Cloudflare Worke
 - Node.js and [pnpm](https://pnpm.io)
 - `wrangler` authenticated against your account (`wrangler login`)
 
-## 1. Clone and install
+## Deploy
+
+<Steps>
+<Step>
+
+### Clone and install
 
 ```bash
 git clone <your-fork-of-opensesh>
@@ -21,7 +27,10 @@ pnpm install
 
 The repo is a pnpm workspace; the product lives in `apps/web`.
 
-## 2. Create the Hyperdrive config
+</Step>
+<Step>
+
+### Create the Hyperdrive config
 
 Hyperdrive pools and accelerates Postgres connections from the edge:
 
@@ -36,10 +45,18 @@ Put the returned id into `apps/web/wrangler.jsonc` under the `hyperdrive` bindin
 - `routes` — your custom domain (the hosted app uses `app.opensesh.io`)
 - `r2_buckets` — the `FILES` binding needs an R2 bucket for speaker uploads (`wrangler r2 bucket create opensesh-files`)
 - `send_email` — the `EMAIL` binding for outbound mail
-- `placement.region` — pin the Worker next to your database (for example `aws:us-east-1`); this keeps query round-trips at 1–5 ms instead of following visitor geography
+- `placement.region` — pin the Worker next to your database (for example `aws:us-east-1`)
 - `vars` — `DEMO_MODE` (set `0` for a real deployment), `MAIL_PROVIDER`, `MAIL_FROM`
 
-## 3. Run migrations and seed
+<Callout title="Placement matters" type="warn">
+  Without `placement.region`, the Worker runs wherever the visitor is and every query pays
+  cross-continent latency. Pinned next to the database, round-trips stay at 1–5 ms.
+</Callout>
+
+</Step>
+<Step>
+
+### Run migrations and seed
 
 Generate and apply the schema from `packages/domain` (Drizzle), then optionally seed the demo event:
 
@@ -48,7 +65,10 @@ pnpm db:generate
 pnpm seed        # optional: demo event + personas
 ```
 
-## 4. Set secrets
+</Step>
+<Step>
+
+### Set secrets
 
 Two secrets, set on the worker:
 
@@ -57,9 +77,15 @@ wrangler secret put BETTER_AUTH_SECRET   # session/token signing — use a long 
 wrangler secret put ANTHROPIC_API_KEY    # optional — enables AI reviews and AI agenda drafts
 ```
 
-`ANTHROPIC_API_KEY` is optional: without it the app runs fine, and the **Run AI review** button in Evaluation and the AI draft generator in Agenda stay disabled.
+<Callout title="ANTHROPIC_API_KEY is optional">
+  Without it the app runs fine — the **Run AI review** button in Evaluation and the AI draft
+  generator in Agenda simply stay disabled.
+</Callout>
 
-## 5. Deploy
+</Step>
+<Step>
+
+### Deploy
 
 ```bash
 pnpm --filter @opensesh/web deploy
@@ -68,8 +94,21 @@ pnpm --filter @opensesh/web deploy
 
 Point your DNS at the custom domain route and you're live. Subsequent deploys are the same command; migrations are applied against Postgres directly, so run them before deploying schema-dependent changes.
 
+</Step>
+</Steps>
+
 ## Troubleshooting
 
-- **Slow first byte** — check that `placement.region` matches your database region and that Hyperdrive caching settings suit your workload.
-- **AI buttons disabled** — the worker has no `ANTHROPIC_API_KEY` secret; set it and redeploy.
-- **Emails not arriving** — with `MAIL_PROVIDER=demo` mail is captured in the in-app demo inbox (Email delivery page) instead of being sent. Configure a real provider and `MAIL_FROM` for production.
+<Accordions type="multiple">
+  <Accordion title="Slow first byte">
+    Check that `placement.region` matches your database region and that Hyperdrive caching settings
+    suit your workload.
+  </Accordion>
+  <Accordion title="AI buttons disabled">
+    The worker has no `ANTHROPIC_API_KEY` secret; set it and redeploy.
+  </Accordion>
+  <Accordion title="Emails not arriving">
+    With `MAIL_PROVIDER=demo` mail is captured in the in-app demo inbox (Email delivery page)
+    instead of being sent. Configure a real provider and `MAIL_FROM` for production.
+  </Accordion>
+</Accordions>

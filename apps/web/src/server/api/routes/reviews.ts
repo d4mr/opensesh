@@ -3,9 +3,14 @@ import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/curr
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
 import { Reviews } from "@opensesh/domain/server/repos";
+import {
+  AiReviewResult,
+  EvaluationAdminWorkspace,
+  ReviewerProvisioned,
+} from "@opensesh/domain/server/schema/reviews";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const requireRound = Effect.fn("apiRequireRound")(function* (eventId: string, roundId: string) {
   const reviews = yield* Reviews;
@@ -122,21 +127,22 @@ const AiOverrideBody = Schema.Struct({
 });
 
 export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/evaluation",
     operationId: "getEvaluation",
     summary: "Get the evaluation workspace",
     description: "Every review round with criteria, reviewers, assignments, progress, and results.",
     tag: "Reviews",
+    successSchema: EvaluationAdminWorkspace,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const reviews = yield* Reviews;
         return yield* reviews.adminWorkspace(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/review-rounds",
     operationId: "saveReviewRound",
@@ -144,6 +150,10 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
     description: "Pass roundId: null to create. Criteria replace the round's existing scorecard.",
     tag: "Reviews",
     bodySchema: RoundBody,
+    successSchema: Schema.Struct({
+      roundId: Schema.String,
+      workspace: EvaluationAdminWorkspace,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof RoundBody.Type;
@@ -186,8 +196,8 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const workspace = yield* reviews.adminWorkspace(eventId);
         return { roundId: round.id, workspace };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/review-rounds/{roundId}/members",
     operationId: "addReviewer",
@@ -197,6 +207,7 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Reviews",
     bodySchema: MemberBody,
     successStatus: 201,
+    successSchema: ReviewerProvisioned,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof MemberBody.Type;
@@ -224,14 +235,18 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         }
         return provisioned;
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/review-rounds/{roundId}/assignments",
     operationId: "assignReviews",
     summary: "Assign submissions to a reviewer",
     tag: "Reviews",
     bodySchema: AssignBody,
+    successSchema: Schema.Struct({
+      created: Schema.Number,
+      skipped: Schema.Number,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AssignBody.Type;
@@ -248,8 +263,8 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const created = assignments.filter((assignment) => assignment.created).length;
         return { created, skipped: assignments.length - created };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/review-rounds/{roundId}/auto-distribute",
     operationId: "autoDistributeReviews",
@@ -258,6 +273,10 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
       "Balances open submissions across the round's reviewers, honoring assignment caps and track scopes.",
     tag: "Reviews",
     bodySchema: AutoDistributeBody,
+    successSchema: Schema.Struct({
+      created: Schema.Number,
+      skipped: Schema.Number,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AutoDistributeBody.Type;
@@ -268,14 +287,15 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const result = yield* reviews.autoDistribute(roundId, body.trackIds);
         return { created: result.assignments.length, skipped: result.skipped };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "DELETE",
     path: "/events/{eventId}/review-rounds/{roundId}/assignments/{assignmentId}",
     operationId: "unassignReview",
     summary: "Remove a review assignment",
     tag: "Reviews",
     successStatus: 204,
+    successSchema: Schema.Null,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
@@ -285,14 +305,19 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         yield* reviews.unassign(roundId, context.params.assignmentId ?? "");
         return null;
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/review-rounds/{roundId}/reminders",
     operationId: "sendReviewReminders",
     summary: "Send reviewer reminders",
     tag: "Reviews",
     bodySchema: RemindersBody,
+    successSchema: Schema.Struct({
+      queued: Schema.Number,
+      sent: Schema.Number,
+      failed: Schema.Number,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof RemindersBody.Type;
@@ -315,8 +340,8 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
           failed: deliveries.filter((delivery) => delivery.status === "failed").length,
         };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/review-rounds/{roundId}/ai-review",
     operationId: "generateAiReview",
@@ -325,6 +350,7 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
       "Runs the Anthropic-backed scorecard review for one submission. Requires ANTHROPIC_API_KEY on the deployment.",
     tag: "Reviews",
     bodySchema: AiReviewBody,
+    successSchema: AiReviewResult,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AiReviewBody.Type;
@@ -334,14 +360,15 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const reviews = yield* Reviews;
         return yield* reviews.generateAiResult(roundId, body.submissionId);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/ai-review-override",
     operationId: "overrideAiReview",
     summary: "Override an AI review score",
     tag: "Reviews",
     bodySchema: AiOverrideBody,
+    successSchema: AiReviewResult,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AiOverrideBody.Type;
@@ -358,5 +385,5 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
           viewer.userId,
         );
       }),
-  },
+  }),
 ];

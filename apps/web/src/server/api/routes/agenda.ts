@@ -1,8 +1,13 @@
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Agenda } from "@opensesh/domain/server/repos";
+import {
+  AcceptAgendaDraftResult,
+  AgendaAdminData,
+  AgendaDraft,
+} from "@opensesh/domain/server/schema/agenda";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const ScheduleBody = Schema.Struct({
   submissionId: Schema.String,
@@ -26,21 +31,22 @@ const DraftActionBody = Schema.Struct({ action: Schema.Literals(["duplicate", "d
 const AcceptDraftBody = Schema.Struct({ submissionIds: Schema.Array(Schema.String) });
 
 export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/agenda",
     operationId: "getAgenda",
     summary: "Get the agenda",
     description: "Rooms, scheduled and unscheduled sessions, conflicts, and publication state.",
     tag: "Agenda",
+    successSchema: AgendaAdminData,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const agenda = yield* Agenda;
         return yield* agenda.admin(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PUT",
     path: "/events/{eventId}/agenda/schedule",
     operationId: "scheduleSession",
@@ -48,6 +54,7 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
     description: "Pass roomId/startsAt/endsAt as null to unschedule the session.",
     tag: "Agenda",
     bodySchema: ScheduleBody,
+    successSchema: AgendaAdminData,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof ScheduleBody.Type;
@@ -55,47 +62,50 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
         const agenda = yield* Agenda;
         return yield* agenda.saveSchedule({ ...body, eventId: access.event.id });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/agenda/publish",
     operationId: "publishAgenda",
     summary: "Publish the agenda",
     tag: "Agenda",
+    successSchema: AgendaAdminData,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const agenda = yield* Agenda;
         return yield* agenda.publish(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/agenda/unpublish",
     operationId: "unpublishAgenda",
     summary: "Unpublish the agenda",
     tag: "Agenda",
+    successSchema: AgendaAdminData,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const agenda = yield* Agenda;
         return yield* agenda.unpublish(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/agenda/drafts",
     operationId: "listAgendaDrafts",
     summary: "List AI agenda drafts",
     tag: "Agenda",
+    successSchema: Schema.Array(AgendaDraft),
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const agenda = yield* Agenda;
         return yield* agenda.listDrafts(access.event.id);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/agenda/drafts",
     operationId: "generateAgendaDraft",
@@ -105,6 +115,7 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Agenda",
     bodySchema: GenerateDraftBody,
     successStatus: 201,
+    successSchema: AgendaDraft,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof GenerateDraftBody.Type;
@@ -116,14 +127,15 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
           criteria: body.criteria,
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/agenda/drafts/{draftId}",
     operationId: "changeAgendaDraft",
     summary: "Duplicate or discard a draft",
     tag: "Agenda",
     bodySchema: DraftActionBody,
+    successSchema: AgendaDraft,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof DraftActionBody.Type;
@@ -135,8 +147,8 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
           action: body.action,
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/agenda/drafts/{draftId}/accept",
     operationId: "acceptAgendaDraft",
@@ -145,6 +157,7 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
       "Applies the draft's placements for the given submission ids to the live schedule.",
     tag: "Agenda",
     bodySchema: AcceptDraftBody,
+    successSchema: AcceptAgendaDraftResult,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AcceptDraftBody.Type;
@@ -156,5 +169,5 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
           submissionIds: body.submissionIds,
         });
       }),
-  },
+  }),
 ];

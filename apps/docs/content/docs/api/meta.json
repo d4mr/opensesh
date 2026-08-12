@@ -1,16 +1,7 @@
 {
-  "pages": [
-    "index",
-    "organization",
-    "events",
-    "submissions",
-    "speakers",
-    "mail",
-    "reviews",
-    "agenda",
-    "crm",
-    "pipeline",
-    "widgets",
-    "integrations"
-  ]
+  "title": "API Reference",
+  "description": "The REST API",
+  "icon": "Braces",
+  "root": true,
+  "pages": ["index", "...(generated)"]
 }

@@ -7,7 +7,7 @@ import {
   ReplyIcon,
 } from "lucide-react";
 
-import { demoHref, GITHUB_URL } from "../config";
+import { demoHref, DOCS_URL, GITHUB_URL } from "../config";
 import { AgendaDemo } from "./demos/agenda-demo";
 import { EmbedDemo } from "./demos/embed-demo";
 import { FormDemo } from "./demos/form-demo";
@@ -584,6 +584,20 @@ export function OpenSource() {
             you control, under your domain. Fork it, rebrand it, keep it after the conference. There
             is no contract to renew.
           </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
+            It is API-first, too: everything the UI does is exposed over a fully documented REST
+            API, from submissions and reviews to agenda publishing — with an interactive reference,
+            code samples, and response schemas in{" "}
+            <a
+              href={`${DOCS_URL}/api`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-ink-foreground underline decoration-ink-border underline-offset-4 transition-colors hover:decoration-ink-foreground"
+            >
+              the docs
+            </a>
+            .
+          </p>
           <ul className="mt-6 flex flex-wrap gap-2">
             {stack.map((item) => (
               <li
@@ -676,6 +690,14 @@ export function Footer() {
             className="transition-colors hover:text-foreground"
           >
             GitHub
+          </a>
+          <a
+            href={DOCS_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors hover:text-foreground"
+          >
+            Docs
           </a>
           <a href={demoHref("organizer")} className="transition-colors hover:text-foreground">
             Live demo

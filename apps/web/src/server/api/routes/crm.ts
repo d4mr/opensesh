@@ -1,9 +1,22 @@
 import { normalizeCrmEmail } from "@opensesh/domain";
 import { InvalidInput } from "@opensesh/domain/server/errors";
 import { Crm } from "@opensesh/domain/server/repos";
+import {
+  CrmContactDetailView,
+  CrmDirectoryRow,
+  CrmImportResult,
+  CrmPipelineBoard,
+  CrmPipelineCard,
+  CrmPipelineStage,
+  CrmSegment,
+  OrganizationContact,
+  OrganizationContactEvent,
+  OrganizationContactNote,
+  OrganizationTag,
+} from "@opensesh/domain/server/schema/crm";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const ContactBody = Schema.Struct({
   firstName: Schema.String,
@@ -59,7 +72,7 @@ const SegmentBody = Schema.Struct({
 });
 
 export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/contacts",
     operationId: "listContacts",
@@ -68,6 +81,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
       "The organization-wide speaker CRM directory (contacts persist across events). Supports a q= substring filter on name, email, and company.",
     tag: "CRM",
     queryParams: [{ name: "q", description: "Case-insensitive filter on name, email, company." }],
+    successSchema: Schema.Array(CrmDirectoryRow),
     handler: (context) =>
       Effect.gen(function* () {
         const crm = yield* Crm;
@@ -86,8 +100,8 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
             .includes(q),
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/contacts",
     operationId: "createContact",
@@ -95,6 +109,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "CRM",
     bodySchema: ContactBody,
     successStatus: 201,
+    successSchema: OrganizationContact,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof ContactBody.Type;
@@ -119,14 +134,15 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           custom: {},
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/contacts/{contactId}",
     operationId: "getContact",
     summary: "Get a CRM contact",
     description: "Full detail: profile, tags, notes, event participation, pipeline position.",
     tag: "CRM",
+    successSchema: CrmContactDetailView,
     handler: (context) =>
       Effect.gen(function* () {
         const crm = yield* Crm;
@@ -135,14 +151,15 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           context.params.contactId ?? "",
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PATCH",
     path: "/contacts/{contactId}",
     operationId: "updateContact",
     summary: "Update a CRM contact",
     tag: "CRM",
     bodySchema: ContactBody,
+    successSchema: OrganizationContact,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof ContactBody.Type;
@@ -163,8 +180,8 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           custom: {},
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/contacts/import",
     operationId: "importContacts",
@@ -173,6 +190,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
       'Idempotent by email. behavior: "update" refreshes existing contacts, "skip" leaves them untouched. Returns created/updated/skipped counts with a per-row outcome list.',
     tag: "CRM",
     bodySchema: ImportBody,
+    successSchema: CrmImportResult,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof ImportBody.Type;
@@ -191,8 +209,8 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           body.behavior,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/contacts/{contactId}/tags",
     operationId: "addContactTag",
@@ -200,6 +218,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "CRM",
     bodySchema: TagBody,
     successStatus: 201,
+    successSchema: OrganizationTag,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof TagBody.Type;
@@ -210,22 +229,23 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           body.name,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "DELETE",
     path: "/contacts/{contactId}/tags/{tagId}",
     operationId: "removeContactTag",
     summary: "Remove a tag from a contact",
     tag: "CRM",
     successStatus: 204,
+    successSchema: Schema.Null,
     handler: (context) =>
       Effect.gen(function* () {
         const crm = yield* Crm;
         yield* crm.removeTag(context.params.contactId ?? "", context.params.tagId ?? "");
         return null;
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/contacts/{contactId}/notes",
     operationId: "addContactNote",
@@ -233,6 +253,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "CRM",
     bodySchema: NoteBody,
     successStatus: 201,
+    successSchema: OrganizationContactNote,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof NoteBody.Type;
@@ -243,8 +264,8 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           context.principal.keyId,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/contacts/{contactId}/events",
     operationId: "addContactToEvent",
@@ -254,6 +275,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "CRM",
     bodySchema: AddToEventBody,
     successStatus: 201,
+    successSchema: OrganizationContactEvent,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof AddToEventBody.Type;
@@ -265,8 +287,8 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           "invited",
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/contacts/merge",
     operationId: "mergeContacts",
@@ -275,33 +297,36 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
       "Moves tags, notes, events, and pipeline history onto the primary, then deletes the duplicate.",
     tag: "CRM",
     bodySchema: MergeBody,
+    successSchema: OrganizationContact,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof MergeBody.Type;
         const crm = yield* Crm;
         return yield* crm.merge(context.principal.organizationId, body.primaryId, body.duplicateId);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/pipeline",
     operationId: "getPipeline",
     summary: "Get the pipeline board",
     description: "Stages with their cards, in board order.",
     tag: "Pipeline",
+    successSchema: CrmPipelineBoard,
     handler: (context) =>
       Effect.gen(function* () {
         const crm = yield* Crm;
         return yield* crm.pipelineBoard(context.principal.organizationId);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/pipeline/stages",
     operationId: "savePipelineStage",
     summary: "Create or update a pipeline stage",
     tag: "Pipeline",
     bodySchema: StageBody,
+    successSchema: CrmPipelineStage,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof StageBody.Type;
@@ -314,37 +339,39 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           position: body.position,
         });
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PUT",
     path: "/pipeline/stages/order",
     operationId: "reorderPipelineStages",
     summary: "Reorder pipeline stages",
     tag: "Pipeline",
     bodySchema: StageOrderBody,
+    successSchema: Schema.Struct({ ok: Schema.Literal(true) }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof StageOrderBody.Type;
         const crm = yield* Crm;
         yield* crm.reorderStages(context.principal.organizationId, body.stageIds);
-        return { ok: true };
+        return { ok: true } as const;
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "DELETE",
     path: "/pipeline/stages/{stageId}",
     operationId: "deletePipelineStage",
     summary: "Delete a pipeline stage",
     tag: "Pipeline",
     successStatus: 204,
+    successSchema: Schema.Null,
     handler: (context) =>
       Effect.gen(function* () {
         const crm = yield* Crm;
         yield* crm.deleteStage(context.principal.organizationId, context.params.stageId ?? "");
         return null;
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/pipeline/cards",
     operationId: "addPipelineCard",
@@ -352,6 +379,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "Pipeline",
     bodySchema: CardBody,
     successStatus: 201,
+    successSchema: CrmPipelineCard,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof CardBody.Type;
@@ -364,14 +392,15 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           context.principal.keyId,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/pipeline/cards/{cardId}/move",
     operationId: "movePipelineCard",
     summary: "Move a card to another stage",
     tag: "Pipeline",
     bodySchema: MoveCardBody,
+    successSchema: CrmPipelineCard,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof MoveCardBody.Type;
@@ -383,20 +412,21 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           context.principal.keyId,
         );
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "GET",
     path: "/segments",
     operationId: "listSegments",
     summary: "List saved segments",
     tag: "CRM",
+    successSchema: Schema.Array(CrmSegment),
     handler: (context) =>
       Effect.gen(function* () {
         const crm = yield* Crm;
         return yield* crm.listSegments(context.principal.organizationId);
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/segments",
     operationId: "saveSegment",
@@ -404,11 +434,12 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
     tag: "CRM",
     bodySchema: SegmentBody,
     successStatus: 201,
+    successSchema: CrmSegment,
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof SegmentBody.Type;
         const crm = yield* Crm;
         return yield* crm.saveSegment(context.principal.organizationId, body.name, body.filter);
       }),
-  },
+  }),
 ];

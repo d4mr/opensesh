@@ -22,6 +22,18 @@
       "autoPort": true
     },
     {
+      "name": "docs-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@opensesh/docs",
+        "dev",
+        "--port",
+        "5281"
+      ],
+      "port": 5281
+    },
+    {
       "name": "docs-static",
       "runtimeExecutable": "python3",
       "runtimeArgs": [
@@ -32,6 +44,18 @@
         "apps/docs/dist/public"
       ],
       "port": 5280
+    },
+    {
+      "name": "docs-static-2",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5282",
+        "--directory",
+        "apps/docs/dist/public"
+      ],
+      "port": 5282
     },
     {
       "name": "wp5-integration-dev",

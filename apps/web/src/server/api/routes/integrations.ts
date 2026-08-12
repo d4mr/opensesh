@@ -5,9 +5,10 @@ import {
   syncAccelevents,
 } from "@opensesh/domain/server/integrations/accelevents";
 import { Integrations } from "@opensesh/domain/server/repos";
+import { AcceleventsSyncReport } from "@opensesh/domain/server/schema/integrations";
 import { Effect, Schema } from "effect";
 
-import type { ApiEndpoint } from "../types";
+import { endpoint, type ApiEndpoint } from "../types";
 
 const SaveBody = Schema.Struct({
   eventUrl: Schema.String,
@@ -20,13 +21,25 @@ const maskKey = (apiKey: string) =>
   apiKey === "" ? null : `${apiKey.slice(0, 4)}…${apiKey.slice(-4)}`;
 
 export const integrationEndpoints: ReadonlyArray<ApiEndpoint> = [
-  {
+  endpoint({
     method: "GET",
     path: "/events/{eventId}/integrations/accelevents",
     operationId: "getAcceleventsIntegration",
     summary: "Get the Accelevents connection",
     description: "The stored API key never round-trips — only its masked prefix.",
     tag: "Integrations",
+    successSchema: Schema.Union([
+      // No stored connection yet — connected is always false on this branch.
+      Schema.Struct({ connected: Schema.Boolean }),
+      Schema.Struct({
+        connected: Schema.Boolean,
+        eventUrl: Schema.String,
+        apiKeyPreview: Schema.NullOr(Schema.String),
+        importAttendees: Schema.Boolean,
+        lastSyncedAt: Schema.NullOr(Schema.String),
+        lastResult: Schema.NullOr(AcceleventsSyncReport),
+      }),
+    ]),
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
@@ -40,11 +53,13 @@ export const integrationEndpoints: ReadonlyArray<ApiEndpoint> = [
           apiKeyPreview: maskKey(config.apiKey),
           importAttendees: config.importAttendees,
           lastSyncedAt: stored.lastSyncedAt?.toISOString() ?? null,
-          lastResult: stored.lastResult,
+          // Stored raw as JSON; recordSync only ever writes an
+          // AcceleventsSyncReport (same narrowing as server-fns/integrations).
+          lastResult: stored.lastResult as AcceleventsSyncReport | null,
         };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "PUT",
     path: "/events/{eventId}/integrations/accelevents",
     operationId: "saveAcceleventsIntegration",
@@ -53,6 +68,12 @@ export const integrationEndpoints: ReadonlyArray<ApiEndpoint> = [
       'Set apiKey to the literal "demo-accelevents-key" with eventUrl "demo" to use the bundled demo connection.',
     tag: "Integrations",
     bodySchema: SaveBody,
+    successSchema: Schema.Struct({
+      connected: Schema.Boolean,
+      eventUrl: Schema.String,
+      apiKeyPreview: Schema.NullOr(Schema.String),
+      importAttendees: Schema.Boolean,
+    }),
     handler: (context) =>
       Effect.gen(function* () {
         const body = context.body as typeof SaveBody.Type;
@@ -74,8 +95,8 @@ export const integrationEndpoints: ReadonlyArray<ApiEndpoint> = [
           importAttendees: config.importAttendees,
         };
       }),
-  },
-  {
+  }),
+  endpoint({
     method: "POST",
     path: "/events/{eventId}/integrations/accelevents/sync",
     operationId: "syncAccelevents",
@@ -83,10 +104,11 @@ export const integrationEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "Pulls speakers (linked to the event with full profiles) and optionally attendees (tagged CRM contacts). Idempotent by email; nothing is ever written back to Accelevents.",
     tag: "Integrations",
+    successSchema: AcceleventsSyncReport,
     handler: (context) =>
       Effect.gen(function* () {
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         return yield* syncAccelevents(context.principal.organizationId, access.event.id);
       }),
-  },
+  }),
 ];

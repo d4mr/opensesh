@@ -8,11 +8,31 @@ title: "Agenda"
 
 The page has three tabs:
 
-- **Rooms** — the grid view: days across the top, rooms as columns, sessions placed into time slots.
-- **List** — the same schedule as a flat, scannable list.
-- **Conflicts (n)** — every problem the checker has found, with a live count in the tab label.
+<Tabs items={["Rooms", "List", "Conflicts (n)"]}>
+<Tab value="Rooms">
 
-A **Draft / Published** badge shows the schedule's state. Only sessions (accepted submissions from the [Sessions desk](/guides/sessions)) can be placed.
+The grid view: days across the top, rooms as columns, sessions placed into time slots.
+
+</Tab>
+<Tab value="List">
+
+The same schedule as a flat, scannable list.
+
+</Tab>
+<Tab value="Conflicts (n)">
+
+Every problem the checker has found, with a live count in the tab label.
+
+</Tab>
+</Tabs>
+
+A **Draft / Published** badge shows the schedule's state.
+
+<Callout title="What can be placed">
+
+Only sessions (accepted submissions from the [Sessions desk](/guides/sessions)) can be placed.
+
+</Callout>
 
 ## Conflict detection
 
@@ -21,7 +41,13 @@ The conflict checker watches two rule classes as you place sessions:
 - **Room overlap** — two sessions occupying the same room at overlapping times.
 - **Speaker double-booking** — one speaker placed in two overlapping slots.
 
-Each conflict is explained in plain terms — **What / Who / Where / Why** — so fixing it doesn't require detective work. Conflicts don't block you while drafting; they're a to-do list to clear before publishing.
+Each conflict is explained in plain terms — **What / Who / Where / Why** — so fixing it doesn't require detective work.
+
+<Callout title="Drafting is never blocked">
+
+Conflicts don't block you while drafting; they're a to-do list to clear before publishing.
+
+</Callout>
 
 ## AI draft generation
 
@@ -31,7 +57,11 @@ If the deployment has an Anthropic API key, the AI drafts dialog can propose a s
 - **Respect existing placements** — keep what you've already placed and only fill gaps.
 - Up to 12 free-text rules, like "keynotes in Hall A morning" or "no two talks from the same track back-to-back".
 
+<Callout title="Proposals, not placements">
+
 Generation produces a _proposal_, not a schedule: you compare it against the current draft and **explicitly accept** placements. Nothing moves until you say so, and the conflict checker validates the result like any manual edit.
+
+</Callout>
 
 ## Publish and unpublish
 
@@ -39,8 +69,40 @@ Generation produces a _proposal_, not a schedule: you compare it against the cur
 
 ## Suggested flow
 
-1. Confirm Rooms and day boundaries in the event library and settings.
-2. Place keynotes and fixed slots by hand.
-3. Run an AI draft with **Respect existing placements** to fill the rest; accept the placements you like.
-4. Clear the **Conflicts** tab to zero.
-5. **Publish**, and embed the agenda on your site with a widget.
+<Steps>
+<Step>
+
+### Groundwork first
+
+Confirm Rooms and day boundaries in the event library and settings.
+
+</Step>
+<Step>
+
+### Anchor the fixed slots
+
+Place keynotes and fixed slots by hand.
+
+</Step>
+<Step>
+
+### Let AI fill the gaps
+
+Run an AI draft with **Respect existing placements** to fill the rest; accept the placements you like.
+
+</Step>
+<Step>
+
+### Drive conflicts to zero
+
+Clear the **Conflicts** tab to zero.
+
+</Step>
+<Step>
+
+### Go live
+
+**Publish**, and embed the agenda on your site with a widget.
+
+</Step>
+</Steps>

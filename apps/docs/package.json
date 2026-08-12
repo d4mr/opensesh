@@ -8,7 +8,6 @@
     "build": "waku build",
     "start": "waku start",
     "check": "vp check",
-    "generate:api": "node scripts/generate-api-reference.mjs",
     "predeploy": "waku build",
     "deploy": "wrangler deploy"
   },
@@ -17,7 +16,7 @@
     "cnfast": "^0.1.0",
     "fumadocs-core": "16.14.3",
     "fumadocs-mdx": "15.2.3",
-    "fumadocs-openapi": "^9.6.5",
+    "fumadocs-openapi": "^11.2.3",
     "fumadocs-ui": "npm:@fumadocs/base-ui@16.14.3",
     "lucide-react": "^1.28.0",
     "react": "^19.2.8",

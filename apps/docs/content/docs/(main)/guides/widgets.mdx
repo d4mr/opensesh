@@ -1,0 +1,72 @@
+---
+title: "Widgets & embeds"
+---
+
+**Widgets** (`/admin/widgets`) publish your program onto any website — your conference site keeps its own design while opensesh stays the source of truth. A widget is a configured, embeddable view with a stable URL.
+
+## Views
+
+Five view types cover the usual program pages:
+
+| View                | What it renders              |
+| ------------------- | ---------------------------- |
+| **Sessions**        | A filterable session list.   |
+| **Speaker list**    | Compact speaker roster.      |
+| **Speaker gallery** | Headshot grid.               |
+| **Agenda**          | The published schedule.      |
+| **Itinerary**       | A personal, day-by-day view. |
+
+These mirror the tabs on the hosted public event site (`/e/<eventSlug>`), so an embed and the hosted page always agree.
+
+## Building a widget
+
+The builder is a form beside a live preview. You set: **Name**, **View**, **Filters** (Tracks / Formats / Days / Tags from the event library), **Theme**, **Time** display, **Primary color**, **Visible fields** (show or hide description, speakers, chips per item), and **Custom CSS**.
+
+<Callout title="The preview is live">
+
+The preview updates instantly as you type — it's wired over `postMessage`, no reloads.
+
+</Callout>
+
+### Custom CSS and the `os-*` selector API
+
+Widgets expose a documented set of stable class hooks, so your CSS survives upgrades:
+
+```css
+.embed-root         /* outermost container */
+.os-list            /* list wrapper */
+.os-session         /* one session card */
+.os-session-title
+.os-session-meta
+.os-session-description
+.os-track-chip
+.os-format-chip
+.os-speaker
+.os-speaker-card
+.os-speaker-name
+.os-headshot
+.os-gallery
+.os-agenda-slot
+.os-day-heading
+```
+
+Style against these instead of generated class names. The **View HTML** dialog shows the preview's actual rendered markup with syntax highlighting, so you can see exactly what you're targeting.
+
+## Embedding and feeds
+
+Every widget offers four outputs:
+
+| Output             | What you get                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| **Share URL**      | A standalone hosted page for the widget.                                                       |
+| **Iframe snippet** | Copy-paste embed for any site.                                                                 |
+| **JSON feed**      | `GET /embed/<id>/json`, the widget's data (respecting its filters) for fully custom frontends. |
+| **ICS**            | `GET /embed/<id>/ics`, a calendar feed users can subscribe to.                                 |
+
+## What shows up
+
+<Callout title="Only approved, published content renders">
+
+Session data comes from the approved snapshot maintained by the [content approval flow](/guides/sessions), and agenda views show only a [published schedule](/guides/agenda). An unreviewed speaker edit or an unpublished draft schedule can't leak into an embed.
+
+</Callout>

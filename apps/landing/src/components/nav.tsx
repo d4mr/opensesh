@@ -1,4 +1,4 @@
-import { APP_URL, demoHref, GITHUB_URL } from "../config";
+import { APP_URL, demoHref, DOCS_URL, GITHUB_URL } from "../config";
 import { BrandMark, ButtonLink, GithubIcon } from "./ui";
 
 const links = [
@@ -7,6 +7,7 @@ const links = [
   { label: "Workflow", href: "#workflow" },
   { label: "Compare", href: "#compare" },
   { label: "Open source", href: "#open-source" },
+  { label: "Docs", href: DOCS_URL },
 ];
 
 export function Nav() {
@@ -22,6 +23,7 @@ export function Nav() {
             <a
               key={link.href}
               href={link.href}
+              {...(link.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
               className="text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {link.label}
