@@ -37,7 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { crmContactQuery, crmWorkspaceQuery } from "@/lib/crm-queries";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
+import { crmContactQuery } from "@/lib/crm-queries";
 import {
   addCrmContactToEvent,
   addCrmNote,
@@ -75,12 +76,7 @@ function ContactDetailContent({
   const [eventId, setEventId] = useState(workspace.events[0]?.id ?? "");
   const [participation, setParticipation] = useState<"speaker" | "organizer">("speaker");
   const [editOpen, setEditOpen] = useState(false);
-  const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: crmContactQuery(detail.contact.id).queryKey }),
-      queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey }),
-    ]);
-  };
+  const refresh = () => invalidateAfterMutation(queryClient);
   const noteMutation = useMutation({
     mutationFn: () =>
       addCrmNote({ data: { organizationContactId: detail.contact.id, body: note } }),

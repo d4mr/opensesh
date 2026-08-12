@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { cn } from "@/lib/utils";
 import {
   publicProgramQuery,
@@ -106,7 +107,7 @@ function WidgetData({
       createWidget({ data: { eventId, name: "Untitled widget", view: "sessions" } }),
     onSuccess: async (result) => {
       if (!result.ok) return;
-      await queryClient.invalidateQueries({ queryKey: listOptions.queryKey });
+      await invalidateAfterMutation(queryClient);
       select(result.data.id);
     },
   });
@@ -209,8 +210,7 @@ function WidgetRow({
           : current,
       );
     },
-    onSettled: async () =>
-      queryClient.invalidateQueries({ queryKey: widgetsQuery(eventId).queryKey }),
+    onSettled: async () => invalidateAfterMutation(queryClient),
   });
   // The row must stay a div: nesting the enable Switch (a button) inside a
   // button is invalid HTML and breaks hydration.
@@ -279,7 +279,7 @@ function WidgetEditor({
         return;
       }
       setSaveState("saved");
-      await queryClient.invalidateQueries({ queryKey: widgetsQuery(widget.eventId).queryKey });
+      await invalidateAfterMutation(queryClient);
     },
     onError: () => setSaveState("error"),
   });

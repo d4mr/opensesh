@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { dataUrlForVersion, fileAsBase64 } from "@/lib/files";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import { getSpeakerPortal, updatePortalProfile, uploadPortalFile } from "@/server-fns/portal";
@@ -78,7 +79,7 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
       const pending = result.data.profileReviewStatus === "pending_review";
       setSaved(pending ? "pending" : "saved");
       window.setTimeout(() => setSaved("idle"), pending ? 2600 : 1400);
-      await queryClient.invalidateQueries({ queryKey: ["speaker-portal"] });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const uploadMutation = useMutation({
@@ -102,7 +103,7 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
         return;
       }
       toast.success("Headshot saved as a new version");
-      await queryClient.invalidateQueries({ queryKey: ["speaker-portal"] });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const update = <Key extends keyof typeof profile>(key: Key, value: (typeof profile)[Key]) =>

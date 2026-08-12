@@ -8,6 +8,7 @@ import { PersonHoverCard } from "@/components/app/person-popover";
 import { Timestamp } from "@/components/app/timestamp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { downloadVersion } from "@/lib/files";
 import {
   addAdminFileComment,
@@ -183,7 +184,7 @@ export function FileThread({
             : current,
         );
       }
-      void queryClient.invalidateQueries({ queryKey, exact: true });
+      void invalidateAfterMutation(queryClient);
     },
   });
   const orderedVersions = [...versions].sort(

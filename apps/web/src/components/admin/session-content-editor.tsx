@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { restoreAdminHistory, updateAdminSessionContent } from "@/server-fns/portal";
 
@@ -52,16 +53,7 @@ export function SessionContentEditor({
     setDescription(submission.description);
   }, [editing, submission.description, submission.title]);
 
-  const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] }),
-      queryClient.invalidateQueries({ queryKey: ["review-desk-detail", eventId, submission.id] }),
-      queryClient.invalidateQueries({ queryKey: ["review-desk", eventId, "session"] }),
-      queryClient.invalidateQueries({ queryKey: ["public-program"] }),
-      queryClient.invalidateQueries({ queryKey: ["public-session"] }),
-      queryClient.invalidateQueries({ queryKey: ["public-widget"] }),
-    ]);
-  };
+  const refresh = () => invalidateAfterMutation(queryClient);
   const save = useMutation({
     mutationFn: () =>
       updateAdminSessionContent({

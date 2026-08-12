@@ -38,6 +38,7 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { adminEmailsQuery } from "@/lib/mail-queries";
 import { retryEmail } from "@/server-fns/mail";
 
@@ -185,7 +186,7 @@ function EmailViewerData({
       }
       if (result.data.status === "failed") toast.error(result.data.error ?? "Retry failed");
       else toast.success("Email retried");
-      await queryClient.invalidateQueries({ queryKey: options.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
     onError: (_error, _emailId, context) => {
       queryClient.setQueryData(options.queryKey, context?.previous);

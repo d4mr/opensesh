@@ -39,6 +39,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { cn } from "@/lib/utils";
 import { getFormEditor, saveForm } from "@/server-fns/forms";
 import { getAdminBootstrap } from "@/server-fns/admin";
@@ -240,10 +241,7 @@ function FormEditor({
       toast.error(result.error.message);
       return;
     }
-    await queryClient.invalidateQueries({
-      queryKey: formEditorQuery(data.form.eventId, data.form.id).queryKey,
-      exact: true,
-    });
+    await invalidateAfterMutation(queryClient);
     lastSavedRef.current = json;
     if (queuedRef.current) {
       queuedRef.current = false;

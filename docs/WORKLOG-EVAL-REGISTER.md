@@ -434,3 +434,36 @@ morning deploy — everything here ships in the next deploy.
   and Accept/Maybe/Reject values use the app status palette (matched by intent since dropdown
   options are free-form), card separators run full-bleed, spacing loosened for hierarchy, and
   the duplicate recommendation next to the weighted aggregate was dropped.
+
+## 2026-08-12 — V3 staleness pass: one write-path cache policy (V3-002, V3-008, V3-012)
+
+**Diagnosis.** V2-008's per-surface invalidation fixes did not hold: V3 found new stale
+surfaces (assignment counts, content history, task/request renames, CRM enrollment,
+agenda invite counts). A full inventory of the read side (30 query definitions) against
+the write side (65 useMutation sites + ~30 raw handler mutations) showed why: every
+mutation hand-maintained its own list of affected query keys, and the cross-product
+kept growing. `["dashboard-stats"]` was invalidated by nothing at all; decisions never
+touched `["evaluation","admin"]` or `["agenda"]`; reminder/campaign sends never touched
+`["admin-emails"]`; `approveSessionContent` never touched the public queries.
+
+**Fix (structural).** Stop enumerating. `invalidateAfterMutation(queryClient)` in
+`apps/web/src/lib/after-mutation.ts` marks the entire cache stale after any successful
+write; every mutation site in the app now settles through it (~45 call sites migrated,
+including the three mutations that previously invalidated nothing). Optimistic
+setQueryData/rollback layers are unchanged. Documented as DESIGN.md §9.
+
+**Refetch affordance.** New `SyncIndicator` (useIsFetching + useIsMutating) in the admin
+SiteHeader and portal header: a size-3 spinner that fades in only when sync is in
+flight past ~300ms, hides instantly when settled. The app previously had zero
+background-refetch indicators.
+
+**Dead code removed.** `evaluationQueueQuery` + `getEvaluationQueue`,
+`publicAgendaQuery` + `getPublicAgenda` (no consumers).
+
+**Verified in browser (local dev, pristine seed).** Accept SESS-11 → Overview counts
+update with no reload (11/4/12 → 10/4/13 pending/maybe/accepted, needs-attention 11→10,
+unscheduled 4→5, tasks 54→55); evaluation assign → tab label "Assignments (0)"→"(1)" +
+row state immediately (V3-002 scenario); schedule session via list popover → invite
+counter "12 of 12"→"13 of 13 need invites" immediately (V3-008 agenda-invite scenario);
+network log confirms one blanket refetch wave per mutation, all 200s. Checks 8/8,
+tests 56/56.

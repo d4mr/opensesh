@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { reviewerEvaluationQuery } from "@/lib/evaluation-queries";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { cn } from "@/lib/utils";
 import { recuseReview, submitReviewAnswers } from "@/server-fns/reviews";
 
@@ -159,8 +159,7 @@ export function ReviewerEvaluationWorkspace({
       };
     });
 
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: reviewerEvaluationQuery(data.eventId).queryKey });
+  const refresh = () => invalidateAfterMutation(queryClient);
 
   const submit = async () => {
     if (selected === undefined || saving) return;
@@ -184,11 +183,7 @@ export function ReviewerEvaluationWorkspace({
       toast.error(result.error.message);
       return;
     }
-    await Promise.all([
-      refresh(),
-      queryClient.invalidateQueries({ queryKey: ["review-desk", data.eventId] }),
-      queryClient.invalidateQueries({ queryKey: ["review-desk-detail", data.eventId] }),
-    ]);
+    await refresh();
     toast.success(`Completed review for ${selected.item.code}`);
   };
 

@@ -64,6 +64,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { crmWorkspaceQuery } from "@/lib/crm-queries";
 import { cn } from "@/lib/utils";
 import {
@@ -200,7 +201,7 @@ export function PipelineBoard({
       )?.stage;
       toast.success(`Moved ${variables.contactName} to ${stage?.name ?? "stage"}`);
     },
-    onSettled: async () => queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey }),
+    onSettled: async () => invalidateAfterMutation(queryClient),
   });
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -526,7 +527,7 @@ function AddCardDialog({
       toast.success("Contact added to pipeline");
       onOpenChange(false);
       setNote("");
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (
@@ -628,7 +629,7 @@ function ManageStagesDialog({
   const [name, setName] = useState("");
   const [status, setStatus] = useState<CrmSemanticStatus>("open");
   useEffect(() => setDrafts(stages), [stages]);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+  const refresh = () => invalidateAfterMutation(queryClient);
   const save = useMutation({
     mutationFn: (draft: StageDraft) => saveCrmStage({ data: draft }),
     onSuccess: async (result) => {

@@ -12,6 +12,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -74,7 +75,7 @@ function FormsList() {
       toast.error(result.error.message);
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["forms", eventId] });
+    await invalidateAfterMutation(queryClient);
     await navigate({ to: "/admin/forms/$formId", params: { formId: result.data.id } });
   };
   return (
@@ -138,13 +139,13 @@ function FormCard({
   const duplicate = async () => {
     const result = await duplicateForm({ data: { eventId: form.eventId, formId: form.id } });
     if (!result.ok) toast.error(result.error.message);
-    else await queryClient.invalidateQueries({ queryKey: ["forms", form.eventId] });
+    else await invalidateAfterMutation(queryClient);
   };
   const remove = async () => {
     setConfirmOpen(false);
     const result = await deleteForm({ data: { eventId: form.eventId, formId: form.id } });
     if (!result.ok) toast.error(result.error.message);
-    else await queryClient.invalidateQueries({ queryKey: ["forms", form.eventId] });
+    else await invalidateAfterMutation(queryClient);
   };
   return (
     <>

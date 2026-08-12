@@ -43,7 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { crmWorkspaceQuery } from "@/lib/crm-queries";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import {
   importCrmContacts,
   mergeCrmContacts,
@@ -69,7 +69,7 @@ export function ContactEditorDialog({
       toast.success(`Added ${result.data.firstName} ${result.data.lastName}`);
       onOpenChange(false);
       form.reset();
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const form = useForm({
@@ -237,7 +237,7 @@ export function ImportDialog({
       toast.success(
         `Imported ${response.data.created + response.data.updated} contacts · ${response.data.skipped} skipped`,
       );
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const upload = async (file: File) => {
@@ -417,7 +417,7 @@ export function SegmentDialog({
       toast.success(`Saved segment ${result.data.name}`);
       setName("");
       onOpenChange(false);
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (
@@ -485,7 +485,7 @@ export function MergeDialog({
       toast.success(`Merged into ${result.data.firstName} ${result.data.lastName}`);
       setConfirmed(false);
       onOpenChange(false);
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (
@@ -648,7 +648,7 @@ export function CampaignDialog({
           ? `Sent ${result.data.sent} personalized emails and added ${contactIds.length} ${contactIds.length === 1 ? "recipient" : "recipients"} to the event`
           : `Sent ${result.data.sent} personalized emails`,
       );
-      await queryClient.invalidateQueries({ queryKey: crmWorkspaceQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (

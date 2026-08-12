@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { fileAsBase64 } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import {
@@ -141,7 +142,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
       // Rebaseline so the toolbar flips back from "Save settings" to "Saved".
       formApi.reset(value);
       toast.success("Event settings saved");
-      await queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const publicPath = `/e/${event.slug}`;
@@ -496,7 +497,7 @@ function EventAccessSection({ eventId }: { readonly eventId: string }) {
   const access = useQuery(eventAccessQuery(eventId));
   const [selectedUserId, setSelectedUserId] = useState("");
   const [pending, setPending] = useState(false);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["event-access", eventId] });
+  const refresh = () => invalidateAfterMutation(queryClient);
 
   const grant = async () => {
     setPending(true);
@@ -652,7 +653,7 @@ function IntegrationsSection({ eventId }: { readonly eventId: string }) {
     setHydrated(true);
   }, [hydrated, integration.data, view]);
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["event-integration", eventId] });
+  const refresh = () => invalidateAfterMutation(queryClient);
 
   const save = async (overrides?: { eventUrl?: string; apiKey?: string }) => {
     setSaving(true);
@@ -697,7 +698,6 @@ function IntegrationsSection({ eventId }: { readonly eventId: string }) {
           : `; attendees: ${report.attendees.created} added, ${report.attendees.skipped} already known`),
     );
     await refresh();
-    await queryClient.invalidateQueries({ queryKey: ["crm-workspace"] });
   };
 
   const connected = view !== null && view.hasApiKey;

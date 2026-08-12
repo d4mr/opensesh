@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { fileAsBase64 } from "@/lib/files";
 import { apiKeysQuery, organizationSettingsQuery } from "@/lib/organization-queries";
 import { cn } from "@/lib/utils";
@@ -275,7 +276,7 @@ function ProfileSection({ settings }: { readonly settings: OrganizationSettings 
             : current,
       );
       toast.success("Organization profile saved");
-      await queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
 
@@ -432,7 +433,7 @@ function InviteMemberForm({ settings }: { readonly settings: OrganizationSetting
       }
       form.reset();
       toast.success(`Invited ${value.email}`);
-      await queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   if (!canInvite) return null;
@@ -589,8 +590,7 @@ function MemberRow({
       restore(queryClient, context?.previous);
       toast.error(result.error.message);
     },
-    onSettled: async () =>
-      queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey }),
+    onSettled: async () => invalidateAfterMutation(queryClient),
   });
 
   const remove = useMutation({
@@ -624,8 +624,7 @@ function MemberRow({
       restore(queryClient, context?.previous);
       toast.error(result.error.message);
     },
-    onSettled: async () =>
-      queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey }),
+    onSettled: async () => invalidateAfterMutation(queryClient),
   });
 
   return (
@@ -738,8 +737,7 @@ function InvitationRow({
       restore(queryClient, context?.previous);
       toast.error(result.error.message);
     },
-    onSettled: async () =>
-      queryClient.invalidateQueries({ queryKey: organizationSettingsQuery.queryKey }),
+    onSettled: async () => invalidateAfterMutation(queryClient),
   });
 
   return (
@@ -839,7 +837,7 @@ function CreateApiKeyForm({
       }
       form.reset();
       onCreated({ name: result.data.key.name, token: result.data.token });
-      await queryClient.invalidateQueries({ queryKey: apiKeysQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (
@@ -937,7 +935,7 @@ function ApiKeyRow({
       }
       toast.success(`Revoked ${item.name}`);
     },
-    onSettled: async () => queryClient.invalidateQueries({ queryKey: apiKeysQuery.queryKey }),
+    onSettled: async () => invalidateAfterMutation(queryClient),
   });
   return (
     <div className="group/apikey -mx-2 flex min-h-12 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">

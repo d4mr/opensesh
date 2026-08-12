@@ -39,9 +39,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { fileAsBase64 } from "@/lib/files";
 import { type CsvPreview, parseSpeakerCsv } from "@/lib/speaker-csv";
-import { speakerDirectoryQuery } from "@/lib/widget-queries";
 import { saveAdminSpeaker, uploadAdminSpeakerHeadshot } from "@/server-fns/speaker-comms";
 import { importSpeakerCsv } from "@/server-fns/widgets";
 
@@ -174,8 +174,7 @@ export function SpeakerFormDialog({
         return;
       }
       toast.success(speaker === undefined ? "Speaker added" : "Speaker profile saved");
-      await queryClient.invalidateQueries({ queryKey: speakerDirectoryQuery(eventId).queryKey });
-      await queryClient.invalidateQueries({ queryKey: ["speaker-communications", eventId] });
+      await invalidateAfterMutation(queryClient);
       onOpenChange(false);
     },
   });
@@ -389,8 +388,7 @@ export function CsvImportDialog({
         return;
       }
       setResult(response.data);
-      await queryClient.invalidateQueries({ queryKey: speakerDirectoryQuery(eventId).queryKey });
-      await queryClient.invalidateQueries({ queryKey: ["speaker-communications", eventId] });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const errors = preview?.rows.reduce((total, row) => total + row.errors.length, 0) ?? 0;

@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import {
@@ -109,7 +110,7 @@ function SubmissionContent({
     if (selected === undefined) return;
     setDraftAnswers((previous) => ({ ...previous, [selected.submission.id]: next }));
   };
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["speaker-portal"] });
+  const invalidate = () => invalidateAfterMutation(queryClient);
   const edit = useMutation({
     mutationFn: () =>
       selected === undefined

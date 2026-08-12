@@ -44,22 +44,6 @@ export const getReviewDeskDetail = createServerFn({ method: "GET" })
     ),
   );
 
-export const getEvaluationQueue = createServerFn({ method: "GET" })
-  .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
-  .handler(async ({ data }) =>
-    runServer(
-      Effect.gen(function* () {
-        const access = yield* requireEventAccess(data.eventId, "reviewer");
-        const reviewDesk = yield* ReviewDesk;
-        return yield* reviewDesk.evaluationQueue(
-          { userId: access.user.userId, isAdmin: access.admin },
-          data.eventId,
-        );
-      }),
-      { require: "staff" },
-    ),
-  );
-
 export const saveReview = createServerFn({ method: "POST" })
   .validator(Schema.toStandardSchemaV1(ReviewUpsertRequest))
   .handler(async ({ data }) =>

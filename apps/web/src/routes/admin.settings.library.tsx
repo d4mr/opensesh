@@ -6,6 +6,7 @@ import { PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -188,7 +189,7 @@ function LibraryEditor({
         return;
       }
       cancel();
-      await queryClient.invalidateQueries({ queryKey: ["event-library", eventId] });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (
@@ -279,7 +280,7 @@ function LibraryDisplayRow({
       toast.error(result.error.message);
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["event-library", eventId] });
+    await invalidateAfterMutation(queryClient);
   };
   return (
     <TableRow className="h-9">

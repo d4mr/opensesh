@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import { getAgenda, getPublicAgenda, listAgendaDrafts } from "@/server-fns/agenda";
+import { getAgenda, listAgendaDrafts } from "@/server-fns/agenda";
 
 export const agendaQuery = (eventId: string) =>
   queryOptions({
@@ -14,11 +14,4 @@ export const agendaDraftsQuery = (eventId: string) =>
     queryKey: ["agenda-drafts", eventId],
     queryFn: () => listAgendaDrafts({ data: { eventId } }),
     staleTime: 15_000,
-  });
-
-export const publicAgendaQuery = (eventSlug: string) =>
-  queryOptions({
-    queryKey: ["public-agenda", eventSlug],
-    queryFn: () => getPublicAgenda({ data: { eventSlug } }),
-    staleTime: 30_000,
   });

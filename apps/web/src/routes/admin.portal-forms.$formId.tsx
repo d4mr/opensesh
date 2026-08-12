@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { hasPortalFormListReturn, updatePortalFormReturnId } from "@/lib/portal-form-navigation";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
@@ -158,7 +159,7 @@ function PortalFormEditorPage({
         return;
       }
       setSavedSignature(signature(submitted));
-      await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+      await invalidateAfterMutation(queryClient);
       toast.success("Portal form saved");
       if (formId === null) {
         updatePortalFormReturnId(eventId, saved.id);

@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { fileAsBase64 } from "@/lib/files";
-import { speakerPortalQuery } from "@/lib/portal-queries";
 import { cn } from "@/lib/utils";
 import { uploadPortalFile } from "@/server-fns/portal";
 
@@ -48,7 +48,7 @@ export function SessionFileUploadAction({
       }
       setUploadError(undefined);
       toast.success(uploaded ? "New version uploaded" : "File uploaded");
-      await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
 

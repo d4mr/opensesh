@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@opensesh/domain/server/current-user";
 import { Link } from "@tanstack/react-router";
 
+import { SyncIndicator } from "@/components/app/sync-indicator";
 import { UserMenu } from "@/components/app/user-menu";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +20,7 @@ export function SiteHeader({
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
         <h1 className="text-base font-medium">{title}</h1>
+        <SyncIndicator className="ml-1" />
         <div className="ml-auto flex items-center gap-2">
           {user.roles.admin || user.roles.reviewer || user.roles.member ? (
             <Button variant="ghost" asChild size="sm" className="hidden sm:flex">

@@ -5,7 +5,6 @@ import {
   AgendaPublicationRequest,
   AgendaRequest,
   GenerateAgendaDraftRequest,
-  PublicAgendaRequest,
   ScheduleChange,
 } from "@opensesh/domain";
 import { getCurrentUser } from "@opensesh/domain/server/current-user";
@@ -116,16 +115,5 @@ export const changeAgendaPublication = createServerFn({ method: "POST" })
           : yield* agenda.unpublish(data.eventId);
       }),
       { require: "admin" },
-    ),
-  );
-
-export const getPublicAgenda = createServerFn({ method: "GET" })
-  .validator(Schema.toStandardSchemaV1(PublicAgendaRequest))
-  .handler(async ({ data }) =>
-    runServer(
-      Effect.gen(function* () {
-        const agenda = yield* Agenda;
-        return yield* agenda.public(data.eventSlug);
-      }),
     ),
   );

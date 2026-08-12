@@ -71,7 +71,7 @@ import {
 import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { adminEvaluationQuery } from "@/lib/evaluation-queries";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { cn } from "@/lib/utils";
 import {
   addReviewMember,
@@ -160,8 +160,7 @@ export function EvaluationRoundEditor({
   const [draft, setDraft] = useState(() => roundDraft(view, workspace.rounds.length + 1));
   const [saving, setSaving] = useState(false);
   const roundId = view?.configuration.round.id ?? null;
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: adminEvaluationQuery(eventId).queryKey });
+  const refresh = () => invalidateAfterMutation(queryClient);
 
   const updateCriterion = (key: string, update: Partial<CriterionDraft>) =>
     setDraft((current) => ({

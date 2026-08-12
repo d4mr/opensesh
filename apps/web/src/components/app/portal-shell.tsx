@@ -3,8 +3,9 @@ import type { Event } from "@opensesh/domain";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { UserMenu } from "@/components/app/user-menu";
 import { EventIcon } from "@/components/app/event-icon";
+import { SyncIndicator } from "@/components/app/sync-indicator";
+import { UserMenu } from "@/components/app/user-menu";
 
 const nav = [
   { title: "Home" },
@@ -131,6 +132,7 @@ export function PortalShell({
             <span className="truncate">{event.name}</span>
           </Link>
           <DesktopPillNav pathname={pathname} />
+          <SyncIndicator />
           <UserMenu user={user} context="portal" />
         </div>
         <nav className="mx-auto flex max-w-5xl items-center justify-center-safe gap-1 overflow-x-auto px-4 pb-2 text-sm [scrollbar-width:none] sm:hidden">

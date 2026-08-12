@@ -155,3 +155,26 @@ overrode a score) is recorded against `users.id` directly. Only the
 reviewer-staffing tables — `reviewer_tracks`, `review_round_members`,
 `review_assignments` — keep `event_members.id` foreign keys, because they
 describe the roster itself.
+
+## 9. Data freshness
+
+After any successful mutation the client marks the ENTIRE query cache stale in
+one shot (`invalidateAfterMutation` in `apps/web/src/lib/after-mutation.ts`).
+Queries with observers on screen refetch immediately; everything else
+refetches on its next mount. There is no per-mutation list of query keys to
+maintain — writes ripple across surfaces (a decision touches the dashboard,
+the evaluation results, the agenda backlog, the email log), and hand-kept key
+lists developed gaps twice (V2-008, V3-008). Over-invalidation is bounded by
+what is actually rendered, so correctness costs at most a couple of cheap
+refetches.
+
+Optimistic updates stay layered on top of this floor: surfaces that need
+instant feedback (pipeline drag, task completion, email retry, agenda drag)
+still `cancelQueries` + `setQueryData` + roll back on error, then settle with
+the blanket invalidation.
+
+While a refetch or mutation is in flight past ~300 ms, the `SyncIndicator`
+(`apps/web/src/components/app/sync-indicator.tsx`) fades a small spinner into
+the shell header — admin and portal both. It hides instantly when the cache is
+settled. Never add per-surface "refreshing…" text; the indicator is the one
+sync affordance.

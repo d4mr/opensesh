@@ -1,4 +1,4 @@
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { DownloadIcon, FileArchiveIcon, SendIcon } from "lucide-react";
 import { useState } from "react";
@@ -39,6 +39,7 @@ import {
   TableRow,
   TableShell,
 } from "@/components/ui/table";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { downloadVersion } from "@/lib/files";
 import { cn } from "@/lib/utils";
@@ -326,6 +327,7 @@ function FilesLibraryData({
       setExportError(undefined);
     },
   });
+  const queryClient = useQueryClient();
   const remind = useMutation({
     mutationFn: () =>
       sendDeliverableReminders({
@@ -335,12 +337,13 @@ function FilesLibraryData({
           ...(filteredRequirementId === undefined ? {} : { requirementId: filteredRequirementId }),
         },
       }),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (!result.ok) {
         toast.error(result.error.message);
         return;
       }
       toast.success(`Queued ${result.data.attempted} reminders`);
+      await invalidateAfterMutation(queryClient);
     },
   });
   const downloadReady = () => {

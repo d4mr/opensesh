@@ -65,6 +65,7 @@ import {
   TableRow,
   TableShell,
 } from "@/components/ui/table";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { describeChangedFields, profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
 import { adminPortalQuery } from "@/lib/portal-queries";
@@ -234,12 +235,7 @@ function Directory({
   >(new Map());
   const queryClient = useQueryClient();
   const portal = useQuery(adminPortalQuery(eventId));
-  const directoryOptions = speakerDirectoryQuery(eventId);
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: directoryOptions.queryKey }),
-      queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] }),
-    ]);
+  const refresh = () => invalidateAfterMutation(queryClient);
   const waive = useMutation({
     mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
     onMutate: (assignmentId) => setWaivedIds((current) => new Set([...current, assignmentId])),
@@ -333,7 +329,6 @@ function Directory({
       setSelectedIds(new Set());
       toast.success(`Sent ${result.data.sent} invitation${result.data.sent === 1 ? "" : "s"}`);
       await refresh();
-      await queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] });
     },
   });
   const filtered = useMemo(

@@ -28,8 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
-import { adminPortalQuery, speakerPortalQuery } from "@/lib/portal-queries";
-import { reviewDeskListQuery } from "@/lib/review-desk-queries";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
+import { adminPortalQuery } from "@/lib/portal-queries";
 import { createManualSession } from "@/server-fns/review-desk";
 
 export function AddSessionDialog({
@@ -77,14 +77,7 @@ export function AddSessionDialog({
       }
       setOpen(false);
       reset();
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: reviewDeskListQuery(eventId, "session").queryKey,
-        }),
-        queryClient.invalidateQueries({ queryKey: ["agenda", eventId] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] }),
-        queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey }),
-      ]);
+      await invalidateAfterMutation(queryClient);
       toast.success(`${result.data.code} added`);
       onCreated(result.data.id);
     },

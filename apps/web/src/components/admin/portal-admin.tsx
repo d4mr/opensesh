@@ -79,6 +79,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { adminPortalQuery } from "@/lib/portal-queries";
 import { rememberPortalFormList, takePortalFormListReturn } from "@/lib/portal-form-navigation";
 import { cn } from "@/lib/utils";
@@ -221,7 +222,7 @@ function AdminTasks({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<ReadonlySet<string>>(new Set());
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+  const refresh = () => invalidateAfterMutation(queryClient);
   const waive = useMutation({
     mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
     onSuccess: async (result) => {
@@ -277,7 +278,7 @@ function AdminTasks({
         for (const id of _variables.ids) next.delete(id);
         return next;
       });
-      await queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] });
+      await invalidateAfterMutation(queryClient);
     },
     onError: (_error, _variables, context) => setReminded(context?.previous ?? new Set()),
   });
@@ -699,7 +700,7 @@ export function TaskTemplateDialog({
             }`,
       );
       onOpenChange(false);
-      await queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+      await invalidateAfterMutation(queryClient);
     },
   });
   return (
@@ -1082,7 +1083,7 @@ function DeliverablesAdmin({
   const queryClient = useQueryClient();
   const requirements = usePagination(data.requirements);
   const requests = usePagination(data.fileRequests);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+  const refresh = () => invalidateAfterMutation(queryClient);
   const saveRequest = useMutation({
     mutationFn: () =>
       createAdminFileRequest({
@@ -1159,12 +1160,13 @@ function DeliverablesAdmin({
           contactIds: [...input.contactIds],
         },
       }),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (!result.ok) {
         toast.error(result.error.message);
         return;
       }
       toast.success(`Queued ${result.data.attempted} reminders`);
+      await invalidateAfterMutation(queryClient);
     },
   });
   const openRequirement = (requirement?: AdminData["requirements"][number]) => {
@@ -1712,7 +1714,7 @@ function AdminSessions({
   ) => void;
 }) {
   const queryClient = useQueryClient();
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin-portal", eventId] });
+  const refresh = () => invalidateAfterMutation(queryClient);
   const review = useMutation({
     mutationFn: ({
       id,

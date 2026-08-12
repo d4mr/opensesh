@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RichText } from "@/components/forms/rich-text";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { requestMagicLink } from "@/server-fns/auth";
@@ -254,7 +255,7 @@ function Wizard({
     setSubmissionId(result.data.id);
     window.localStorage.setItem(`${storageKey}-draft`, result.data.id);
     setSaveState("saved");
-    await queryClient.invalidateQueries({ queryKey: ["public-form-account", eventSlug, formId] });
+    await invalidateAfterMutation(queryClient);
     return result.data.id;
   };
 

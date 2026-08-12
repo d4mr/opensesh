@@ -57,6 +57,7 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { communicationCenterQuery } from "@/lib/communication-queries";
 import {
   deleteEmailTemplate,
@@ -110,8 +111,7 @@ function Communications({
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate>();
   const [expandedCampaign, setExpandedCampaign] = useState<string>();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: communicationCenterQuery(eventId).queryKey });
+  const refresh = () => invalidateAfterMutation(queryClient);
   const recipients = useMemo(
     () =>
       data.contacts.filter((contact) =>
@@ -158,7 +158,6 @@ function Communications({
           `Sent ${result.data.sent} campaign email${result.data.sent === 1 ? "" : "s"}`,
         );
       await refresh();
-      await queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] });
     },
   });
   if (data.contacts.length === 0) {

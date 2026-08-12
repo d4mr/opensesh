@@ -12,6 +12,7 @@ import { FileThread } from "@/components/portal/file-thread";
 import { SessionFileUploadAction } from "@/components/portal/session-file-upload-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { fileAsBase64 } from "@/lib/files";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import {
@@ -87,10 +88,10 @@ function TaskContent({
     onSuccess: async (result) => {
       if (!result.ok) {
         toast.error(result.error.message);
-        await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
+        await invalidateAfterMutation(queryClient);
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const formMutation = useMutation({
@@ -105,7 +106,7 @@ function TaskContent({
       setOpenId(null);
       setAnswers({});
       toast.success("Response recorded");
-      await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const fileMutation = useMutation({
@@ -147,7 +148,7 @@ function TaskContent({
       });
       celebrate(variables.assignmentId, true);
       toast.success("File uploaded as a new version");
-      await queryClient.invalidateQueries({ queryKey: speakerPortalQuery.queryKey });
+      await invalidateAfterMutation(queryClient);
     },
   });
   const todo = data.tasks.filter((item) => item.assignment.status === "todo");

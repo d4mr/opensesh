@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { calendarInviteSummaryQuery } from "@/lib/mail-queries";
 import { sendCalendarInvites } from "@/server-fns/mail";
 
@@ -42,10 +43,7 @@ export function CalendarInviteAction() {
           `${result.data.attempted} calendar ${result.data.attempted === 1 ? "invite" : "invites"} ${label}`,
         );
       }
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: options.queryKey }),
-        queryClient.invalidateQueries({ queryKey: ["admin-emails", eventId] }),
-      ]);
+      await invalidateAfterMutation(queryClient);
     },
     onError: (_error, _variables, context) => {
       queryClient.setQueryData(options.queryKey, context?.previous);

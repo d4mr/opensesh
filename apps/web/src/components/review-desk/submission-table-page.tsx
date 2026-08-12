@@ -73,6 +73,7 @@ import {
   TableShell,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { reviewDeskListQuery } from "@/lib/review-desk-queries";
 import { cn } from "@/lib/utils";
 import {
@@ -335,9 +336,7 @@ export function SubmissionTablePage({
           toast.error(result.error.message);
           return false;
         }
-        void queryClient.invalidateQueries({
-          queryKey: ["review-desk-detail", eventId, submission.id],
-        });
+        void invalidateAfterMutation(queryClient);
         return true;
       };
       void save(nextStatus, previousStatus).then((saved) => {
@@ -575,12 +574,7 @@ export function SubmissionTablePage({
       }),
     }));
     table.resetRowSelection(true);
-    void queryClient.invalidateQueries({ queryKey: ["review-desk-detail", eventId] });
-    void queryClient.invalidateQueries({ queryKey: ["evaluation-queue", eventId] });
-    // Acceptance graduates abstracts to kind='session' — refresh the other desk.
-    void queryClient.invalidateQueries({
-      queryKey: reviewDeskListQuery(eventId, kind === "abstract" ? "session" : "abstract").queryKey,
-    });
+    void invalidateAfterMutation(queryClient);
   };
 
   if (readyData.submissions.length === 0) {
