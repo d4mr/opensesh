@@ -242,6 +242,35 @@ function SubmissionContent({
     );
   }
 
+  const withdrawAction =
+    selected.submission.status === "withdrawn" ? null : (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="destructive" size="sm">
+            Withdraw submission
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Withdraw {selected.submission.code}?</DialogTitle>
+            <DialogDescription>
+              This removes the submission from consideration. Its history remains available.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button variant="destructive" onClick={() => withdraw.mutate()}>
+                Withdraw
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+
   return (
     <main className="h-[calc(100svh-3rem)] overflow-y-auto">
       <div className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -299,41 +328,15 @@ function SubmissionContent({
                       : "Save changes"
                   }
                   showContinue={!closed}
+                  footerStart={withdrawAction ?? undefined}
                 />
               )}
               {selected.submission.status === "accepted" ? (
                 <SessionFiles data={data} submissionId={selected.submission.id} />
               ) : null}
-              <div className="mt-5 flex justify-end border-t pt-4">
-                {selected.submission.status === "withdrawn" ? null : (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        Withdraw submission
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Withdraw {selected.submission.code}?</DialogTitle>
-                        <DialogDescription>
-                          This removes the submission from consideration. Its history remains
-                          available.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button variant="outline">Cancel</Button>
-                        </DialogClose>
-                        <DialogClose asChild>
-                          <Button variant="destructive" onClick={() => withdraw.mutate()}>
-                            Withdraw
-                          </Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </div>
+              {(closed || fields.length === 0) && withdrawAction !== null ? (
+                <div className="mt-5 flex justify-end border-t pt-4">{withdrawAction}</div>
+              ) : null}
             </TabsContent>
             <TabsContent value="history" className="pt-4">
               {history.length === 0 ? (

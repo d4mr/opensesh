@@ -351,6 +351,12 @@
   max-height: 50rem;
   opacity: 1;
   pointer-events: auto;
+  /* Conditional fields mount only when their condition is met; the
+     entrance still eases in from the hidden state. */
+  @starting-style {
+    max-height: 0;
+    opacity: 0;
+  }
 }
 
 /* Public wizard — step transitions ride @starting-style so each mounted step

@@ -813,19 +813,45 @@ export const PortalLive = Layer.effect(
                 )
                 .execute(),
             ),
+            // Library options are scoped to the speaker's event — an unscoped
+            // select would offer every event's formats/tracks in the edit form.
             library: Effect.all({
               tracks: query(database, "Could not load tracks", (db) =>
-                db.select().from(tracks).orderBy(asc(tracks.position)).execute(),
-              ),
+                db
+                  .select({ row: tracks })
+                  .from(tracks)
+                  .innerJoin(contacts, eq(contacts.eventId, tracks.eventId))
+                  .where(eq(contacts.id, contactId))
+                  .orderBy(asc(tracks.position))
+                  .execute(),
+              ).pipe(Effect.map((rows) => rows.map(({ row }) => row))),
               formats: query(database, "Could not load formats", (db) =>
-                db.select().from(formats).orderBy(asc(formats.position)).execute(),
-              ),
+                db
+                  .select({ row: formats })
+                  .from(formats)
+                  .innerJoin(contacts, eq(contacts.eventId, formats.eventId))
+                  .where(eq(contacts.id, contactId))
+                  .orderBy(asc(formats.position))
+                  .execute(),
+              ).pipe(Effect.map((rows) => rows.map(({ row }) => row))),
               tags: query(database, "Could not load tags", (db) =>
-                db.select().from(tags).orderBy(asc(tags.position)).execute(),
-              ),
+                db
+                  .select({ row: tags })
+                  .from(tags)
+                  .innerJoin(contacts, eq(contacts.eventId, tags.eventId))
+                  .where(eq(contacts.id, contactId))
+                  .orderBy(asc(tags.position))
+                  .execute(),
+              ).pipe(Effect.map((rows) => rows.map(({ row }) => row))),
               levels: query(database, "Could not load levels", (db) =>
-                db.select().from(levels).orderBy(asc(levels.position)).execute(),
-              ),
+                db
+                  .select({ row: levels })
+                  .from(levels)
+                  .innerJoin(contacts, eq(contacts.eventId, levels.eventId))
+                  .where(eq(contacts.id, contactId))
+                  .orderBy(asc(levels.position))
+                  .execute(),
+              ).pipe(Effect.map((rows) => rows.map(({ row }) => row))),
             }),
           },
           { concurrency: "unbounded" },

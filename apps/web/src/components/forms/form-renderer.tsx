@@ -9,6 +9,7 @@ import type {
 } from "@opensesh/domain";
 import { isFormFieldVisible, makeFormAnswersSchema } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
+import type { ReactNode } from "react";
 import { Schema } from "effect";
 
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
@@ -86,6 +87,7 @@ export function FormRenderer({
   onBack,
   continueLabel = "Continue",
   showContinue = true,
+  footerStart,
   className,
   timezone,
 }: {
@@ -97,6 +99,7 @@ export function FormRenderer({
   readonly onBack?: () => void;
   readonly continueLabel?: string;
   readonly showContinue?: boolean;
+  readonly footerStart?: ReactNode;
   readonly className?: string;
   readonly timezone: string;
 }) {
@@ -121,14 +124,12 @@ export function FormRenderer({
         {(currentAnswers) => (
           <>
             {fields.map((definition) => {
-              const visible = isFormFieldVisible(definition, currentAnswers);
+              // Fields whose condition is unmet don't render at all — hiding
+              // them with CSS leaves inputs in the DOM and accessibility tree.
+              if (!isFormFieldVisible(definition, currentAnswers)) return null;
               const options = valuesForField(definition, library);
               return (
-                <div
-                  key={definition.id}
-                  aria-hidden={!visible}
-                  className={cn("conditional-field", visible && "conditional-field-visible")}
-                >
+                <div key={definition.id} className="conditional-field conditional-field-visible">
                   <div className="min-h-0 overflow-hidden">
                     <form.Field name={definition.id}>
                       {(field) => {
@@ -285,12 +286,12 @@ export function FormRenderer({
       </form.Subscribe>
       {showContinue ? (
         <div className="mt-2 flex items-center justify-between gap-3 border-t pt-4">
-          {onBack === undefined ? (
-            <span />
-          ) : (
+          {onBack !== undefined ? (
             <Button type="button" variant="ghost" className="pressable" onClick={onBack}>
               Back
             </Button>
+          ) : (
+            (footerStart ?? <span />)
           )}
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(submitting) => (
