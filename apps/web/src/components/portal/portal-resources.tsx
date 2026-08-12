@@ -1,16 +1,10 @@
 import type { ResourceView } from "@opensesh/domain";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  DownloadIcon,
-  ExternalLinkIcon,
-  FileTextIcon,
-} from "lucide-react";
+import { DownloadIcon, ExternalLinkIcon, FileTextIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { RichText } from "@/components/forms/rich-text";
+import { PortalResourceItem } from "@/components/portal/portal-resource-item";
 import { Button } from "@/components/ui/button";
 import { portalResourcesQuery } from "@/lib/resource-queries";
 import { downloadResourceFile } from "@/server-fns/resources";
@@ -99,38 +93,17 @@ export function PortalResources() {
           {resources.map((resource) => {
             const open = expanded === resource.id;
             return (
-              <section key={resource.id}>
-                <button
-                  type="button"
-                  className="pressable flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
-                  aria-expanded={open}
-                  onClick={() => setExpanded(open ? null : resource.id)}
-                >
-                  {open ? (
-                    <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{resource.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {resource.subtitle}
-                    </span>
-                  </span>
-                </button>
-                {open ? (
-                  <div className="border-t bg-muted/10 px-4 py-5 sm:px-8">
-                    <div className="max-w-3xl">
-                      <RichText markdown={resource.body} />
-                      {resource.attachmentKind === null ? null : (
-                        <div className="mt-5 border-t pt-4">
-                          <Attachment resource={resource} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-              </section>
+              <PortalResourceItem
+                key={resource.id}
+                title={resource.title}
+                subtitle={resource.subtitle}
+                body={resource.body}
+                open={open}
+                onToggle={() => setExpanded(open ? null : resource.id)}
+                attachment={
+                  resource.attachmentKind === null ? undefined : <Attachment resource={resource} />
+                }
+              />
             );
           })}
         </div>

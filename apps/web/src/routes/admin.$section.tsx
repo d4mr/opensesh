@@ -50,7 +50,19 @@ function AdminPage() {
   const { section } = Route.useParams();
   const { spotlight, fileRequest } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  if (section === "resources") return <ResourcesAdmin />;
+  if (section === "resources") {
+    return (
+      <ResourcesAdmin
+        spotlightId={spotlight}
+        onSpotlightChange={(id, options) =>
+          void navigate({
+            search: { spotlight: id, fileRequest },
+            replace: options.replace,
+          })
+        }
+      />
+    );
+  }
   if (["tasks", "portal-forms", "file-requests", "content"].includes(section)) {
     return (
       <PortalAdminSection
