@@ -1392,6 +1392,7 @@ function ResultsRows({
   readonly generate: () => void;
   readonly refresh: () => Promise<unknown>;
 }) {
+  const spotlight = spotlightReview(row.humanReviews);
   return (
     <>
       <TableRow className="h-10">
@@ -1413,22 +1414,7 @@ function ResultsRows({
         </TableCell>
         {view.configuration.criteria.map((criterion) => (
           <TableCell key={criterion.id} className="text-xs">
-            {Array.from(
-              new Set(
-                row.humanReviews.flatMap((review) =>
-                  review.answers.flatMap((answer) =>
-                    answer.criterionId === criterion.id
-                      ? [
-                          answer.numericValue?.toString() ??
-                            answer.optionValue ??
-                            answer.textValue ??
-                            "—",
-                        ]
-                      : [],
-                  ),
-                ),
-              ),
-            ).join("; ") || "—"}
+            <CriterionSummary criterion={criterion} reviews={row.humanReviews} />
           </TableCell>
         ))}
         <TableCell className="font-medium tabular-nums">
@@ -1441,80 +1427,230 @@ function ResultsRows({
       </TableRow>
       <TableRow>
         <TableCell colSpan={view.configuration.criteria.length + 5} className="bg-muted/10 p-3">
-          <div className="grid gap-3 xl:grid-cols-2">
-            <div className="rounded-lg border bg-background p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold">Human reviews · {row.humanReviews.length}</p>
-              </div>
-              {row.humanReviews.length === 0 ? (
+          <div className="grid items-start gap-3 xl:grid-cols-2">
+            <div className="min-w-0 rounded-lg border bg-background p-3">
+              <p className="text-xs font-semibold">Human reviews · {row.humanReviews.length}</p>
+              {spotlight === undefined ? (
                 <p className="mt-2 text-xs text-muted-foreground">No human reviews assigned.</p>
               ) : (
-                <div className="mt-2 divide-y">
-                  {row.humanReviews.map((review) => (
-                    <div key={review.assignment.id} className="py-2 first:pt-0 last:pb-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">{review.reviewerName}</span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {review.assignment.status}
-                        </Badge>
-                      </div>
-                      {review.assignment.recusalReason === null ? null : (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Recusal: {review.assignment.recusalReason}
-                        </p>
-                      )}
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {review.answers
-                          .map(
-                            (answer) =>
-                              `${answer.label}: ${answer.numericValue ?? answer.optionValue ?? answer.textValue ?? "—"}`,
-                          )
-                          .join(" · ")}
-                      </p>
-                    </div>
-                  ))}
+                <div className="mt-2">
+                  <ReviewEntry review={spotlight} clampComments />
+                  {row.humanReviews.length > 1 ? <AllReviewsDialog row={row} /> : null}
                 </div>
               )}
             </div>
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <div className="flex items-center gap-2">
-                <BotIcon className="size-4 text-primary" />
-                <p className="text-xs font-semibold">AI first-pass</p>
-                <Badge className="bg-primary text-primary-foreground">AI</Badge>
-                {row.aiResult === null ? (
+            {row.aiResult === null ? (
+              <div className="flex min-w-0 items-center gap-2 rounded-lg border border-dashed px-3 py-2">
+                <BotIcon className="size-4 shrink-0 text-muted-foreground" />
+                <p className="shrink-0 text-xs font-medium">AI first-pass</p>
+                {aiError === undefined ? (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {aiConfigured ? "Not generated yet" : "Anthropic key not configured"}
+                  </p>
+                ) : (
+                  <p
+                    className="truncate text-xs font-medium text-destructive"
+                    role="alert"
+                    title={aiError}
+                  >
+                    {aiError}
+                  </p>
+                )}
+                {aiConfigured ? (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="pressable ml-auto"
-                    disabled={generating || !aiConfigured}
-                    title={aiConfigured ? undefined : "Anthropic key not configured"}
+                    className="pressable ml-auto shrink-0"
+                    disabled={generating}
                     onClick={generate}
                   >
                     <SparklesIcon /> {generating ? "Generating…" : "Run AI review"}
                   </Button>
                 ) : null}
               </div>
-              {row.aiResult === null ? (
-                !aiConfigured ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Anthropic key not configured</p>
-                ) : aiError === undefined ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    No AI review generated. A configured Anthropic key is required; failures are
-                    shown without fabricated output.
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs font-medium text-destructive" role="alert">
-                    {aiError}
-                  </p>
-                )
-              ) : (
+            ) : (
+              <div className="min-w-0 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="flex items-center gap-2">
+                  <BotIcon className="size-4 text-primary" />
+                  <p className="text-xs font-semibold">AI first-pass</p>
+                  <Badge className="bg-primary text-primary-foreground">AI</Badge>
+                </div>
                 <AiResult eventId={eventId} row={row} refresh={refresh} />
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </TableCell>
       </TableRow>
     </>
+  );
+}
+
+type HumanReview = EvaluationResultRow["humanReviews"][number];
+type ResultCriterion = ReviewRoundAdminView["configuration"]["criteria"][number];
+
+// The review worth surfacing without a click: the most recently completed
+// one, falling back to whichever assignment exists when none are done yet.
+const byRecency = (reviews: ReadonlyArray<HumanReview>): ReadonlyArray<HumanReview> =>
+  [...reviews].sort((a, b) => completedTime(b) - completedTime(a));
+const spotlightReview = (reviews: ReadonlyArray<HumanReview>): HumanReview | undefined =>
+  byRecency(reviews)[0];
+const completedTime = (review: HumanReview) =>
+  review.assignment.completedAt === null ? -1 : new Date(review.assignment.completedAt).getTime();
+
+const formatMean = (values: ReadonlyArray<number>) => {
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Number.isInteger(mean) ? mean.toString() : mean.toFixed(1);
+};
+
+// One glanceable value per cell: numeric criteria aggregate to a mean,
+// dropdowns collapse when unanimous, and free text never dumps into the
+// table — a single answer truncates, several become a count.
+function CriterionSummary({
+  criterion,
+  reviews,
+}: {
+  readonly criterion: ResultCriterion;
+  readonly reviews: ReadonlyArray<HumanReview>;
+}) {
+  const answers = reviews.flatMap((review) =>
+    review.answers.filter((answer) => answer.criterionId === criterion.id),
+  );
+  if (criterion.type === "numeric") {
+    const values = answers.flatMap((answer) =>
+      answer.numericValue === null ? [] : [answer.numericValue],
+    );
+    if (values.length === 0) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className="tabular-nums">
+        {formatMean(values)}
+        {values.length > 1 ? (
+          <span className="text-muted-foreground"> · {values.length}</span>
+        ) : null}
+      </span>
+    );
+  }
+  const values = answers.flatMap((answer) => {
+    const value = answer.optionValue ?? answer.textValue;
+    return value === null || value.trim().length === 0 ? [] : [value];
+  });
+  if (values.length === 0) return <span className="text-muted-foreground">—</span>;
+  if (criterion.type === "dropdown") {
+    // Tally in the criterion's own option order: "2 Accept · 1 Maybe".
+    const counts = new Map<string, number>(values.map((value) => [value, 0]));
+    for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+    const ordered = [
+      ...criterion.options.filter((option) => counts.has(option)),
+      ...[...counts.keys()].filter((value) => !criterion.options.includes(value)),
+    ];
+    return (
+      <span className="flex flex-wrap gap-x-2">
+        {ordered.map((option) => (
+          <span key={option} className="whitespace-nowrap">
+            {values.length > 1 ? (
+              <span className="text-muted-foreground tabular-nums">{counts.get(option)} </span>
+            ) : null}
+            {option}
+          </span>
+        ))}
+      </span>
+    );
+  }
+  if (values.length === 1) {
+    return (
+      <span className="block max-w-48 truncate" title={values[0]}>
+        {values[0]}
+      </span>
+    );
+  }
+  return (
+    <span className="text-muted-foreground">
+      {values.length} {plural(values.length, "answer")}
+    </span>
+  );
+}
+
+function ReviewEntry({
+  review,
+  clampComments,
+}: {
+  readonly review: HumanReview;
+  readonly clampComments: boolean;
+}) {
+  const scored = review.answers.filter(
+    (answer) => answer.numericValue !== null || answer.optionValue !== null,
+  );
+  const comments = review.answers.filter(
+    (answer) =>
+      answer.numericValue === null &&
+      answer.optionValue === null &&
+      answer.textValue !== null &&
+      answer.textValue.trim().length > 0,
+  );
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-2">
+        <span className="truncate text-xs font-medium">{review.reviewerName}</span>
+        <Badge variant="outline" className="text-[10px]">
+          {review.assignment.status}
+        </Badge>
+      </div>
+      {review.assignment.recusalReason === null ? null : (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Recusal: {review.assignment.recusalReason}
+        </p>
+      )}
+      {scored.length === 0 ? null : (
+        <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+          {scored.map((answer) => (
+            <span key={answer.criterionId}>
+              {answer.label}{" "}
+              <span className="font-medium text-foreground tabular-nums">
+                {answer.numericValue ?? answer.optionValue}
+              </span>
+            </span>
+          ))}
+        </p>
+      )}
+      {comments.map((answer) => (
+        <p
+          key={answer.criterionId}
+          className={`mt-1.5 text-xs leading-5 break-words text-muted-foreground${clampComments ? " line-clamp-2" : ""}`}
+        >
+          <span className="font-medium text-foreground">{answer.label}: </span>
+          {answer.textValue}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function AllReviewsDialog({ row }: { readonly row: EvaluationResultRow }) {
+  const [open, setOpen] = useState(false);
+  const more = row.humanReviews.length - 1;
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="pressable mt-1.5 h-6 px-1.5 text-xs text-muted-foreground"
+        onClick={() => setOpen(true)}
+      >
+        +{more} more {plural(more, "review")}
+      </Button>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Reviews · {row.submission.code}</DialogTitle>
+          <DialogDescription>{row.submission.title}</DialogDescription>
+        </DialogHeader>
+        <div className="-mx-1 max-h-[60vh] divide-y overflow-y-auto px-1">
+          {byRecency(row.humanReviews).map((review) => (
+            <div key={review.assignment.id} className="py-3 first:pt-0 last:pb-0">
+              <ReviewEntry review={review} clampComments={false} />
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

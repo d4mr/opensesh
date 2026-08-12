@@ -404,3 +404,18 @@ morning deploy — everything here ships in the next deploy.
   menu carries Open contact and a Move to submenu (current stage disabled, semantic status
   labels), preserving the keyboard/no-drag path; the grip's keyboard drag (Enter → arrows →
   Enter) still works and was used to verify the full move + toast both directions.
+- Aug 12 — Evaluation Results tab rework (owner finding from prod testing: "very badly broken,
+  overflows a lot… give it a spotlight… what would linear do"): result rows previously joined
+  every review's raw answers into the criterion cells (free-text comments dumped whole into
+  table cells) and the detail row listed every human review inline. Criterion cells are now
+  glanceable summaries — numeric criteria show the mean with reviewer count ("4.3 · 3"),
+  dropdowns show a tally in option order ("2 Accept · 1 Maybe"), free text shows one truncated
+  answer or "N answers", never the full text. The detail row spotlights ONE review — the most
+  recently completed (fallback: any assignment), comments line-clamped to 2 — with a
+  "+N more reviews" affordance opening a dialog listing all reviews newest-first with full
+  comments, recusal reasons, and pending/recused status. The AI first-pass panel collapses to
+  a slim single-line strip (icon · label · state · Run button) until a result exists; the full
+  bordered panel with override form only renders for real AI output. Verified in an isolated
+  worktree (main tree was mid-edit by the concurrent OpenAPI-schemas session) against a local
+  fixture of 5 reviewers on one submission (3 completed with long comments, 1 pending,
+  1 recused) plus a single-review and zero-review case; DB reseeded to pristine after.
