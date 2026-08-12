@@ -25,7 +25,7 @@ This is a sealed evaluation run.
 | --- | --- | --- |
 | Organizer | Jordan Alvarez — `sbek-organizer+r03-20260813-001@example.com` | Created in Round 03 |
 | Speaker 1 | Priya Raman — `sbek-speaker+r03-20260813-001@example.com` | Created in Round 03 |
-| Speaker 2 | Marcus Chen — `sbek-speaker2+r03-20260813-001@example.com` | Pending |
+| Speaker 2 | Marcus Okafor — `sbek-speaker2+r03-20260813-001@example.com` | Added as a Round 03 co-presenter |
 | Reviewer | Sam Whitfield — `sbek-reviewer+r03-20260813-001@example.com` | Created in Round 03 |
 | Attendee | Alex Attendee — `alex.attendee+r03-20260813-001@example.com` | Pending |
 | Organization | `DevFlow Eval R03 20260813-001` | Created in Round 03 |
@@ -54,7 +54,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | CFP-S2 | Speaker drafts, submits, and edits proposals | Complete | `019`–`032`; new submissions `SESS-1` and `SESS-2` |
 | CFP-S3 | Organizer assigns a reviewer; reviewer scores | Complete | `033`–`039`; round `6u-T1pevz5n35zzKKElXH`, only `SESS-1` assigned |
 | CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Complete | `040`–`052`; accepted session created, both decision emails logged, public CFP closed |
-| ABS-S1 | Speaker seeds submissions with a co-author | Pending | — |
+| ABS-S1 | Speaker seeds submissions with a co-author | Complete | `053`–`057`; Marcus persisted as Co-presenter, three proposals visible |
 | ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Pending | — |
 | ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Pending | — |
 | SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Pending | — |
@@ -133,6 +133,17 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `040-cfp-s4-organizer-sees-review.png` through `052-cfp-s4-speaker-editing-locked.png`. Every file was written and size-verified in this run.
 
+### ABS-S1 — Speaker seeds submissions with a co-author
+
+- As required by the chained precondition, Jordan reopened the same Round 03 CFP by restoring its close date to Apr 30, 2027, then signed out. This reused only Round 03 state.
+- Signed in as Priya and edited the existing accepted `SESS-1` rather than duplicating it. Added Marcus Okafor at the Round 03-only email `sbek-speaker2+r03-20260813-001@example.com`, selected the explicit `Co-presenter` role, and entered his fixture biography.
+- Captured the complete two-speaker editor before save. After `Save speakers`, the UI showed `Speakers saved` but briefly collapsed back to `Speakers (1)`. A clean reload revealed `Speakers (2)` with Marcus and every entered field intact; persistence succeeded and the immediate post-save UI was stale.
+- Reused existing `SESS-2` as-is and submitted only the guaranteed-new third proposal, `SESS-3 Docs That Answer Back: Retrieval-Grounded Documentation Sites`, with Lightning Talk, Developer Experience, Beginner, fixture abstract, and a required takeaway.
+- Priya's dashboard showed exactly three proposals and their exact statuses: `SESS-1 accepted`, `SESS-2 declined`, and `SESS-3 pending`.
+- Reopened `SESS-1` and captured both participants with role labels: Priya `Primary speaker`, Marcus `Co-presenter`; Marcus's Round 03 email and full biography persisted.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `053-abs-s1-co-speaker-before-save.png` through `057-abs-s1-co-speaker-detail.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -143,6 +154,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 6. **Review administration has the same stale-success ambiguity.** Immediately after creating Sam, the reviewer count briefly remained zero before updating. Saving the review round also appeared to require a second click because the first click provided no immediate transition. The final state was correct and no duplicate reviewer or round was created, but the delayed feedback invites retries.
 7. **Decision email subjects are not editable.** The acceptance composer exposes only a Personal message field; its generated subject is fixed. The fixture acceptance body could be included, but the required fixture subject could not be used exactly. Sending, notification indicators, activity, and email history otherwise worked.
 8. **Publication approval state did not match the unchecked decision control.** `Also approve content for publication` was deliberately left unchecked during acceptance, but the resulting session immediately displayed `Approved` / `Content approved for publication`. Either the checkbox is not authoritative or another undocumented approval path took precedence; the UI gives the organizer no explanation.
+9. **Saving co-presenters momentarily renders stale participant state.** The save toast said `Speakers saved`, but the tab immediately changed from `Speakers (2)` to `Speakers (1)` and displayed only Priya. A clean reload restored both persisted participants. This false-negative success state is highly likely to make an evaluator retry or assume data loss.
 
 ## Score
 
