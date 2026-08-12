@@ -12,6 +12,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
     "class-variance-authority": "^0.7.1",
     "cnfast": "^0.1.0",
     "fumadocs-core": "16.14.3",
