@@ -375,7 +375,11 @@ export const overrideAiReview = createServerFn({ method: "POST" })
           );
         }
         const user = yield* getCurrentUser;
-        return yield* reviews.overrideAiResult(result.id, data.score, reason, user.userId);
+        return yield* reviews.overrideAiResult(result.id, data.score, reason, {
+          kind: "user",
+          userId: user.userId,
+          name: user.name,
+        });
       }),
       { require: "staff" },
     ),

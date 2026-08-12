@@ -23,6 +23,7 @@ import {
 } from "../columns";
 import { events, formats, levels, rooms, tags, tracks } from "./core";
 import { users } from "./identity";
+import { apiKeys } from "./integrations";
 import { forms } from "./forms";
 
 export const contacts = pgTable(
@@ -132,6 +133,9 @@ export const submissionEditHistory = pgTable(
     authorUserId: text("author_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    authorApiKeyId: text("author_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
+    }),
     authorName: text("author_name").notNull(),
     changedFields: jsonb("changed_fields").$type<ReadonlyArray<string>>().notNull(),
     previousValues: jsonb("previous_values")
@@ -142,6 +146,9 @@ export const submissionEditHistory = pgTable(
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedByUserId: text("reviewed_by_user_id").references(() => users.id, {
       onDelete: "set null",
+    }),
+    reviewedByApiKeyId: text("reviewed_by_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
     }),
     ...timestamps,
   },
@@ -161,6 +168,9 @@ export const contactEditHistory = pgTable(
     authorUserId: text("author_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    authorApiKeyId: text("author_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
+    }),
     authorName: text("author_name").notNull(),
     changedFields: jsonb("changed_fields").$type<ReadonlyArray<string>>().notNull(),
     previousValues: jsonb("previous_values")
@@ -171,6 +181,9 @@ export const contactEditHistory = pgTable(
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedByUserId: text("reviewed_by_user_id").references(() => users.id, {
       onDelete: "set null",
+    }),
+    reviewedByApiKeyId: text("reviewed_by_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
     }),
     ...timestamps,
   },

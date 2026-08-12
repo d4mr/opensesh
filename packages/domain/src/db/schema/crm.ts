@@ -4,6 +4,7 @@ import type { Schema } from "effect";
 import { crmSemanticStatus, id, timestamps } from "../columns";
 import { events } from "./core";
 import { organizations, users } from "./identity";
+import { apiKeys } from "./integrations";
 import { contacts } from "./submissions";
 
 export const organizationContacts = pgTable(
@@ -71,9 +72,10 @@ export const organizationContactNotes = pgTable(
       .notNull()
       .references(() => organizationContacts.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
-    authorUserId: text("author_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+    authorUserId: text("author_user_id").references(() => users.id, { onDelete: "restrict" }),
+    authorApiKeyId: text("author_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -168,9 +170,10 @@ export const crmStageHistory = pgTable(
     toStageId: text("to_stage_id")
       .notNull()
       .references(() => crmPipelineStages.id, { onDelete: "restrict" }),
-    actorUserId: text("actor_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+    actorUserId: text("actor_user_id").references(() => users.id, { onDelete: "restrict" }),
+    actorApiKeyId: text("actor_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .$defaultFn(() => new Date()),

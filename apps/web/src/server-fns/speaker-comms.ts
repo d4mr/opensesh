@@ -61,7 +61,7 @@ export const saveAdminSpeaker = createServerFn({ method: "POST" })
         const communications = yield* SpeakerComms;
         return yield* communications.saveSpeaker(
           { ...data, firstName, lastName, email: data.email.trim().toLowerCase() },
-          { userId: user.userId, name: user.name },
+          { kind: "user", userId: user.userId, name: user.name },
         );
       }),
       { require: "staff" },
@@ -226,7 +226,7 @@ export const sendSpeakerCampaign = createServerFn({ method: "POST" })
         const mail = yield* Mail;
         const queued = yield* communications.createCampaign({
           ...data,
-          createdByUserId: user.userId,
+          actor: { kind: "user", userId: user.userId, name: user.name },
           portalOrigin: origin,
         });
         const results = yield* Effect.forEach(queued.logIds, (logId) => mail.sendQueued(logId), {

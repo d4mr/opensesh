@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c5ded350-02c8-412f-a05a-57cc6f47dbdc",
+  "id": "e3491a01-fa99-45f9-a9b0-a4f924e9e2f8",
   "prevIds": [
-    "8137de03-3e5f-49b8-afbe-660c8df42a01"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -2579,12 +2579,25 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "actor_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "crm_stage_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_api_key_id",
       "entityType": "columns",
       "schema": "public",
       "table": "crm_stage_history"
@@ -2748,12 +2761,25 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "author_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organization_contact_notes"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "author_api_key_id",
       "entityType": "columns",
       "schema": "public",
       "table": "organization_contact_notes"
@@ -3346,12 +3372,25 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
       "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_campaigns"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_api_key_id",
       "entityType": "columns",
       "schema": "public",
       "table": "email_campaigns"
@@ -6113,6 +6152,19 @@
       "table": "ai_review_results"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "overridden_by_api_key_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_review_results"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -6817,6 +6869,19 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "author_api_key_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -6901,6 +6966,19 @@
       "generated": null,
       "identity": null,
       "name": "reviewed_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reviewed_by_api_key_id",
       "entityType": "columns",
       "schema": "public",
       "table": "contact_edit_history"
@@ -7467,6 +7545,19 @@
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "author_api_key_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -7551,6 +7642,19 @@
       "generated": null,
       "identity": null,
       "name": "reviewed_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submission_edit_history"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reviewed_by_api_key_id",
       "entityType": "columns",
       "schema": "public",
       "table": "submission_edit_history"
@@ -10088,6 +10192,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "actor_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "crm_stage_history_actor_api_key_id_api_keys_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "crm_stage_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "organization_contact_id"
       ],
       "schemaTo": "public",
@@ -10166,6 +10287,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "organization_contact_notes_author_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "organization_contact_notes"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "author_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "organization_contact_notes_author_api_key_id_api_keys_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "organization_contact_notes"
@@ -10336,6 +10474,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "email_campaigns_created_by_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "email_campaigns"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "email_campaigns_created_by_api_key_id_api_keys_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "email_campaigns"
@@ -10997,8 +11152,25 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
+      "onDelete": "RESTRICT",
       "name": "ai_review_results_overridden_by_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ai_review_results"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "overridden_by_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ai_review_results_overridden_by_api_key_id_api_keys_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "ai_review_results"
@@ -11210,6 +11382,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "author_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "contact_edit_history_author_api_key_id_api_keys_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "reviewed_by_user_id"
       ],
       "schemaTo": "public",
@@ -11220,6 +11409,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "contact_edit_history_reviewed_by_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "contact_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "reviewed_by_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "contact_edit_history_reviewed_by_api_key_id_api_keys_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "contact_edit_history"
@@ -11329,6 +11535,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "author_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "submission_edit_history_author_api_key_id_api_keys_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "submission_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "reviewed_by_user_id"
       ],
       "schemaTo": "public",
@@ -11339,6 +11562,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "submission_edit_history_reviewed_by_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "submission_edit_history"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "reviewed_by_api_key_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "api_keys",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "submission_edit_history_reviewed_by_api_key_id_api_keys_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "submission_edit_history"

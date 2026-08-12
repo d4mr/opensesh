@@ -37,7 +37,8 @@ export const OrganizationContactNote = Schema.Struct({
   id: Schema.String,
   organizationContactId: Schema.String,
   body: Schema.String,
-  authorUserId: Schema.String,
+  authorUserId: NullableString,
+  authorApiKeyId: NullableString,
   createdAt: Schema.Date,
 });
 export type OrganizationContactNote = typeof OrganizationContactNote.Type;
@@ -72,7 +73,8 @@ export const CrmStageHistory = Schema.Struct({
   cardId: Schema.String,
   fromStageId: NullableString,
   toStageId: Schema.String,
-  actorUserId: Schema.String,
+  actorUserId: NullableString,
+  actorApiKeyId: NullableString,
   createdAt: Schema.Date,
 });
 export type CrmStageHistory = typeof CrmStageHistory.Type;

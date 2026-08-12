@@ -1,5 +1,5 @@
 import { ReviewCriterionSave, type ReviewCriterionSave as CriterionType } from "@opensesh/domain";
-import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
+import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Mail } from "@opensesh/domain/server/mail";
 import { Reviews } from "@opensesh/domain/server/repos";
@@ -377,13 +377,11 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
           return yield* Effect.fail(new InvalidInput({ message: "Enter a valid override score" }));
         }
         const reviews = yield* Reviews;
-        const viewer = yield* getCurrentUser;
-        return yield* reviews.overrideAiResult(
-          body.resultId,
-          body.score,
-          body.reason,
-          viewer.userId,
-        );
+        return yield* reviews.overrideAiResult(body.resultId, body.score, body.reason, {
+          kind: "api_key",
+          apiKeyId: context.principal.keyId,
+          name: `API key: ${context.principal.keyName}`,
+        });
       }),
   }),
 ];

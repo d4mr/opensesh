@@ -151,6 +151,7 @@ describe("review domain", () => {
       overriddenScore: null,
       overrideReason: null,
       overriddenByUserId: null,
+      overriddenByApiKeyId: null,
       overriddenAt: null,
       createdAt: now,
       updatedAt: now,

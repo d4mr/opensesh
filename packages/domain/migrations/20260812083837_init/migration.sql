@@ -238,7 +238,8 @@ CREATE TABLE "crm_stage_history" (
 	"card_id" text NOT NULL,
 	"from_stage_id" text,
 	"to_stage_id" text NOT NULL,
-	"actor_user_id" text NOT NULL,
+	"actor_user_id" text,
+	"actor_api_key_id" text,
 	"created_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
@@ -258,7 +259,8 @@ CREATE TABLE "organization_contact_notes" (
 	"id" text PRIMARY KEY,
 	"organization_contact_id" text NOT NULL,
 	"body" text NOT NULL,
-	"author_user_id" text NOT NULL,
+	"author_user_id" text,
+	"author_api_key_id" text,
 	"created_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
@@ -323,7 +325,8 @@ CREATE TABLE "email_campaigns" (
 	"body_snapshot" text NOT NULL,
 	"recipient_filter" jsonb DEFAULT '{}' NOT NULL,
 	"status" "email_campaign_status" DEFAULT 'draft'::"email_campaign_status" NOT NULL,
-	"created_by_user_id" text NOT NULL,
+	"created_by_user_id" text,
+	"created_by_api_key_id" text,
 	"sent_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
@@ -414,6 +417,31 @@ CREATE TABLE "users" (
 	"image" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "api_keys" (
+	"id" text PRIMARY KEY,
+	"organization_id" text NOT NULL,
+	"name" text NOT NULL,
+	"key_hash" text NOT NULL UNIQUE,
+	"key_prefix" text NOT NULL,
+	"created_by_user_id" text NOT NULL,
+	"last_used_at" timestamp with time zone,
+	"revoked_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "event_integrations" (
+	"id" text PRIMARY KEY,
+	"event_id" text NOT NULL,
+	"provider" text NOT NULL,
+	"config" jsonb DEFAULT '{}' NOT NULL,
+	"last_synced_at" timestamp with time zone,
+	"last_result" jsonb,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "event_integrations_event_provider_unique" UNIQUE("event_id","provider")
 );
 --> statement-breakpoint
 CREATE TABLE "email_log" (
@@ -577,6 +605,7 @@ CREATE TABLE "ai_review_results" (
 	"overridden_score" double precision,
 	"override_reason" text,
 	"overridden_by_user_id" text,
+	"overridden_by_api_key_id" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"overridden_at" timestamp with time zone,
 	"updated_at" timestamp with time zone NOT NULL,
@@ -655,6 +684,7 @@ CREATE TABLE "contact_edit_history" (
 	"contact_id" text NOT NULL,
 	"author_contact_id" text,
 	"author_user_id" text,
+	"author_api_key_id" text,
 	"author_name" text NOT NULL,
 	"changed_fields" jsonb NOT NULL,
 	"previous_values" jsonb NOT NULL,
@@ -662,6 +692,7 @@ CREATE TABLE "contact_edit_history" (
 	"approval_status" "content_approval_status" NOT NULL,
 	"reviewed_at" timestamp with time zone,
 	"reviewed_by_user_id" text,
+	"reviewed_by_api_key_id" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
 );
@@ -716,6 +747,7 @@ CREATE TABLE "submission_edit_history" (
 	"submission_id" text NOT NULL,
 	"author_contact_id" text,
 	"author_user_id" text,
+	"author_api_key_id" text,
 	"author_name" text NOT NULL,
 	"changed_fields" jsonb NOT NULL,
 	"previous_values" jsonb NOT NULL,
@@ -723,6 +755,7 @@ CREATE TABLE "submission_edit_history" (
 	"approval_status" "content_approval_status" NOT NULL,
 	"reviewed_at" timestamp with time zone,
 	"reviewed_by_user_id" text,
+	"reviewed_by_api_key_id" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
 );
@@ -815,6 +848,7 @@ CREATE INDEX "email_templates_event_idx" ON "email_templates" ("event_id");--> s
 CREATE INDEX "reminder_rules_event_idx" ON "reminder_rules" ("event_id");--> statement-breakpoint
 CREATE INDEX "form_fields_form_position_idx" ON "form_fields" ("form_id","position");--> statement-breakpoint
 CREATE INDEX "forms_event_idx" ON "forms" ("event_id");--> statement-breakpoint
+CREATE INDEX "api_keys_org_idx" ON "api_keys" ("organization_id");--> statement-breakpoint
 CREATE INDEX "email_log_event_idx" ON "email_log" ("event_id");--> statement-breakpoint
 CREATE INDEX "email_log_contact_idx" ON "email_log" ("contact_id");--> statement-breakpoint
 CREATE INDEX "email_log_submission_idx" ON "email_log" ("submission_id");--> statement-breakpoint
@@ -878,11 +912,13 @@ ALTER TABLE "crm_stage_history" ADD CONSTRAINT "crm_stage_history_card_id_crm_pi
 ALTER TABLE "crm_stage_history" ADD CONSTRAINT "crm_stage_history_from_stage_id_crm_pipeline_stages_id_fkey" FOREIGN KEY ("from_stage_id") REFERENCES "crm_pipeline_stages"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "crm_stage_history" ADD CONSTRAINT "crm_stage_history_to_stage_id_crm_pipeline_stages_id_fkey" FOREIGN KEY ("to_stage_id") REFERENCES "crm_pipeline_stages"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "crm_stage_history" ADD CONSTRAINT "crm_stage_history_actor_user_id_users_id_fkey" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "crm_stage_history" ADD CONSTRAINT "crm_stage_history_actor_api_key_id_api_keys_id_fkey" FOREIGN KEY ("actor_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "organization_contact_events" ADD CONSTRAINT "organization_contact_events_7PwM5Eg6a5P9_fkey" FOREIGN KEY ("organization_contact_id") REFERENCES "organization_contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_contact_events" ADD CONSTRAINT "organization_contact_events_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_contact_events" ADD CONSTRAINT "organization_contact_events_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_contact_notes" ADD CONSTRAINT "organization_contact_notes_syNebiMxxRiH_fkey" FOREIGN KEY ("organization_contact_id") REFERENCES "organization_contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_contact_notes" ADD CONSTRAINT "organization_contact_notes_author_user_id_users_id_fkey" FOREIGN KEY ("author_user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "organization_contact_notes" ADD CONSTRAINT "organization_contact_notes_author_api_key_id_api_keys_id_fkey" FOREIGN KEY ("author_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "organization_contact_tags" ADD CONSTRAINT "organization_contact_tags_IrwvbPq77IO9_fkey" FOREIGN KEY ("organization_contact_id") REFERENCES "organization_contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_contact_tags" ADD CONSTRAINT "organization_contact_tags_tag_id_organization_tags_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "organization_tags"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_contacts" ADD CONSTRAINT "organization_contacts_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -893,10 +929,14 @@ ALTER TABLE "email_campaign_recipients" ADD CONSTRAINT "email_campaign_recipient
 ALTER TABLE "email_campaigns" ADD CONSTRAINT "email_campaigns_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_campaigns" ADD CONSTRAINT "email_campaigns_template_id_email_templates_id_fkey" FOREIGN KEY ("template_id") REFERENCES "email_templates"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "email_campaigns" ADD CONSTRAINT "email_campaigns_created_by_user_id_users_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "email_campaigns" ADD CONSTRAINT "email_campaigns_created_by_api_key_id_api_keys_id_fkey" FOREIGN KEY ("created_by_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "email_templates" ADD CONSTRAINT "email_templates_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reminder_rules" ADD CONSTRAINT "reminder_rules_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "form_fields" ADD CONSTRAINT "form_fields_form_id_forms_id_fkey" FOREIGN KEY ("form_id") REFERENCES "forms"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "forms" ADD CONSTRAINT "forms_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_created_by_user_id_users_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_integrations" ADD CONSTRAINT "event_integrations_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "email_log" ADD CONSTRAINT "email_log_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE SET NULL;--> statement-breakpoint
@@ -928,7 +968,8 @@ ALTER TABLE "task_templates" ADD CONSTRAINT "task_templates_portal_form_id_porta
 ALTER TABLE "task_templates" ADD CONSTRAINT "task_templates_file_request_id_file_requests_id_fkey" FOREIGN KEY ("file_request_id") REFERENCES "file_requests"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "ai_review_results" ADD CONSTRAINT "ai_review_results_round_id_review_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "review_rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "ai_review_results" ADD CONSTRAINT "ai_review_results_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "ai_review_results" ADD CONSTRAINT "ai_review_results_overridden_by_user_id_users_id_fkey" FOREIGN KEY ("overridden_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "ai_review_results" ADD CONSTRAINT "ai_review_results_overridden_by_user_id_users_id_fkey" FOREIGN KEY ("overridden_by_user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "ai_review_results" ADD CONSTRAINT "ai_review_results_overridden_by_api_key_id_api_keys_id_fkey" FOREIGN KEY ("overridden_by_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "review_answers" ADD CONSTRAINT "review_answers_assignment_id_review_assignments_id_fkey" FOREIGN KEY ("assignment_id") REFERENCES "review_assignments"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "review_answers" ADD CONSTRAINT "review_answers_criterion_id_review_criteria_id_fkey" FOREIGN KEY ("criterion_id") REFERENCES "review_criteria"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "review_assignments" ADD CONSTRAINT "review_assignments_round_id_review_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "review_rounds"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -941,14 +982,18 @@ ALTER TABLE "review_rounds" ADD CONSTRAINT "review_rounds_event_id_events_id_fke
 ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_author_contact_id_contacts_id_fkey" FOREIGN KEY ("author_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_author_user_id_users_id_fkey" FOREIGN KEY ("author_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_author_api_key_id_api_keys_id_fkey" FOREIGN KEY ("author_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_reviewed_by_user_id_users_id_fkey" FOREIGN KEY ("reviewed_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "contact_edit_history" ADD CONSTRAINT "contact_edit_history_reviewed_by_api_key_id_api_keys_id_fkey" FOREIGN KEY ("reviewed_by_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "contacts" ADD CONSTRAINT "contacts_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_reviewer_id_users_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_author_contact_id_contacts_id_fkey" FOREIGN KEY ("author_contact_id") REFERENCES "contacts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_author_user_id_users_id_fkey" FOREIGN KEY ("author_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_author_api_key_id_api_keys_id_fkey" FOREIGN KEY ("author_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_reviewed_by_user_id_users_id_fkey" FOREIGN KEY ("reviewed_by_user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "submission_edit_history" ADD CONSTRAINT "submission_edit_history_reviewed_by_api_key_id_api_keys_id_fkey" FOREIGN KEY ("reviewed_by_api_key_id") REFERENCES "api_keys"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "submission_participants" ADD CONSTRAINT "submission_participants_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_participants" ADD CONSTRAINT "submission_participants_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "submission_tags" ADD CONSTRAINT "submission_tags_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint

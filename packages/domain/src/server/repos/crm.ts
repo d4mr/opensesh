@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
+  apiKeys,
   contacts,
   crmPipelineCards,
   crmPipelineStages,
@@ -64,6 +65,7 @@ import {
   type CrmSemanticStatus,
 } from "../schema/crm";
 import { decode, decodeFound, decodeMany, query } from "./shared";
+import type { AuditActor } from "../schema/common";
 
 type JsonObject = Readonly<Record<string, Schema.Json>>;
 
@@ -100,7 +102,7 @@ interface CrmService {
   readonly addNote: (
     organizationContactId: string,
     body: string,
-    authorUserId: string,
+    actor: AuditActor,
   ) => Effect.Effect<OrganizationContactNote, DbError>;
   readonly saveContact: (
     organizationId: string,
@@ -159,13 +161,14 @@ interface CrmService {
     organizationContactId: string,
     stageId: string,
     note: string | null,
-    actorUserId: string,
+    ownerUserId: string | null,
+    actor: AuditActor,
   ) => Effect.Effect<CrmPipelineCard, DbError | NotFound | InvalidPipelineMove>;
   readonly moveCard: (
     organizationId: string,
     cardId: string,
     toStageId: string,
-    actorUserId: string,
+    actor: AuditActor,
   ) => Effect.Effect<CrmPipelineCard, DbError | NotFound | InvalidPipelineMove>;
   readonly merge: (
     organizationId: string,
@@ -184,7 +187,7 @@ interface CrmService {
     readonly subject: string;
     readonly body: string;
     readonly recipientFilter: JsonObject;
-    readonly createdByUserId: string;
+    readonly actor: AuditActor;
     readonly organizationContactIds: ReadonlyArray<string>;
   }) => Effect.Effect<
     {
@@ -212,8 +215,10 @@ export const CrmLive = Layer.effect(
   Crm,
   Effect.gen(function* () {
     const { database } = yield* Db;
-    const noteAuthor = alias(users, "crm_note_author");
-    const historyActor = alias(users, "crm_history_actor");
+    const noteAuthorUser = alias(users, "crm_note_author_user");
+    const noteAuthorApiKey = alias(apiKeys, "crm_note_author_api_key");
+    const historyActorUser = alias(users, "crm_history_actor_user");
+    const historyActorApiKey = alias(apiKeys, "crm_history_actor_api_key");
     const fromStage = alias(crmPipelineStages, "crm_from_stage");
     const toStage = alias(crmPipelineStages, "crm_to_stage");
 
@@ -435,9 +440,20 @@ export const CrmLive = Layer.effect(
             ),
             query(database, "Could not load CRM contact notes", (db) =>
               db
-                .select({ note: organizationContactNotes, authorName: noteAuthor.name })
+                .select({
+                  note: organizationContactNotes,
+                  authorUserName: noteAuthorUser.name,
+                  authorApiKeyName: noteAuthorApiKey.name,
+                })
                 .from(organizationContactNotes)
-                .innerJoin(noteAuthor, eq(noteAuthor.id, organizationContactNotes.authorUserId))
+                .leftJoin(
+                  noteAuthorUser,
+                  eq(noteAuthorUser.id, organizationContactNotes.authorUserId),
+                )
+                .leftJoin(
+                  noteAuthorApiKey,
+                  eq(noteAuthorApiKey.id, organizationContactNotes.authorApiKeyId),
+                )
                 .where(eq(organizationContactNotes.organizationContactId, id))
                 .orderBy(desc(organizationContactNotes.createdAt))
                 .execute(),
@@ -456,13 +472,18 @@ export const CrmLive = Layer.effect(
                   history: crmStageHistory,
                   fromStageName: fromStage.name,
                   toStageName: toStage.name,
-                  actorName: historyActor.name,
+                  actorUserName: historyActorUser.name,
+                  actorApiKeyName: historyActorApiKey.name,
                 })
                 .from(crmStageHistory)
                 .innerJoin(crmPipelineCards, eq(crmPipelineCards.id, crmStageHistory.cardId))
                 .leftJoin(fromStage, eq(fromStage.id, crmStageHistory.fromStageId))
                 .innerJoin(toStage, eq(toStage.id, crmStageHistory.toStageId))
-                .innerJoin(historyActor, eq(historyActor.id, crmStageHistory.actorUserId))
+                .leftJoin(historyActorUser, eq(historyActorUser.id, crmStageHistory.actorUserId))
+                .leftJoin(
+                  historyActorApiKey,
+                  eq(historyActorApiKey.id, crmStageHistory.actorApiKeyId),
+                )
                 .where(eq(crmPipelineCards.organizationContactId, id))
                 .orderBy(desc(crmStageHistory.createdAt))
                 .execute(),
@@ -504,9 +525,25 @@ export const CrmLive = Layer.effect(
               contact: contactRows[0],
               events: linkedEvents,
               tags: tagRows.map((row) => row.tag),
-              notes: noteRows,
+              notes: noteRows.map((row) => ({
+                note: row.note,
+                authorName:
+                  row.authorUserName ??
+                  (row.authorApiKeyName === null
+                    ? "Unknown actor"
+                    : `API key: ${row.authorApiKeyName}`),
+              })),
               card: cardRows[0] ?? null,
-              stageHistory: historyRows,
+              stageHistory: historyRows.map((row) => ({
+                history: row.history,
+                fromStageName: row.fromStageName,
+                toStageName: row.toStageName,
+                actorName:
+                  row.actorUserName ??
+                  (row.actorApiKeyName === null
+                    ? "Unknown actor"
+                    : `API key: ${row.actorApiKeyName}`),
+              })),
             });
           }),
         ),
@@ -616,11 +653,16 @@ export const CrmLive = Layer.effect(
             }),
           ),
         ),
-      addNote: (organizationContactId, body, authorUserId) =>
+      addNote: (organizationContactId, body, actor) =>
         query(database, "Could not add CRM note", (db) =>
           db
             .insert(organizationContactNotes)
-            .values({ organizationContactId, body, authorUserId })
+            .values({
+              organizationContactId,
+              body,
+              authorUserId: actor.kind === "user" ? actor.userId : null,
+              authorApiKeyId: actor.kind === "api_key" ? actor.apiKeyId : null,
+            })
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(OrganizationContactNote, "CRM note", rows[0]))),
@@ -837,7 +879,7 @@ export const CrmLive = Layer.effect(
             }
           }),
         ).pipe(Effect.asVoid),
-      saveCard: (organizationId, organizationContactId, stageId, note, actorUserId) =>
+      saveCard: (organizationId, organizationContactId, stageId, note, ownerUserId, actor) =>
         query(database, "Could not save CRM card", (db) =>
           db.transaction(async (transaction) => {
             const [contact] = await transaction
@@ -877,7 +919,7 @@ export const CrmLive = Layer.effect(
                   organizationContactId,
                   stageId,
                   note,
-                  ownerUserId: actorUserId,
+                  ownerUserId,
                 })
                 .returning()
                 .execute();
@@ -888,7 +930,8 @@ export const CrmLive = Layer.effect(
                     cardId: created.id,
                     fromStageId: null,
                     toStageId: stageId,
-                    actorUserId,
+                    actorUserId: actor.kind === "user" ? actor.userId : null,
+                    actorApiKeyId: actor.kind === "api_key" ? actor.apiKeyId : null,
                     createdAt: now,
                   })
                   .execute();
@@ -909,7 +952,8 @@ export const CrmLive = Layer.effect(
                   cardId: existing.id,
                   fromStageId: existing.stageId,
                   toStageId: stageId,
-                  actorUserId,
+                  actorUserId: actor.kind === "user" ? actor.userId : null,
+                  actorApiKeyId: actor.kind === "api_key" ? actor.apiKeyId : null,
                   createdAt: now,
                 })
                 .execute();
@@ -924,7 +968,7 @@ export const CrmLive = Layer.effect(
               : decode(CrmPipelineCard, "CRM card", outcome.row),
           ),
         ),
-      moveCard: (organizationId, cardId, toStageId, actorUserId) =>
+      moveCard: (organizationId, cardId, toStageId, actor) =>
         query(database, "Could not move CRM card", (db) =>
           db.transaction(async (transaction) => {
             const [card] = await transaction
@@ -960,7 +1004,8 @@ export const CrmLive = Layer.effect(
                 cardId,
                 fromStageId: card.card.stageId,
                 toStageId,
-                actorUserId,
+                actorUserId: actor.kind === "user" ? actor.userId : null,
+                actorApiKeyId: actor.kind === "api_key" ? actor.apiKeyId : null,
                 createdAt: now,
               })
               .execute();
@@ -1240,7 +1285,8 @@ export const CrmLive = Layer.effect(
                 subjectSnapshot: input.subject,
                 bodySnapshot: input.body,
                 recipientFilter: input.recipientFilter,
-                createdByUserId: input.createdByUserId,
+                createdByUserId: input.actor.kind === "user" ? input.actor.userId : null,
+                createdByApiKeyId: input.actor.kind === "api_key" ? input.actor.apiKeyId : null,
               })
               .returning()
               .execute();

@@ -19,6 +19,7 @@ import {
 } from "../columns";
 import { eventMembers, events } from "./core";
 import { users } from "./identity";
+import { apiKeys } from "./integrations";
 import { submissions } from "./submissions";
 
 export const reviewRounds = pgTable(
@@ -153,7 +154,10 @@ export const aiReviewResults = pgTable(
     overriddenScore: doublePrecision("overridden_score"),
     overrideReason: text("override_reason"),
     overriddenByUserId: text("overridden_by_user_id").references(() => users.id, {
-      onDelete: "set null",
+      onDelete: "restrict",
+    }),
+    overriddenByApiKeyId: text("overridden_by_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
     }),
     createdAt: timestamps.createdAt,
     overriddenAt: timestamp("overridden_at", { withTimezone: true }),

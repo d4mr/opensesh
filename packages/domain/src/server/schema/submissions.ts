@@ -157,6 +157,7 @@ export const SubmissionEditHistory = Schema.Struct({
   submissionId: Schema.String,
   authorContactId: NullableString,
   authorUserId: NullableString,
+  authorApiKeyId: NullableString,
   authorName: Schema.String,
   changedFields: Schema.Array(Schema.String),
   previousValues: JsonObject,
@@ -164,6 +165,7 @@ export const SubmissionEditHistory = Schema.Struct({
   approvalStatus: ContentApprovalStatus,
   reviewedAt: NullableDate,
   reviewedByUserId: NullableString,
+  reviewedByApiKeyId: NullableString,
 });
 export type SubmissionEditHistory = typeof SubmissionEditHistory.Type;
 

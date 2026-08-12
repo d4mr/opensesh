@@ -121,7 +121,11 @@ export const addCrmNote = createServerFn({ method: "POST" })
         const { user, crm } = yield* requireCrm();
         yield* crm.contactDetailView(user.orgId, data.organizationContactId);
         const body = yield* requiredText(data.body, "Write a note before saving");
-        return yield* crm.addNote(data.organizationContactId, body, user.userId);
+        return yield* crm.addNote(data.organizationContactId, body, {
+          kind: "user",
+          userId: user.userId,
+          name: user.name,
+        });
       }),
       { require: "admin" },
     ),
@@ -248,6 +252,7 @@ export const saveCrmCard = createServerFn({ method: "POST" })
           data.stageId,
           data.note,
           user.userId,
+          { kind: "user", userId: user.userId, name: user.name },
         );
       }),
       { require: "admin" },
@@ -260,7 +265,11 @@ export const moveCrmCard = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const { user, crm } = yield* requireCrm();
-        return yield* crm.moveCard(user.orgId, data.cardId, data.toStageId, user.userId);
+        return yield* crm.moveCard(user.orgId, data.cardId, data.toStageId, {
+          kind: "user",
+          userId: user.userId,
+          name: user.name,
+        });
       }),
       { require: "admin" },
     ),
@@ -330,7 +339,7 @@ export const sendCrmCampaign = createServerFn({ method: "POST" })
             source: "crm",
             organizationContactIds: data.organizationContactIds,
           },
-          createdByUserId: user.userId,
+          actor: { kind: "user", userId: user.userId, name: user.name },
           organizationContactIds: data.organizationContactIds,
         });
         const campaign = yield* crm.sendCampaign(created.campaign.id);

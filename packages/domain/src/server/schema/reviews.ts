@@ -124,6 +124,7 @@ export const AiReviewResult = Schema.Struct({
   overriddenScore: NullableNumber,
   overrideReason: NullableString,
   overriddenByUserId: NullableString,
+  overriddenByApiKeyId: NullableString,
   overriddenAt: NullableDate,
 });
 export type AiReviewResult = typeof AiReviewResult.Type;

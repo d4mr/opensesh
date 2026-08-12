@@ -15,3 +15,7 @@ export const Text1000 = Schema.String.check(Schema.isMaxLength(1000));
 export const RichText5000 = Schema.String.check(Schema.isMaxLength(5000));
 export const Heading15 = Schema.String.check(Schema.isMaxLength(15));
 export const Score = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 5 }));
+
+export type AuditActor =
+  | { readonly kind: "user"; readonly userId: string; readonly name: string }
+  | { readonly kind: "api_key"; readonly apiKeyId: string; readonly name: string };

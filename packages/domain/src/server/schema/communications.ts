@@ -25,7 +25,8 @@ export const EmailCampaign = Schema.Struct({
   bodySnapshot: Schema.String,
   recipientFilter: JsonObject,
   status: EmailCampaignStatus,
-  createdByUserId: Schema.String,
+  createdByUserId: NullableString,
+  createdByApiKeyId: NullableString,
   sentAt: NullableDate,
 });
 export type EmailCampaign = typeof EmailCampaign.Type;

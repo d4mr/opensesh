@@ -19,6 +19,7 @@ import {
 } from "../columns";
 import { events } from "./core";
 import { users } from "./identity";
+import { apiKeys } from "./integrations";
 import { emailLog } from "./portal";
 import { contacts } from "./submissions";
 
@@ -56,9 +57,12 @@ export const emailCampaigns = pgTable(
       .notNull()
       .default({}),
     status: emailCampaignStatus("status").notNull().default("draft"),
-    createdByUserId: text("created_by_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    createdByApiKeyId: text("created_by_api_key_id").references(() => apiKeys.id, {
+      onDelete: "restrict",
+    }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     ...timestamps,
   },

@@ -17,6 +17,7 @@ import {
 } from "../../db/schema";
 import { Db } from "../db";
 import { type DbError, InvalidInput, type NotFound } from "../errors";
+import type { AuditActor } from "../schema/common";
 import {
   buildCampaignRecipientRows,
   CommunicationCenter,
@@ -36,7 +37,7 @@ type SpeakerInput = typeof SpeakerProfileMutationRequest.Type;
 interface SpeakerCommsService {
   readonly saveSpeaker: (
     input: SpeakerInput,
-    actor: { readonly userId: string; readonly name: string },
+    actor: AuditActor,
   ) => Effect.Effect<Contact, DbError | InvalidInput | NotFound>;
   readonly setWorkflowStatus: (
     eventId: string,
@@ -64,7 +65,7 @@ interface SpeakerCommsService {
     readonly body: string;
     readonly recipientFilter: Readonly<Record<string, Schema.Json>>;
     readonly contactIds: ReadonlyArray<string>;
-    readonly createdByUserId: string;
+    readonly actor: AuditActor;
     readonly portalOrigin: string;
   }) => Effect.Effect<
     { readonly campaignId: string; readonly logIds: ReadonlyArray<string> },
@@ -98,6 +99,26 @@ const speakerName = (contact: { readonly firstName: string; readonly lastName: s
   `${contact.firstName} ${contact.lastName}`;
 
 const normalizedEmail = (email: string) => email.trim().toLowerCase();
+
+const createdBy = (actor: AuditActor) =>
+  actor.kind === "user"
+    ? { createdByUserId: actor.userId, createdByApiKeyId: null }
+    : { createdByUserId: null, createdByApiKeyId: actor.apiKeyId };
+
+const editActor = (actor: AuditActor) =>
+  actor.kind === "user"
+    ? {
+        authorUserId: actor.userId,
+        authorApiKeyId: null,
+        reviewedByUserId: actor.userId,
+        reviewedByApiKeyId: null,
+      }
+    : {
+        authorUserId: null,
+        authorApiKeyId: actor.apiKeyId,
+        reviewedByUserId: null,
+        reviewedByApiKeyId: actor.apiKeyId,
+      };
 
 const profileValues = (input: SpeakerInput) => ({
   email: normalizedEmail(input.email),
@@ -193,7 +214,7 @@ export const SpeakerCommsLive = Layer.effect(
               await transaction.insert(contactEditHistory).values({
                 contactId: existing.id,
                 authorContactId: null,
-                authorUserId: actor.userId,
+                ...editActor(actor),
                 authorName: actor.name,
                 changedFields,
                 previousValues: {
@@ -223,7 +244,6 @@ export const SpeakerCommsLive = Layer.effect(
                 },
                 approvalStatus: "approved",
                 reviewedAt: new Date(),
-                reviewedByUserId: actor.userId,
               });
             return { kind: "ok" as const, row: saved };
           }),
@@ -562,7 +582,7 @@ export const SpeakerCommsLive = Layer.effect(
                 bodySnapshot: input.body,
                 recipientFilter: input.recipientFilter,
                 status: "sending",
-                createdByUserId: input.createdByUserId,
+                ...createdBy(input.actor),
               })
               .returning()
               .execute();

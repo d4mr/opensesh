@@ -34,6 +34,7 @@ import {
   RoundClosed,
   ReviewGenerationError,
 } from "../errors";
+import type { AuditActor } from "../schema/common";
 import {
   AiReviewResult,
   EvaluationAdminWorkspace,
@@ -157,7 +158,7 @@ interface ReviewsService {
     id: string,
     score: number,
     reason: string,
-    userId: string,
+    actor: AuditActor,
   ) => Effect.Effect<AiReviewResult, DbError | NotFound>;
 }
 
@@ -1833,14 +1834,15 @@ export const ReviewsLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decode(AiReviewResult, "AI review result", rows[0]))),
-      overrideAiResult: (id, score, reason, userId) =>
+      overrideAiResult: (id, score, reason, actor) =>
         query(database, "Could not override AI review", (db) =>
           db
             .update(aiReviewResults)
             .set({
               overriddenScore: score,
               overrideReason: reason,
-              overriddenByUserId: userId,
+              overriddenByUserId: actor.kind === "user" ? actor.userId : null,
+              overriddenByApiKeyId: actor.kind === "api_key" ? actor.apiKeyId : null,
               overriddenAt: new Date(),
               updatedAt: new Date(),
             })
