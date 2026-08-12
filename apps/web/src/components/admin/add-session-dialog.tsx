@@ -77,7 +77,7 @@ export function AddSessionDialog({
       }
       setOpen(false);
       reset();
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
       toast.success(`${result.data.code} added`);
       onCreated(result.data.id);
     },

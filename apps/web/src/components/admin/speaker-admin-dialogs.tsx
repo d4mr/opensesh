@@ -174,6 +174,7 @@ export function SpeakerFormDialog({
         return;
       }
       toast.success(speaker === undefined ? "Speaker added" : "Speaker profile saved");
+      // Unscoped: contact enrichment is org-wide (shared contacts feed every event).
       await invalidateAfterMutation(queryClient);
       onOpenChange(false);
     },

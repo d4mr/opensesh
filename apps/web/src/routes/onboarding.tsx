@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Building2Icon, PlusIcon, SendIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
+import { qk } from "@/lib/query-keys";
 import { BrandMark } from "@/components/app/brand-mark";
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ import {
 } from "@/server-fns/organization";
 
 const onboardingQuery = {
-  queryKey: ["onboarding-state"],
+  queryKey: qk.viewer.onboarding,
   queryFn: () => getOnboardingState(),
   staleTime: 0,
 } as const;

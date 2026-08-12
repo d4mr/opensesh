@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { qk } from "@/lib/query-keys";
+
 import {
   getPublicProgram,
   getPublicSession,
@@ -10,13 +12,13 @@ import {
 
 export const publicProgramQuery = (eventSlug: string) =>
   queryOptions({
-    queryKey: ["public-program", eventSlug],
+    queryKey: qk.public.program(eventSlug),
     queryFn: () => getPublicProgram({ data: { eventSlug } }),
     staleTime: 10_000,
   });
 export const publicSessionQuery = (eventSlug: string, code: string) =>
   queryOptions({
-    queryKey: ["public-session", eventSlug, code],
+    queryKey: qk.public.session(eventSlug, code),
     queryFn: () => getPublicSession({ data: { eventSlug, code } }),
     staleTime: 10_000,
   });
@@ -30,19 +32,19 @@ export const WIDGET_PREVIEW_READY_MESSAGE = "opensesh-widget-preview-ready";
 
 export const publicWidgetQuery = (embedId: string) =>
   queryOptions({
-    queryKey: ["public-widget", embedId],
+    queryKey: qk.public.widget(embedId),
     queryFn: () => getPublicWidget({ data: { embedId } }),
     staleTime: 0,
   });
 export const widgetsQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["widgets", eventId],
+    queryKey: qk.widgets(eventId),
     queryFn: () => listWidgets({ data: { eventId } }),
     staleTime: 0,
   });
 export const speakerDirectoryQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["speaker-directory", eventId],
+    queryKey: qk.speakers(eventId),
     queryFn: () => getSpeakerDirectory({ data: { eventId } }),
     staleTime: 0,
   });

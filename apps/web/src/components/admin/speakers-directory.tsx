@@ -65,6 +65,7 @@ import {
   TableRow,
   TableShell,
 } from "@/components/ui/table";
+import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { describeChangedFields, profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
@@ -235,6 +236,8 @@ function Directory({
   >(new Map());
   const queryClient = useQueryClient();
   const portal = useQuery(adminPortalQuery(eventId));
+  // Deliberately unscoped: speaker edits write to shared org contacts, which
+  // other events' rosters read — every event subtree must go stale.
   const refresh = () => invalidateAfterMutation(queryClient);
   const waive = useMutation({
     mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
@@ -1449,7 +1452,7 @@ function Headshot({
   const classes = large ? "size-12 text-sm" : "size-8 text-xs";
   const headshot = row.files.find((file) => file.kind === "headshot");
   const stored = useQuery({
-    queryKey: ["speaker-headshot", headshot?.versionId],
+    queryKey: qk.immutable.fileVersion(headshot?.versionId ?? "none"),
     queryFn: () => dataUrlForVersion(headshot!.versionId),
     enabled: headshot !== undefined,
     staleTime: Number.POSITIVE_INFINITY,

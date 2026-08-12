@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarClockIcon, ExternalLinkIcon, FileInputIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 
+import { qk } from "@/lib/query-keys";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Timestamp } from "@/components/app/timestamp";
 import { DashboardAttention } from "@/components/dashboard-attention";
@@ -19,7 +20,7 @@ const DataTable = lazy(() =>
 
 const dashboardQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["dashboard-stats", eventId],
+    queryKey: qk.dashboard(eventId),
     queryFn: () => getDashboardStats({ data: { eventId } }),
     staleTime: 30_000,
   });

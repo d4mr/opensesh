@@ -119,7 +119,7 @@ export function SubmissionDetail({
       toast.error(result.error.message);
       return;
     }
-    void invalidateAfterMutation(queryClient);
+    void invalidateAfterMutation(queryClient, eventId);
     toast.success(`Marked ${submission.code} ${status}`);
   };
 
@@ -131,7 +131,7 @@ export function SubmissionDetail({
   const completeDecision = (result: DecisionResult) => {
     const updated = result.submissions.find((item) => item.id === submission.id);
     if (updated !== undefined) setDetail(updated.status, updated.notifiedAt);
-    void invalidateAfterMutation(queryClient);
+    void invalidateAfterMutation(queryClient, eventId);
   };
 
   return (

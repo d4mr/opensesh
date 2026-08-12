@@ -53,7 +53,7 @@ export function SessionContentEditor({
     setDescription(submission.description);
   }, [editing, submission.description, submission.title]);
 
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const save = useMutation({
     mutationFn: () =>
       updateAdminSessionContent({

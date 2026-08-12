@@ -343,7 +343,7 @@ function FilesLibraryData({
         return;
       }
       toast.success(`Queued ${result.data.attempted} reminders`);
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
   });
   const downloadReady = () => {

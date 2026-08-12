@@ -4,6 +4,7 @@ import { DownloadIcon, MessageSquareIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { qk } from "@/lib/query-keys";
 import { PersonHoverCard } from "@/components/app/person-popover";
 import { Timestamp } from "@/components/app/timestamp";
 import { Button } from "@/components/ui/button";
@@ -78,8 +79,7 @@ export function FileThread({
 }) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
-  const queryKey =
-    eventId === undefined ? (["speaker-portal"] as const) : (["admin-portal", eventId] as const);
+  const queryKey = eventId === undefined ? qk.viewer.speakerPortal : qk.portalAdmin(eventId);
   const mutation = useMutation({
     mutationFn: async (commentBody: string) =>
       eventId === undefined
@@ -184,7 +184,7 @@ export function FileThread({
             : current,
         );
       }
-      void invalidateAfterMutation(queryClient);
+      void invalidateAfterMutation(queryClient, eventId);
     },
   });
   const orderedVersions = [...versions].sort(

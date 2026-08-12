@@ -12,6 +12,8 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { adminEventsQuery } from "@/lib/review-desk-queries";
+import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
@@ -34,17 +36,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createForm, deleteForm, duplicateForm, getFormSummaries } from "@/server-fns/forms";
-import { getAdminBootstrap } from "@/server-fns/admin";
-
-const adminEventsQuery = queryOptions({
-  queryKey: ["admin-events"],
-  queryFn: () => getAdminBootstrap(),
-  staleTime: 30_000,
-});
 
 const formsQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["forms", eventId],
+    queryKey: qk.forms(eventId),
     queryFn: () => getFormSummaries({ data: { eventId } }),
     staleTime: 30_000,
   });
@@ -75,7 +70,7 @@ function FormsList() {
       toast.error(result.error.message);
       return;
     }
-    await invalidateAfterMutation(queryClient);
+    await invalidateAfterMutation(queryClient, eventId);
     await navigate({ to: "/admin/forms/$formId", params: { formId: result.data.id } });
   };
   return (
@@ -139,13 +134,13 @@ function FormCard({
   const duplicate = async () => {
     const result = await duplicateForm({ data: { eventId: form.eventId, formId: form.id } });
     if (!result.ok) toast.error(result.error.message);
-    else await invalidateAfterMutation(queryClient);
+    else await invalidateAfterMutation(queryClient, form.eventId);
   };
   const remove = async () => {
     setConfirmOpen(false);
     const result = await deleteForm({ data: { eventId: form.eventId, formId: form.id } });
     if (!result.ok) toast.error(result.error.message);
-    else await invalidateAfterMutation(queryClient);
+    else await invalidateAfterMutation(queryClient, form.eventId);
   };
   return (
     <>

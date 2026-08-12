@@ -43,7 +43,7 @@ export function CalendarInviteAction() {
           `${result.data.attempted} calendar ${result.data.attempted === 1 ? "invite" : "invites"} ${label}`,
         );
       }
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
     onError: (_error, _variables, context) => {
       queryClient.setQueryData(options.queryKey, context?.previous);

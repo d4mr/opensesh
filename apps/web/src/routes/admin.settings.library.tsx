@@ -6,6 +6,8 @@ import { PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { adminEventsQuery } from "@/lib/review-desk-queries";
+import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Button } from "@/components/ui/button";
@@ -19,22 +21,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  deleteLibraryItem,
-  getAdminBootstrap,
-  getEventLibrary,
-  saveLibraryItem,
-} from "@/server-fns/admin";
-
-const adminEventsQuery = queryOptions({
-  queryKey: ["admin-events"],
-  queryFn: () => getAdminBootstrap(),
-  staleTime: 30_000,
-});
+import { deleteLibraryItem, getEventLibrary, saveLibraryItem } from "@/server-fns/admin";
 
 const eventLibraryQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["event-library", eventId],
+    queryKey: qk.library(eventId),
     queryFn: () => getEventLibrary({ data: { eventId } }),
     staleTime: 30_000,
   });
@@ -189,7 +180,7 @@ function LibraryEditor({
         return;
       }
       cancel();
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
   });
   return (
@@ -280,7 +271,7 @@ function LibraryDisplayRow({
       toast.error(result.error.message);
       return;
     }
-    await invalidateAfterMutation(queryClient);
+    await invalidateAfterMutation(queryClient, eventId);
   };
   return (
     <TableRow className="h-9">

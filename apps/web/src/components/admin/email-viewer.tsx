@@ -186,7 +186,7 @@ function EmailViewerData({
       }
       if (result.data.status === "failed") toast.error(result.data.error ?? "Retry failed");
       else toast.success("Email retried");
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
     onError: (_error, _emailId, context) => {
       queryClient.setQueryData(options.queryKey, context?.previous);

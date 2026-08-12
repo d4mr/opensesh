@@ -159,7 +159,7 @@ export function ReviewerEvaluationWorkspace({
       };
     });
 
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, data.eventId);
 
   const submit = async () => {
     if (selected === undefined || saving) return;

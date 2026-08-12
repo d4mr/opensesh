@@ -1,16 +1,17 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { qk } from "@/lib/query-keys";
 import { getPortalAdmin, getSpeakerPortal } from "@/server-fns/portal";
 
 export const speakerPortalQuery = queryOptions({
-  queryKey: ["speaker-portal"],
+  queryKey: qk.viewer.speakerPortal,
   queryFn: () => getSpeakerPortal(),
   staleTime: 10_000,
 });
 
 export const adminPortalQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["admin-portal", eventId],
+    queryKey: qk.portalAdmin(eventId),
     queryFn: () => getPortalAdmin({ data: { eventId } }),
     staleTime: 10_000,
   });

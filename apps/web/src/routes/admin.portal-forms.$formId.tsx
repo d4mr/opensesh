@@ -159,7 +159,7 @@ function PortalFormEditorPage({
         return;
       }
       setSavedSignature(signature(submitted));
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
       toast.success("Portal form saved");
       if (formId === null) {
         updatePortalFormReturnId(eventId, saved.id);

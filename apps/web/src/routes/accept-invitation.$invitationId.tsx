@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Building2Icon, CircleAlertIcon, MailCheckIcon } from "lucide-react";
 import { useState } from "react";
 
+import { qk } from "@/lib/query-keys";
 import { BrandMark } from "@/components/app/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -13,7 +14,7 @@ import { acceptOrganizationInvitation, getOrganizationInvitation } from "@/serve
 
 const invitationQuery = (invitationId: string) =>
   queryOptions({
-    queryKey: ["organization-invitation", invitationId],
+    queryKey: qk.org.invitation(invitationId),
     queryFn: () => getOrganizationInvitation({ data: { invitationId } }),
     retry: false,
   });

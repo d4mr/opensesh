@@ -107,7 +107,7 @@ function WidgetData({
       createWidget({ data: { eventId, name: "Untitled widget", view: "sessions" } }),
     onSuccess: async (result) => {
       if (!result.ok) return;
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
       select(result.data.id);
     },
   });
@@ -210,7 +210,7 @@ function WidgetRow({
           : current,
       );
     },
-    onSettled: async () => invalidateAfterMutation(queryClient),
+    onSettled: async () => invalidateAfterMutation(queryClient, eventId),
   });
   // The row must stay a div: nesting the enable Switch (a button) inside a
   // button is invalid HTML and breaks hydration.
@@ -279,7 +279,7 @@ function WidgetEditor({
         return;
       }
       setSaveState("saved");
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, widget.eventId);
     },
     onError: () => setSaveState("error"),
   });

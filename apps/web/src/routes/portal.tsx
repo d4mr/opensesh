@@ -1,19 +1,20 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { qk } from "@/lib/query-keys";
 import { PortalShell } from "@/components/app/portal-shell";
 import { speakerPortalQuery } from "@/lib/portal-queries";
 import { getViewer } from "@/server-fns/auth";
 import { getEvent } from "@/server-fns/get-event";
 
 const portalViewerQuery = queryOptions({
-  queryKey: ["portal-viewer"],
+  queryKey: qk.viewer.portal,
   queryFn: () => getViewer(),
   staleTime: 5 * 60_000,
 });
 
 const portalEventQuery = queryOptions({
-  queryKey: ["event", "ai-engineer-nyc-2026"],
+  queryKey: qk.viewer.portalEvent,
   queryFn: () => getEvent(),
   staleTime: 30_000,
 });

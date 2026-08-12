@@ -1,12 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { qk } from "@/lib/query-keys";
 import { getViewer } from "@/server-fns/auth";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async ({ context }) => {
     // Shares the portal guard's cache key so the follow-up redirect is instant.
     const viewer = await context.queryClient.ensureQueryData({
-      queryKey: ["portal-viewer"],
+      queryKey: qk.viewer.portal,
       queryFn: () => getViewer(),
       staleTime: 5 * 60_000,
     });

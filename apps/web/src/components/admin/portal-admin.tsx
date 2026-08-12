@@ -77,6 +77,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { qk } from "@/lib/query-keys";
 import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
@@ -222,7 +223,7 @@ function AdminTasks({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<ReadonlySet<string>>(new Set());
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const waive = useMutation({
     mutationFn: (assignmentId: string) => waiveAdminAssignment({ data: { eventId, assignmentId } }),
     onSuccess: async (result) => {
@@ -278,7 +279,7 @@ function AdminTasks({
         for (const id of _variables.ids) next.delete(id);
         return next;
       });
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
     onError: (_error, _variables, context) => setReminded(context?.previous ?? new Set()),
   });
@@ -700,7 +701,7 @@ export function TaskTemplateDialog({
             }`,
       );
       onOpenChange(false);
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
   });
   return (
@@ -1083,7 +1084,7 @@ function DeliverablesAdmin({
   const queryClient = useQueryClient();
   const requirements = usePagination(data.requirements);
   const requests = usePagination(data.fileRequests);
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const saveRequest = useMutation({
     mutationFn: () =>
       createAdminFileRequest({
@@ -1166,7 +1167,7 @@ function DeliverablesAdmin({
         return;
       }
       toast.success(`Queued ${result.data.attempted} reminders`);
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, eventId);
     },
   });
   const openRequirement = (requirement?: AdminData["requirements"][number]) => {
@@ -1714,7 +1715,7 @@ function AdminSessions({
   ) => void;
 }) {
   const queryClient = useQueryClient();
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const review = useMutation({
     mutationFn: ({
       id,
@@ -2261,7 +2262,7 @@ function SpeakerCard({
     (left, right) => new Date(right.uploadedAt).getTime() - new Date(left.uploadedAt).getTime(),
   )[0];
   const image = useQuery({
-    queryKey: ["admin-headshot", current?.id],
+    queryKey: qk.immutable.fileVersion(current?.id ?? "none"),
     queryFn: () => dataUrlForVersion(current!.id),
     enabled: current !== undefined,
     staleTime: Number.POSITIVE_INFINITY,

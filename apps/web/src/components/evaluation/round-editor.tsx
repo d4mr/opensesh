@@ -160,7 +160,7 @@ export function EvaluationRoundEditor({
   const [draft, setDraft] = useState(() => roundDraft(view, workspace.rounds.length + 1));
   const [saving, setSaving] = useState(false);
   const roundId = view?.configuration.round.id ?? null;
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
 
   const updateCriterion = (key: string, update: Partial<CriterionDraft>) =>
     setDraft((current) => ({

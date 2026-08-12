@@ -26,6 +26,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { adminEventsQuery } from "@/lib/review-desk-queries";
+import { qk } from "@/lib/query-keys";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { EditorHeader } from "@/components/app/editor-header";
 import { type EditorFormField, FormFieldBuilder } from "@/components/forms/form-field-builder";
@@ -42,17 +44,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { cn } from "@/lib/utils";
 import { getFormEditor, saveForm } from "@/server-fns/forms";
-import { getAdminBootstrap } from "@/server-fns/admin";
-
-const adminEventsQuery = queryOptions({
-  queryKey: ["admin-events"],
-  queryFn: () => getAdminBootstrap(),
-  staleTime: 30_000,
-});
 
 const formEditorQuery = (eventId: string, formId: string) =>
   queryOptions({
-    queryKey: ["form-editor", eventId, formId],
+    queryKey: qk.formEditor(eventId, formId),
     queryFn: () => getFormEditor({ data: { eventId, formId } }),
     staleTime: 30_000,
   });
@@ -241,7 +236,7 @@ function FormEditor({
       toast.error(result.error.message);
       return;
     }
-    await invalidateAfterMutation(queryClient);
+    await invalidateAfterMutation(queryClient, data.form.eventId);
     lastSavedRef.current = json;
     if (queuedRef.current) {
       queuedRef.current = false;

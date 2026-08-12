@@ -203,7 +203,7 @@ export function AgendaPage({
     // Once the last in-flight save settles, true-up against the server; any
     // save started during this refetch cancels it (see cancelQueries above).
     if (pendingSaves.current === 0) {
-      void invalidateAfterMutation(queryClient);
+      void invalidateAfterMutation(queryClient, eventId);
     }
 
     if (announce) {
@@ -260,7 +260,7 @@ export function AgendaPage({
         label: "Undo",
         onClick: () => {
           void deleteLibraryItem({ data: { eventId, kind: "room", id: result.data.id } }).then(() =>
-            invalidateAfterMutation(queryClient),
+            invalidateAfterMutation(queryClient, eventId),
           );
         },
       },

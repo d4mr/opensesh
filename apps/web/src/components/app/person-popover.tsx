@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { type ReactElement, useState } from "react";
 
 import { plainTextFromRichText } from "@opensesh/domain";
+import { qk } from "@/lib/query-keys";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,7 @@ export function PersonHoverCard({
     person.status === undefined &&
     person.sessionsCount === undefined;
   const profile = useQuery({
-    queryKey: ["event-contact-profile", eventId, person.id],
+    queryKey: qk.contactProfile(eventId ?? "none", person.id ?? "none"),
     queryFn: () =>
       getEventContactProfile({
         data: { eventId: eventId ?? "", contactId: person.id ?? "" },

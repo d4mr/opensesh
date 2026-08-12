@@ -336,7 +336,7 @@ export function SubmissionTablePage({
           toast.error(result.error.message);
           return false;
         }
-        void invalidateAfterMutation(queryClient);
+        void invalidateAfterMutation(queryClient, eventId);
         return true;
       };
       void save(nextStatus, previousStatus).then((saved) => {
@@ -574,7 +574,7 @@ export function SubmissionTablePage({
       }),
     }));
     table.resetRowSelection(true);
-    void invalidateAfterMutation(queryClient);
+    void invalidateAfterMutation(queryClient, eventId);
   };
 
   if (readyData.submissions.length === 0) {

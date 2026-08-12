@@ -111,7 +111,7 @@ function Communications({
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate>();
   const [expandedCampaign, setExpandedCampaign] = useState<string>();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const recipients = useMemo(
     () =>
       data.contacts.filter((contact) =>

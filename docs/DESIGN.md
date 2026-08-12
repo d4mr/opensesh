@@ -158,20 +158,26 @@ describe the roster itself.
 
 ## 9. Data freshness
 
-After any successful mutation the client marks the ENTIRE query cache stale in
-one shot (`invalidateAfterMutation` in `apps/web/src/lib/after-mutation.ts`).
-Queries with observers on screen refetch immediately; everything else
-refetches on its next mount. There is no per-mutation list of query keys to
-maintain — writes ripple across surfaces (a decision touches the dashboard,
-the evaluation results, the agenda backlog, the email log), and hand-kept key
-lists developed gaps twice (V2-008, V3-008). Over-invalidation is bounded by
-what is actually rendered, so correctness costs at most a couple of cheap
-refetches.
+Every query key is built from the canonical tree in
+`apps/web/src/lib/query-keys.ts` — never a literal anywhere else (a guard test
+pins this). Keys mirror the resource paths they cache: `["viewer", …]`,
+`["org", …]`, `["event", eventId, …]`, `["public", …]`, and `["immutable", …]`
+for content-addressed blobs.
+
+After any successful mutation the client calls `invalidateAfterMutation`
+(`apps/web/src/lib/after-mutation.ts`), which marks every affected read stale
+in one shot, scoped by that tree: a write that is provably local to one event
+skips the other events' subtrees; writes that touch shared org contacts
+(speaker edits, CSV import, Accelevents sync) invalidate everything; the
+immutable branch is never invalidated. Queries with observers on screen
+refetch immediately; everything else refetches on its next mount. There is
+deliberately NO per-mutation list of query keys — hand-kept lists developed
+gaps twice (V2-008, V3-008).
 
 Optimistic updates stay layered on top of this floor: surfaces that need
 instant feedback (pipeline drag, task completion, email retry, agenda drag)
 still `cancelQueries` + `setQueryData` + roll back on error, then settle with
-the blanket invalidation.
+the scoped invalidation.
 
 While a refetch or mutation is in flight past ~300 ms, the `SyncIndicator`
 (`apps/web/src/components/app/sync-indicator.tsx`) fades a small spinner into

@@ -5,6 +5,7 @@ import { KeyRoundIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { qk } from "@/lib/query-keys";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,7 +34,7 @@ export function DemoRoleSwitcher() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const embedded = pathname.startsWith("/embed");
   const demoMode = useQuery({
-    queryKey: ["demo-mode"],
+    queryKey: qk.viewer.demoMode,
     queryFn: () => getDemoMode(),
     enabled: !embedded,
   });

@@ -2,21 +2,16 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { adminEventsQuery } from "@/lib/review-desk-queries";
+import { qk } from "@/lib/query-keys";
 import { AdminShell } from "@/components/app/admin-shell";
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { getStaffViewer } from "@/server-fns/auth";
-import { getAdminBootstrap } from "@/server-fns/admin";
 
 const staffViewerQuery = queryOptions({
-  queryKey: ["staff-viewer"],
+  queryKey: qk.viewer.staff,
   queryFn: () => getStaffViewer(),
   staleTime: 5 * 60_000,
-});
-
-const adminEventsQuery = queryOptions({
-  queryKey: ["admin-events"],
-  queryFn: () => getAdminBootstrap(),
-  staleTime: 30_000,
 });
 
 export const Route = createFileRoute("/admin")({

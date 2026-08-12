@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { dataUrlForVersion, fileAsBase64 } from "@/lib/files";
 import { speakerPortalQuery } from "@/lib/portal-queries";
@@ -64,7 +65,7 @@ function PortalProfileContent({ data }: { readonly data: SpeakerData }) {
     (left, right) => new Date(right.uploadedAt).getTime() - new Date(left.uploadedAt).getTime(),
   )[0];
   const storedImage = useQuery({
-    queryKey: ["file-image", newestHeadshot?.id],
+    queryKey: qk.immutable.fileVersion(newestHeadshot?.id ?? "none"),
     queryFn: () => dataUrlForVersion(newestHeadshot!.id),
     enabled: newestHeadshot !== undefined,
     staleTime: Number.POSITIVE_INFINITY,

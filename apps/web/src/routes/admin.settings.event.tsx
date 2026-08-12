@@ -6,6 +6,7 @@ import { CheckIcon, CopyIcon, ImageUpIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { qk } from "@/lib/query-keys";
 import { EventIcon } from "@/components/app/event-icon";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
@@ -142,7 +143,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
       // Rebaseline so the toolbar flips back from "Save settings" to "Saved".
       formApi.reset(value);
       toast.success("Event settings saved");
-      await invalidateAfterMutation(queryClient);
+      await invalidateAfterMutation(queryClient, event.id);
     },
   });
   const publicPath = `/e/${event.slug}`;
@@ -480,7 +481,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
 
 const eventAccessQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["event-access", eventId],
+    queryKey: qk.access(eventId),
     queryFn: () => getEventAccess({ data: { eventId } }),
     staleTime: 30_000,
   });
@@ -497,7 +498,7 @@ function EventAccessSection({ eventId }: { readonly eventId: string }) {
   const access = useQuery(eventAccessQuery(eventId));
   const [selectedUserId, setSelectedUserId] = useState("");
   const [pending, setPending] = useState(false);
-  const refresh = () => invalidateAfterMutation(queryClient);
+  const refresh = () => invalidateAfterMutation(queryClient, eventId);
 
   const grant = async () => {
     setPending(true);
@@ -623,7 +624,7 @@ function PreviewRow({
 
 const integrationQuery = (eventId: string) =>
   queryOptions({
-    queryKey: ["event-integration", eventId],
+    queryKey: qk.integration(eventId),
     queryFn: () => getIntegration({ data: { eventId } }),
     staleTime: 30_000,
   });
@@ -653,6 +654,7 @@ function IntegrationsSection({ eventId }: { readonly eventId: string }) {
     setHydrated(true);
   }, [hydrated, integration.data, view]);
 
+  // Unscoped: the Accelevents sync enriches shared org contacts.
   const refresh = () => invalidateAfterMutation(queryClient);
 
   const save = async (overrides?: { eventUrl?: string; apiKey?: string }) => {

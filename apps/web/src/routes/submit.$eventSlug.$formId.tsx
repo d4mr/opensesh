@@ -11,6 +11,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRightIcon, CheckIcon, MailCheckIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { qk } from "@/lib/query-keys";
 import { BrandMark } from "@/components/app/brand-mark";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { Button } from "@/components/ui/button";
@@ -31,14 +32,14 @@ import {
 
 const publicFormQuery = (eventSlug: string, formId: string) =>
   queryOptions({
-    queryKey: ["public-form", eventSlug, formId],
+    queryKey: qk.public.form(eventSlug, formId),
     queryFn: () => getPublicForm({ data: { eventSlug, formId } }),
     staleTime: 30_000,
   });
 
 const publicFormAccountQuery = (eventSlug: string, formId: string) =>
   queryOptions({
-    queryKey: ["public-form-account", eventSlug, formId],
+    queryKey: qk.public.formAccount(eventSlug, formId),
     queryFn: () => getPublicFormAccount({ data: { eventSlug, formId } }),
     staleTime: 30_000,
   });

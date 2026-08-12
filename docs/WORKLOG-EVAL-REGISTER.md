@@ -467,3 +467,38 @@ row state immediately (V3-002 scenario); schedule session via list popover → i
 counter "12 of 12"→"13 of 13 need invites" immediately (V3-008 agenda-invite scenario);
 network log confirms one blanket refetch wave per mutation, all 200s. Checks 8/8,
 tests 56/56.
+
+## 2026-08-12 — Canonical query-key tree + scoped invalidation
+
+**Why (owner).** The blanket-invalidation pass shipped with ad-hoc query keys
+(`["dashboard-stats"]`, `["admin-evaluation"]`, hardcoded `["event","ai-engineer-nyc-2026"]`)
+that carried no structure — so the write-path policy could only invalidate everything,
+including other events' cached subtrees. Owner: keys should follow the resource paths
+they cache; "this should have never happened from the start."
+
+**Fix (structural).** New canonical tree `qk` in `apps/web/src/lib/query-keys.ts` — the
+only place in the app where a query-key literal may exist. Roots mirror data ownership:
+`["viewer",…]` (signed-in context), `["org",…]` (CRM, settings, API keys),
+`["event", eventId, …]` (every admin surface of one event), `["public","event",slug,…]` /
+`["public","widget",id]` (anonymous surfaces), `["immutable",…]` (content-addressed
+file versions, never invalidated). All ~30 query definitions and every ad-hoc component
+key migrated; duplicate query definitions in route files deleted in favour of the lib
+modules.
+
+`invalidateAfterMutation(queryClient, eventId?)` now scopes by prefix: still no
+per-mutation key lists (the structural lesson from V2-008/V3-008 stands), but a write
+that names its event skips every other event's `["event",…]` subtree and the immutable
+branch. Deliberately UNSCOPED call sites — speaker/contact writes (speaker admin dialogs,
+CSV import, speakers-directory refresh, Accelevents sync) — enrich shared org contacts
+read by other events' rosters, and say so in a comment at the call site.
+
+**Guard.** `apps/web/src/query-keys-guard.test.ts` (same pattern as the rich-text guard)
+fails the suite if `queryKey: [` appears with a literal outside `lib/query-keys.ts` —
+key drift is now a test failure, not a code-review hope.
+
+**Verified in browser (local dev, pristine seed).** Accept SESS-11 → Overview counts
+move instantly (11 pending/12 accepted → 10/13); the post-mutation network wave contains
+only the active event's queries (`getAdminBootstrap`, `getPortalAdmin`,
+`getReviewDeskList`, `getReviewDeskDetail`, all `evt_aie_nyc_2026`) plus viewer scope —
+zero `evt_devflow_2027` refetches, where the blanket version refetched both events.
+Checks clean (222 files), tests 57/57 (guard test included).
