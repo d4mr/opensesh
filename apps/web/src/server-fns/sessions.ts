@@ -67,10 +67,15 @@ export const reinstateSession = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const access = yield* requireEventAccess(data.eventId, "admin");
         const sessions = yield* Sessions;
-        return yield* sessions.reinstate({
+        const mail = yield* Mail;
+        const reinstated = yield* sessions.reinstate({
           ...data,
           actor: { kind: "user", userId: access.user.userId, name: access.user.name },
         });
+        yield* Effect.forEach(reinstated.logIds, (logId) => mail.sendQueued(logId), {
+          concurrency: 5,
+        });
+        return reinstated.result;
       }),
       { require: "staff" },
     ),

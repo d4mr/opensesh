@@ -32,6 +32,7 @@ import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { SpotlightLayout } from "@/components/app/spotlight";
 import { relativeLabel, Timestamp } from "@/components/app/timestamp";
 import { CancelSessionDialog } from "@/components/sessions/cancel-session-dialog";
+import { ReinstateSessionDialog } from "@/components/sessions/reinstate-session-dialog";
 import { SessionSpotlight } from "@/components/sessions/session-spotlight";
 import { Button } from "@/components/ui/button";
 import { PaginationFooter, usePagination } from "@/components/ui/pagination";
@@ -55,7 +56,7 @@ import {
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { sessionListQuery } from "@/lib/review-desk-queries";
 import { cn } from "@/lib/utils";
-import { deleteManualSession, reinstateSession } from "@/server-fns/sessions";
+import { deleteManualSession } from "@/server-fns/sessions";
 
 export type SessionStateFilter = "all" | "active" | "cancelled";
 
@@ -100,7 +101,8 @@ export function SessionsPage({
   const [format, setFormat] = useState("all");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<SessionListItem>();
-  const [reinstating, setReinstating] = useState(false);
+  const [reinstateOpen, setReinstateOpen] = useState(false);
+  const [reinstateTarget, setReinstateTarget] = useState<SessionListItem>();
   const [deleting, setDeleting] = useState(false);
 
   const data = list.data.ok ? list.data.data : null;
@@ -337,26 +339,6 @@ export function SessionsPage({
     anchor.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"} to sessions.csv`);
-  };
-
-  const reinstate = async (session: SessionListItem) => {
-    setReinstating(true);
-    const result = await reinstateSession({
-      data: { eventId, submissionId: session.id },
-    });
-    setReinstating(false);
-    if (!result.ok) {
-      toast.error(result.error.message);
-      return;
-    }
-    toast.success(
-      `${session.code} reinstated${
-        result.data.reopenedTasks === 0
-          ? ""
-          : ` — ${result.data.reopenedTasks} ${result.data.reopenedTasks === 1 ? "task" : "tasks"} reopened`
-      }${session.startsAt === null ? "" : ". Send a fresh calendar invite from Communications."}`,
-    );
-    await refresh();
   };
 
   const remove = async (session: SessionListItem) => {
@@ -634,9 +616,11 @@ export function SessionsPage({
                 setCancelTarget(spotlightSession);
                 setCancelOpen(true);
               }}
-              onReinstate={() => void reinstate(spotlightSession)}
+              onReinstate={() => {
+                setReinstateTarget(spotlightSession);
+                setReinstateOpen(true);
+              }}
               onDelete={() => void remove(spotlightSession)}
-              reinstating={reinstating}
               deleting={deleting}
             />
           )
@@ -650,6 +634,16 @@ export function SessionsPage({
         eventName={context.event.name}
         timezone={timezone}
         session={cancelTarget}
+        onComplete={() => void refresh()}
+      />
+
+      <ReinstateSessionDialog
+        open={reinstateOpen}
+        onOpenChange={setReinstateOpen}
+        eventId={eventId}
+        eventName={context.event.name}
+        timezone={timezone}
+        session={reinstateTarget}
         onComplete={() => void refresh()}
       />
     </main>

@@ -13,6 +13,7 @@ export const EmailType = Schema.Literals([
   "accepted",
   "declined",
   "cancelled",
+  "reinstated",
   "task_reminder",
   "calendar_invite",
   "custom",

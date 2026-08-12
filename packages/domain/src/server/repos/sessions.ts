@@ -17,10 +17,11 @@ import {
 } from "../../db/schema";
 import { Db } from "../db";
 import { InvalidInput, NotFound, type DbError } from "../errors";
-import { buildCalendarCancellation } from "../mail/ics";
+import { buildCalendarCancellation, buildCalendarInvite } from "../mail/ics";
 import { JsonObject, NullableDate, NullableNumber, NullableString } from "../schema/common";
 import {
   renderCancellationEmail,
+  renderReinstatementEmail,
   SessionList,
   type SessionCancelResult,
   type SessionReinstateResult,
@@ -80,8 +81,13 @@ interface SessionsService {
   readonly reinstate: (input: {
     readonly eventId: string;
     readonly submissionId: string;
+    readonly message: string;
+    readonly notifySpeakers: boolean;
     readonly actor: ActivityActor;
-  }) => Effect.Effect<SessionReinstateResult, DbError | NotFound | InvalidInput>;
+  }) => Effect.Effect<
+    { readonly result: SessionReinstateResult; readonly logIds: ReadonlyArray<string> },
+    DbError | NotFound | InvalidInput
+  >;
   // Mistake cleanup for manually created sessions only — CFP-origin rows
   // keep their submission history and are cancelled instead.
   readonly deleteManual: (
@@ -109,7 +115,12 @@ type CancelTransaction =
 type ReinstateTransaction =
   | { readonly kind: "notFound" }
   | { readonly kind: "invalid"; readonly message: string }
-  | { readonly kind: "success"; readonly reopenedTasks: number };
+  | {
+      readonly kind: "success";
+      readonly reopenedTasks: number;
+      readonly logIds: ReadonlyArray<string>;
+      readonly reinvited: boolean;
+    };
 
 export const SessionsLive = Layer.effect(
   Sessions,
@@ -497,29 +508,77 @@ export const SessionsLive = Layer.effect(
                 .select({
                   id: submissions.id,
                   cancelledAt: submissions.cancelledAt,
+                  title: submissions.title,
+                  description: submissions.description,
                   startsAt: submissions.startsAt,
+                  endsAt: submissions.endsAt,
+                  icsSequence: submissions.icsSequence,
+                  roomName: rooms.name,
+                  eventName: events.name,
+                  timezone: events.timezone,
                 })
                 .from(submissions)
+                .innerJoin(events, eq(events.id, submissions.eventId))
+                .leftJoin(rooms, eq(rooms.id, submissions.roomId))
                 .where(
                   and(eq(submissions.id, input.submissionId), eq(submissions.eventId, input.eventId)),
                 )
-                .for("update")
+                .for("update", { of: submissions })
             )[0];
             if (target === undefined) return { kind: "notFound" };
             if (target.cancelledAt === null) {
               return { kind: "invalid", message: "This session is not cancelled" };
             }
             const now = new Date();
+            // When the session is scheduled and the original invite chain
+            // exists, the reinstatement email carries a fresh METHOD:REQUEST
+            // (same UID, bumped sequence) that undoes the earlier CANCEL in
+            // speakers' calendars directly.
+            const scheduled = target.startsAt !== null && target.endsAt !== null;
+            const hadInvites =
+              input.notifySpeakers &&
+              scheduled &&
+              (
+                await transaction
+                  .select({ id: emailLog.id })
+                  .from(emailLog)
+                  .where(
+                    and(
+                      eq(emailLog.submissionId, input.submissionId),
+                      eq(emailLog.type, "calendar_invite"),
+                    ),
+                  )
+                  .limit(1)
+              ).length > 0;
+            const inviteSequence = target.icsSequence + 1;
+            const ics =
+              hadInvites && target.startsAt !== null && target.endsAt !== null
+                ? buildCalendarInvite({
+                    id: input.submissionId,
+                    title: target.title,
+                    startsAt: target.startsAt,
+                    endsAt: target.endsAt,
+                    timezone: target.timezone,
+                    room: target.roomName ?? "TBD",
+                    description: target.description,
+                    portalUrl: "https://opensesh.io/portal",
+                    sequence: inviteSequence,
+                  })
+                : null;
             await transaction
               .update(submissions)
               .set({
                 cancelledAt: null,
                 cancelledBy: null,
                 updatedAt: now,
-                // The slot survives cancellation, but any earlier invite was
-                // followed by a CANCEL — mark the schedule dirty so the
-                // invite flow knows a fresh invite is owed.
-                ...(target.startsAt === null ? {} : { scheduleDirty: true }),
+                // The re-invite goes out with this email; otherwise the slot
+                // still owes a fresh invite, so the schedule stays dirty for
+                // the Communications flow.
+                ...(ics === null
+                  ? target.startsAt === null
+                    ? {}
+                    : { scheduleDirty: true }
+                  : { icsSequence: inviteSequence, scheduleDirty: false }),
               })
               .where(eq(submissions.id, input.submissionId));
             // Reopens every waived per-session task: cancellation is the only
@@ -546,7 +605,59 @@ export const SessionsLive = Layer.effect(
                 .set({ agendaDirty: true, updatedAt: now })
                 .where(eq(events.id, input.eventId));
             }
-            return { kind: "success", reopenedTasks: reopened.length };
+            let logIds: ReadonlyArray<string> = [];
+            if (input.notifySpeakers) {
+              const participants = await transaction
+                .select({
+                  contactId: contacts.id,
+                  email: contacts.email,
+                  firstName: contacts.firstName,
+                })
+                .from(submissionParticipants)
+                .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+                .where(eq(submissionParticipants.submissionId, input.submissionId));
+              if (participants.length > 0) {
+                const inserted = await transaction
+                  .insert(emailLog)
+                  .values(
+                    participants.map((participant) => {
+                      const rendered = renderReinstatementEmail({
+                        eventName: target.eventName,
+                        speakerName: participant.firstName,
+                        submissionTitle: target.title,
+                        message: input.message,
+                        reinvited: ics !== null,
+                      });
+                      return {
+                        eventId: input.eventId,
+                        contactId: participant.contactId,
+                        submissionId: input.submissionId,
+                        type: "reinstated" as const,
+                        recipient: participant.email,
+                        subject: rendered.subject,
+                        body: rendered.text,
+                        htmlBody: rendered.html,
+                        icsAttached: ics !== null,
+                        icsContent: ics,
+                        icsSequence: ics === null ? null : inviteSequence,
+                        status: "queued" as const,
+                        provider: null,
+                        providerId: null,
+                        error: null,
+                        sentAt: null,
+                      };
+                    }),
+                  )
+                  .returning({ id: emailLog.id });
+                logIds = inserted.map((row) => row.id);
+              }
+            }
+            return {
+              kind: "success",
+              reopenedTasks: reopened.length,
+              logIds,
+              reinvited: ics !== null,
+            };
           }),
         ).pipe(
           Effect.flatMap((outcome) =>
@@ -557,7 +668,15 @@ export const SessionsLive = Layer.effect(
               if (outcome.kind === "invalid") {
                 return yield* Effect.fail(new InvalidInput({ message: outcome.message }));
               }
-              return { id: input.submissionId, reopenedTasks: outcome.reopenedTasks };
+              return {
+                result: {
+                  id: input.submissionId,
+                  reopenedTasks: outcome.reopenedTasks,
+                  createdEmails: outcome.logIds.length,
+                  calendarReinvited: outcome.reinvited,
+                },
+                logIds: outcome.logIds,
+              };
             }),
           ),
         ),

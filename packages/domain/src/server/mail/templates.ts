@@ -173,6 +173,37 @@ export const cancelled = (input: {
   };
 };
 
+// The inverse of a cancellation: the acceptance never went away, the session
+// is simply back on the program. When the original invite chain exists the
+// email carries a fresh METHOD:REQUEST that restores the calendar event.
+export const reinstated = (input: {
+  readonly eventName: string;
+  readonly speakerName: string;
+  readonly submissionTitle: string;
+  readonly message: string;
+  readonly reinvited: boolean;
+  readonly portalUrl: string;
+  readonly logoUrl?: string | null;
+}): RenderedEmail => {
+  const subject = `Your ${input.eventName} session is back on`;
+  const introduction = `Good news — “${input.submissionTitle}” has been reinstated and is back on the ${input.eventName} program.${input.reinvited ? " An updated calendar invite is attached; accepting it restores the session in your calendar." : ""}`;
+  const message = input.message.trim();
+  const messageText = message.length === 0 ? "" : `\n\nA note from the program team:\n${message}`;
+  const messageHtml =
+    message.length === 0
+      ? ""
+      : `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:20px 0;border:1px solid #dfe3dd;border-radius:8px"><tr><td style="padding:14px"><strong>A note from the program team</strong><p style="margin:8px 0 0;white-space:pre-wrap;line-height:1.6">${escapeHtml(message)}</p></td></tr></table>`;
+  return {
+    subject,
+    text: `Hi ${input.speakerName},\n\n${introduction}${messageText}\n\nSpeaker portal: ${input.portalUrl}\n\nThe OpenSesh program team`,
+    html: layout(
+      input.eventName,
+      input.logoUrl,
+      `${paragraph(`Hi ${input.speakerName},`)}${paragraph(introduction)}${messageHtml}<p style="margin:0 0 20px">${link("Open speaker portal", input.portalUrl)}</p>${paragraph("The OpenSesh program team")}`,
+    ),
+  };
+};
+
 export const taskReminder = (input: {
   readonly eventName: string;
   readonly speakerName: string;

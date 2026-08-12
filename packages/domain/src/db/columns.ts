@@ -49,6 +49,7 @@ export const emailType = pgEnum("email_type", [
   "accepted",
   "declined",
   "cancelled",
+  "reinstated",
   "task_reminder",
   "calendar_invite",
   "custom",

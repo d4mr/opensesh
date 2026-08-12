@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c04fcf19-97c1-4244-a21a-4fd3f6769454",
+  "id": "8da14fcc-5368-48b9-a75c-4eb169156e68",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -96,6 +96,7 @@
         "accepted",
         "declined",
         "cancelled",
+        "reinstated",
         "task_reminder",
         "calendar_invite",
         "custom"

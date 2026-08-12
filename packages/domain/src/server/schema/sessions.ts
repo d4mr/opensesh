@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 import { NullableDate, NullableNumber, NullableString } from "./common";
-import { cancelled } from "../mail/templates";
+import { cancelled, reinstated } from "../mail/templates";
 import { ContentApprovalStatus, SessionCancelledBy } from "./submissions";
 
 // The session lens: projections of accepted submissions. Rows carry readiness
@@ -77,6 +77,8 @@ export const SessionCancelRequest = Schema.Struct({
 export const SessionReinstateRequest = Schema.Struct({
   eventId: Schema.String,
   submissionId: Schema.String,
+  message: Schema.String,
+  notifySpeakers: Schema.Boolean,
 });
 
 // Manual sessions only — CFP-origin sessions keep their submission history.
@@ -97,6 +99,10 @@ export type SessionCancelResult = typeof SessionCancelResult.Type;
 export const SessionReinstateResult = Schema.Struct({
   id: Schema.String,
   reopenedTasks: Schema.Number,
+  createdEmails: Schema.Number,
+  // True when the reinstatement email carried a fresh calendar invite —
+  // the session was scheduled and invites had gone out before the cancel.
+  calendarReinvited: Schema.Boolean,
 });
 export type SessionReinstateResult = typeof SessionReinstateResult.Type;
 
@@ -145,3 +151,14 @@ export interface CancellationEmailInput {
 
 export const renderCancellationEmail = (input: CancellationEmailInput) =>
   cancelled({ ...input, portalUrl: "https://opensesh.io/portal" });
+
+export interface ReinstatementEmailInput {
+  readonly eventName: string;
+  readonly speakerName: string;
+  readonly submissionTitle: string;
+  readonly message: string;
+  readonly reinvited: boolean;
+}
+
+export const renderReinstatementEmail = (input: ReinstatementEmailInput) =>
+  reinstated({ ...input, portalUrl: "https://opensesh.io/portal" });

@@ -113,7 +113,6 @@ export function SessionSpotlight({
   onCancel,
   onReinstate,
   onDelete,
-  reinstating,
   deleting,
 }: {
   readonly eventId: string;
@@ -123,7 +122,6 @@ export function SessionSpotlight({
   readonly onCancel: () => void;
   readonly onReinstate: () => void;
   readonly onDelete: () => void;
-  readonly reinstating: boolean;
   readonly deleting: boolean;
 }) {
   const cancelled = session.cancelledAt !== null;
@@ -149,14 +147,8 @@ export function SessionSpotlight({
         }
         actions={
           cancelled ? (
-            <Button
-              size="xs"
-              variant="outline"
-              className="pressable"
-              disabled={reinstating}
-              onClick={onReinstate}
-            >
-              <RotateCcwIcon /> {reinstating ? "Reinstating…" : "Reinstate"}
+            <Button size="xs" variant="outline" className="pressable" onClick={onReinstate}>
+              <RotateCcwIcon /> Reinstate
             </Button>
           ) : (
             <Button size="xs" variant="outline" className="pressable" onClick={onCancel}>

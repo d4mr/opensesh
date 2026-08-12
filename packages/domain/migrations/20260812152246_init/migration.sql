@@ -6,7 +6,7 @@ CREATE TYPE "deliverable_status" AS ENUM('outstanding', 'uploaded');--> statemen
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_campaign_status" AS ENUM('draft', 'sending', 'sent');--> statement-breakpoint
 CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
-CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'cancelled', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
+CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'cancelled', 'reinstated', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
 CREATE TYPE "embed_view" AS ENUM('sessions', 'speakers', 'speaker_gallery', 'agenda', 'itinerary');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
 CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint

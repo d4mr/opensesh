@@ -6269,7 +6269,7 @@
    "post": {
     "operationId": "reinstateSession",
     "summary": "Reinstate a cancelled session",
-    "description": "Clears the cancellation, reopens tasks that were waived by it, and flags the schedule so fresh calendar invites can be sent.",
+    "description": "Clears the cancellation and reopens tasks that were waived by it. With notifySpeakers on, speakers get a reinstatement email — carrying a fresh calendar invite when the session is scheduled and invites had gone out; otherwise the schedule is flagged so a fresh invite can be sent later.",
     "tags": [
      "Sessions"
     ],
@@ -6291,6 +6291,25 @@
       }
      }
     ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "message": {
+          "type": "string"
+         },
+         "notifySpeakers": {
+          "type": "boolean"
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     }
+    },
     "responses": {
      "200": {
       "description": "Success",
@@ -6304,11 +6323,19 @@
           },
           "reopenedTasks": {
            "type": "number"
+          },
+          "createdEmails": {
+           "type": "number"
+          },
+          "calendarReinvited": {
+           "type": "boolean"
           }
          },
          "required": [
           "id",
-          "reopenedTasks"
+          "reopenedTasks",
+          "createdEmails",
+          "calendarReinvited"
          ],
          "additionalProperties": false
         }
@@ -7161,6 +7188,7 @@
                   "accepted",
                   "declined",
                   "cancelled",
+                  "reinstated",
                   "task_reminder",
                   "calendar_invite",
                   "custom"
@@ -23517,6 +23545,7 @@
              "accepted",
              "declined",
              "cancelled",
+             "reinstated",
              "task_reminder",
              "calendar_invite",
              "custom"

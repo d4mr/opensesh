@@ -57,6 +57,7 @@ const typeLabels: Readonly<Record<AdminEmail["type"], string>> = {
   accepted: "Accepted",
   declined: "Declined",
   cancelled: "Cancelled",
+  reinstated: "Reinstated",
   task_reminder: "Task reminder",
   calendar_invite: "Calendar invite",
   custom: "Custom",

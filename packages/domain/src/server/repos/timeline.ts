@@ -31,6 +31,7 @@ const emailLabel: Readonly<Record<string, string>> = {
   accepted: "Acceptance email sent",
   declined: "Decline email sent",
   cancelled: "Cancellation email sent",
+  reinstated: "Reinstatement email sent",
   task_reminder: "Task reminder sent",
   calendar_invite: "Calendar invite sent",
   custom: "Email sent",

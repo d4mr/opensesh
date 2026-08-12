@@ -26,6 +26,11 @@ const CancelBody = Schema.Struct({
   notifySpeakers: Schema.optionalKey(Schema.Boolean),
 });
 
+const ReinstateBody = Schema.Struct({
+  message: Schema.optionalKey(Schema.String),
+  notifySpeakers: Schema.optionalKey(Schema.Boolean),
+});
+
 const apiActor = (context: { readonly principal: { keyId: string; keyName: string } }) =>
   ({
     kind: "api_key",
@@ -176,18 +181,27 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "reinstateSession",
     summary: "Reinstate a cancelled session",
     description:
-      "Clears the cancellation, reopens tasks that were waived by it, and flags the schedule so fresh calendar invites can be sent.",
+      "Clears the cancellation and reopens tasks that were waived by it. With notifySpeakers on, speakers get a reinstatement email — carrying a fresh calendar invite when the session is scheduled and invites had gone out; otherwise the schedule is flagged so a fresh invite can be sent later.",
     tag: "Sessions",
+    bodySchema: ReinstateBody,
     successSchema: SessionReinstateResult,
     handler: (context) =>
       Effect.gen(function* () {
+        const body = context.body as typeof ReinstateBody.Type;
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const sessions = yield* Sessions;
-        return yield* sessions.reinstate({
+        const mail = yield* Mail;
+        const reinstated = yield* sessions.reinstate({
           eventId: access.event.id,
           submissionId: context.params.submissionId ?? "",
+          message: body.message ?? "",
+          notifySpeakers: body.notifySpeakers ?? true,
           actor: apiActor(context),
         });
+        yield* Effect.forEach(reinstated.logIds, (logId) => mail.sendQueued(logId), {
+          concurrency: 5,
+        });
+        return reinstated.result;
       }),
   }),
   endpoint({

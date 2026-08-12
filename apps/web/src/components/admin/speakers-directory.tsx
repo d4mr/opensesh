@@ -95,6 +95,7 @@ const emailTypeLabels: Readonly<Record<SpeakerDirectoryRow["emails"][number]["ty
   accepted: "Accepted",
   declined: "Declined",
   cancelled: "Cancelled",
+  reinstated: "Reinstated",
   task_reminder: "Task reminder",
   calendar_invite: "Calendar invite",
   custom: "Custom",
