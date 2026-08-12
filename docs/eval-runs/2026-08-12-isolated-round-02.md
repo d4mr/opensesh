@@ -33,7 +33,9 @@
 - Secondary event: `Forward Summit 2028`
 - Organizer: fresh Round 02 administrator identity
 - Speaker: Priya Raman fixture identity
-- Reviewer: Sam Whitfield fixture identity
+- CFP reviewer: Sam Whitfield (`sbek-reviewer@example.com` from `sample-data.json`)
+- Abstract reviewer: Sam Whitfield (`sam.reviewer@sbek-test.example.com` from the
+  Abstract Management spec and `evalconfig.json`)
 - Attendee: Alex Attendee fixture identity
 
 ## Scenario ledger
@@ -45,8 +47,8 @@
 | Call for Papers | CFP-S3 | Failed | `026`–`029` | Assignment persisted in admin, but the exact reviewer account sees `No reviews assigned`; score submission and organizer round-trip are blocked. |
 | Call for Papers | CFP-S4 | Completed with failed review prerequisite | `030`–`038` | Accept/reject, notifications, session handoff, closed portal, speaker statuses, and edit lock passed. Organizer review round-trip could not pass because CFP-S3 produced no review. |
 | Abstract Management | ABS-S1 | Completed with co-author failure | `039`–`041` | Three submissions exist. New-submission participant step can add speakers, but an existing submission cannot add/edit participants and no participant role selector exists; Marcus could not be added to SESS-1. |
-| Abstract Management | ABS-S2 | Completed | `042`–`047` | Two independent rounds, distinct scorecards/pools, exact two assignments, cap, 0/2 progress, and reminder dispatch all persisted. No AI-evaluation feature is claimed or present. |
-| Abstract Management | ABS-S3 | Failed | `048`, `152` | Exact reviewer still sees `No reviews assigned` after two persisted assignments; review submission, score storage, aggregates, sort, completion progress, and COI are blocked. The organizer results export control exists independently. |
+| Abstract Management | ABS-S2 | Completed after same-run audit correction | `042`–`047`, `167` | Two independent rounds, distinct scorecards/pools, exact two assignments, cap, 0/2 progress, and reminder dispatch all persisted. The first execution reused the CFP reviewer email; the exact Abstract reviewer was then added and assigned within this isolated tenant. No AI-evaluation feature is claimed or present. |
+| Abstract Management | ABS-S3 | Failed | `048`, `152`, `168` | The exact Abstract reviewer still sees an empty reviewer queue after two persisted assignments and switching to the Round 02 organization; review submission, score storage, aggregates, sort, completion progress, and COI are blocked. The organizer results export control exists independently. |
 | Speaker Management | SPK-S1 | Completed | `049`–`059` | Manual profiles, CSV import, search/filter, Confirmed persistence, organizer bio sentinel, existing session link, 3×2 tasks, and portal invitation all passed. |
 | Speaker Management | SPK-S2 | Completed | `060`–`066` | Portal scoping/session, current-round bio/social/headshot update, reload persistence, exact due dates, and 2-complete/1-open task state passed. |
 | Speaker Management | SPK-S3 | Completed | `067`–`071` | Portal edits/headshot round-tripped, list-level mixed progress, download control, 5-recipient merged campaign/history, and travel data persistence passed. |
@@ -152,9 +154,11 @@ ledger is complete.
 24. ABS-S2 persisted two independent rounds after reload: blind `Initial Review`
     (Aug 1–Oct 15, four weighted/type-varied criteria, Sam pool) and identified `Final
     Review` (Oct 16–Nov 30, Final Score 1–10 plus Comments, empty independent pool).
-25. Initial Review now assigns exactly SESS-1 and SESS-2 to `sbek-reviewer`, leaving
-    SESS-3 unassigned. The reviewer cap remains 5 from CFP-S3. Progress accurately shows
-    2 assigned, 0 complete, 2 remaining, 0%.
+25. Initial Review initially assigned exactly SESS-1 and SESS-2 to the CFP fixture
+    reviewer (`sbek-reviewer@example.com`), leaving SESS-3 unassigned. A post-freeze
+    spec audit found that ABS-S2 names a separate exact fixture identity,
+    `sam.reviewer@sbek-test.example.com`. That identity was added to Initial Review and
+    assigned exactly SESS-1 and SESS-2 in the same isolated Round 02 tenant (`167`).
 26. `Send reminders (1)` produced a new email-log row to the exact reviewer fixture:
     subject `Initial Review: 2 pending reviews`, status `Demo`. The progress screen itself
     gave no durable success state after the action, but the product's email delivery log
@@ -162,9 +166,13 @@ ledger is complete.
 27. No AI evaluation/triage capability or AI-review claim appears anywhere in the Round
     02 evaluation configuration, assignments, progress, or results surfaces, so ABS-14 is
     not applicable under its own rubric rather than failed.
-28. ABS-S3 retried the exact reviewer identity after Initial Review dates and assignments
-    were corrected. The reviewer-only shell still shows `No reviews assigned`; therefore
-    this is not stale setup from CFP-S3. Per the spec, the reviewer scenario stops here.
+28. ABS-S3 retried with the exact Abstract reviewer identity after the same-run audit
+    correction. After switching from the demo identity's default organization to SBEK
+    Isolated Round 02, the reviewer-only shell still shows the generic empty state
+    `Sessions assigned to you will appear here` (`168`). The assignments are present in
+    the target event (`167`), so the failure is an event-role/active-event access defect,
+    not evidence imported from CFP or a prior evaluation. Per the spec, the reviewer
+    scenario stops here.
     No review values, aggregate scores, sort states, completion progress, COI action, or
     export were fabricated through an organizer or seeded account.
 29. SPK-S1 started with Priya already present through the accepted Round 02 submission.
@@ -406,12 +414,23 @@ ledger is complete.
 
 Frozen after all 20 scenarios. No code changes were made before this point.
 
+### Post-freeze methodology correction
+
+The initial ABS execution incorrectly reused the CFP sample-data reviewer email. The
+Abstract spec and eval configuration require `sam.reviewer@sbek-test.example.com`, while
+CFP's sample-data fixture uses `sbek-reviewer@example.com`. Before evaluating a fix, the
+exact Abstract identity was added and assigned inside the existing Round 02 workspace,
+then signed in and switched to the Round 02 organization. Evidence `167` and `168` records
+that correction and the same empty-queue failure. No state, fixture result, screenshot, or
+observation from V3 or any other run was reconciled into Round 02.
+
 ### Rubric blockers
 
 1. **Reviewer assignments do not reach the reviewer queue (critical).** Organizer setup,
-   round membership, caps, and exact SESS-1/SESS-2 assignments persist, but the corresponding
-   reviewer-only account always renders `No reviews assigned`. This directly fails CFP-11 and
-   ABS-05 and prevents end-to-end proof of ABS-03/04/07/08/10/12. It is the largest score loss.
+   round membership, caps, and exact SESS-1/SESS-2 assignments persist, but both the CFP
+   reviewer and the separately required Abstract reviewer render an empty queue in the target
+   organization. This directly fails CFP-11 and ABS-05 and prevents end-to-end proof of
+   ABS-03/04/07/08/10/12. It is the largest score loss.
 2. **Existing submissions cannot manage participants or roles (major).** Multi-speaker cards
    exist only while creating a new submission. A submitted proposal cannot add Marcus, and
    participant cards have no Co-author/Co-presenter role selector. ABS-11 fails.
