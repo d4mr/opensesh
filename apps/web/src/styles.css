@@ -598,3 +598,17 @@
 .dark .shiki-viewer .shiki span {
   color: var(--shiki-dark) !important;
 }
+
+/* CRM pipeline drop slot — mounts when a dragged card hovers a column;
+   the gap eases open so the landing spot reads as created space. */
+.pipeline-drop-slot {
+  opacity: 1;
+  transition:
+    opacity 150ms ease,
+    scale 150ms ease;
+  scale: 1;
+  @starting-style {
+    opacity: 0;
+    scale: 0.97;
+  }
+}

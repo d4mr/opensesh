@@ -392,3 +392,15 @@ morning deploy — everything here ships in the next deploy.
   browser). The docs app is back under vp: `check: vp check`, catalog-pinned vite/vite-plus,
   root `vp run -r check` covers all four packages again. Deploy of apps/web still held for
   the running V3 eval; docs worker deploys independently.
+- Aug 12 — CRM pipeline board DnD rework (owner findings from prod testing, browser-verified):
+  the wonky ghost was double motion — the source card applied the drag transform while a
+  DragOverlay also rendered a (differently sized) preview. Now motion lives only in the
+  overlay clone (sized by dnd-kit to the lifted card, full content + shadow); the source
+  stays as a dimmed dashed slot at its origin. Hovering another column opens a dashed
+  placeholder sized to the dragged card (measured at drag start, DOM fallback for keyboard
+  drags) exactly where the card will land (end of stage), with the column border tinting
+  primary — MeasuringStrategy.Always keeps drop rects honest as layouts shift. The per-card
+  stage-select + Move row is gone (owner: "do it like linear"): a hover/focus-revealed kebab
+  menu carries Open contact and a Move to submenu (current stage disabled, semantic status
+  labels), preserving the keyboard/no-drag path; the grip's keyboard drag (Enter → arrows →
+  Enter) still works and was used to verify the full move + toast both directions.

@@ -3,6 +3,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   pointerWithin,
   rectIntersection,
@@ -20,13 +21,16 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDownIcon,
+  ArrowRightIcon,
   ArrowUpIcon,
   GripVerticalIcon,
+  MoreHorizontalIcon,
   PlusIcon,
   Settings2Icon,
   Trash2Icon,
+  UserRoundIcon,
 } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +43,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -105,7 +120,9 @@ const stageCoordinateGetter: KeyboardCoordinateGetter = (event, { context }) => 
   if (next === undefined) return undefined;
   return {
     x: next.rect.left + next.rect.width / 2 - collisionRect.width / 2,
-    y: next.rect.top + 8,
+    // Clear the column's sticky header row so the lifted card doesn't
+    // cover the stage name while keyboard-dragging.
+    y: next.rect.top + 48,
   };
 };
 
@@ -150,6 +167,9 @@ export function PipelineBoard({
   const [manageOpen, setManageOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [activeCard, setActiveCard] = useState<PipelineRow | null>(null);
+  // The dragged card's real height sizes the drop placeholder, so the gap
+  // that opens in the target column matches the card that will land there.
+  const [activeHeight, setActiveHeight] = useState(0);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: stageCoordinateGetter }),
@@ -185,6 +205,14 @@ export function PipelineBoard({
 
   const handleDragStart = (event: DragStartEvent) => {
     const cardId = String(event.active.id).replace(/^crm-card:/, "");
+    // Keyboard drags haven't measured the active rect yet at start; fall
+    // back to the lifted card's DOM node so the placeholder matches it.
+    const measured =
+      event.active.rect.current.initial?.height ??
+      (event.activatorEvent.target instanceof Element
+        ? (event.activatorEvent.target.closest("article")?.getBoundingClientRect().height ?? 0)
+        : 0);
+    setActiveHeight(measured);
     setActiveCard(
       workspace.pipeline.columns
         .flatMap((column) => column.cards)
@@ -213,6 +241,10 @@ export function PipelineBoard({
       id="crm-pipeline-dnd"
       sensors={sensors}
       collisionDetection={boardCollisions}
+      // Hiding the source card and opening the placeholder gap both change
+      // column heights mid-drag; drop rects must track that, not the layout
+      // captured at drag start.
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={handleDragStart}
       onDragCancel={() => setActiveCard(null)}
       onDragEnd={handleDragEnd}
@@ -247,6 +279,8 @@ export function PipelineBoard({
               column={column}
               workspace={workspace}
               movingCardId={move.isPending ? move.variables.cardId : null}
+              activeCard={activeCard}
+              activeHeight={activeHeight}
               openContact={openContact}
               moveCard={(cardId, toStageId, contactName) =>
                 move.mutate({ cardId, toStageId, contactName })
@@ -275,22 +309,29 @@ function PipelineColumn({
   column,
   workspace,
   movingCardId,
+  activeCard,
+  activeHeight,
   openContact,
   moveCard,
 }: {
   readonly column: CrmWorkspace["pipeline"]["columns"][number];
   readonly workspace: CrmWorkspace;
   readonly movingCardId: string | null;
+  readonly activeCard: PipelineRow | null;
+  readonly activeHeight: number;
   readonly openContact: (id: string) => void;
   readonly moveCard: (cardId: string, toStageId: string, contactName: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: stageDndId(column.stage.id) });
+  // Dropping on the origin column is a no-op, so it never advertises a slot.
+  const showsPlaceholder =
+    isOver && activeCard !== null && activeCard.card.stageId !== column.stage.id;
   return (
     <div
       ref={setNodeRef}
       className={cn(
         "min-w-60 rounded-lg border bg-muted/15 transition-colors",
-        isOver ? "bg-muted/50" : "",
+        showsPlaceholder ? "border-primary/40 bg-muted/40" : "",
       )}
     >
       <div className="flex h-10 items-center gap-2 border-b bg-muted/40 px-3">
@@ -303,7 +344,7 @@ function PipelineColumn({
         </span>
       </div>
       <div className="grid gap-2 p-2">
-        {column.cards.length === 0 ? (
+        {column.cards.length === 0 && !showsPlaceholder ? (
           <p className="px-2 py-8 text-center text-xs text-muted-foreground">
             No contacts in this stage.
           </p>
@@ -320,21 +361,37 @@ function PipelineColumn({
             />
           ))
         )}
+        {/* The slot the card will land in — cards join at the end of the
+            stage, so the gap opens exactly there, sized to the dragged card. */}
+        {showsPlaceholder ? (
+          <div
+            className="pipeline-drop-slot rounded-md border border-dashed border-primary/50 bg-primary/5"
+            style={{ height: activeHeight > 0 ? activeHeight : 64 }}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
+// Rendered inside DragOverlay, which is sized to the lifted card's measured
+// rect — filling it keeps the ghost exactly the card's own dimensions.
 function PipelineCardPreview({ row }: { readonly row: PipelineRow }) {
   return (
-    <div className="w-60 scale-[1.02] rounded-md border bg-background p-2.5">
-      <p className="truncate font-medium">
-        {row.contact.firstName} {row.contact.lastName}
-      </p>
-      <p className="truncate text-xs text-muted-foreground">
-        {row.contact.title ?? "No title"}
-        {row.contact.company === null ? "" : ` · ${row.contact.company}`}
-      </p>
+    <div className="flex size-full cursor-grabbing items-start gap-2 rounded-md border bg-background p-2.5 shadow-lg ring-1 ring-primary/20">
+      <GripVerticalIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">
+          {row.contact.firstName} {row.contact.lastName}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {row.contact.title ?? "No title"}
+          {row.contact.company === null ? "" : ` · ${row.contact.company}`}
+        </p>
+        {row.card.note === null ? null : (
+          <p className="mt-2 line-clamp-2 text-xs">{row.card.note}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -354,26 +411,21 @@ function PipelineCard({
   readonly moveCard: (cardId: string, toStageId: string, contactName: string) => void;
   readonly open: () => void;
 }) {
-  const [target, setTarget] = useState(card.stageId);
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: cardDndId(card.id),
   });
-  const style: CSSProperties = {
-    transform:
-      transform === null
-        ? undefined
-        : `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)`,
-  };
+  const contactName = `${contact.firstName} ${contact.lastName}`;
 
-  useEffect(() => setTarget(card.stageId), [card.stageId]);
-
+  // Motion lives entirely in the DragOverlay clone; the source card stays
+  // in layout as a dimmed slot (removing it would zero the rect dnd-kit
+  // measures for the overlay) so the origin reads as "lifted from here".
   return (
     <article
       ref={setNodeRef}
-      style={style}
       className={cn(
-        "min-w-0 rounded-md border bg-background p-2.5 transition-opacity",
-        isDragging ? "opacity-30" : "",
+        "group/card min-w-0 rounded-md border bg-background p-2.5 transition-opacity",
+        isDragging ? "border-dashed opacity-30" : "",
+        moving ? "opacity-60" : "",
       )}
     >
       {/* The drag handle is its own focusable button so keyboard users can
@@ -384,15 +436,13 @@ function PipelineCard({
           {...listeners}
           {...attributes}
           type="button"
-          aria-label={`Drag ${contact.firstName} ${contact.lastName} to another stage`}
+          aria-label={`Drag ${contactName} to another stage`}
           className="pressable mt-0.5 shrink-0 cursor-grab touch-none rounded-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <GripVerticalIcon className="size-4" />
         </button>
         <button type="button" className="pressable min-w-0 flex-1 text-left" onClick={open}>
-          <span className="block truncate font-medium">
-            {contact.firstName} {contact.lastName}
-          </span>
+          <span className="block truncate font-medium">{contactName}</span>
           <span className="block truncate text-xs text-muted-foreground">
             {contact.title ?? "No title"}
             {contact.company === null ? "" : ` · ${contact.company}`}
@@ -401,33 +451,49 @@ function PipelineCard({
             <span className="mt-2 block line-clamp-2 text-xs">{card.note}</span>
           )}
         </button>
-      </div>
-      <div className="mt-2 flex gap-1 border-t pt-2">
-        <Select value={target} onValueChange={setTarget}>
-          <SelectTrigger
-            size="sm"
-            aria-label={`Move ${contact.firstName} to stage`}
-            className="h-7 flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {workspace.pipeline.columns.map((column) => (
-              <SelectItem key={column.stage.id} value={column.stage.id}>
-                {column.stage.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="xs"
-          variant="outline"
-          className="pressable"
-          disabled={target === card.stageId || moving}
-          onClick={() => moveCard(card.id, target, `${contact.firstName} ${contact.lastName}`)}
-        >
-          Move
-        </Button>
+        {/* Linear-style card menu: the keyboard/no-drag path to a stage
+            move, revealed on hover or focus so cards stay clean. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              aria-label={`Actions for ${contactName}`}
+              className={cn(
+                "-mt-0.5 -mr-1 shrink-0 text-muted-foreground opacity-0 transition-opacity",
+                "group-hover/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
+              )}
+            >
+              <MoreHorizontalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={open}>
+              <UserRoundIcon /> Open contact
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <ArrowRightIcon className="mr-2 size-4 text-muted-foreground" /> Move to
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuLabel>Stages</DropdownMenuLabel>
+                {workspace.pipeline.columns.map((column) => (
+                  <DropdownMenuItem
+                    key={column.stage.id}
+                    disabled={column.stage.id === card.stageId || moving}
+                    onSelect={() => moveCard(card.id, column.stage.id, contactName)}
+                  >
+                    {column.stage.name}
+                    <span className="ml-auto text-xs text-muted-foreground capitalize">
+                      {column.stage.semanticStatus}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </article>
   );
