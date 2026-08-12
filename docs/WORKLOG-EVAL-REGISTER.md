@@ -419,3 +419,18 @@ morning deploy — everything here ships in the next deploy.
   worktree (main tree was mid-edit by the concurrent OpenAPI-schemas session) against a local
   fixture of 5 reviewers on one submission (3 completed with long comments, 1 pending,
   1 recused) plus a single-review and zero-review case; DB reseeded to pristine after.
+- Aug 12 — Evaluation Results, owner-corrected to the REAL spotlight (supersedes the previous
+  entry's inline-expansion + dialog approaches, both rejected): "spotlight" in this app is the
+  SpotlightLayout side panel the submissions desk uses — grep the codebase for domain
+  vocabulary before inventing an interpretation. Results is now that surface: a flat
+  no-horizontal-scroll table (Submission · Speakers · Status · Recommendation · Completion ·
+  Submitted · Aggregate) where a row click opens the side panel; compact mode keeps Status,
+  Submission, and Aggregate visible. Table gains a status filter (Select) and real column
+  sorts (aggregate default desc, submitted time, status, completion; nulls always last), j/k
+  + Escape keyboard walk courtesy of SpotlightLayout. Speakers render via the standard
+  SpeakerBadge (never ad-hoc name labels) in both table and panel — EvaluationParticipant
+  gained contactId/headshotUrl and EvaluationSubmission gained submittedAt in the domain read
+  model (blind rounds keep identity fields null). Panel polish per owner: assignment badges
+  and Accept/Maybe/Reject values use the app status palette (matched by intent since dropdown
+  options are free-form), card separators run full-bleed, spacing loosened for hierarchy, and
+  the duplicate recommendation next to the weighted aggregate was dropped.

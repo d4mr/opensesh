@@ -5,7 +5,7 @@ import type {
   ReviewRoundAdminView,
 } from "@opensesh/domain";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownIcon,
   ArrowUpDownIcon,
@@ -16,6 +16,7 @@ import {
   ChevronUpIcon,
   CopyIcon,
   DownloadIcon,
+  ExternalLinkIcon,
   EyeOffIcon,
   MailIcon,
   PlusIcon,
@@ -29,7 +30,10 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { EditorHeader } from "@/components/app/editor-header";
-import { StatusBadge } from "@/components/app/status-badge";
+import { SpeakerBadge } from "@/components/app/speaker-badge";
+import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
+import { StatusBadge, statusTextClass } from "@/components/app/status-badge";
+import { Timestamp } from "@/components/app/timestamp";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
 import { EntityCombobox } from "@/components/forms/entity-combobox";
 import { PersonHoverCard } from "@/components/app/person-popover";
@@ -68,6 +72,7 @@ import { PaginationFooter, usePagination } from "@/components/ui/pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { adminEvaluationQuery } from "@/lib/evaluation-queries";
+import { cn } from "@/lib/utils";
 import {
   addReviewMember,
   assignReviews,
@@ -295,6 +300,7 @@ export function EvaluationRoundEditor({
             <ResultsPane
               eventId={eventId}
               aiConfigured={workspace.aiConfigured}
+              timezone={timezone}
               view={view}
               refresh={refresh}
             />
@@ -1238,34 +1244,108 @@ function ProgressPane({
   );
 }
 
+type ResultsSortKey = "aggregate" | "submitted" | "status" | "completion";
+
+// Semantic decision order for the status sort, mirroring the desk's tabs.
+const resultsStatusOrder: ReadonlyArray<string> = [
+  "pending",
+  "maybe",
+  "accepted",
+  "declined",
+  "withdrawn",
+  "draft",
+];
+
+function sortHeader(
+  label: string,
+  key: ResultsSortKey,
+  sort: { readonly key: ResultsSortKey; readonly direction: "asc" | "desc" },
+  toggle: (key: ResultsSortKey) => void,
+) {
+  return (
+    <button type="button" className="inline-flex items-center gap-1" onClick={() => toggle(key)}>
+      {label}
+      {sort.key === key ? (
+        sort.direction === "asc" ? (
+          <ArrowUpIcon className="size-3" />
+        ) : (
+          <ArrowDownIcon className="size-3" />
+        )
+      ) : (
+        <ArrowUpDownIcon className="size-3 text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
 function ResultsPane({
   eventId,
   aiConfigured,
+  timezone,
   view,
   refresh,
 }: {
   readonly eventId: string;
   readonly aiConfigured: boolean;
+  readonly timezone: string;
   readonly view: ReviewRoundAdminView;
   readonly refresh: () => Promise<unknown>;
 }) {
-  const [direction, setDirection] = useState<"asc" | "desc">("desc");
+  const [sort, setSort] = useState<{ key: ResultsSortKey; direction: "asc" | "desc" }>({
+    key: "aggregate",
+    direction: "desc",
+  });
+  const [statusFilter, setStatusFilter] = useState("all");
   const [generating, setGenerating] = useState<string>();
   const [aiErrors, setAiErrors] = useState<Readonly<Record<string, string>>>({});
-  const ordered = view.results
+  // Spotlight tracks the id and derives the row from live results, so an AI
+  // generate refresh updates the open panel instead of freezing stale data.
+  const [spotlightId, setSpotlightId] = useState<string | null>(null);
+  const spotlightRow =
+    spotlightId === null
+      ? null
+      : (view.results.find((row) => row.submission.id === spotlightId) ?? null);
+  const statuses = Array.from(new Set(view.results.map((row) => row.submission.status))).sort(
+    (a, b) => resultsStatusOrder.indexOf(a) - resultsStatusOrder.indexOf(b),
+  );
+  const filtered =
+    statusFilter === "all"
+      ? view.results
+      : view.results.filter((row) => row.submission.status === statusFilter);
+  const ordered = filtered
     .map((row, index) => ({ row, index }))
     .sort((left, right) => {
-      const a = left.row.weightedAggregate;
-      const b = right.row.weightedAggregate;
-      if (a === null && b === null) return left.index - right.index;
-      if (a === null) return 1;
-      if (b === null) return -1;
-      const difference = direction === "asc" ? a - b : b - a;
-      return difference || left.index - right.index;
+      // Rows without an aggregate sink to the bottom in either direction.
+      if (sort.key === "aggregate") {
+        const a = left.row.weightedAggregate;
+        const b = right.row.weightedAggregate;
+        if (a === null && b === null) return left.index - right.index;
+        if (a === null) return 1;
+        if (b === null) return -1;
+        const difference = sort.direction === "asc" ? a - b : b - a;
+        return difference || left.index - right.index;
+      }
+      const difference =
+        sort.key === "submitted"
+          ? new Date(left.row.submission.submittedAt).getTime() -
+            new Date(right.row.submission.submittedAt).getTime()
+          : sort.key === "status"
+            ? resultsStatusOrder.indexOf(left.row.submission.status) -
+              resultsStatusOrder.indexOf(right.row.submission.status)
+            : left.row.completedCount - right.row.completedCount ||
+              left.row.reviewerCount - right.row.reviewerCount;
+      const signed = sort.direction === "asc" ? difference : -difference;
+      return signed || left.index - right.index;
     })
     .map(({ row }) => row);
+  const toggleSort = (key: ResultsSortKey) =>
+    setSort((current) =>
+      current.key === key
+        ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: key === "status" ? "asc" : "desc" },
+    );
   const pages = usePagination(ordered, {
-    resetKey: direction,
+    resetKey: `${sort.key}:${sort.direction}:${statusFilter}`,
     getId: (row) => row.submission.id,
   });
   const download = async () => {
@@ -1300,80 +1380,181 @@ function ResultsPane({
     toast.success("Generated AI first-pass review");
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-4 lg:p-6">
-      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Round results</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {view.results.length} {plural(view.results.length, "submission")} · weighted numeric
-            criteria
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="pressable"
-            onClick={() => setDirection((current) => (current === "asc" ? "desc" : "asc"))}
-          >
-            {direction === "asc" ? <ArrowUpIcon /> : <ArrowDownIcon />} Aggregate{" "}
-            {direction === "asc" ? "ascending" : "descending"}
-          </Button>
-          <Button size="sm" variant="outline" className="pressable" onClick={() => void download()}>
-            <DownloadIcon /> Export CSV
-          </Button>
-        </div>
-      </div>
-      <TableShell
-        className="mt-3"
-        footer={
-          <PaginationFooter
-            page={pages.page}
-            pageSize={pages.pageSize}
-            total={ordered.length}
-            onPageChange={pages.setPage}
-          />
-        }
-      >
-        <Table>
-          <TableHeader>
-            <TableRow className="h-8">
-              <TableHead className="h-8 min-w-72 text-xs">Submission</TableHead>
-              <TableHead className="h-8 min-w-24 text-xs">Status</TableHead>
-              {view.configuration.criteria.map((criterion) => (
-                <TableHead key={criterion.id} className="h-8 min-w-28 text-xs">
-                  {criterion.label}
-                </TableHead>
-              ))}
-              <TableHead className="h-8 min-w-32 text-xs">
-                Weighted aggregate {direction === "asc" ? "↑" : "↓"}
-              </TableHead>
-              <TableHead className="h-8 min-w-28 text-xs">Recommendation</TableHead>
-              <TableHead className="h-8 min-w-28 text-xs">Completion</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pages.pageItems.map((row) => (
-              <ResultsRows
-                key={row.submission.id}
-                eventId={eventId}
-                aiConfigured={aiConfigured}
-                row={row}
-                view={view}
-                generating={generating === row.submission.id}
-                aiError={aiErrors[row.submission.id]}
-                generate={() => void generate(row.submission.id)}
-                refresh={refresh}
+    <SpotlightLayout
+      spotlightId={spotlightId ?? undefined}
+      orderedIds={ordered.map((row) => row.submission.id)}
+      onSpotlightChange={(id) => setSpotlightId(id ?? null)}
+      list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+        <div className="flex h-full min-h-0 flex-col p-4 lg:p-6">
+          <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Round results</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {view.results.length} {plural(view.results.length, "submission")} · weighted numeric
+                criteria
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => value !== null && setStatusFilter(value)}
+              >
+                <SelectTrigger size="sm">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {statuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status[0]?.toUpperCase()}
+                      {status.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable"
+                onClick={() => void download()}
+              >
+                <DownloadIcon /> Export CSV
+              </Button>
+            </div>
+          </div>
+          <TableShell
+            className="mt-3"
+            scrollRef={scrollRef}
+            footer={
+              <PaginationFooter
+                page={pages.page}
+                pageSize={pages.pageSize}
+                total={ordered.length}
+                onPageChange={pages.setPage}
               />
-            ))}
-          </TableBody>
-        </Table>
-      </TableShell>
-    </div>
+            }
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="h-8 hover:bg-transparent">
+                  {compact ? (
+                    <TableHead className="h-8 w-28 text-xs">
+                      {sortHeader("Status", "status", sort, toggleSort)}
+                    </TableHead>
+                  ) : null}
+                  <TableHead className="h-8 text-xs">Submission</TableHead>
+                  {compact ? null : (
+                    <>
+                      <TableHead className="h-8 min-w-40 text-xs">Speakers</TableHead>
+                      <TableHead className="h-8 min-w-24 text-xs">
+                        {sortHeader("Status", "status", sort, toggleSort)}
+                      </TableHead>
+                      <TableHead className="h-8 min-w-28 text-xs">Recommendation</TableHead>
+                      <TableHead className="h-8 min-w-24 text-xs">
+                        {sortHeader("Completion", "completion", sort, toggleSort)}
+                      </TableHead>
+                      <TableHead className="h-8 min-w-28 text-xs">
+                        {sortHeader("Submitted", "submitted", sort, toggleSort)}
+                      </TableHead>
+                    </>
+                  )}
+                  <TableHead className="h-8 min-w-24 text-xs">
+                    {sortHeader("Aggregate", "aggregate", sort, toggleSort)}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pages.pageItems.map((row) => (
+                  <TableRow
+                    key={row.submission.id}
+                    ref={rowRef(row.submission.id)}
+                    className={cn("h-12 cursor-pointer", rowClassName(row.submission.id))}
+                    onClick={() => openSpotlight(row.submission.id)}
+                  >
+                    {compact ? (
+                      <TableCell className="w-28">
+                        <StatusBadge status={row.submission.status} />
+                      </TableCell>
+                    ) : null}
+                    <TableCell className="min-w-0">
+                      <p
+                        className={cn(
+                          "truncate text-[13px] font-medium",
+                          compact ? "max-w-72" : "max-w-96",
+                        )}
+                        title={row.submission.title}
+                      >
+                        <span className="mr-2 font-mono text-xs text-muted-foreground tabular-nums">
+                          {row.submission.code}
+                        </span>
+                        {row.submission.title}
+                      </p>
+                    </TableCell>
+                    {compact ? null : (
+                      <>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1.5">
+                            {row.submission.participants.map((participant) => (
+                              <SpeakerBadge
+                                key={`${participant.contactId ?? participant.name}:${participant.role}`}
+                                person={{
+                                  id: participant.contactId ?? undefined,
+                                  name: participant.name,
+                                  image: participant.headshotUrl,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={row.submission.status} />
+                        </TableCell>
+                        <TableCell className="text-xs">{row.recommendation ?? "—"}</TableCell>
+                        <TableCell className="text-xs tabular-nums">
+                          {row.completedCount}/{row.reviewerCount}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                          <Timestamp
+                            value={row.submission.submittedAt}
+                            timezone={timezone}
+                            mode="date"
+                          />
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell className="font-medium tabular-nums">
+                      {row.weightedAggregate?.toFixed(2) ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableShell>
+        </div>
+      )}
+      panel={
+        spotlightRow === null ? null : (
+          <ResultSpotlightPanel
+            eventId={eventId}
+            aiConfigured={aiConfigured}
+            row={spotlightRow}
+            view={view}
+            generating={generating === spotlightRow.submission.id}
+            aiError={aiErrors[spotlightRow.submission.id]}
+            generate={() => void generate(spotlightRow.submission.id)}
+            refresh={refresh}
+            onClose={() => setSpotlightId(null)}
+          />
+        )
+      }
+    />
   );
 }
 
-function ResultsRows({
+// The results spotlight panel — same surface as the submissions desk: the
+// table stays scannable and everything about one submission lives here
+// (scorecard, every review with its full comments, AI first-pass).
+function ResultSpotlightPanel({
   eventId,
   aiConfigured,
   row,
@@ -1382,6 +1563,7 @@ function ResultsRows({
   aiError,
   generate,
   refresh,
+  onClose,
 }: {
   readonly eventId: string;
   readonly aiConfigured: boolean;
@@ -1391,96 +1573,137 @@ function ResultsRows({
   readonly aiError: string | undefined;
   readonly generate: () => void;
   readonly refresh: () => Promise<unknown>;
+  readonly onClose: () => void;
 }) {
-  const spotlight = spotlightReview(row.humanReviews);
   return (
     <>
-      <TableRow className="h-10">
-        <TableCell>
-          <p className="text-[13px] font-medium">
-            <span className="mr-2 font-mono text-xs text-muted-foreground tabular-nums">
-              {row.submission.code}
-            </span>
-            {row.submission.title}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {row.submission.participants
-              .map((participant) => `${participant.name} (${participant.role})`)
-              .join("; ")}
-          </p>
-        </TableCell>
-        <TableCell>
-          <StatusBadge status={row.submission.status} />
-        </TableCell>
-        {view.configuration.criteria.map((criterion) => (
-          <TableCell key={criterion.id} className="text-xs">
-            <CriterionSummary criterion={criterion} reviews={row.humanReviews} />
-          </TableCell>
-        ))}
-        <TableCell className="font-medium tabular-nums">
-          {row.weightedAggregate?.toFixed(2) ?? "—"}
-        </TableCell>
-        <TableCell>{row.recommendation ?? "—"}</TableCell>
-        <TableCell className="tabular-nums">
-          {row.completedCount}/{row.reviewerCount}
-        </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell colSpan={view.configuration.criteria.length + 5} className="bg-muted/10 p-3">
-          <div className="grid items-start gap-3 xl:grid-cols-2">
-            <div className="min-w-0 rounded-lg border bg-background p-3">
-              <p className="text-xs font-semibold">Human reviews · {row.humanReviews.length}</p>
-              {spotlight === undefined ? (
-                <p className="mt-2 text-xs text-muted-foreground">No human reviews assigned.</p>
-              ) : (
-                <div className="mt-2">
-                  <ReviewEntry review={spotlight} clampComments />
-                  {row.humanReviews.length > 1 ? <AllReviewsDialog row={row} /> : null}
-                </div>
-              )}
-            </div>
-            {row.aiResult === null ? (
-              <div className="flex min-w-0 items-center gap-2 rounded-lg border border-dashed px-3 py-2">
-                <BotIcon className="size-4 shrink-0 text-muted-foreground" />
-                <p className="shrink-0 text-xs font-medium">AI first-pass</p>
-                {aiError === undefined ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {aiConfigured ? "Not generated yet" : "Anthropic key not configured"}
-                  </p>
-                ) : (
-                  <p
-                    className="truncate text-xs font-medium text-destructive"
-                    role="alert"
-                    title={aiError}
-                  >
-                    {aiError}
-                  </p>
-                )}
-                {aiConfigured ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="pressable ml-auto shrink-0"
-                    disabled={generating}
-                    onClick={generate}
-                  >
-                    <SparklesIcon /> {generating ? "Generating…" : "Run AI review"}
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              <div className="min-w-0 rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <div className="flex items-center gap-2">
-                  <BotIcon className="size-4 text-primary" />
-                  <p className="text-xs font-semibold">AI first-pass</p>
-                  <Badge className="bg-primary text-primary-foreground">AI</Badge>
-                </div>
-                <AiResult eventId={eventId} row={row} refresh={refresh} />
-              </div>
-            )}
+      <SpotlightPanelHeader
+        identity={
+          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+            {row.submission.code}
+          </span>
+        }
+        status={<StatusBadge status={row.submission.status} />}
+        actions={
+          <Button size="icon-sm" variant="ghost" className="pressable" asChild>
+            <Link
+              to="/admin/abstracts/$id"
+              params={{ id: row.submission.id }}
+              search={{ status: "all" }}
+              aria-label="Open full submission page"
+            >
+              <ExternalLinkIcon />
+            </Link>
+          </Button>
+        }
+        onClose={onClose}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-16">
+        <h2 className="font-semibold">{row.submission.title}</h2>
+        {row.submission.participants.length === 0 ? null : (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {row.submission.participants.map((participant) => (
+              <span
+                key={`${participant.contactId ?? participant.name}:${participant.role}`}
+                className="flex items-center gap-1.5"
+              >
+                <SpeakerBadge
+                  person={{
+                    id: participant.contactId ?? undefined,
+                    name: participant.name,
+                    image: participant.headshotUrl,
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">{participant.role}</span>
+              </span>
+            ))}
           </div>
-        </TableCell>
-      </TableRow>
+        )}
+        <section className="mt-4 rounded-lg border">
+          <div className="flex items-baseline justify-between gap-2 px-3 pt-3">
+            <p className="text-xs font-semibold">Scorecard</p>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {row.completedCount}/{row.reviewerCount} {plural(row.reviewerCount, "review")}{" "}
+              complete
+            </p>
+          </div>
+          <dl className="mt-2.5 grid gap-2 px-3 pb-3">
+            {view.configuration.criteria
+              .filter((criterion) => criterion.type !== "text")
+              .map((criterion) => (
+                <div key={criterion.id} className="flex items-baseline justify-between gap-3">
+                  <dt className="text-xs text-muted-foreground">{criterion.label}</dt>
+                  <dd className="text-xs">
+                    <CriterionSummary criterion={criterion} reviews={row.humanReviews} />
+                  </dd>
+                </div>
+              ))}
+          </dl>
+          <div className="flex items-baseline justify-between gap-3 border-t px-3 py-2.5">
+            <p className="text-xs font-medium">Weighted aggregate</p>
+            <p className="text-xs font-semibold tabular-nums">
+              {row.weightedAggregate?.toFixed(2) ?? "—"}
+            </p>
+          </div>
+        </section>
+        <section className="mt-4 rounded-lg border">
+          <p className="px-3 pt-3 text-xs font-semibold">
+            Human reviews · {row.humanReviews.length}
+          </p>
+          {row.humanReviews.length === 0 ? (
+            <p className="px-3 pt-2 pb-3 text-xs text-muted-foreground">
+              No human reviews assigned.
+            </p>
+          ) : (
+            <div className="mt-3 divide-y border-t">
+              {byRecency(row.humanReviews).map((review) => (
+                <div key={review.assignment.id} className="px-3 py-3">
+                  <ReviewEntry review={review} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        {row.aiResult === null ? (
+          <div className="mt-4 flex min-w-0 items-center gap-2 rounded-lg border border-dashed px-3 py-2">
+            <BotIcon className="size-4 shrink-0 text-muted-foreground" />
+            <p className="shrink-0 text-xs font-medium">AI first-pass</p>
+            {aiError === undefined ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {aiConfigured ? "Not generated yet" : "Anthropic key not configured"}
+              </p>
+            ) : (
+              <p
+                className="truncate text-xs font-medium text-destructive"
+                role="alert"
+                title={aiError}
+              >
+                {aiError}
+              </p>
+            )}
+            {aiConfigured ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="pressable ml-auto shrink-0"
+                disabled={generating}
+                onClick={generate}
+              >
+                <SparklesIcon /> {generating ? "Generating…" : "Run AI review"}
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <section className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <div className="flex items-center gap-2">
+              <BotIcon className="size-4 text-primary" />
+              <p className="text-xs font-semibold">AI first-pass</p>
+              <Badge className="bg-primary text-primary-foreground">AI</Badge>
+            </div>
+            <AiResult eventId={eventId} row={row} refresh={refresh} />
+          </section>
+        )}
+      </div>
     </>
   );
 }
@@ -1488,14 +1711,28 @@ function ResultsRows({
 type HumanReview = EvaluationResultRow["humanReviews"][number];
 type ResultCriterion = ReviewRoundAdminView["configuration"]["criteria"][number];
 
-// The review worth surfacing without a click: the most recently completed
-// one, falling back to whichever assignment exists when none are done yet.
+// Most recently completed first; assignments still open sink to the bottom.
 const byRecency = (reviews: ReadonlyArray<HumanReview>): ReadonlyArray<HumanReview> =>
   [...reviews].sort((a, b) => completedTime(b) - completedTime(a));
-const spotlightReview = (reviews: ReadonlyArray<HumanReview>): HumanReview | undefined =>
-  byRecency(reviews)[0];
 const completedTime = (review: HumanReview) =>
   review.assignment.completedAt === null ? -1 : new Date(review.assignment.completedAt).getTime();
+
+// Same status palette the reviewer workspace uses for these assignments.
+const assignmentBadgeClass: Readonly<Record<"pending" | "completed" | "recused", string>> = {
+  completed: "bg-status-accepted text-status-accepted-foreground",
+  recused: "bg-status-declined text-status-declined-foreground",
+  pending: "bg-status-pending text-status-pending-foreground",
+};
+
+// Dropdown options are free-form, so decision colors are matched by intent;
+// unrecognized options stay in the plain foreground color.
+const decisionTextClass = (value: string) => {
+  const lower = value.toLowerCase();
+  if (lower.includes("accept")) return statusTextClass.accepted;
+  if (lower.includes("maybe")) return statusTextClass.maybe;
+  if (lower.includes("reject") || lower.includes("declin")) return statusTextClass.declined;
+  return "text-foreground";
+};
 
 const formatMean = (values: ReadonlyArray<number>) => {
   const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -1549,7 +1786,7 @@ function CriterionSummary({
             {values.length > 1 ? (
               <span className="text-muted-foreground tabular-nums">{counts.get(option)} </span>
             ) : null}
-            {option}
+            <span className={cn("font-medium", decisionTextClass(option))}>{option}</span>
           </span>
         ))}
       </span>
@@ -1569,13 +1806,7 @@ function CriterionSummary({
   );
 }
 
-function ReviewEntry({
-  review,
-  clampComments,
-}: {
-  readonly review: HumanReview;
-  readonly clampComments: boolean;
-}) {
+function ReviewEntry({ review }: { readonly review: HumanReview }) {
   const scored = review.answers.filter(
     (answer) => answer.numericValue !== null || answer.optionValue !== null,
   );
@@ -1590,23 +1821,29 @@ function ReviewEntry({
     <div className="min-w-0">
       <div className="flex items-center gap-2">
         <span className="truncate text-xs font-medium">{review.reviewerName}</span>
-        <Badge variant="outline" className="text-[10px]">
+        <Badge className={cn("text-[10px]", assignmentBadgeClass[review.assignment.status])}>
           {review.assignment.status}
         </Badge>
       </div>
       {review.assignment.recusalReason === null ? null : (
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           Recusal: {review.assignment.recusalReason}
         </p>
       )}
       {scored.length === 0 ? null : (
-        <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {scored.map((answer) => (
             <span key={answer.criterionId}>
               {answer.label}{" "}
-              <span className="font-medium text-foreground tabular-nums">
-                {answer.numericValue ?? answer.optionValue}
-              </span>
+              {answer.numericValue === null && answer.optionValue !== null ? (
+                <span className={cn("font-medium", decisionTextClass(answer.optionValue))}>
+                  {answer.optionValue}
+                </span>
+              ) : (
+                <span className="font-medium text-foreground tabular-nums">
+                  {answer.numericValue}
+                </span>
+              )}
             </span>
           ))}
         </p>
@@ -1614,43 +1851,13 @@ function ReviewEntry({
       {comments.map((answer) => (
         <p
           key={answer.criterionId}
-          className={`mt-1.5 text-xs leading-5 break-words text-muted-foreground${clampComments ? " line-clamp-2" : ""}`}
+          className="mt-2 text-xs leading-5 break-words text-muted-foreground"
         >
           <span className="font-medium text-foreground">{answer.label}: </span>
           {answer.textValue}
         </p>
       ))}
     </div>
-  );
-}
-
-function AllReviewsDialog({ row }: { readonly row: EvaluationResultRow }) {
-  const [open, setOpen] = useState(false);
-  const more = row.humanReviews.length - 1;
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="pressable mt-1.5 h-6 px-1.5 text-xs text-muted-foreground"
-        onClick={() => setOpen(true)}
-      >
-        +{more} more {plural(more, "review")}
-      </Button>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Reviews · {row.submission.code}</DialogTitle>
-          <DialogDescription>{row.submission.title}</DialogDescription>
-        </DialogHeader>
-        <div className="-mx-1 max-h-[60vh] divide-y overflow-y-auto px-1">
-          {byRecency(row.humanReviews).map((review) => (
-            <div key={review.assignment.id} className="py-3 first:pt-0 last:pb-0">
-              <ReviewEntry review={review} clampComments={false} />
-            </div>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 

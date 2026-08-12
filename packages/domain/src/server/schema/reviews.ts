@@ -167,9 +167,13 @@ export const ReviewResult = Schema.Struct({
 });
 export type ReviewResult = typeof ReviewResult.Type;
 
+// contactId/headshotUrl feed the standard speaker badge; both stay null on
+// blind rounds where the reviewer view must not expose identity.
 export const EvaluationParticipant = Schema.Struct({
   name: Schema.String,
   role: Schema.String,
+  contactId: NullableString,
+  headshotUrl: NullableString,
 });
 export type EvaluationParticipant = typeof EvaluationParticipant.Type;
 
@@ -179,6 +183,7 @@ export const EvaluationSubmission = Schema.Struct({
   title: Schema.String,
   description: Schema.String,
   status: SubmissionStatus,
+  submittedAt: Schema.Date,
   trackIds: Schema.Array(Schema.String),
   trackNames: Schema.Array(Schema.String),
   participants: Schema.Array(EvaluationParticipant),

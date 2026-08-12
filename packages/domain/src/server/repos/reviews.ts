@@ -354,6 +354,8 @@ export const ReviewsLive = Layer.effect(
                   participantFirstName: contacts.firstName,
                   participantLastName: contacts.lastName,
                   participantRole: submissionParticipants.role,
+                  participantContactId: contacts.id,
+                  participantHeadshotUrl: contacts.headshotUrl,
                 })
                 .from(submissions)
                 .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
@@ -444,6 +446,7 @@ export const ReviewsLive = Layer.effect(
                     title: first.submission.title,
                     description: first.submission.description,
                     status: first.submission.status,
+                    submittedAt: first.submission.createdAt,
                     trackIds: Array.from(
                       new Set(group.flatMap((row) => (row.trackId === null ? [] : [row.trackId]))),
                     ),
@@ -464,7 +467,12 @@ export const ReviewsLive = Layer.effect(
                             : [
                                 [
                                   `${name}:${row.participantRole}`,
-                                  { name, role: row.participantRole },
+                                  {
+                                    name,
+                                    role: row.participantRole,
+                                    contactId: row.participantContactId,
+                                    headshotUrl: row.participantHeadshotUrl,
+                                  },
                                 ],
                               ];
                         }),
@@ -652,6 +660,8 @@ export const ReviewsLive = Layer.effect(
                 .select({
                   submissionId: submissionParticipants.submissionId,
                   role: submissionParticipants.role,
+                  contactId: contacts.id,
+                  headshotUrl: contacts.headshotUrl,
                   firstName: contacts.firstName,
                   lastName: contacts.lastName,
                   company: contacts.company,
@@ -770,6 +780,8 @@ export const ReviewsLive = Layer.effect(
                       : identities.map((identity) => ({
                           name: `${identity.firstName} ${identity.lastName}`,
                           role: identity.role,
+                          contactId: identity.contactId,
+                          headshotUrl: identity.headshotUrl,
                         })),
                     answers: decodedAnswers.filter(
                       (answer) => answer.assignmentId === assignment.id,
