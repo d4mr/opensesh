@@ -894,7 +894,11 @@ export const PortalLive = Layer.effect(
                 .orderBy(asc(taskTemplates.position))
                 .execute(),
             ),
-            participants: query(database, "Could not load accepted speakers", (db) =>
+            // Every submission's participants, regardless of status: the
+            // Content table lists pending rows too. Consumers whose meaning is
+            // "accepted speakers" (session counts on profiles) filter by
+            // submission status themselves.
+            participants: query(database, "Could not load submission speakers", (db) =>
               db
                 .select({
                   participant: submissionParticipants,
@@ -904,7 +908,7 @@ export const PortalLive = Layer.effect(
                 .from(submissionParticipants)
                 .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
                 .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                .where(and(eq(submissions.eventId, eventId), eq(submissions.status, "accepted")))
+                .where(eq(submissions.eventId, eventId))
                 .orderBy(asc(contacts.lastName), asc(contacts.firstName))
                 .execute(),
             ),

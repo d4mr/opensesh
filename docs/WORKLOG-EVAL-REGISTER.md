@@ -559,3 +559,37 @@ redirected to `/admin/evaluation`, sidebar shows only "My Reviews", queue
 renders (pristine seed has no pending assignments), console clean. Dana:
 Overview unchanged (full KPIs, lifecycle, attention, recent submissions).
 Checks clean, tests 57/57.
+
+## 2026-08-12 — Content page: speakers on every row, one decision flow
+
+**Speakers missing until acceptance (owner: "wtf").** The portal admin read
+model's `participants` query filtered `submissions.status = "accepted"` — it
+predates the Content page listing pending rows, so every pending row (and its
+peek panel) showed "—" for speakers even though the seed attaches participants
+to every submission. The read model now returns every submission's
+participants; consumers whose meaning really is "accepted speakers" (profile
+session counts in the person hover card and `getEventContactProfile`) filter
+by status explicitly at the call site.
+
+**Content's Accept bypassed the decision flow (owner: "what are we even
+accepting here?").** The row's Accept called `acceptPortalSubmission` — a bare
+status flip + task assignment with NO decision dialog, NO personal message,
+and NO logged decision email; the same decision made from the Submissions desk
+went through the full Decide dialog. There is now exactly one decision flow:
+`DecisionDialog`'s props were loosened to the structural subset it reads
+(`DecisionDialogSubmission`), Content's Accept opens it (speakers mapped from
+the now-complete participants), and the redundant `acceptPortalSubmission`
+server fn was deleted. `portal.acceptSubmission` (domain) stays — the manual
+session-create flow uses it deliberately, sans email.
+
+**Verified in browser (local dev, pristine seed).** Content table shows
+SpeakerBadges on all 23 rows including pending; Accept on SESS-11 opens
+"Decide SESS-11" with the personalized preview ("Hi Owen, … Debugging AI with
+boring tools"); Accept and send → row flips to Accepted + "Awaiting approval",
+publish banner appears instantly (scoped invalidation), and Email delivery
+logs the decision email to owen.park@shipyard.run. Local DB reseeded pristine
+after. Checks clean, tests 57/57.
+
+**Note.** Local DB had to be reseeded mid-verification: the API-provenance
+commit (70dfe2b) landed schema columns (`author_api_key_id` on the edit
+history tables) + squashed migrations while this fix was in flight.

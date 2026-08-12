@@ -141,7 +141,7 @@ export const getEventContactProfile = createServerFn({ method: "GET" })
         });
         const sessionCount = new Set(
           admin.participants
-            .filter((row) => row.contact.id === contact.id)
+            .filter((row) => row.contact.id === contact.id && row.submission.status === "accepted")
             .map((row) => row.submission.id),
         ).size;
         return { contact, sessionCount };
@@ -795,23 +795,6 @@ export const rejectProfileChange = createServerFn({ method: "POST" })
           data.historyId,
           "rejected",
         );
-      }),
-      { require: "staff" },
-    ),
-  );
-
-export const acceptPortalSubmission = createServerFn({ method: "POST" })
-  .validator(
-    Schema.toStandardSchemaV1(
-      Schema.Struct({ eventId: Schema.String, submissionId: Schema.String }),
-    ),
-  )
-  .handler(async ({ data }) =>
-    runServer(
-      Effect.gen(function* () {
-        yield* requireAdminEvent(data.eventId);
-        const portal = yield* Portal;
-        return yield* portal.acceptSubmission(data.eventId, data.submissionId);
       }),
       { require: "staff" },
     ),

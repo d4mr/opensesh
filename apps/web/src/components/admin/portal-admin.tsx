@@ -19,7 +19,7 @@ import {
   SendIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
-import { Fragment, useLayoutEffect, useState } from "react";
+import { Fragment, useLayoutEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { RichText } from "@/components/forms/rich-text";
@@ -82,10 +82,10 @@ import { contentDiffRows, describeChangedFields } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadZip, fetchVersionData } from "@/lib/files";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { adminPortalQuery } from "@/lib/portal-queries";
+import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { rememberPortalFormList, takePortalFormListReturn } from "@/lib/portal-form-navigation";
 import { cn } from "@/lib/utils";
 import {
-  acceptPortalSubmission,
   approveContentChange,
   createAdminFileRequest,
   approveSessionContent,
@@ -114,7 +114,7 @@ const personFor = (data: AdminData, contact: AdminData["contacts"][number]) => (
   status: contact.workflowStatus,
   sessionsCount: new Set(
     data.participants
-      .filter((row) => row.contact.id === contact.id)
+      .filter((row) => row.contact.id === contact.id && row.submission.status === "accepted")
       .map((row) => row.submission.id),
   ).size,
 });
@@ -1715,6 +1715,7 @@ function AdminSessions({
   ) => void;
 }) {
   const queryClient = useQueryClient();
+  const eventName = useAdminEvent()?.event.name ?? "";
   const refresh = () => invalidateAfterMutation(queryClient, eventId);
   const review = useMutation({
     mutationFn: ({
@@ -1733,15 +1734,31 @@ function AdminSessions({
       await refresh();
     },
   });
-  const accept = useMutation({
-    mutationFn: (submissionId: string) =>
-      acceptPortalSubmission({ data: { eventId, submissionId } }),
-    onSuccess: async (result) => {
-      if (!result.ok) toast.error(result.error.message);
-      else toast.success("Submission accepted and onboarding tasks assigned");
-      await refresh();
-    },
-  });
+  // Accepting from Content goes through the SAME decision dialog as the
+  // review desk — decisions always carry the email and publication checkbox.
+  const [decideId, setDecideId] = useState<string>();
+  const decideTarget = data.submissions.find((item) => item.id === decideId);
+  const decideSubmissions = useMemo(
+    () =>
+      decideTarget === undefined
+        ? []
+        : [
+            {
+              id: decideTarget.id,
+              code: decideTarget.code,
+              title: decideTarget.title,
+              status: decideTarget.status,
+              speakers: data.participants
+                .filter((row) => row.submission.id === decideTarget.id)
+                .map((row) => ({
+                  name: `${row.contact.firstName} ${row.contact.lastName}`,
+                  role: row.participant.role,
+                })),
+              reviewComments: [],
+            },
+          ],
+    [decideTarget, data.participants],
+  );
   const approvePublication = useMutation({
     mutationFn: (submissionIds: ReadonlyArray<string>) =>
       approveSessionContent({ data: { eventId, submissionIds: [...submissionIds] } }),
@@ -2026,10 +2043,9 @@ function AdminSessions({
                                   <Button
                                     size="xs"
                                     className="pressable"
-                                    disabled={accept.isPending}
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      accept.mutate(submission.id);
+                                      setDecideId(submission.id);
                                     }}
                                   >
                                     <UserRoundCheckIcon /> Accept
@@ -2071,6 +2087,19 @@ function AdminSessions({
             onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
           />
         }
+      />
+      <DecisionDialog
+        open={decideId !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setDecideId(undefined);
+        }}
+        eventId={eventId}
+        eventName={eventName}
+        submissions={decideSubmissions}
+        initialDecision="accept"
+        onOptimistic={() => {}}
+        onFailure={() => void refresh()}
+        onComplete={() => void refresh()}
       />
     </main>
   );

@@ -21,6 +21,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { decideSubmissions } from "@/server-fns/review-desk";
 
+// The one decision flow: any surface that accepts or declines a submission
+// (review desk, Content) opens this dialog — decisions always carry the
+// personal message, the logged email, and the publication checkbox. The prop
+// type is the subset the dialog reads so non-desk surfaces can supply it.
+export interface DecisionDialogSubmission {
+  readonly id: string;
+  readonly code: string;
+  readonly title: string;
+  readonly status: ReviewDeskListItem["status"];
+  readonly speakers: ReadonlyArray<{ readonly name: string; readonly role: string }>;
+  readonly reviewComments: ReadonlyArray<string>;
+}
+
 export function DecisionDialog({
   open,
   onOpenChange,
@@ -36,7 +49,7 @@ export function DecisionDialog({
   readonly onOpenChange: (open: boolean) => void;
   readonly eventId: string;
   readonly eventName: string;
-  readonly submissions: ReadonlyArray<ReviewDeskListItem>;
+  readonly submissions: ReadonlyArray<DecisionDialogSubmission>;
   readonly initialDecision: SubmissionDecision;
   readonly onOptimistic: (decision: SubmissionDecision) => void;
   readonly onFailure: () => void;
