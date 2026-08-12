@@ -12,6 +12,7 @@ const nav = [
   { title: "My Submissions", section: "submissions" },
   { title: "My Sessions", section: "sessions" },
   { title: "Tasks", section: "tasks" },
+  { title: "Resources", section: "resources" },
   { title: "Profile", section: "profile" },
 ];
 

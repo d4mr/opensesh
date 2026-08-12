@@ -120,3 +120,5 @@ export const embedView = pgEnum("embed_view", [
   "agenda",
   "itinerary",
 ]);
+export const resourceAudienceMode = pgEnum("resource_audience_mode", ["all", "tracks", "contacts"]);
+export const resourceAttachmentKind = pgEnum("resource_attachment_kind", ["link", "file", "embed"]);

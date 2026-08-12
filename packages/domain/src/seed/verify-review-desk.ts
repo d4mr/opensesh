@@ -96,8 +96,16 @@ const verify = Effect.gen(function* () {
       new InvalidInput({ message: "Review desk verification needs an inline status target" }),
     );
   }
-  yield* reviewDesk.changeStatus(eventId, undoTarget.id, "maybe", { kind: "user", userId: "usr_dana", name: "Seed verification" });
-  const undone = yield* reviewDesk.changeStatus(eventId, undoTarget.id, "pending", { kind: "user", userId: "usr_dana", name: "Seed verification" });
+  yield* reviewDesk.changeStatus(eventId, undoTarget.id, "maybe", {
+    kind: "user",
+    userId: "usr_dana",
+    name: "Seed verification",
+  });
+  const undone = yield* reviewDesk.changeStatus(eventId, undoTarget.id, "pending", {
+    kind: "user",
+    userId: "usr_dana",
+    name: "Seed verification",
+  });
   const declineTargets = abstracts.submissions
     .filter(
       (submission) =>

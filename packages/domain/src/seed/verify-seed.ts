@@ -35,6 +35,9 @@ import {
   portalFormResponses,
   portalForms,
   reviewerTracks,
+  resourceContacts,
+  resources,
+  resourceTracks,
   reminderRules,
   reviewAnswers,
   reviewAssignments,
@@ -87,6 +90,9 @@ const expectedTables: ReadonlyArray<{
   { name: "reviews", table: reviews, expected: 6 },
   { name: "portal_forms", table: portalForms, expected: 2 },
   { name: "portal_form_responses", table: portalFormResponses, expected: 4 },
+  { name: "resources", table: resources, expected: 3 },
+  { name: "resource_tracks", table: resourceTracks, expected: 0 },
+  { name: "resource_contacts", table: resourceContacts, expected: 0 },
   { name: "file_requests", table: fileRequests, expected: 1 },
   { name: "session_file_requirements", table: sessionFileRequirements, expected: 2 },
   {
@@ -146,6 +152,7 @@ export const verifySeed = async (database: Database) => {
     devflowLibrary,
     rounds,
     deliverables,
+    resourceRows,
   ] = await Promise.all([
     Promise.all(
       expectedTables.map(async (entry) => {
@@ -220,6 +227,11 @@ export const verifySeed = async (database: Database) => {
       })
       .from(sessionFileRequirementAssignments)
       .where(eq(sessionFileRequirementAssignments.submissionId, "sub_21")),
+    database
+      .select()
+      .from(resources)
+      .where(eq(resources.eventId, "evt_aie_nyc_2026"))
+      .orderBy(asc(resources.position)),
   ]);
   console.table(summary);
 
@@ -268,6 +280,13 @@ export const verifySeed = async (database: Database) => {
       (row) =>
         row.requirementId === "sfr_intro" && row.contactId === null && row.status === "outstanding",
     );
+  const resourcesMatch =
+    resourceRows.length === 3 &&
+    resourceRows.filter((resource) => resource.published).length === 2 &&
+    resourceRows[0]?.fileStorageKey === "seed/resource-speaker-handbook.pdf" &&
+    resourceRows[1]?.attachmentKind === "embed" &&
+    resourceRows[2]?.published === false &&
+    resourceRows.every((resource) => resource.createdAt.getTime() < Date.now());
 
   if (
     summary.some((entry) => entry.status !== "ok") ||
@@ -278,7 +297,8 @@ export const verifySeed = async (database: Database) => {
     !personasMatch ||
     !devflowMatches ||
     !roundsMatch ||
-    !deliverablesMatch
+    !deliverablesMatch ||
+    !resourcesMatch
   ) {
     process.stderr.write("Seed verification failed.\n");
     process.exitCode = 1;
@@ -286,7 +306,7 @@ export const verifySeed = async (database: Database) => {
   }
 
   process.stdout.write(
-    "Seed verification passed: DevFlow fixtures, personas, review rounds, CRM, status mix, one conflict, and org memberships.\n",
+    "Seed verification passed: DevFlow fixtures, personas, resources, review rounds, CRM, status mix, one conflict, and org memberships.\n",
   );
   return true;
 };

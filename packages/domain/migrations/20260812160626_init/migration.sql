@@ -14,6 +14,8 @@ CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', '
 CREATE TYPE "form_section" AS ENUM('abstract', 'participant');--> statement-breakpoint
 CREATE TYPE "form_status" AS ENUM('open', 'closed');--> statement-breakpoint
 CREATE TYPE "invitation_status" AS ENUM('pending', 'accepted', 'rejected', 'canceled');--> statement-breakpoint
+CREATE TYPE "resource_attachment_kind" AS ENUM('link', 'file', 'embed');--> statement-breakpoint
+CREATE TYPE "resource_audience_mode" AS ENUM('all', 'tracks', 'contacts');--> statement-breakpoint
 CREATE TYPE "review_assignment_status" AS ENUM('pending', 'completed', 'recused');--> statement-breakpoint
 CREATE TYPE "review_criterion_type" AS ENUM('numeric', 'dropdown', 'text');--> statement-breakpoint
 CREATE TYPE "review_decision" AS ENUM('approve', 'maybe', 'deny');--> statement-breakpoint
@@ -542,6 +544,50 @@ CREATE TABLE "portal_forms" (
 	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "resource_contacts" (
+	"id" text PRIMARY KEY,
+	"resource_id" text NOT NULL,
+	"contact_id" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "resource_contacts_resource_contact_unique" UNIQUE("resource_id","contact_id")
+);
+--> statement-breakpoint
+CREATE TABLE "resource_tracks" (
+	"id" text PRIMARY KEY,
+	"resource_id" text NOT NULL,
+	"track_id" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "resource_tracks_resource_track_unique" UNIQUE("resource_id","track_id")
+);
+--> statement-breakpoint
+CREATE TABLE "resources" (
+	"id" text PRIMARY KEY,
+	"event_id" text NOT NULL,
+	"title" text NOT NULL,
+	"subtitle" text NOT NULL,
+	"body" text NOT NULL,
+	"position" integer NOT NULL,
+	"published" boolean DEFAULT false NOT NULL,
+	"audience_mode" "resource_audience_mode" DEFAULT 'all'::"resource_audience_mode" NOT NULL,
+	"attachment_kind" "resource_attachment_kind",
+	"link_url" text,
+	"embed_url" text,
+	"file_storage_key" text CONSTRAINT "resources_file_storage_key_unique" UNIQUE,
+	"file_name" text,
+	"file_content_type" text,
+	"file_size" integer,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "resources_attachment_shape_check" CHECK ((
+        ("attachment_kind" is null and "link_url" is null and "embed_url" is null and "file_storage_key" is null and "file_name" is null and "file_content_type" is null and "file_size" is null)
+        or ("attachment_kind" = 'link' and "link_url" is not null and "embed_url" is null and "file_storage_key" is null and "file_name" is null and "file_content_type" is null and "file_size" is null)
+        or ("attachment_kind" = 'embed' and "link_url" is null and "embed_url" is not null and "file_storage_key" is null and "file_name" is null and "file_content_type" is null and "file_size" is null)
+        or ("attachment_kind" = 'file' and "link_url" is null and "embed_url" is null and "file_storage_key" is not null and "file_name" is not null and "file_content_type" is not null and "file_size" is not null)
+      ))
+);
+--> statement-breakpoint
 CREATE TABLE "session_file_requirement_assignments" (
 	"id" text PRIMARY KEY,
 	"requirement_id" text NOT NULL,
@@ -876,6 +922,11 @@ CREATE INDEX "file_uploads_contact_idx" ON "file_uploads" ("contact_id");--> sta
 CREATE INDEX "file_versions_upload_idx" ON "file_versions" ("file_upload_id","uploaded_at");--> statement-breakpoint
 CREATE INDEX "portal_form_responses_form_idx" ON "portal_form_responses" ("form_id");--> statement-breakpoint
 CREATE INDEX "portal_forms_event_idx" ON "portal_forms" ("event_id");--> statement-breakpoint
+CREATE INDEX "resource_contacts_resource_idx" ON "resource_contacts" ("resource_id");--> statement-breakpoint
+CREATE INDEX "resource_contacts_contact_idx" ON "resource_contacts" ("contact_id");--> statement-breakpoint
+CREATE INDEX "resource_tracks_resource_idx" ON "resource_tracks" ("resource_id");--> statement-breakpoint
+CREATE INDEX "resource_tracks_track_idx" ON "resource_tracks" ("track_id");--> statement-breakpoint
+CREATE INDEX "resources_event_position_idx" ON "resources" ("event_id","position");--> statement-breakpoint
 CREATE INDEX "session_file_requirement_assignments_requirement_idx" ON "session_file_requirement_assignments" ("requirement_id");--> statement-breakpoint
 CREATE INDEX "session_file_requirement_assignments_submission_idx" ON "session_file_requirement_assignments" ("submission_id");--> statement-breakpoint
 CREATE INDEX "session_file_requirement_assignments_contact_idx" ON "session_file_requirement_assignments" ("contact_id");--> statement-breakpoint
@@ -972,6 +1023,11 @@ ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_form_i
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "portal_form_responses" ADD CONSTRAINT "portal_form_responses_submission_id_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "portal_forms" ADD CONSTRAINT "portal_forms_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resource_contacts" ADD CONSTRAINT "resource_contacts_resource_id_resources_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "resources"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resource_contacts" ADD CONSTRAINT "resource_contacts_contact_id_contacts_id_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resource_tracks" ADD CONSTRAINT "resource_tracks_resource_id_resources_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "resources"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resource_tracks" ADD CONSTRAINT "resource_tracks_track_id_tracks_id_fkey" FOREIGN KEY ("track_id") REFERENCES "tracks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resources" ADD CONSTRAINT "resources_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session_file_requirement_assignments" ADD CONSTRAINT "session_file_requirement_assignments_gctPIkl4DsG1_fkey" FOREIGN KEY ("requirement_id") REFERENCES "session_file_requirements"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session_file_requirement_assignments" ADD CONSTRAINT "session_file_requirement_assignments_feYhHZFTGxZT_fkey" FOREIGN KEY ("submission_id") REFERENCES "submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session_file_requirement_assignments" ADD CONSTRAINT "session_file_requirement_assignments_HMVRn6Rwc7eB_fkey" FOREIGN KEY ("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE;--> statement-breakpoint

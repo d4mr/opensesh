@@ -367,12 +367,7 @@ export const ReviewsLive = Layer.effect(
                 )
                 .leftJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
                 .leftJoin(users, eq(users.email, contacts.email))
-                .where(
-                  and(
-                    eq(submissions.eventId, eventId),
-                    isNotNull(submissions.sourceFormId),
-                  ),
-                )
+                .where(and(eq(submissions.eventId, eventId), isNotNull(submissions.sourceFormId)))
                 .orderBy(asc(submissions.code), asc(submissionParticipants.position))
                 .execute(),
             ),

@@ -16,6 +16,7 @@ import { PortalFormsLive } from "./portal-forms";
 import { PortalLive } from "./portal";
 import { ReadModelsLive } from "./read-models";
 import { ReviewsLive } from "./reviews";
+import { ResourcesLive } from "./resources";
 import { ReviewDeskLive } from "./review-desk";
 import { SessionsLive } from "./sessions";
 import { SubmissionsLive } from "./submissions";
@@ -38,6 +39,7 @@ import type { PortalForms } from "./portal-forms";
 import type { Portal } from "./portal";
 import type { ReadModels } from "./read-models";
 import type { Reviews } from "./reviews";
+import type { Resources } from "./resources";
 import type { ReviewDesk } from "./review-desk";
 import type { Sessions } from "./sessions";
 import type { Submissions } from "./submissions";
@@ -60,6 +62,7 @@ export * from "./portal-forms";
 export * from "./portal";
 export * from "./read-models";
 export * from "./reviews";
+export * from "./resources";
 export * from "./review-desk";
 export * from "./sessions";
 export * from "./submissions";
@@ -83,6 +86,7 @@ export type RepositoryServices =
   | Portal
   | ReadModels
   | Reviews
+  | Resources
   | ReviewDesk
   | Sessions
   | Submissions
@@ -107,6 +111,7 @@ const RepositoriesLive = Layer.mergeAll(
   PortalFormsLive,
   PortalLive,
   ReviewsLive,
+  ResourcesLive,
   ReviewDeskLive,
   SessionsLive,
   SubmissionsLive,

@@ -46,7 +46,14 @@ import {
 } from "../schema/agenda";
 import { Event, Format, Room, Track } from "../schema/core";
 import { Contact, Submission, SubmissionParticipant, SubmissionTrack } from "../schema/submissions";
-import { activeSession, activityActorColumns, decode, decodeFound, decodeMany, query } from "./shared";
+import {
+  activeSession,
+  activityActorColumns,
+  decode,
+  decodeFound,
+  decodeMany,
+  query,
+} from "./shared";
 import type { AuditActor } from "../schema/common";
 
 interface AgendaService {
@@ -431,7 +438,8 @@ export const AgendaLive = Layer.effect(
                     startsAt: change.startsAt,
                     endsAt: change.endsAt,
                     roomId: change.roomId,
-                    roomName: change.roomId === null ? null : (roomNames.get(change.roomId) ?? null),
+                    roomName:
+                      change.roomId === null ? null : (roomNames.get(change.roomId) ?? null),
                   },
                 })
                 .execute();

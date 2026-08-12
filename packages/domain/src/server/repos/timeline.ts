@@ -157,74 +157,74 @@ export const loadTimeline = (
     }
     const [activityRows, emailRows, editRows, fileRows, taskRows, confirmationRows] =
       yield* Effect.all([
-      query(database, "Could not load submission activity", (db) =>
-        db
-          .select()
-          .from(submissionActivity)
-          .where(eq(submissionActivity.submissionId, submissionId))
-          .orderBy(asc(submissionActivity.createdAt))
-          .execute(),
-      ),
-      query(database, "Could not load submission emails", (db) =>
-        db
-          .select({
-            id: emailLog.id,
-            type: emailLog.type,
-            subject: emailLog.subject,
-            recipient: emailLog.recipient,
-            createdAt: emailLog.createdAt,
-          })
-          .from(emailLog)
-          .where(eq(emailLog.submissionId, submissionId))
-          .execute(),
-      ),
-      query(database, "Could not load edit history", (db) =>
-        db
-          .select()
-          .from(submissionEditHistory)
-          .where(eq(submissionEditHistory.submissionId, submissionId))
-          .execute(),
-      ),
-      query(database, "Could not load submission files", (db) =>
-        db
-          .select({
-            id: fileVersions.id,
-            filename: fileVersions.filename,
-            uploaderName: fileVersions.uploaderName,
-            uploadedAt: fileVersions.uploadedAt,
-          })
-          .from(fileVersions)
-          .innerJoin(fileUploads, eq(fileUploads.id, fileVersions.fileUploadId))
-          .where(eq(fileUploads.submissionId, submissionId))
-          .execute(),
-      ),
-      query(database, "Could not load submission tasks", (db) =>
-        db
-          .select({
-            id: taskAssignments.id,
-            completedAt: taskAssignments.completedAt,
-            status: taskAssignments.status,
-            title: taskTemplates.title,
-          })
-          .from(taskAssignments)
-          .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
-          .where(eq(taskAssignments.submissionId, submissionId))
-          .execute(),
-      ),
-      query(database, "Could not load speaker confirmations", (db) =>
-        db
-          .select({
-            contactId: contacts.id,
-            firstName: contacts.firstName,
-            lastName: contacts.lastName,
-            confirmedAt: contacts.confirmedAt,
-          })
-          .from(submissionParticipants)
-          .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
-          .where(eq(submissionParticipants.submissionId, submissionId))
-          .execute(),
-      ),
-    ]);
+        query(database, "Could not load submission activity", (db) =>
+          db
+            .select()
+            .from(submissionActivity)
+            .where(eq(submissionActivity.submissionId, submissionId))
+            .orderBy(asc(submissionActivity.createdAt))
+            .execute(),
+        ),
+        query(database, "Could not load submission emails", (db) =>
+          db
+            .select({
+              id: emailLog.id,
+              type: emailLog.type,
+              subject: emailLog.subject,
+              recipient: emailLog.recipient,
+              createdAt: emailLog.createdAt,
+            })
+            .from(emailLog)
+            .where(eq(emailLog.submissionId, submissionId))
+            .execute(),
+        ),
+        query(database, "Could not load edit history", (db) =>
+          db
+            .select()
+            .from(submissionEditHistory)
+            .where(eq(submissionEditHistory.submissionId, submissionId))
+            .execute(),
+        ),
+        query(database, "Could not load submission files", (db) =>
+          db
+            .select({
+              id: fileVersions.id,
+              filename: fileVersions.filename,
+              uploaderName: fileVersions.uploaderName,
+              uploadedAt: fileVersions.uploadedAt,
+            })
+            .from(fileVersions)
+            .innerJoin(fileUploads, eq(fileUploads.id, fileVersions.fileUploadId))
+            .where(eq(fileUploads.submissionId, submissionId))
+            .execute(),
+        ),
+        query(database, "Could not load submission tasks", (db) =>
+          db
+            .select({
+              id: taskAssignments.id,
+              completedAt: taskAssignments.completedAt,
+              status: taskAssignments.status,
+              title: taskTemplates.title,
+            })
+            .from(taskAssignments)
+            .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
+            .where(eq(taskAssignments.submissionId, submissionId))
+            .execute(),
+        ),
+        query(database, "Could not load speaker confirmations", (db) =>
+          db
+            .select({
+              contactId: contacts.id,
+              firstName: contacts.firstName,
+              lastName: contacts.lastName,
+              confirmedAt: contacts.confirmedAt,
+            })
+            .from(submissionParticipants)
+            .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
+            .where(eq(submissionParticipants.submissionId, submissionId))
+            .execute(),
+        ),
+      ]);
 
     const entries: Array<TimelineEntry> = [
       {
