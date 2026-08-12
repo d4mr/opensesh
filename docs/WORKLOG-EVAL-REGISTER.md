@@ -344,3 +344,34 @@ morning deploy — everything here ships in the next deploy.
   (normalized to {eventId} during migration). Strict upgrades gained: working client-side
   search (pagefind), llms.txt + per-page markdown twins ("View as Markdown"), OG images,
   sitemap, dark/light toggle. astro check, nimbus-docs lint (26 clean), and build all green.
+- Aug 12 — Nimbus theme FOUC fix (upstream cloudflare/nimbus#84): the theme bootstrap in
+  BaseLayout.astro was a bare <script>, which Astro bundles into a deferred module — dark-mode
+  readers got a light flash before it ran. Now `is:inline` so it blocks in <head>; verified the
+  built HTML emits the raw script before NimbusHead. (Deploy pending — held for the running V3
+  eval.)
+- Aug 12 — Conditional CFP fields unmount (V3 finding, browser-verified): FormRenderer used to
+  render every field and hide unmet-condition ones with an aria-hidden CSS wrapper, so hidden
+  inputs stayed in the DOM and accessibility tree ("the Workshop field renders for Talk").
+  Structural fix: fields failing isFormFieldVisible return null — never mounted; entrance
+  animation preserved with @starting-style on .conditional-field-visible. Verified on the
+  DevFlow public wizard with a temporary Notes-on-Workshop condition: Format=Talk → zero
+  textareas, no label, absent from the a11y tree (read_page); Format=Workshop → field mounts.
+  Local DB reseeded after (seed itself ships no conditional fields).
+- Aug 12 — Portal submission edit footer (owner screenshot): the edit form rendered two
+  stacked border-t rows — Save changes in FormRenderer's footer, Withdraw submission in its
+  own row below. FormRenderer gained a footerStart slot (left side of the single footer row,
+  used when no Back button); portal-submissions passes the Withdraw dialog there. The
+  standalone row remains only for closed/no-fields submissions where the form footer doesn't
+  render. Verified: one row, Withdraw left / Save right, same baseline.
+- Aug 12 — Speaker portal library leak (found during verification): speakerBootstrap loaded
+  the entire tracks/formats/tags/levels tables unscoped, so a speaker's edit dropdowns offered
+  every event's options (duplicate "Talk (30 min)", other events' tracks) and could save a
+  cross-event format id. All four library queries now join contacts and filter to the
+  speaker's event — same shape adminBootstrap already used. Verified: DevFlow dropdowns show
+  exactly 5 formats / 3 tracks / 3 levels after the fix.
+- Aug 12 — Select trigger sizes made honest (owner screenshot: CSV import dialog): eleven
+  SelectTriggers carried h-7/h-8/h-9 className overrides that silently LOSE to the stock
+  shadcn `data-[size=default]:h-9` rule (class+attribute selector wins), so they all rendered
+  36px. Converted them to the stock `size="sm"` variant (real h-8) and dropped the dead
+  classes; the CSV import dialog's Create badge is wrapped to the same h-8 so mixed
+  Update/Create rows keep uniform height (measured 47/47/46px after, trigger data-size="sm").

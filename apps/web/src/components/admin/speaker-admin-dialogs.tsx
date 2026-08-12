@@ -500,7 +500,7 @@ export function CsvImportDialog({
                               updateAction(item.number, value === "skip" ? "skip" : "update")
                             }
                           >
-                            <SelectTrigger className="h-7 w-24">
+                            <SelectTrigger size="sm" className="w-24">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -509,7 +509,11 @@ export function CsvImportDialog({
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="outline">Create</Badge>
+                          // Match the select trigger's height so mixed
+                          // Update/Create rows keep a uniform height.
+                          <span className="flex h-8 items-center">
+                            <Badge variant="outline">Create</Badge>
+                          </span>
                         )}
                       </TableCell>
                     </TableRow>

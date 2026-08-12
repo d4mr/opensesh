@@ -360,7 +360,7 @@ function Communications({
                   Resolved preview
                 </p>
                 <Select value={preview?.id ?? ""} onValueChange={setPreviewId}>
-                  <SelectTrigger className="h-7 w-44">
+                  <SelectTrigger size="sm" className="w-44">
                     <SelectValue placeholder="Recipient" />
                   </SelectTrigger>
                   <SelectContent>

@@ -506,7 +506,7 @@ function Directory({
                       )
                     }
                   >
-                    <SelectTrigger className="h-8 w-36">
+                    <SelectTrigger size="sm" className="w-36">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -524,7 +524,7 @@ function Directory({
                       setTaskFilter(value === "complete" || value === "incomplete" ? value : "all")
                     }
                   >
-                    <SelectTrigger className="h-8 w-36">
+                    <SelectTrigger size="sm" className="w-36">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -814,7 +814,7 @@ function Directory({
                           });
                       }}
                     >
-                      <SelectTrigger className="mt-1 h-8 w-full">
+                      <SelectTrigger size="sm" className="mt-1 w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

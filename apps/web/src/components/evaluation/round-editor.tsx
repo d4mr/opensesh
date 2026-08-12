@@ -400,7 +400,7 @@ function SetupPane({
                   })
                 }
               >
-                <SelectTrigger className="h-8 w-40">
+                <SelectTrigger size="sm" className="w-40">
                   <PlusIcon />
                   <SelectValue placeholder="Add criterion" />
                 </SelectTrigger>
@@ -918,7 +918,7 @@ function AssignmentsPane({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={trackId} onValueChange={setTrackId}>
-            <SelectTrigger className="h-8 w-48">
+            <SelectTrigger size="sm" className="w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

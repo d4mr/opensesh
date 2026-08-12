@@ -428,7 +428,7 @@ function WidgetEditor({
               value={draft.view}
               onValueChange={(value: WidgetView) => setDraft({ ...draft, view: value })}
             >
-              <SelectTrigger className="h-8 w-full">
+              <SelectTrigger size="sm" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -472,7 +472,7 @@ function WidgetEditor({
                 value={draft.options.theme}
                 onValueChange={(value: "light" | "dark" | "auto") => updateOptions("theme", value)}
               >
-                <SelectTrigger className="h-8 w-full">
+                <SelectTrigger size="sm" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -487,7 +487,7 @@ function WidgetEditor({
                 value={draft.options.dateFormat}
                 onValueChange={(value: "12h" | "24h") => updateOptions("dateFormat", value)}
               >
-                <SelectTrigger className="h-8 w-full">
+                <SelectTrigger size="sm" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

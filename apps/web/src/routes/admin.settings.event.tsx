@@ -223,7 +223,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
                       value={field.state.value}
                       onValueChange={(value) => field.handleChange(eventType(value))}
                     >
-                      <SelectTrigger className="h-9 w-full">
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
