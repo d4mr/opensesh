@@ -15,7 +15,9 @@ dist-ssr
 __unconfig*
 todos.json
 vendor/
-research/video/*.webm
+# Competitor/contest research stays local-only; it was rewritten out of history
+# before publishing and must never be committed again.
+research/
 .dev.vars
 .dev.vars.*
 codex-wp9.log
