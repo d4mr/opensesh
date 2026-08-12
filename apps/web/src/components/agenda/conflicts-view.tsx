@@ -81,9 +81,15 @@ export function ConflictsView({
                   <dt className="text-muted-foreground">Who</dt>
                   <dd>
                     {conflict.speaker?.name ??
-                      [...first.speakers, ...second.speakers]
-                        .map((speaker) => speaker.name)
-                        .join(", ")}
+                      // A speaker on both sessions would otherwise list twice.
+                      [
+                        ...new Map(
+                          [...first.speakers, ...second.speakers].map((speaker) => [
+                            speaker.id,
+                            speaker.name,
+                          ]),
+                        ).values(),
+                      ].join(", ")}
                   </dd>
                   <dt className="text-muted-foreground">Where</dt>
                   <dd>{where || "Rooms not found"}</dd>
