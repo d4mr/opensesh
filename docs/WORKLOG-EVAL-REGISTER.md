@@ -375,3 +375,20 @@ morning deploy — everything here ships in the next deploy.
   36px. Converted them to the stock `size="sm"` variant (real h-8) and dropped the dead
   classes; the CSV import dialog's Create badge is wrapped to the same h-8 so mixed
   Update/Create rows keep uniform height (measured 47/47/46px after, trigger data-size="sm").
+- Aug 12 — Docs migrated to Fumadocs on Waku (owner decision: "final migration", lightest
+  supported framework): apps/docs is now Fumadocs 16 on Waku 1.0 (Vite-based, fully static
+  output), replacing the day-old Nimbus app. All 26 pages carried over; docs mount at the
+  domain root so every URL survives (/, /getting-started, /guides/*, /api/*). API reference
+  rebuilt with fumadocs-openapi (one page per tag, same /api/<tag> URLs): Scalar-like
+  operation pages with method chips, parameter/response schemas, an interactive playground,
+  and request samples in six languages, generated from a committed OpenAPI snapshot
+  (scripts/generate-api-reference.mjs refreshes it). Two API-layer fixes fell out: (1) the
+  OpenAPI document embedded Effect's per-schema $defs with root-relative refs — invalid for
+  external parsers (Scalar's parser rejected it); definitions now hoist into
+  components.schemas with operation-scoped names. (2) /api/v1 now answers CORS preflights and
+  sends allow-origin headers (bearer-key auth, no cookies) so browser clients including the
+  docs playground can call it. AI-chat scaffold extras stripped (static site, no server).
+  Search is Orama static (index exported at build, queried client-side — verified in the
+  browser). The docs app is back under vp: `check: vp check`, catalog-pinned vite/vite-plus,
+  root `vp run -r check` covers all four packages again. Deploy of apps/web still held for
+  the running V3 eval; docs worker deploys independently.

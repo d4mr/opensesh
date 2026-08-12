@@ -29,7 +29,7 @@
         "http.server",
         "5280",
         "--directory",
-        "apps/docs/dist"
+        "apps/docs/dist/public"
       ],
       "port": 5280
     },

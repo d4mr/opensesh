@@ -1,0 +1,46 @@
+---
+title: "Agenda"
+---
+
+**Agenda** (`/admin/agenda`) turns your accepted sessions into a published schedule. The builder works against the event library's **Rooms** and your event's days, and nothing is public until you explicitly publish.
+
+## The builder
+
+The page has three tabs:
+
+- **Rooms** — the grid view: days across the top, rooms as columns, sessions placed into time slots.
+- **List** — the same schedule as a flat, scannable list.
+- **Conflicts (n)** — every problem the checker has found, with a live count in the tab label.
+
+A **Draft / Published** badge shows the schedule's state. Only sessions (accepted submissions from the [Sessions desk](/guides/sessions)) can be placed.
+
+## Conflict detection
+
+The conflict checker watches two rule classes as you place sessions:
+
+- **Room overlap** — two sessions occupying the same room at overlapping times.
+- **Speaker double-booking** — one speaker placed in two overlapping slots.
+
+Each conflict is explained in plain terms — **What / Who / Where / Why** — so fixing it doesn't require detective work. Conflicts don't block you while drafting; they're a to-do list to clear before publishing.
+
+## AI draft generation
+
+If the deployment has an Anthropic API key, the AI drafts dialog can propose a schedule. You constrain it with:
+
+- Criteria name, the **days** and **rooms** to use, and which session **statuses** to include.
+- **Respect existing placements** — keep what you've already placed and only fill gaps.
+- Up to 12 free-text rules, like "keynotes in Hall A morning" or "no two talks from the same track back-to-back".
+
+Generation produces a _proposal_, not a schedule: you compare it against the current draft and **explicitly accept** placements. Nothing moves until you say so, and the conflict checker validates the result like any manual edit.
+
+## Publish and unpublish
+
+**Publish** makes the schedule live on the public event site's **Agenda** and **Itinerary** tabs (`/e/<eventSlug>`), in agenda [widgets](/guides/widgets), and in the ICS feed. After edits, **Republish** pushes the new version; **Unpublish** takes the schedule down (session and speaker pages stay up).
+
+## Suggested flow
+
+1. Confirm Rooms and day boundaries in the event library and settings.
+2. Place keynotes and fixed slots by hand.
+3. Run an AI draft with **Respect existing placements** to fill the rest; accept the placements you like.
+4. Clear the **Conflicts** tab to zero.
+5. **Publish**, and embed the agenda on your site with a widget.

@@ -6,16 +6,40 @@ import type { ApiEndpoint } from "./types";
 // OpenAPI 3.1 shares the dialect, so no conversion pass is needed. The same
 // schema object validates the live request, which is what keeps this spec
 // honest.
-const schemaToJson = (schema: Schema.ConstraintDecoder<unknown>): Record<string, unknown> => {
+//
+// Effect emits self-contained documents whose internal refs point at
+// `#/$defs/<name>`. Nested inside an OpenAPI document those refs resolve
+// against the DOCUMENT root and break, so definitions are hoisted into
+// `components.schemas` under an operation-scoped name and every ref is
+// rewritten to match.
+const rewriteRefs = (value: unknown, rename: (name: string) => string): unknown => {
+  if (Array.isArray(value)) return value.map((item) => rewriteRefs(item, rename));
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => {
+      if (key === "$ref" && typeof entry === "string" && entry.startsWith("#/$defs/")) {
+        return [key, `#/components/schemas/${rename(entry.slice("#/$defs/".length))}`];
+      }
+      return [key, rewriteRefs(entry, rename)];
+    }),
+  );
+};
+
+const schemaToJson = (
+  schema: Schema.ConstraintDecoder<unknown>,
+  operationId: string,
+  componentSchemas: Record<string, unknown>,
+): Record<string, unknown> => {
   try {
     const document = SchemaRepresentation.toJsonSchemaDocument(
       SchemaRepresentation.toRepresentation(schema.ast),
     );
     const definitions = document.definitions ?? {};
-    return {
-      ...(document.schema as Record<string, unknown>),
-      ...(Object.keys(definitions).length > 0 ? { $defs: definitions } : {}),
-    };
+    const rename = (name: string) => `${operationId}_${name}`;
+    for (const [name, definition] of Object.entries(definitions)) {
+      componentSchemas[rename(name)] = rewriteRefs(definition, rename);
+    }
+    return rewriteRefs(document.schema, rename) as Record<string, unknown>;
   } catch {
     return { type: "object" };
   }
@@ -41,6 +65,7 @@ const ERROR_SCHEMA = {
 
 export const buildOpenApiDocument = (endpoints: ReadonlyArray<ApiEndpoint>, origin: string) => {
   const paths: Record<string, Record<string, unknown>> = {};
+  const componentSchemas: Record<string, unknown> = {};
   for (const endpoint of endpoints) {
     const operation: Record<string, unknown> = {
       operationId: endpoint.operationId,
@@ -67,7 +92,11 @@ export const buildOpenApiDocument = (endpoints: ReadonlyArray<ApiEndpoint>, orig
         : {
             requestBody: {
               required: true,
-              content: { "application/json": { schema: schemaToJson(endpoint.bodySchema) } },
+              content: {
+                "application/json": {
+                  schema: schemaToJson(endpoint.bodySchema, endpoint.operationId, componentSchemas),
+                },
+              },
             },
           }),
       responses: {
@@ -118,6 +147,7 @@ export const buildOpenApiDocument = (endpoints: ReadonlyArray<ApiEndpoint>, orig
           description: "An organization API key (osk_…)",
         },
       },
+      ...(Object.keys(componentSchemas).length > 0 ? { schemas: componentSchemas } : {}),
     },
     tags: Array.from(new Set(endpoints.map((endpoint) => endpoint.tag)), (tag) => ({ name: tag })),
     paths,

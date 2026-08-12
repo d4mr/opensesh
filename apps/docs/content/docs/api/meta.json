@@ -1,0 +1,16 @@
+{
+  "pages": [
+    "index",
+    "organization",
+    "events",
+    "submissions",
+    "speakers",
+    "mail",
+    "reviews",
+    "agenda",
+    "crm",
+    "pipeline",
+    "widgets",
+    "integrations"
+  ]
+}

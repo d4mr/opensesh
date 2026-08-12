@@ -1,13 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "opensesh-docs",
+  "compatibility_date": "2025-08-01",
   "account_id": "a41a8466de6cfbc49087e3063094c1fd",
-  "compatibility_date": "2026-08-12",
-  "routes": [
-    { "pattern": "docs.opensesh.io", "custom_domain": true },
-  ],
+  "routes": [{ "pattern": "docs.opensesh.io", "custom_domain": true }],
   "assets": {
-    "directory": "./dist",
+    "directory": "./dist/public",
     "not_found_handling": "404-page",
   },
 }
