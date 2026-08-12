@@ -23,14 +23,14 @@ This is a sealed evaluation run.
 
 | Entity | Round 03 value | Created/verified |
 | --- | --- | --- |
-| Organizer | Jordan Alvarez — `sbek-organizer+r03-20260813-001@example.com` | Pending |
+| Organizer | Jordan Alvarez — `sbek-organizer+r03-20260813-001@example.com` | Created in Round 03 |
 | Speaker 1 | Priya Nair — `sbek-speaker+r03-20260813-001@example.com` | Pending |
 | Speaker 2 | Marcus Chen — `sbek-speaker2+r03-20260813-001@example.com` | Pending |
 | Reviewer | Sam Whitfield — `sbek-reviewer+r03-20260813-001@example.com` | Pending |
 | Attendee | Alex Attendee — `alex.attendee+r03-20260813-001@example.com` | Pending |
-| Organization | `DevFlow Eval R03 20260813-001` | Pending |
-| Event | `DevFlow Conf 2027` | Pending |
-| Event slug / ID | Assigned during this run | Pending |
+| Organization | `DevFlow Eval R03 20260813-001` | Created in Round 03 |
+| Event | `DevFlow Conf 2027` | Created in Round 03 |
+| Event slug / ID | `devflow-conf-2027-3` / form `O37jjey2KkezEeX6Rb4xd` | Created in Round 03 |
 
 Names and scenario content follow the published fixture. Email suffixes and container identities are Round 03-specific so the run cannot inherit prior account or event state.
 
@@ -50,7 +50,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 
 | Scenario | Description | Status | Evidence / observations |
 | --- | --- | --- | --- |
-| CFP-S1 | Organizer builds and publishes the CFP | Pending | — |
+| CFP-S1 | Organizer builds and publishes the CFP | Complete | `001`–`018`; public form `https://app.opensesh.io/submit/devflow-conf-2027-3/O37jjey2KkezEeX6Rb4xd` |
 | CFP-S2 | Speaker drafts, submits, and edits proposals | Pending | — |
 | CFP-S3 | Organizer assigns a reviewer; reviewer scores | Pending | — |
 | CFP-S4 | Organizer decides, notifies, hands off, and closes the CFP | Pending | — |
@@ -79,9 +79,25 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - Isolation invariant recorded before any Round 03 product action.
 - No prior evaluation log or evidence directory was consulted to initialize or score this run.
 
+### CFP-S1 — Organizer builds and publishes the CFP
+
+- Created organizer Jordan Alvarez, organization `DevFlow Eval R03 20260813-001`, and `DevFlow Conf 2027` entirely within Round 03.
+- Set event dates to May 12–14, 2027, timezone `America/Los_Angeles`, location `Moscone West, San Francisco, CA`, fixture tagline, and fixture description.
+- Created exactly three fixture tracks and five fixture formats in the fresh event library.
+- Created form `O37jjey2KkezEeX6Rb4xd` with required Title, Description, Track, Format, and Key takeaway; optional Audience level; participant first/last/email; Speaker bio; and co-speaker capacity up to five.
+- Configured `Workshop prerequisites` as long text shown only when Format is Workshop.
+- Kept the form open and set the close date to Apr 30, 2027, 9:00 AM PDT. Confirmation email is enabled with name/title/portal-link placeholders.
+- Public CFP URL: `https://app.opensesh.io/submit/devflow-conf-2027-3/O37jjey2KkezEeX6Rb4xd`.
+- Logged out and verified the public event name, deadline, submission limit, welcome content, and account gate. Because fields require sign-in, dropdown, conditional, and validation checks are deferred exactly as permitted by the spec to CFP-S2.
+- Signed back in, created `Forward Summit 2028`, and verified its submissions area is empty and explicitly scoped to that event.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `001-cfp-s1-clean-signup.png` through `018-cfp-s1-second-event-empty-submissions.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
-None recorded yet.
+1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
+2. **Rapid sequential library additions expose stale UI state.** After saving `Developer Experience`, the immediate snapshot showed only two tracks, then the row appeared while a retry form was already open. The retry had to be cancelled to avoid a duplicate. A similar delayed count occurred for Panel: four formats were shown immediately, five after a later wait. There were no console warnings. The product eventually persisted correctly, but an evaluator can reasonably retry and create duplicates.
+3. **Public form cannot be field-tested anonymously.** This is allowed by the eval, but it moves dropdown, conditional, and required-field validation evidence into the speaker scenario and adds an account transition before the first data-entry page.
 
 ## Score
 
