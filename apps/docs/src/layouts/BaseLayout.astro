@@ -47,7 +47,10 @@ const llmsUrl = Astro.site
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <script>
+    {/* is:inline — the no-FOUC theme bootstrap must run while the head parses;
+        a bundled module is deferred and lets the wrong scheme paint first
+        (github.com/cloudflare/nimbus/issues/84). */}
+    <script is:inline>
       (() => {
         const KEY = "ui-mode";
         const media = window.matchMedia("(prefers-color-scheme: dark)");
