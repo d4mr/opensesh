@@ -58,7 +58,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Complete | `058`–`067`; two independent rounds, exact 2 assignments, 2/0 baseline, reminder log |
 | ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Complete | `068`–`080`; blind queue, exact stored reviews, weighted 3.33/5.00, sorts, 2/2, export |
 | SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Complete | `081`–`092`; isolated Priya confirmed, fixture CSV imported, three tasks assigned to isolated Priya/Marcus, invite logged |
-| SPK-S2 | Speaker completes onboarding in the portal | Pending | — |
+| SPK-S2 | Speaker completes onboarding in the portal | Complete | `093`–`101`; scoped portal, accepted session, persisted portal bio/headshot, tasks 2/3 complete |
 | SPK-S3 | Organizer tracks progress and sends bulk communications | Pending | — |
 | CNT-S1 | Organizer sets up content collection | Pending | — |
 | CNT-S2 | Speaker uploads and versions a deliverable | Pending | — |
@@ -183,6 +183,18 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `081-spk-s1-initial-roster.png` through `092-spk-s1-invite-email-log.png`. Every file was written and size-verified in this run.
 
+### SPK-S2 — Speaker completes onboarding in the portal
+
+- The fixture password did not authenticate the existing magic-link-created Round 03 speaker account (`Invalid email or password`). Used the product's explicit `Email me a magic link` flow; the production demo environment rendered an `Open demo magic link`, which opened `/portal` as the same isolated Priya identity.
+- Portal home identified Priya Raman and her Round 03 email, showed only her three submissions, profile, and `0 of 3 complete` task summary. A complete visible-text check found Priya and found neither Marcus Okafor nor Dana Kowalski.
+- My Sessions showed exactly `SESS-1 Taming 40-Minute CI: Incremental Builds at Monorepo Scale`, Talk, `Not scheduled yet`.
+- Edited the portal biography to preserve `SBEK-ORG-EDIT-01` and append `SBEK-PORTAL-BIO-01`; existing LinkedIn and Twitter values were present. Uploaded the exact `headshot.png` fixture through the browser file chooser. Autosave moved from `Saving…` to a pending-approval notice; the profile rendered the blue fixture headshot as Priya's avatar and listed `headshot.png · Current`, Priya Raman · Speaker, date, size, comments, and download control.
+- Reloaded Profile and verified the portal sentinel, rendered headshot, version row, and social links persisted.
+- Tasks initially showed all three prescribed due dates and `0 of 3 complete`. Marked Confirm participation complete, captured `1 of 3 complete`, then marked Complete bio and profile complete. Deliberately left Sign speaker release form open.
+- Reloaded Tasks and verified persistent mixed state: `2 of 3 complete`, both Apr 1 tasks under Done, and Sign speaker release form still open with Apr 15, 2027 due date.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `093-spk-s2-portal-home-scoped.png` through `101-spk-s2-two-complete-after-reload.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -201,6 +213,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 14. **The prescribed speaker CSV cannot merge with an isolated eval identity.** The scenario fixture asks the evaluator to use Round-specific unique emails but `speakers.csv` hard-codes different `@sbek-test.example.com` addresses. The importer correctly matches by email, therefore reports zero matches and creates duplicate Priya/Marcus display names. This is a specification/fixture interaction rather than an importer defect, but it materially complicates later speaker selection and makes name-only rows ambiguous.
 15. **Task creation immediately renders a stale template count and empty state.** After each successful save, the toast reported assignment to two speakers but the Templates tab retained its previous count and rows until a full reload. The first task therefore appeared as `Templates (0)` with `Create your first speaker task`; the second remained invisible at `Templates (1)`. Persistence was correct after reload, but the false empty state invites duplicate task creation.
 16. **Task assignment defaults to every contact, including CSV-created duplicates.** New tasks initially selected all five directory contacts. Meeting the explicit two-speaker fixture required opening the assignment picker, clearing all, and selecting the two contacts by their full isolated emails. This control is functional and precise, but the default becomes risky after import because duplicate names are visually indistinguishable outside the email-bearing picker.
+17. **A speaker account created through the CFP magic-link path does not accept the fixture password later.** The password form returned `Invalid email or password` for the exact Round 03 email and published fixture password. Portal access remained testable because `Email me a magic link` exposed a demo verification link in production. This is acceptable for the rubric's magic-link path, but an evaluator that only attempts the documented password can incorrectly conclude the portal is unreachable.
 
 ## Score
 
