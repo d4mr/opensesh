@@ -67,7 +67,16 @@ export const getSpeakerPortal = createServerFn({ method: "GET" }).handler(async 
         return yield* Effect.fail(new Forbidden({ message: "You cannot preview this event" }));
       }
       const contacts = yield* Contacts;
-      const contact = yield* contacts.findPreviewByEvent(event.id);
+      const contact = yield* contacts.findPreviewByEvent(event.id).pipe(
+        Effect.catchTag("NotFound", () =>
+          Effect.fail(
+            new Forbidden({
+              message:
+                "This event has no speakers to preview yet. Add a speaker or accept a submission first.",
+            }),
+          ),
+        ),
+      );
       const bootstrap = yield* portal.speakerBootstrap(contact.id);
       return {
         ...bootstrap,
