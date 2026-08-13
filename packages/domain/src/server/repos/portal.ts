@@ -2295,7 +2295,7 @@ export const PortalLive = Layer.effect(
                     .where(
                       and(
                         eq(contacts.eventId, input.eventId),
-                        eq(contacts.participation, "speaker"),
+                        speakerContact(transaction),
                         inArray(contacts.id, input.contactIds),
                       ),
                     )
