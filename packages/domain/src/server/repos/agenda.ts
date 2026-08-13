@@ -232,6 +232,9 @@ export const AgendaLive = Layer.effect(
 
     const loadAdmin = (eventId: string) =>
       Effect.gen(function* () {
+        const apiKey = yield* Config.option(Config.string("ANTHROPIC_API_KEY")).pipe(
+          Effect.orElseSucceed(() => Option.none<string>()),
+        );
         const eventRows = yield* query(database, "Could not load agenda event", (db) =>
           db.select().from(events).where(eq(events.id, eventId)).limit(1).execute(),
         );
@@ -361,6 +364,7 @@ export const AgendaLive = Layer.effect(
             .filter((track, index, all) => all.findIndex((item) => item.id === track.id) === index)
             .map((track) => ({ id: track.id, name: track.name, color: track.color })),
           sessions,
+          aiConfigured: Option.isSome(apiKey) && apiKey.value.trim().length > 0,
         });
       });
 

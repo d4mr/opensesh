@@ -10,8 +10,8 @@ import {
   ArrowRightIcon,
   CheckIcon,
   CircleCheckIcon,
-  SparklesIcon,
   Trash2Icon,
+  WandSparklesIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -26,7 +26,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dateKeyFor, formatDay, formatTime } from "./date-utils";
+import { DraftCalendar } from "./draft-calendar";
 
 interface CompareRow {
   readonly session: AgendaSession;
@@ -109,8 +111,10 @@ export function AgendaDraftCompare({
     [agenda.sessions, draft.proposal.placements],
   );
   const allIds = useMemo(() => rows.map((row) => row.session.id), [rows]);
+  const changedIds = useMemo(() => new Set(allIds), [allIds]);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set(allIds));
   const [pending, setPending] = useState(false);
+  const [tab, setTab] = useState<"changes" | "calendar">("changes");
 
   const toggleAll = (checked: boolean) => setSelected(checked ? new Set(allIds) : new Set());
   const toggle = (submissionId: string, checked: boolean) =>
@@ -210,7 +214,7 @@ export function AgendaDraftCompare({
             </Button>
             <h1 className="text-lg font-semibold tracking-tight">{draft.name}</h1>
             <Badge variant="outline" className="gap-1 rounded-md text-[11px]">
-              <SparklesIcon className="size-3" /> AI draft
+              <WandSparklesIcon className="size-3" /> Auto-scheduled
             </Badge>
           </div>
           <p className="mt-0.5 ml-9 text-xs text-muted-foreground">
@@ -247,56 +251,79 @@ export function AgendaDraftCompare({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <div className="flex h-9 items-center justify-between border-b bg-muted/30 px-3">
-          <span className="text-xs font-medium">Proposed changes</span>
-          <span className="text-[11px] text-muted-foreground tabular-nums">
-            {selected.size} of {rows.length} selected
-          </span>
-        </div>
-        {rows.length === 0 ? (
-          <div className="py-14 text-center">
-            <CircleCheckIcon className="mx-auto size-5 text-[var(--status-accepted)]" />
-            <p className="mt-2 text-sm font-medium">No live changes</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              This proposal already matches the current agenda.
-            </p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-muted/50">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="h-8 hover:bg-transparent">
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className="h-8 px-2 text-xs first:w-9"
+      <Tabs
+        value={tab}
+        onValueChange={(value) => (value === "changes" || value === "calendar") && setTab(value)}
+      >
+        <TabsList variant="line" className="h-8">
+          <TabsTrigger value="changes" className="pressable h-8 px-3 text-xs">
+            Changes
+            <span className="text-muted-foreground tabular-nums">{rows.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="pressable h-8 px-3 text-xs">
+            Calendar
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="calendar" className="mt-1 h-[70svh] min-h-96">
+          <DraftCalendar
+            agenda={agenda}
+            placements={draft.proposal.placements}
+            changedIds={changedIds}
+          />
+        </TabsContent>
+        <TabsContent value="changes" className="mt-1">
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <div className="flex h-9 items-center justify-between border-b bg-muted/30 px-3">
+              <span className="text-xs font-medium">Proposed changes</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {selected.size} of {rows.length} selected
+              </span>
+            </div>
+            {rows.length === 0 ? (
+              <div className="py-14 text-center">
+                <CircleCheckIcon className="mx-auto size-5 text-[var(--status-accepted)]" />
+                <p className="mt-2 text-sm font-medium">No live changes</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  This proposal already matches the current agenda.
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} className="h-8 hover:bg-transparent">
+                      {headerGroup.headers.map((header) => (
+                        <TableHead
+                          key={header.id}
+                          colSpan={header.colSpan}
+                          className="h-8 px-2 text-xs first:w-9"
+                        >
+                          {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className="h-12"
+                      data-state={selected.has(row.original.session.id) ? "selected" : undefined}
                     >
-                      {header.isPlaceholder ? null : <table.FlexRender header={header} />}
-                    </TableHead>
+                      {row.getAllCells().map((cell) => (
+                        <TableCell key={cell.id} className="px-2 py-1.5 text-[13px]">
+                          <table.FlexRender cell={cell} />
+                        </TableCell>
+                      ))}
+                    </TableRow>
                   ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className="h-12"
-                  data-state={selected.has(row.original.session.id) ? "selected" : undefined}
-                >
-                  {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-2 py-1.5 text-[13px]">
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }

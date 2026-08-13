@@ -15,9 +15,8 @@ import {
   CalendarCheckIcon,
   CalendarPlusIcon,
   ChevronDownIcon,
-  CircleDotIcon,
   EyeOffIcon,
-  SparklesIcon,
+  WandSparklesIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -465,6 +464,10 @@ export function AgendaPage({
     );
   }
 
+  // Publish is the page's one primary action; once published and clean it
+  // demotes to a quiet outline so the header keeps a single point of emphasis.
+  const publishActionable = data.event.agendaPublishedAt === null || data.event.agendaDirty;
+
   return (
     // Height = viewport minus the site header and the inset-variant m-2
     // margins, so this page owns exactly one scroll surface (the grid).
@@ -482,25 +485,21 @@ export function AgendaPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {data.event.agendaDirty ? (
-            <Badge variant="outline" className="gap-1 rounded-md text-[11px] text-muted-foreground">
-              <CircleDotIcon className="size-3" /> Unpublished changes
-            </Badge>
-          ) : null}
           <Button
             variant="outline"
             size="sm"
             className="pressable"
             onClick={() => setDraftsOpen(true)}
           >
-            <SparklesIcon /> AI drafts
+            <WandSparklesIcon /> Auto-schedule
           </Button>
           <CalendarInviteAction />
           <div className="flex">
             <Button
               size="sm"
+              variant={publishActionable ? "default" : "outline"}
               className="pressable rounded-r-none"
-              disabled={data.event.agendaPublishedAt !== null && !data.event.agendaDirty}
+              disabled={!publishActionable}
               onClick={() => void publish("publish")}
             >
               <CalendarCheckIcon />
@@ -514,7 +513,12 @@ export function AgendaPage({
               <DropdownMenuTrigger asChild>
                 <Button
                   size="icon-sm"
-                  className="pressable rounded-l-none border-l border-primary-foreground/20"
+                  variant={publishActionable ? "default" : "outline"}
+                  className={
+                    publishActionable
+                      ? "pressable rounded-l-none border-l border-primary-foreground/20"
+                      : "pressable -ml-px rounded-l-none"
+                  }
                   aria-label="Agenda publication options"
                 >
                   <ChevronDownIcon />

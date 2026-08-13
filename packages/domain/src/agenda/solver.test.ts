@@ -22,6 +22,7 @@ const agenda: AgendaAdminData = {
     agendaPublishedAt: null,
     agendaDirty: false,
   },
+  aiConfigured: false,
   rooms: seedData.rooms.map((room) => ({
     id: room.id,
     name: room.name,

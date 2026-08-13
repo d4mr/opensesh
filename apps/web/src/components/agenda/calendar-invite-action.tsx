@@ -3,7 +3,6 @@ import { CalendarPlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { calendarInviteSummaryQuery } from "@/lib/mail-queries";
@@ -56,19 +55,21 @@ export function CalendarInviteAction() {
   const checking = summary.isPending;
 
   return (
-    <div className="flex items-center gap-2">
-      <Badge variant="outline" className="rounded-md tabular-nums">
-        {checking ? "Checking schedule…" : `${affected} of ${scheduled} need invites`}
-      </Badge>
-      <Button
-        size="sm"
-        className="pressable"
-        disabled={checking || affected === 0 || send.isPending}
-        onClick={() => send.mutate()}
-      >
-        <CalendarPlusIcon />
-        {send.isPending ? "Sending…" : "Send calendar invites"}
-      </Button>
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      className="pressable"
+      disabled={checking || affected === 0 || send.isPending}
+      title={checking ? undefined : `${affected} of ${scheduled} scheduled speakers need an invite`}
+      onClick={() => send.mutate()}
+    >
+      <CalendarPlusIcon />
+      {send.isPending ? "Sending invites…" : "Send invites"}
+      {checking || affected === 0 ? null : (
+        <span className="rounded-sm bg-muted px-1 text-[10px] font-medium text-muted-foreground tabular-nums">
+          {affected}
+        </span>
+      )}
+    </Button>
   );
 }

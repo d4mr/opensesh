@@ -56,6 +56,7 @@ export const AgendaAdminData = Schema.Struct({
   rooms: Schema.Array(AgendaRoom),
   tracks: Schema.Array(AgendaTrack),
   sessions: Schema.Array(AgendaSession),
+  aiConfigured: Schema.Boolean,
 });
 export type AgendaAdminData = typeof AgendaAdminData.Type;
 

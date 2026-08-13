@@ -39,6 +39,13 @@ flow, because a speaker landing from a conference site has exactly one job.
 - **Footer rail** — every multi-step surface ends in the same rail:
   `mt-6 flex items-center justify-between border-t pt-4`; Back is
   `variant="ghost"` left; the primary action sits right. One primary per rail.
+- **Page-header action row** — one primary CTA per surface; every other
+  control is outline/ghost. When the primary has nothing to do (published and
+  clean), demote it to outline rather than parking a disabled primary. Status
+  chips live next to the title only — never restated as a second badge in the
+  action row, and never as a badge that impersonates a button. Counts fold
+  *into* their button as a small pill (`rounded-sm bg-muted px-1 text-[10px]
+  tabular-nums`), Linear filter-button style, hidden at zero.
 - **Segmented progress rail** — `h-1 flex-1 rounded-full` segments in a
   `flex gap-1` row; text line above: `Step N of M · Name` left, quiet meta
   right. Filled = `bg-primary`; visited-but-ahead = `bg-primary/30`; untouched

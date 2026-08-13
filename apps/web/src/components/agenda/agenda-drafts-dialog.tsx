@@ -15,8 +15,8 @@ import {
   EllipsisIcon,
   LoaderIcon,
   PlusIcon,
-  SparklesIcon,
   Trash2Icon,
+  WandSparklesIcon,
   XIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -88,13 +88,14 @@ function DraftList({
 }) {
   if (drafts.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
         <div className="wizard-pop flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <SparklesIcon className="size-5" />
+          <WandSparklesIcon className="size-5" />
         </div>
-        <h3 className="mt-4 text-sm font-semibold tracking-tight">No agenda drafts yet</h3>
-        <p className="mt-1 max-w-64 text-xs text-muted-foreground">
-          Create a reviewable proposal without changing the live agenda.
+        <h3 className="mt-4 text-sm font-semibold tracking-tight">No drafts yet</h3>
+        <p className="mt-1 max-w-72 text-xs text-muted-foreground">
+          Auto-schedule builds a conflict-free proposal you review and accept — the live agenda
+          never changes on its own.
         </p>
       </div>
     );
@@ -108,7 +109,7 @@ function DraftList({
             <button
               type="button"
               disabled={draft.status !== "generated"}
-              className="pressable min-w-0 flex-1 px-3 py-2.5 text-left disabled:cursor-default"
+              className="pressable-row min-w-0 flex-1 px-3 py-2.5 text-left disabled:cursor-default"
               onClick={() => compare(draft.id)}
             >
               <div className="flex items-center gap-2">
@@ -373,7 +374,9 @@ function CriteriaForm({
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Try “no workshops before 10am” or “spread each track across days”.
+                  {agenda.aiConfigured
+                    ? "Free-form — Claude interprets these, and the solver still verifies every placement. Try “no workshops before 10am”."
+                    : "Matched with built-in heuristics — try “no workshops before 10am” or “spread each track across days”."}
                 </p>
               </div>
             );
@@ -395,7 +398,9 @@ function CriteriaForm({
             <>
               <span className="text-[11px] text-muted-foreground" aria-live="polite">
                 {isSubmitting
-                  ? "Loading sessions · solving constraints · validating conflicts"
+                  ? agenda.aiConfigured
+                    ? "Asking Claude · solving constraints · validating conflicts"
+                    : "Loading sessions · solving constraints · validating conflicts"
                   : "The live agenda stays unchanged until accept."}
               </span>
               <div className="flex items-center justify-between">
@@ -407,7 +412,7 @@ function CriteriaForm({
                   size="sm"
                   disabled={!canSubmit || !hasRequiredCriteria || isSubmitting}
                 >
-                  <SparklesIcon /> {isSubmitting ? "Generating…" : "Generate"}
+                  <WandSparklesIcon /> {isSubmitting ? "Generating…" : "Generate"}
                 </Button>
               </div>
             </>
@@ -448,10 +453,12 @@ export function AgendaDraftsDialog({
         <DialogHeader className="m-0 border-b p-4 text-left">
           <div className="flex items-start justify-between gap-4 pr-7">
             <div>
-              <DialogTitle>{mode === "list" ? "AI agenda drafts" : "New agenda draft"}</DialogTitle>
+              <DialogTitle>{mode === "list" ? "Auto-schedule" : "New draft"}</DialogTitle>
               <DialogDescription className="mt-0.5 text-xs">
                 {mode === "list"
-                  ? "Generate, compare, then explicitly accept changes."
+                  ? agenda.aiConfigured
+                    ? "A greedy constraint solver places sessions conflict-free; Claude interprets your natural-language rules."
+                    : "A greedy constraint solver places sessions into conflict-free slots."
                   : "Choose the scope and constraints for this proposal."}
               </DialogDescription>
             </div>
