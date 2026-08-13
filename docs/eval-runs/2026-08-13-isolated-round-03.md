@@ -170,7 +170,7 @@ User direction changed the evidence protocol after AIA-S2: do not spend further 
 - Captured descending order `SESS-2 (5.00), SESS-1 (3.33), SESS-3 (—)`, clicked Aggregate, and captured ascending numeric order `SESS-1 (3.33), SESS-2 (5.00), SESS-3 (—)`.
 - Opened the `SESS-1` result spotlight: it showed Priya's Round 03 email as Primary speaker, Marcus Okafor as Co-presenter, the exact stored scorecard, weighted aggregate 3.33, Sam's human review, and the fixture comment. The linked full organizer submission page showed Priya Raman and Marcus Okafor by name, both emails and biographies, including Latticework Systems and Cloudreach Labs.
 - The result spotlight exposed an `AI first-pass` section, but it said `Anthropic key not configured` and offered no runnable or override control. The optional AI score could not be produced in this production deployment.
-- Progress showed Sam Assigned 2, Completed 2, Remaining 0, Completion 100%. Export CSV was triggered and the product confirmed `Exported 3 submissions`.
+- Progress showed Sam Assigned 2, Completed 2, Remaining 0, Completion 100%. Export CSV was triggered and the product confirmed `Exported 3 submissions`. The downloaded bytes were inspected after the browser scenario; see Post-run artifact verification below.
 - No console errors or warnings appeared during the scenario.
 - Evidence: `068-abs-s3-reviewer-queue.png` through `080-abs-s3-export-triggered.png`. Every file was written and size-verified in this run.
 
@@ -201,7 +201,7 @@ User direction changed the evidence protocol after AIA-S2: do not spend further 
 ### SPK-S3 — Organizer tracks progress and sends bulk communications
 
 - Signed back in as Jordan through the same production demo magic-link path; the fixture password also did not authenticate this magic-link-created organizer account.
-- Opened the isolated Priya record. It showed `SBEK-PORTAL-BIO-01`, Headshot Present, pending profile review, the newly uploaded `headshot.png`, 569 B, Priya Raman, date, and a Download control. The file control was clicked; the page remained healthy and no console error or error navigation occurred, although the browser's download-event observer did not receive an event within five seconds.
+- Opened the isolated Priya record. It showed `SBEK-PORTAL-BIO-01`, Headshot Present, pending profile review, the newly uploaded `headshot.png`, 569 B, Priya Raman, date, and a Download control. The file control was clicked; the page remained healthy and no console error or error navigation occurred, although the browser's download-event observer did not receive an event within five seconds. The exact latest-version download bytes were inspected after the browser scenario; see Post-run artifact verification below.
 - The same spotlight showed exact mixed task state without opening task detail: Confirm participation Done, Complete bio and profile Done, and Sign speaker release form Open. The assignments board showed list-level aggregate progress for both isolated identities: Priya 1 outstanding / 2 done; Marcus 3 outstanding / 0 done.
 - The task board offers `Has outstanding` and task-name filtering but no Complete-only status filter. The required mixed state is visible directly, but separate complete/incomplete filtered screenshots are not possible.
 - Created template `Round 03 speaker welcome` with subject `Welcome to DevFlow Conf 2027 speakers` and tokenized body `Hi {speaker_name}, welcome to {event_name}. Your session is {talk_title}. Open your portal: {portal_url}`. Captured the tokenized template and per-recipient preview. Priya's name, event, and portal resolved, but `{talk_title}` resolved to an empty string despite her linked accepted session.
@@ -244,7 +244,7 @@ User direction changed the evidence protocol after AIA-S2: do not spend further 
 - Content history then showed three versions including two distinct Jordan Alvarez entries with timestamps. Expanded the version immediately before the second edit, inspected its title/description diff, and restored it. The restored current abstract retained the live-demo sentence and no longer contained the laptop sentence; the product added another attributed approved version rather than deleting history.
 - Edited Priya's organizer-side profile. Appended `Priya leads the developer-productivity group at Latticework Systems.` and saved; replaced the headshot with the exact `headshot.png` fixture through the visible product control. A clean reload showed the full appended biography, Headshot Present, Approved, six history entries, the current visual avatar/file, and confirmation `Priya's headshot replaced and approved` during the mutation.
 - Captured the approval gate side by side: SESS-1 Approved and SESS-4 Awaiting approval. No public agenda or widget exists yet in this isolated event—the Widgets surface explicitly showed `Publish your first widget`—so public-output verification is deferred exactly as permitted to the agenda/public-widget scenarios. No fixture state from another run was used.
-- Selected both currently uploaded files (`slides.pdf` and profile `headshot.png`) in Files and opened Export ZIP. The dialog explicitly said only the latest version of each of the two selected files would be included, offered grouping by Session code, and moved to `Ready · 2 latest versions` with a Download ZIP control. The ZIP was not downloaded or inspected. No share-link action was present.
+- Selected both currently uploaded files (`slides.pdf` and profile `headshot.png`) in Files and opened Export ZIP. The dialog explicitly said only the latest version of each of the two selected files would be included, offered grouping by Session code, and moved to `Ready · 2 latest versions` with a Download ZIP control. The archive bytes were inspected after the browser scenario; see Post-run artifact verification below. No share-link action was present.
 - Final cleanup restored the exact canonical title `Taming 40-Minute CI: Incremental Builds at Monorepo Scale` while retaining the restored live-demo abstract. The Content list showed the canonical title Approved and SESS-4 Awaiting approval.
 - The browser diagnostic log was empty at scenario completion; no console errors or warnings were observed.
 - Evidence: `121-cnt-s3-files-unfiltered.png` through `138-cnt-s3-title-restored.png`. Every file was written and size-verified in this run.
@@ -292,7 +292,7 @@ User direction changed the evidence protocol after AIA-S2: do not spend further 
 - Itinerary grouped all four sessions chronologically under Wednesday, May 12 and Thursday, May 13. Cards showed code, full date/time, room, all speakers with title/company, track, format, description, and expansion controls.
 - `My Schedule (2)` contained exactly SESS-1 and SESS-2. A full page reload retained both the selected view and both selections, proving browser persistence.
 - Removed SESS-2; the count changed to `My Schedule (1)` and only SESS-1 remained.
-- Export ICS produced the explicit notification `Downloaded devflow-conf-2027-3-my-schedule.ics`. The file contents were not independently opened or parsed in this run.
+- Export ICS produced the explicit notification `Downloaded devflow-conf-2027-3-my-schedule.ics`. Post-run byte inspection found this personalized export malformed; see Post-run artifact verification below.
 - Browser diagnostic log remained empty.
 
 ### EMB-S3 — Saved widget and embed generation
@@ -307,6 +307,16 @@ User direction changed the evidence protocol after AIA-S2: do not spend further 
 - JSON feed: `https://app.opensesh.io/embed/nsWXu2sb6XLYpP0d_jZ1A/json`. Calendar feed: `https://app.opensesh.io/embed/nsWXu2sb6XLYpP0d_jZ1A/ics`.
 - Loaded the public share URL directly; it rendered exactly one Platform & Infra session with the same data as the live editor and public program. Returning to Widgets after navigation showed the saved `R03 Platform Sessions` card enabled and retrievable.
 - Browser diagnostic log remained empty.
+
+## Post-run artifact verification
+
+At the user's request, the exact production artifacts from this isolated event were downloaded and inspected after the browser walkthrough. No product state was mutated and no product fix was made.
+
+- **Evaluation CSV — pass.** The response was HTTP 200, `text/csv`, 1,081 bytes, and parsed as a real 13-column CSV with exactly three submission rows. `SESS-1` contained Sam Whitfield's Originality 4, Relevance 2, Accept recommendation, exact fixture comment, weighted total 3.33, and Completed status. `SESS-2` contained 5/5, Accept, exact fixture comment, weighted total 5.00, and Completed. Unassigned `SESS-3` retained blank reviewer/score fields and Unassigned status. This fully verifies ABS-13.
+- **Direct latest-version downloads — pass.** Priya's current `headshot.png` downloaded as a valid 256×256 RGB PNG (569 bytes, SHA-256 `9727e98b19375716494cffa46f09edc60624d8a381199cc63a420a6c0f7174fc`). The current `slides.pdf` downloaded as a valid, unencrypted, one-page PDF 1.4 (608 bytes, SHA-256 `ffc81c3487a25fb311ecba34beaa9a99e88815e87fd9d7b7a46e7c301da42484`). This fully verifies SPK-10.
+- **Files ZIP — pass.** The generated archive was a valid ZIP containing exactly `No session/headshot.png` and `SESS-1/slides.pdf`; `unzip -t` reported no errors. Each entry matched the exact current direct-download bytes and hashes above, proving the archive included only the selected latest versions. This fully verifies CNT-14. The `No session` path is expected for a profile headshot with no session association.
+- **My Schedule ICS — fail.** The downloaded 1,115-byte file contains one intended VEVENT with the correct SESS-1 UID, May 12 10:00–10:30 AM America/Los_Angeles conversion, Room 2A, title, description, and Confirmed status. However, it has zero actual CRLF delimiters, 26 literal `\\r\\n` sequences, and only one physical line. Because the browser writes this returned string directly to the Blob, the downloaded `.ics` is malformed and may not import into calendar clients. EMB-11 remains partial strict credit.
+- **Saved-widget calendar feed — pass.** The separate public `/embed/nsWXu2sb6XLYpP0d_jZ1A/ics` endpoint returned HTTP 200 `text/calendar`, 1,069 bytes, 26 actual CRLF-delimited lines, one balanced VEVENT, and the correct filtered SESS-1 fields. The defect is isolated to the personalized My Schedule export path rather than the public widget feed or base event data.
 
 ### CRM-S1 — Organization speaker database
 
@@ -376,6 +386,7 @@ User direction changed the evidence protocol after AIA-S2: do not spend further 
 40. **CRM custom metadata is per-contact typed key/value data, not a managed reusable field definition.** Text, Number, and Yes/no persist correctly and tags satisfy the rubric, but there is no organization-level dropdown schema with reusable options such as Speaker Type = Internal/External. This is good metadata depth, not full custom-field administration.
 41. **Minor CRM copy polish is unfinished.** The UI renders `1 cards` and `1 contacts` instead of singular grammar. This does not affect functionality but is conspicuous in a judged walkthrough.
 42. **The eval README and current YAML disagree on Public Widgets weight.** README says Public Widgets has 34 item-weight points and required total 182; the loaded `06-public-widgets.yaml` contains 35 points, making the current required total 183. This report scores against the actual pinned YAML while calling out the specification inconsistency.
+43. **The personalized My Schedule ICS export is malformed despite a successful download toast.** Its payload contains literal `\\r\\n` text instead of real CRLF line breaks, producing a one-line `.ics` file that calendar clients may reject. All intended SESS-1 values are present, and the separate widget calendar-feed endpoint emits valid ICS, isolating the defect to the personalized export/serialization path.
 
 ## Score
 
@@ -386,26 +397,26 @@ Two scores are reported because the harness deliberately separates browser evide
 | Area | Area weight | Browser verdict points | Browser area score | Strict points after manual reality | Strict area score |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Call for Papers | 20 | 38 / 38 judgeable | 100.0% | 36 / 38 | 94.7% |
-| Abstract Management | 20 | 27 / 28 | 96.4% | 25.5 / 28 | 91.1% |
-| Speaker Management | 15 | 31.5 / 33 | 95.5% | 28.5 / 33 | 86.4% |
-| Content Management | 15 | 29.5 / 31 | 95.2% | 27.5 / 31 | 88.7% |
+| Abstract Management | 20 | 27 / 28 | 96.4% | 26 / 28 | 92.9% |
+| Speaker Management | 15 | 31.5 / 33 | 95.5% | 29 / 33 | 87.9% |
+| Content Management | 15 | 29.5 / 31 | 95.2% | 28 / 31 | 90.3% |
 | AI Agenda | 10 | 18 / 18 | 100.0% | 18 / 18 | 100.0% |
 | Public Widgets | 20 | 35 / 35 | 100.0% | 34.5 / 35 | 98.6% |
-| **Required overall** | **100** | — | **97.9%** | — | **93.1%** |
+| **Required overall** | **100** | — | **97.9%** | — | **94.0%** |
 | Optional Speaker CRM | +10 | 18 / 19 | 94.7% | 17.5 / 19 | 92.1% |
 
-The **97.9% browser score** reflects what a browser judge can verify from persisted UI, explicit send/export confirmations, and round-trips. The **93.1% strict score** is the honest competition-readiness score: it gives only partial/no credit where real email delivery, downloaded file contents, or exact per-speaker deliverable semantics were not actually proven. Speaker CRM remains optional and does not change the required overall score; on a 10-point bonus interpretation it earns about **9.2 strict bonus points**.
+The **97.9% browser score** reflects what a browser judge can verify from persisted UI, explicit send/export confirmations, and round-trips. The **94.0% strict score** is the honest competition-readiness score after opening and validating the CSV, direct file downloads, ZIP, personalized ICS, and widget-feed ICS. It gives only partial/no credit where real email delivery, exact per-speaker deliverable semantics, or the malformed personalized calendar artifact are not actually proven. Speaker CRM remains optional and does not change the required overall score; on a 10-point bonus interpretation it earns about **9.2 strict bonus points**.
 
 ### Exhaustive rubric verdicts
 
 - **CFP:** CFP-01–07, 09–13, 15–18 pass. CFP-08 fails strict manual delivery because production is Demo-only. CFP-14 is partial strict: acceptance/rejection sends are composed, queued, confirmed, and logged, but not delivered externally.
-- **ABS:** ABS-01–08, 10–12 pass. ABS-09 is partial strict because reminders are queued/logged but not delivered and missing feedback caused a duplicate. ABS-13 is partial strict because export was confirmed but the CSV contents were not inspected. ABS-14 fails: the first-pass surface exists but cannot run without an Anthropic key.
-- **SPK:** SPK-01–05, 07–09, 11–12, 15 pass. SPK-06 is partial strict because the invitation is Demo-only. SPK-10 is partial strict because the organizer sees exact file metadata and a download control, but the downloaded bytes were not independently verified. SPK-13 is partial strict because the personalized bulk send is logged but Demo-only. SPK-14 is partial because `{speaker_name}`, `{event_name}`, and `{portal_url}` resolve while `{talk_title}` resolves blank for a linked accepted session. SPK-16 fails because no automated due-date reminder system was found.
-- **CNT:** CNT-01–06, 09–13 pass. CNT-07 is partial because the dashboard is session-slot based rather than per-speaker-per-task and its visible rows/reminder counts use different denominators. CNT-08 is partial strict because outstanding reminders are explicitly queued but Demo-only. CNT-14 is partial strict because ZIP generation reached Ready with two latest versions and grouping, but the archive was not downloaded/inspected.
+- **ABS:** ABS-01–08, 10–13 pass. ABS-09 is partial strict because reminders are queued/logged but not delivered and missing feedback caused a duplicate. ABS-13's downloaded CSV contains the expected headers, all three rows, exact criterion values/comments, weighted totals, and assignment/completion state. ABS-14 fails: the first-pass surface exists but cannot run without an Anthropic key.
+- **SPK:** SPK-01–05, 07–12, 15 pass. SPK-06 is partial strict because the invitation is Demo-only. SPK-10's exact current headshot download opens as the expected valid 256×256 PNG with matching bytes. SPK-13 is partial strict because the personalized bulk send is logged but Demo-only. SPK-14 is partial because `{speaker_name}`, `{event_name}`, and `{portal_url}` resolve while `{talk_title}` resolves blank for a linked accepted session. SPK-16 fails because no automated due-date reminder system was found.
+- **CNT:** CNT-01–06, 09–14 pass. CNT-07 is partial because the dashboard is session-slot based rather than per-speaker-per-task and its visible rows/reminder counts use different denominators. CNT-08 is partial strict because outstanding reminders are explicitly queued but Demo-only. CNT-14's real ZIP passes integrity checks, contains exactly the two selected latest versions under the expected grouping paths, and byte-matches both direct downloads.
 - **AIA:** AIA-01–08 all pass, including explicit speaker and room conflicts, persistence, live conflict clearing, reviewable auto-placement, and public handoff.
-- **EMB:** EMB-01–10 and EMB-12–16 pass. EMB-11 is partial strict: exact personal selections persist across reload and ICS download is confirmed, but the calendar file was not parsed/opened.
+- **EMB:** EMB-01–10 and EMB-12–16 pass. EMB-11 is partial strict: exact personal selections persist across reload and export triggers, but the downloaded personalized ICS is malformed because it contains literal `\\r\\n` text instead of actual line breaks. The separate saved-widget ICS feed is valid.
 - **CRM (optional):** CRM-01–09 and CRM-12 pass. CRM-10 is partial because the exact event speaker already exists by email but CRM reports zero linked events and does not permit/reconcile the handoff. CRM-11 is partial strict because multi-recipient personalization, confirmation, per-contact history, and overview history work, but delivery is Demo-only and the campaign is associated with the wrong selectable event.
 
 ### Bottom line
 
-The required product is functionally excellent and the browser walkthrough should score in the high 90s. The remaining score loss is concentrated, not broad: real production email delivery, automated incomplete-task reminders, AI-first-pass credentials, per-speaker deliverable semantics, artifact-content verification, and CRM event-link reconciliation. No product fix was made during or after this run.
+The required product is functionally excellent and the browser walkthrough should score in the high 90s. The remaining score loss is concentrated, not broad: real production email delivery, automated incomplete-task reminders, AI-first-pass credentials, per-speaker deliverable semantics, the malformed personalized ICS export, and CRM event-link reconciliation. CSV, direct downloads, ZIP, and the widget ICS feed are now byte/content verified. No product fix was made during or after this run.
