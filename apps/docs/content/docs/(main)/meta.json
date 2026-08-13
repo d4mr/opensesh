@@ -3,5 +3,13 @@
   "description": "Guides and concepts",
   "icon": "BookOpen",
   "root": true,
-  "pages": ["index", "getting-started", "deployment", "mcp", "---Guides---", "...guides"]
+  "pages": [
+    "index",
+    "getting-started",
+    "spotlight",
+    "deployment",
+    "mcp",
+    "---Guides---",
+    "...guides"
+  ]
 }

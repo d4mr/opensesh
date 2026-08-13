@@ -1,0 +1,67 @@
+---
+title: "The spotlight"
+description: "The master-detail pattern behind every desk: select a row, work in the side panel, never lose the list."
+---
+
+Every working surface in opensesh — sessions, submissions review, speakers, resources, files, evaluation rounds — is built on one interaction pattern: the **spotlight**. Understand it once and every desk works the same way.
+
+## How it works
+
+A desk is a list. Selecting a row _spotlights_ it: the list compacts to make room, and a detail panel opens beside it with everything about that item — status, checklists, pending approvals, actions, history. The list never disappears and never loses your scroll position, so you stay oriented in the queue you were working through.
+
+<img
+  src="/guides/speakers-spotlight-light.webp"
+  alt="The speakers directory with a speaker spotlighted: the list compacts to the left, the detail panel opens on the right"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/guides/speakers-spotlight-dark.webp"
+  alt="The speakers directory with a speaker spotlighted: the list compacts to the left, the detail panel opens on the right"
+  className="hidden rounded-lg border dark:block"
+/>
+
+The spotlighted row is marked with an accent edge in the list, so the connection between row and panel stays visible.
+
+## Built for working through a queue
+
+The pattern is tuned for the "forty things to get through" sessions that make up conference organizing:
+
+- **`j` / `k` (or arrow keys)** move the spotlight down and up the list without touching the mouse — triage a whole queue from the keyboard.
+- **`Escape` closes the panel**, scrolls the list back to the row you were on, and briefly highlights it — you never come back to a list that lost your place.
+- **The URL carries the selection** as `?spotlight=<id>`. Copy the address bar and a teammate opens the exact same record in the exact same desk; browser back/forward walk your selection history.
+
+<Callout title="Filters and the spotlight are independent">
+  If the spotlighted item is filtered out of the current view, the panel says so ("Not in this
+  view") and offers to clear the filters — it never silently switches your selection.
+</Callout>
+
+## The same panel does real work
+
+Spotlight panels aren't read-only summaries. Depending on the desk, the panel is where you:
+
+- Approve or reject a speaker's pending profile edit, shown as a side-by-side diff ([Speakers](/guides/speakers)).
+- Track a session's readiness checklist and activity timeline, or cancel it ([Sessions](/guides/sessions)).
+- Change workflow status, review deliverables, or jump into the content approval flow.
+
+<img
+  src="/guides/sessions-spotlight-light.webp"
+  alt="A session spotlight: readiness checklist, speaker confirmations, schedule slot, and activity timeline in the side panel"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/guides/sessions-spotlight-dark.webp"
+  alt="A session spotlight: readiness checklist, speaker confirmations, schedule slot, and activity timeline in the side panel"
+  className="hidden rounded-lg border dark:block"
+/>
+
+## Where you'll meet it
+
+| Desk                                          | What the spotlight holds                                     |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| [Sessions](/guides/sessions)                  | Readiness, speakers, schedule slot, activity timeline        |
+| [Speakers](/guides/speakers)                  | Pending edits, workflow status, profile readiness, logistics |
+| [Submissions review](/guides/submissions)     | The abstract, scores, and decision context                   |
+| Resources & Files                             | Preview, metadata, and sharing controls                      |
+| [Evaluation](/guides/evaluation) round editor | Reviewer and assignment detail                               |
+
+One pattern, learned once — every new desk in the product comes with it for free.

@@ -6,7 +6,20 @@ opensesh tracks speakers at two levels: a per-event **Speakers** directory for r
 
 ## Event speakers: the Spotlight view
 
-**Speakers** (`/admin/speakers`) is a master-detail directory. The table shows **Speaker, Role, Profile readiness, Workflow, Task progress**; selecting a row opens the **Spotlight** detail pane. Each speaker moves through a workflow: `invited` → `onboarding` → `confirmed` → `ready` (or `declined`).
+**Speakers** (`/admin/speakers`) is a master-detail directory. The table shows **Speaker, Role, Profile readiness, Workflow, Task progress**; selecting a row opens the **Spotlight** detail pane.
+
+<img
+  src="/guides/speakers-spotlight-light.webp"
+  alt="The speakers directory with Maya Chen spotlighted: her pending bio edit shown as a side-by-side diff above workflow status and profile readiness"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/guides/speakers-spotlight-dark.webp"
+  alt="The speakers directory with Maya Chen spotlighted: her pending bio edit shown as a side-by-side diff above workflow status and profile readiness"
+  className="hidden rounded-lg border dark:block"
+/>
+Each speaker moves through a workflow: `invited` → `onboarding` → `confirmed` → `ready` (or
+`declined`).
 
 <Callout title="Built for working through a long list fast">
   Navigate with `j` / `k` and close with `Escape`. The URL carries
@@ -27,6 +40,17 @@ The toolbar has **Export CSV** and **Import CSV** for bulk work.
 ## Organization CRM
 
 **Speaker CRM** (`/admin/crm`) is the long-lived contact database for your whole organization, with four tabs:
+
+<img
+  src="/guides/crm-light.webp"
+  alt="The Speaker CRM directory: contacts with titles, companies, tags, and event counts, plus duplicate review and CSV import"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/guides/crm-dark.webp"
+  alt="The Speaker CRM directory: contacts with titles, companies, tags, and event counts, plus duplicate review and CSV import"
+  className="hidden rounded-lg border dark:block"
+/>
 
 <Tabs items={["Directory", "Pipeline", "Segments", "Overview"]}>
 <Tab>

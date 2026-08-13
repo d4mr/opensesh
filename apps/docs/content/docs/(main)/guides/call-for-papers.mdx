@@ -4,6 +4,17 @@ title: "Call for Papers"
 
 The CFP surface has two halves: a form builder for organizers under **Call for Papers** in the admin sidebar, and a public submission wizard that submitters reach through a shareable link.
 
+<img
+  src="/guides/cfp-builder-light.webp"
+  alt="The form editor on its Submission questions step: reorderable questions with types, limits, and visibility conditions"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/guides/cfp-builder-dark.webp"
+  alt="The form editor on its Submission questions step: reorderable questions with types, limits, and visibility conditions"
+  className="hidden rounded-lg border dark:block"
+/>
+
 ## Build a form
 
 Go to **Call for Papers** (`/admin/forms`) and click **Create form**. The editor walks through six steps:
@@ -78,7 +89,19 @@ Every question starts as "Always shown — add condition". Click it to build a v
 
 ## The public wizard
 
-Submitters open `/submit/<eventSlug>/<formId>` and get a five-step wizard with a **Step N of 5** indicator. Two things make it forgiving:
+Submitters open `/submit/<eventSlug>/<formId>` and get a five-step wizard with a **Step N of 5** indicator.
+
+<img
+  src="/guides/cfp-wizard-light.webp"
+  alt="The public submission wizard's welcome step, with the five-step progress indicator and close date"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/guides/cfp-wizard-dark.webp"
+  alt="The public submission wizard's welcome step, with the five-step progress indicator and close date"
+  className="hidden rounded-lg border dark:block"
+/>
+Two things make it forgiving:
 
 - **Drafts** — progress persists locally _and_ server-side, so a half-finished submission survives a closed tab or a device switch.
 - **Magic-link auth** — partway through, the wizard asks the submitter to **Sign in to continue** via an emailed magic link. No password, no separate signup. Returning submitters see "Resume a draft below, or start a new submission".
