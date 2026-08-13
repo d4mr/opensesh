@@ -16,7 +16,7 @@ import {
 import { Db, type Database } from "../db";
 import type { DbError, NotFound } from "../errors";
 import { buildCalendarInvite } from "../mail/ics";
-import { calendarInvite, deliverableReminder, taskReminder } from "../mail/templates";
+import { calendarInvite, deliverableReminder, taskReminder } from "@opensesh/email";
 import type { AdminEmail, CalendarInviteSummary } from "../schema/mail";
 import { EmailLogEntry } from "../schema/portal";
 import { activeSession, decodeFound, decodeMany, query } from "./shared";

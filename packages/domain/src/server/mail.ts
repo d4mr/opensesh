@@ -5,7 +5,7 @@ import { DEMO_ORG_ID, deliverableRecipient } from "../demo";
 import { emailLog, events } from "../db/schema";
 import { Db, makeDbLive } from "./db";
 import { type DbError, MailError, type NotFound } from "./errors";
-import { magicLink, organizationInvitation } from "./mail/templates";
+import { magicLink, organizationInvitation } from "@opensesh/email";
 import { decodeFound, query } from "./repos/shared";
 import { EmailLogEntry } from "./schema/portal";
 

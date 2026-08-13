@@ -51,7 +51,7 @@ import {
   wipeOrganizationData,
   wipeSeedData,
 } from "../server/db";
-import * as mailTemplates from "../server/mail/templates";
+import * as mailTemplates from "@opensesh/email";
 import { seedData } from "./data";
 
 const seededAt = new Date(1785585600000);

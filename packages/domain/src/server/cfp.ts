@@ -2,7 +2,8 @@ import { Effect, Schema } from "effect";
 
 import { enrichContact } from "./contact-enrichment";
 import { Forbidden, FormClosed, InvalidInput } from "./errors";
-import { confirmation } from "./mail/templates";
+import { confirmation } from "@opensesh/email";
+import { markdownToHtml, plainTextFromRichText } from "../rich-text";
 import { Contacts } from "./repos/contacts";
 import { EmailLog } from "./repos/email-log";
 import { Events } from "./repos/events";
@@ -380,14 +381,20 @@ export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (
       .replaceAll("{{name}}", name)
       .replaceAll("{{title}}", submission.title)
       .replaceAll("{{submission.title}}", submission.title)
-      .replaceAll("{{portal_link}}", portalUrl);
+      .replaceAll("{{portal_link}}", portalUrl)
+      .trim();
     const rendered = confirmation({
       eventName: bundle.event.name,
       logoUrl: bundle.event.logoUrl,
       name,
       submissionTitle: submission.title,
       portalUrl,
-      customBody,
+      // The organizer-authored body is markdown; the email package takes it
+      // pre-rendered so the markdown pipeline stays in one place (rich-text).
+      customBody:
+        customBody.length === 0
+          ? undefined
+          : { html: markdownToHtml(customBody), text: plainTextFromRichText(customBody) },
     });
     const entry = yield* emailLog.create({
       eventId: bundle.event.id,

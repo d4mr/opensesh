@@ -12,7 +12,7 @@ import {
 import { ReviewDecision, SessionCancelledBy, SubmissionStatus } from "./submissions";
 import { HumanReviewResult } from "./reviews";
 import { TimelineEntry } from "./sessions";
-import { accepted, declined } from "../mail/templates";
+import { accepted, declined } from "@opensesh/email";
 
 export const ReviewDeskTrack = Schema.Struct({
   id: Schema.String,

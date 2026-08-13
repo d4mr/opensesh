@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 import { NullableDate, NullableNumber, NullableString } from "./common";
-import { cancelled, reinstated } from "../mail/templates";
+import { cancelled, reinstated } from "@opensesh/email";
 import { ContentApprovalStatus, SessionCancelledBy } from "./submissions";
 
 // The session lens: projections of accepted submissions. Rows carry readiness
