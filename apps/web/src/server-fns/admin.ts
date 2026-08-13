@@ -271,7 +271,11 @@ export const saveLibraryItem = createServerFn({ method: "POST" })
                 : data.kind === "tag"
                   ? yield* events.listTags(data.eventId)
                   : yield* events.listLevels(data.eventId);
-        const position = list.length + 1;
+        // Updates keep their slot; only new items append. Recomputing from
+        // list length on update silently re-sorted edited rows to the end.
+        const position =
+          (data.id === null ? undefined : list.find((item) => item.id === data.id)?.position) ??
+          list.length + 1;
         if (data.kind === "track") {
           const input = { name: data.name, color: data.color ?? "#1d6b4c", position };
           return data.id === null
