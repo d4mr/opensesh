@@ -7,6 +7,7 @@ import {
   ReplyIcon,
   SparklesIcon,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { demoHref, DOCS_URL, GITHUB_URL } from "../config";
 import { AgendaDemo } from "./demos/agenda-demo";
@@ -243,15 +244,6 @@ export function Features() {
 
 /* ------------------------------------------------------------------ spotlight */
 
-const spotlightRows = [
-  { name: "Amara Okafor", status: "bg-status-pending" },
-  { name: "Maya Chen", status: "bg-status-accepted", active: true },
-  { name: "Jonas Weber", status: "bg-status-accepted" },
-  { name: "Priya Raman", status: "bg-status-pending" },
-  { name: "Tomás Silva", status: "bg-status-declined" },
-  { name: "Lena Fischer", status: "bg-status-pending" },
-];
-
 const spotlightBullets = [
   "Stays in the list — the table collapses beside the panel instead of navigating away",
   "Keyboard-native — j and k walk to the next and previous row, Escape closes",
@@ -259,86 +251,60 @@ const spotlightBullets = [
   "Works on speakers, submissions, content, and files",
 ];
 
-/** Non-interactive master-detail mock: compact list column + detail panel. */
-function SpotlightMock() {
+/** The real thing in motion: a continuously looping capture of the spotlight
+    opening, walking rows, and closing — framed on the salon art like the
+    other image bands. Muted + playsInline so autoplay is allowed everywhere. */
+function SpotlightReel() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Play only while on screen: retries autoplay the browser may have
+  // deferred, and stops the loop from burning cycles offscreen.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry === undefined) return;
+        if (entry.isIntersecting) void video.play().catch(() => undefined);
+        else video.pause();
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div aria-hidden="true" className="overflow-hidden rounded-lg border bg-background select-none">
-      <div className="flex h-9 items-center gap-1.5 border-b bg-paper px-3.5">
-        <span className="size-2.5 rounded-full border" />
-        <span className="size-2.5 rounded-full border" />
-        <span className="size-2.5 rounded-full border" />
-        <div className="ml-2 flex h-6 min-w-0 flex-1 items-center overflow-hidden rounded border bg-background px-2.5 font-mono text-[10px] whitespace-nowrap text-muted-foreground">
-          /speakers<span className="text-primary">?spotlight=maya-chen</span>
+    <Breakout>
+      <figure className="relative">
+        <img
+          src="/art/outdoor-olive-terrace-debate.webp"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div className="dither-down pointer-events-none absolute inset-x-0 top-0 h-40" />
+        <div className="dither-down pointer-events-none absolute inset-x-0 bottom-0 h-40 -scale-y-100" />
+        <div className="relative mx-auto w-full max-w-4xl px-6 py-16 md:py-24">
+          <Reveal>
+            <video
+              ref={videoRef}
+              src="/spotlight-loop.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-label="The spotlight in motion: selecting a speaker row opens the detail panel beside the list"
+              className="pointer-events-none block w-full rounded-xl border bg-background shadow-2xl select-none"
+            />
+          </Reveal>
         </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] divide-x">
-        <div className="flex min-w-0 flex-col text-[12px]">
-          <div className="flex items-center justify-between border-b bg-paper px-3 py-2 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-            <span>Speakers</span>
-            <span className="tabular-nums">28</span>
-          </div>
-          {spotlightRows.map((row) => (
-            <div
-              key={row.name}
-              className={cn(
-                "flex items-center justify-between gap-2 border-b px-3 py-2",
-                row.active === true && "border-l-2 border-l-primary bg-primary/5",
-              )}
-            >
-              <span
-                className={cn(
-                  "truncate",
-                  row.active === true ? "font-semibold" : "text-muted-foreground",
-                )}
-              >
-                {row.name}
-              </span>
-              <span className={cn("size-1.5 shrink-0 rounded-full", row.status)} />
-            </div>
-          ))}
-          <div className="dot-band min-h-6 flex-1" />
-        </div>
-        <div className="min-w-0 p-4 md:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="grid size-9 shrink-0 place-items-center rounded-md bg-status-accepted-bg text-[11px] font-semibold text-status-accepted">
-                MC
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">Maya Chen</p>
-                <p className="text-[11px] text-muted-foreground">Staff engineer, Range</p>
-              </div>
-            </div>
-            <span className="rounded-full bg-status-accepted-bg px-2 py-0.5 text-[10px] font-medium text-status-accepted">
-              Accepted
-            </span>
-          </div>
-          <dl className="mt-4 space-y-2.5 border-t pt-3.5 text-[12px]">
-            {[
-              ["Talk", "Postgres at the edge of the world"],
-              ["Track", "Infrastructure"],
-              ["Onboarding", "4 of 5 tasks done"],
-              ["Files", "headshot.jpg · slides.pdf"],
-            ].map(([label, value]) => (
-              <div key={label} className="flex gap-3">
-                <dt className="w-20 shrink-0 text-muted-foreground">{label}</dt>
-                <dd className="m-0 min-w-0 truncate">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-paper px-3.5 py-2 font-mono text-[10px] text-muted-foreground">
-        <span>
-          <kbd className="rounded border bg-background px-1">j</kbd>{" "}
-          <kbd className="rounded border bg-background px-1">k</kbd> walk rows
-        </span>
-        <span>
-          <kbd className="rounded border bg-background px-1">esc</kbd> close
-        </span>
-        <span className="ml-auto hidden sm:inline">scroll position preserved</span>
-      </div>
-    </div>
+        <figcaption className="absolute right-6 bottom-6 border bg-white/90 px-2 py-1 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
+          The spotlight, on loop
+        </figcaption>
+      </figure>
+    </Breakout>
   );
 }
 
@@ -358,14 +324,15 @@ export function Spotlight() {
           </p>
         </Reveal>
       </Narrow>
-      <div className="grid items-center gap-10 border-t px-6 py-16 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:px-10 md:py-20">
-        <Reveal>
+      <SpotlightReel />
+      <Narrow>
+        <Reveal className="border-t bg-background px-6 py-16 md:py-20">
           <p className="text-[15px] leading-relaxed text-muted-foreground">
             The selection lives in the URL, so every detail view is deep-linkable. Close the panel
             and your scroll position is exactly where you left it. And if a filter hides the row you
             had open, the panel says so instead of vanishing.
           </p>
-          <ul className="mt-5 space-y-2">
+          <ul className="mt-5 grid gap-x-10 gap-y-2 sm:grid-cols-2">
             {spotlightBullets.map((bullet) => (
               <li key={bullet} className="flex items-start gap-2.5 text-sm">
                 <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
@@ -374,10 +341,7 @@ export function Spotlight() {
             ))}
           </ul>
         </Reveal>
-        <Reveal delay={100}>
-          <SpotlightMock />
-        </Reveal>
-      </div>
+      </Narrow>
       <Crosses />
     </section>
   );

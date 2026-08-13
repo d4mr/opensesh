@@ -24,11 +24,13 @@ function ReadinessRow({
   label,
   detail,
   to,
+  search,
 }: {
   readonly ready: boolean;
   readonly label: string;
   readonly detail?: string;
   readonly to?: string;
+  readonly search?: Record<string, string>;
 }) {
   const body = (
     <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -45,7 +47,11 @@ function ReadinessRow({
   );
   if (to === undefined) return <div className="flex h-8 items-center px-2 text-sm">{body}</div>;
   return (
-    <Link to={to} className="flex h-8 items-center rounded-sm px-2 text-sm hover:bg-accent">
+    <Link
+      to={to}
+      search={search}
+      className="flex h-8 items-center rounded-sm px-2 text-sm hover:bg-accent"
+    >
       {body}
     </Link>
   );
@@ -199,6 +205,17 @@ export function SessionSpotlight({
           <div className="rounded-md border">
             <p className="border-b bg-muted/30 px-2 py-1.5 text-xs font-medium">Readiness</p>
             <div className="p-1">
+              {/* The most upstream fact: an unsent decision blocks everything
+                  downstream (the speaker can't even see they're accepted). */}
+              {session.source === "cfp" ? (
+                <ReadinessRow
+                  ready={session.decisionSent}
+                  label={session.decisionSent ? "Decision sent" : "Decision not sent"}
+                  detail={session.decisionSent ? undefined : "Inform from Submissions"}
+                  to="/admin/submissions"
+                  search={{ status: "to_inform" }}
+                />
+              ) : null}
               <ReadinessRow
                 ready={
                   session.speakers.length > 0 &&

@@ -407,6 +407,16 @@ export const decisionConfirmationRequired = (
   next: "accepted" | "declined",
 ) => (current === "accepted" || current === "declined") && current !== next && notifiedAt !== null;
 
+// An informed acceptance is a promise made to the submitter. The only honest
+// exit from it is session cancellation (with its own notification), never a
+// decline chasing the acceptance email. Declined → accepted stays legal even
+// informed: waitlist promotion just sends a new acceptance.
+export const informedAcceptanceRevoked = (
+  current: typeof SubmissionStatus.Type,
+  notifiedAt: Date | null,
+  next: "accepted" | "declined",
+) => current === "accepted" && next === "declined" && notifiedAt !== null;
+
 export const decisionFactUpdate = (status: "accepted" | "declined", now: Date) => ({
   status,
   updatedAt: now,
@@ -1199,7 +1209,19 @@ export const ReviewDeskLive = Layer.effect(
             }
             const nextStatus: "accepted" | "declined" =
               input.decision === "accept" ? "accepted" : "declined";
-            // The only surviving re-decide: declined → accepted.
+            if (
+              targetRows.some((row) =>
+                informedAcceptanceRevoked(row.status, row.notifiedAt, nextStatus),
+              )
+            ) {
+              return {
+                kind: "invalid",
+                message:
+                  "The submitter was already told this was accepted — cancel the session from Sessions instead",
+              };
+            }
+            // Surviving informed re-decides (declined → accepted, waitlist
+            // promotion) still confirm; un-informed re-decides are free.
             const priorFinal = targetRows.find((row) =>
               decisionConfirmationRequired(row.status, row.notifiedAt, nextStatus),
             );

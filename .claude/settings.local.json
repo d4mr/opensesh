@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uvx yt-dlp *)"
+      "Bash(uvx yt-dlp *)",
+      "Bash(ls ~/.agents/skills/ 2>/dev/null && echo ---- && ls /Users/prithvishbaidya/work/personal/sessionboard-clone/apps /Users/prithvishbaidya/work/personal/sessionboard-clone/packages)"
     ]
   }
 }

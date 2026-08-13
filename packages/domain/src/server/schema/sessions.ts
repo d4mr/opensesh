@@ -36,6 +36,7 @@ export const SessionListItem = Schema.Struct({
   // no submission to decline — they can only be cancelled (or deleted when
   // created by mistake).
   source: Schema.Literals(["cfp", "manual"]),
+  decisionSent: Schema.Boolean,
   tracks: Schema.Array(SessionTrack),
   speakers: Schema.Array(SessionSpeaker),
   startsAt: NullableDate,

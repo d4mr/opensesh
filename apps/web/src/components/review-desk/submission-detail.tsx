@@ -175,16 +175,28 @@ export function SubmissionDetail({
           }
           status={<StatusBadge status={submission.status} />}
           actions={
-            <Button size="icon-sm" variant="ghost" className="pressable" asChild>
-              <Link
-                to="/admin/submissions/$id"
-                params={{ id: submission.id }}
-                search={{ status: "all" }}
-                aria-label="Open full submission page"
-              >
-                <ExternalLinkIcon />
-              </Link>
-            </Button>
+            <>
+              {submission.status === "accepted" ? (
+                <Button size="xs" variant="outline" className="pressable" asChild>
+                  <Link
+                    to="/admin/sessions"
+                    search={{ state: "all", spotlight: submission.id }}
+                  >
+                    Session
+                  </Link>
+                </Button>
+              ) : null}
+              <Button size="icon-sm" variant="ghost" className="pressable" asChild>
+                <Link
+                  to="/admin/submissions/$id"
+                  params={{ id: submission.id }}
+                  search={{ status: "all" }}
+                  aria-label="Open full submission page"
+                >
+                  <ExternalLinkIcon />
+                </Link>
+              </Button>
+            </>
           }
           onClose={() => onClose?.()}
         />
@@ -369,8 +381,9 @@ export function SubmissionDetail({
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    This submission is a session. Cancellation stays in Sessions; replacing the
-                    decision remains available here.
+                    {submission.notifiedAt === null
+                      ? "This submission is a session, but the decision hasn't been sent — you can still replace it. Cancellation lives in Sessions."
+                      : "This submission is a session and the submitter has been told. The only exit now is cancellation, over in Sessions."}
                   </p>
                   <div className="flex gap-2">
                     <Button size="xs" variant="outline" asChild className="pressable">
@@ -381,7 +394,7 @@ export function SubmissionDetail({
                         View session
                       </Link>
                     </Button>
-                    {submission.cancelledAt === null ? (
+                    {submission.cancelledAt === null && submission.notifiedAt === null ? (
                       <Button
                         size="xs"
                         variant="destructive"

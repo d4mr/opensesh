@@ -214,6 +214,78 @@
       "port": 3019
     },
     {
+      "name": "wp21-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp21/apps/web",
+        "dev",
+        "--port",
+        "3021"
+      ],
+      "port": 3021
+    },
+    {
+      "name": "screenshots",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-screenshots/apps/web",
+        "dev",
+        "--port",
+        "3030"
+      ],
+      "port": 3030
+    },
+    {
+      "name": "wp21-landing-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp21/apps/landing",
+        "dev",
+        "--port",
+        "5321"
+      ],
+      "port": 5321
+    },
+    {
+      "name": "wp21-docs-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp21/apps/docs",
+        "dev",
+        "--port",
+        "5322"
+      ],
+      "port": 5322
+    },
+    {
+      "name": "wp21-docs-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5323",
+        "--directory",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp21/apps/docs/dist/public"
+      ],
+      "port": 5323
+    },
+    {
+      "name": "wp22-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "/Users/prithvishbaidya/work/personal/opensesh-wp22/apps/web",
+        "dev",
+        "--port",
+        "3022"
+      ],
+      "port": 3022
+    },
+    {
       "name": "wp20-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

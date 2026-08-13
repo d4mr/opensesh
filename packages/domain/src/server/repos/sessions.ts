@@ -39,6 +39,7 @@ const RawSessionRow = Schema.Struct({
   description: Schema.String,
   formatName: NullableString,
   sourceFormId: NullableString,
+  notifiedAt: NullableDate,
   startsAt: NullableDate,
   endsAt: NullableDate,
   roomId: NullableString,
@@ -138,6 +139,7 @@ export const SessionsLive = Layer.effect(
             description: submissions.description,
             formatName: formats.name,
             sourceFormId: submissions.sourceFormId,
+            notifiedAt: submissions.notifiedAt,
             startsAt: submissions.startsAt,
             endsAt: submissions.endsAt,
             roomId: submissions.roomId,
@@ -287,6 +289,9 @@ export const SessionsLive = Layer.effect(
                 description: item.base.description,
                 format: item.base.formatName,
                 source: item.base.sourceFormId === null ? ("manual" as const) : ("cfp" as const),
+                // Manual sessions have no decision to send; only CFP sessions
+                // can be waiting on the inform step.
+                decisionSent: item.base.sourceFormId === null || item.base.notifiedAt !== null,
                 tracks: Array.from(item.tracks.values()),
                 speakers: Array.from(item.speakers.values()).sort(
                   (left, right) => left.position - right.position,

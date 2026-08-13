@@ -6,6 +6,7 @@ import {
   decisionFactUpdate,
   informFactUpdate,
   informValidationError,
+  informedAcceptanceRevoked,
 } from "./review-desk";
 
 describe("re-decision confirmation", () => {
@@ -19,6 +20,23 @@ describe("re-decision confirmation", () => {
     expect(decisionConfirmationRequired("accepted", informed, "declined")).toBe(true);
     expect(decisionConfirmationRequired("declined", informed, "accepted")).toBe(true);
     expect(decisionConfirmationRequired("accepted", informed, "accepted")).toBe(false);
+  });
+});
+
+describe("informed acceptance revocation", () => {
+  const informed = new Date("2027-04-01T00:00:00.000Z");
+
+  it("blocks declining an acceptance the submitter was told about", () => {
+    expect(informedAcceptanceRevoked("accepted", informed, "declined")).toBe(true);
+  });
+
+  it("keeps the private phase and waitlist promotion legal", () => {
+    // Un-informed acceptance may still be freely replaced.
+    expect(informedAcceptanceRevoked("accepted", null, "declined")).toBe(false);
+    // An informed decline may be promoted to accepted (new acceptance email).
+    expect(informedAcceptanceRevoked("declined", informed, "accepted")).toBe(false);
+    // Re-affirming the same decision is never a revocation.
+    expect(informedAcceptanceRevoked("accepted", informed, "accepted")).toBe(false);
   });
 });
 
