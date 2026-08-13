@@ -78,7 +78,7 @@ export function PersonHoverCard({
           title: loaded.contact.title,
           company: loaded.contact.company,
           bio: loaded.contact.bio,
-          status: loaded.contact.workflowStatus,
+          status: loaded.contact.pipeline,
           sessionsCount: loaded.sessionCount,
         };
   const secondary = [display.title, display.company].filter(Boolean).join(" · ");

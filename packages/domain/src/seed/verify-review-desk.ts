@@ -43,14 +43,16 @@ const verify = Effect.gen(function* () {
     eventId,
     submissionIds: [acceptTarget.submission.id],
     decision: "accept",
-    feedback,
     confirmRedecide: false,
     approveContent: true,
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
-  yield* Effect.forEach(firstDecision.deliveries, (delivery) =>
-    reviewDesk.markEmail(delivery.logId, "sent"),
-  );
+  yield* reviewDesk.inform({
+    eventId,
+    submissionIds: [acceptTarget.submission.id],
+    feedback,
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
+  });
 
   const acceptedDetail = yield* reviewDesk.detail(eventId, acceptTarget.submission.id);
   const taskGroups = yield* Effect.all(
@@ -68,7 +70,6 @@ const verify = Effect.gen(function* () {
     eventId,
     submissionIds: [acceptTarget.submission.id],
     decision: "accept",
-    feedback,
     confirmRedecide: false,
     approveContent: true,
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
@@ -123,14 +124,16 @@ const verify = Effect.gen(function* () {
     eventId,
     submissionIds: declineTargets.map((submission) => submission.id),
     decision: "decline",
-    feedback: "A thoughtful proposal, but the program is full in this track.",
     confirmRedecide: false,
     approveContent: false,
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
-  yield* Effect.forEach(declined.deliveries, (delivery) =>
-    reviewDesk.markEmail(delivery.logId, "sent"),
-  );
+  yield* reviewDesk.inform({
+    eventId,
+    submissionIds: declineTargets.map((submission) => submission.id),
+    feedback: "A thoughtful proposal, but the program is full in this track.",
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
+  });
   const declinedDetail = yield* reviewDesk.detail(eventId, declineTargets[0]?.id ?? "");
 
   const acceptedEmails = acceptedDetail.emails.filter((email) => email.type === "accepted");
@@ -151,14 +154,13 @@ const verify = Effect.gen(function* () {
     ["accept tasks created", firstDecision.result.createdTasks > 0 && taskCount > 0],
     [
       "feedback email recorded",
-      acceptedEmails.length === acceptedDetail.submission.speakers.length &&
-        acceptedEmails.every((email) => email.body.includes(feedback) && email.status === "sent"),
+      acceptedEmails.length === 1 &&
+        acceptedEmails.every((email) => email.body.includes(feedback) && email.status === "queued"),
     ],
     [
       "accept retry idempotent",
       retry.result.createdTasks === 0 &&
-        retry.result.createdEmails === 0 &&
-        retry.result.submissions[0]?.notifiedAt.getTime() ===
+        retry.result.submissions[0]?.notifiedAt?.getTime() ===
           acceptedDetail.submission.notifiedAt?.getTime() &&
         taskCountAfterRetry === taskCount,
     ],
@@ -171,7 +173,7 @@ const verify = Effect.gen(function* () {
     ],
     [
       "decline email recorded",
-      declinedDetail.emails.some((email) => email.type === "declined" && email.status === "sent"),
+      declinedDetail.emails.some((email) => email.type === "declined" && email.status === "queued"),
     ],
   ] as const;
   const failed = checks.filter(([, passed]) => !passed).map(([name]) => name);
@@ -185,7 +187,7 @@ const verify = Effect.gen(function* () {
     reviewed: `${reviewedQueue.reviewed} of ${reviewedQueue.total}`,
     acceptedCode: acceptTarget.submission.code,
     createdTasks: firstDecision.result.createdTasks,
-    createdEmails: firstDecision.result.createdEmails,
+    createdEmails: acceptedEmails.length,
     declinedCodes: declineTargets.map((submission) => submission.code).join(", "),
   };
 });

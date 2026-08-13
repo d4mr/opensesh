@@ -36,6 +36,13 @@ export const ReviewDeskSpeaker = Schema.Struct({
 });
 export type ReviewDeskSpeaker = typeof ReviewDeskSpeaker.Type;
 
+export const ReviewDeskSubmitter = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+});
+export type ReviewDeskSubmitter = typeof ReviewDeskSubmitter.Type;
+
 export const ReviewDeskReview = Schema.Struct({
   id: Schema.String,
   reviewerId: Schema.String,
@@ -58,26 +65,33 @@ export const ReviewDeskListItem = Schema.Struct({
   cancelledAt: NullableDate,
   cancelledBy: Schema.NullOr(SessionCancelledBy),
   title: Schema.String,
-  description: Schema.String,
   format: NullableString,
   source: Schema.String,
   submittedAt: NullableDate,
   createdAt: Schema.Date,
   notifiedAt: NullableDate,
+  submitter: Schema.NullOr(ReviewDeskSubmitter),
   tracks: Schema.Array(ReviewDeskTrack),
   tags: Schema.Array(ReviewDeskTag),
   speakers: Schema.Array(ReviewDeskSpeaker),
   rating: NullableNumber,
   reviewCount: Schema.Number,
-  reviewComments: Schema.Array(Schema.String),
 });
 export type ReviewDeskListItem = typeof ReviewDeskListItem.Type;
+
+export const ReviewDeskDetailItem = Schema.Struct({
+  ...ReviewDeskListItem.fields,
+  description: Schema.String,
+  reviewComments: Schema.Array(Schema.String),
+});
+export type ReviewDeskDetailItem = typeof ReviewDeskDetailItem.Type;
 
 export const ReviewDeskList = Schema.Struct({
   submissions: Schema.Array(ReviewDeskListItem),
   tracks: Schema.Array(ReviewDeskTrack),
   formats: Schema.Array(Schema.String),
   tags: Schema.Array(ReviewDeskTag),
+  mailStatus: Schema.Struct({ queued: Schema.Number, sending: Schema.Number }),
 });
 export type ReviewDeskList = typeof ReviewDeskList.Type;
 
@@ -105,7 +119,7 @@ export const ReviewDeskEmail = Schema.Struct({
 export type ReviewDeskEmail = typeof ReviewDeskEmail.Type;
 
 export const ReviewDeskDetail = Schema.Struct({
-  submission: ReviewDeskListItem,
+  submission: ReviewDeskDetailItem,
   answers: Schema.Array(ReviewDeskAnswer),
   reviews: Schema.Array(ReviewDeskReview),
   roundReviews: Schema.Array(HumanReviewResult),
@@ -115,7 +129,7 @@ export const ReviewDeskDetail = Schema.Struct({
 export type ReviewDeskDetail = typeof ReviewDeskDetail.Type;
 
 export const EvaluationItem = Schema.Struct({
-  submission: ReviewDeskListItem,
+  submission: ReviewDeskDetailItem,
   myReview: Schema.NullOr(ReviewDeskReview),
   reviews: Schema.Array(ReviewDeskReview),
 });
@@ -176,7 +190,6 @@ export const DecisionRequest = Schema.Struct({
   eventId: Schema.String,
   submissionIds: Schema.Array(Schema.String),
   decision: SubmissionDecision,
-  feedback: Schema.String,
   confirmRedecide: Schema.Boolean,
   // Acceptance and publication are separate judgments: accepted sessions stay
   // off public surfaces until their content is approved. This flag collapses
@@ -226,10 +239,18 @@ export const DecisionResult = Schema.Struct({
     Schema.Struct({
       id: Schema.String,
       status: SubmissionStatus,
-      notifiedAt: Schema.Date,
+      notifiedAt: NullableDate,
     }),
   ),
   createdTasks: Schema.Number,
-  createdEmails: Schema.Number,
 });
 export type DecisionResult = typeof DecisionResult.Type;
+
+export const InformRequest = Schema.Struct({
+  eventId: Schema.String,
+  submissionIds: Schema.Array(Schema.String),
+  feedback: Schema.optionalKey(Schema.String),
+});
+
+export const InformResult = Schema.Struct({ queued: Schema.Number });
+export type InformResult = typeof InformResult.Type;

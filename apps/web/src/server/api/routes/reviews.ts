@@ -13,6 +13,7 @@ import { ReviewerTrackSet } from "@opensesh/domain/server/schema/core";
 import { Effect, Schema } from "effect";
 
 import { endpoint, type ApiEndpoint } from "../types";
+import { MailQueue } from "../../mail-queue";
 
 const requireRound = Effect.fn("apiRequireRound")(function* (eventId: string, roundId: string) {
   const reviews = yield* Reviews;
@@ -367,19 +368,13 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const roundId = context.params.roundId ?? "";
         yield* requireRound(access.event.id, roundId);
         const reviews = yield* Reviews;
-        const mail = yield* Mail;
         const reminders = yield* reviews.queueReminders(roundId, body.eventMemberIds);
-        const deliveries = yield* Effect.forEach(
-          reminders,
-          (reminder) => mail.sendQueued(reminder.logId),
-          { concurrency: 5 },
-        );
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(reminders.map((reminder) => reminder.logId));
         return {
           queued: reminders.length,
-          sent: deliveries.filter(
-            (delivery) => delivery.status === "sent" || delivery.status === "demo",
-          ).length,
-          failed: deliveries.filter((delivery) => delivery.status === "failed").length,
+          sent: 0,
+          failed: 0,
         };
       }),
   }),

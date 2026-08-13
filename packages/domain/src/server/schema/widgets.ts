@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
 import { EmailStatus, EmailType, FileKind, TaskStatus } from "./portal";
-import { SpeakerWorkflowStatus, SubmissionStatus } from "./submissions";
+import { SpeakerPipeline, SubmissionStatus } from "./submissions";
 
 export const WidgetView = Schema.Literals([
   "sessions",
@@ -183,7 +183,7 @@ export const SpeakerDirectoryRow = Schema.Struct({
     twitterUrl: NullableString,
     facebookUrl: NullableString,
     websiteUrl: NullableString,
-    workflowStatus: SpeakerWorkflowStatus,
+    pipeline: SpeakerPipeline,
     custom: JsonObject,
   }),
   sessions: Schema.Array(

@@ -17,6 +17,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import {
   contactEditHistory,
   contacts,
+  emailLog,
   events,
   fileComments,
   fileRequests,
@@ -54,8 +55,16 @@ import type {
   SessionFileRequirementMutationRequest,
   TaskTemplateMutationRequest,
 } from "../schema/portal";
-import { Contact, Submission } from "../schema/submissions";
-import { activeSession, decode, decodeFound, query } from "./shared";
+import {
+  Contact,
+  deriveSpeakerPipeline,
+  portalAcceptanceArtifactsVisible,
+  profileIsReady,
+  Submission,
+  type SpeakerPipeline,
+  portalStatus,
+} from "../schema/submissions";
+import { activeSession, decode, decodeFound, query, speakerContact } from "./shared";
 
 const commentAuthorContacts = alias(contacts, "comment_author_contacts");
 const commentAuthorUsers = alias(users, "comment_author_users");
@@ -222,7 +231,9 @@ export interface SpeakerPortalBootstrap {
 
 export interface AdminPortalBootstrap {
   readonly currentUserName: string;
-  readonly contacts: ReadonlyArray<typeof contacts.$inferSelect>;
+  readonly contacts: ReadonlyArray<
+    typeof contacts.$inferSelect & { readonly pipeline: SpeakerPipeline }
+  >;
   readonly templates: ReadonlyArray<{
     readonly template: typeof taskTemplates.$inferSelect;
     readonly form: typeof portalForms.$inferSelect | null;
@@ -900,6 +911,38 @@ export const PortalLive = Layer.effect(
             }),
           },
           { concurrency: "unbounded" },
+        ).pipe(
+          Effect.map((data) => {
+            const visibleSubmissions = data.submissions.map((item) => ({
+              ...item,
+              submission: {
+                ...item.submission,
+                status: portalStatus(item.submission),
+              },
+            }));
+            const acceptedIds = new Set(
+              data.submissions.flatMap((item) =>
+                portalAcceptanceArtifactsVisible(item.submission) ? [item.submission.id] : [],
+              ),
+            );
+            return {
+              ...data,
+              submissions: visibleSubmissions,
+              tasks: data.tasks.filter((item) =>
+                item.assignment.submissionId === null
+                  ? acceptedIds.size > 0
+                  : acceptedIds.has(item.assignment.submissionId),
+              ),
+              requirements: acceptedIds.size > 0 ? data.requirements : [],
+              requirementAssignments: data.requirementAssignments.filter((assignment) =>
+                acceptedIds.has(assignment.submissionId),
+              ),
+              files: data.files.filter(
+                (item) =>
+                  item.upload.submissionId === null || acceptedIds.has(item.upload.submissionId),
+              ),
+            };
+          }),
         ),
       adminBootstrap: (eventId, actor) =>
         Effect.all(
@@ -909,7 +952,7 @@ export const PortalLive = Layer.effect(
               db
                 .select()
                 .from(contacts)
-                .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
+                .where(and(eq(contacts.eventId, eventId), speakerContact(db)))
                 .orderBy(asc(contacts.lastName), asc(contacts.firstName))
                 .execute(),
             ),
@@ -1128,6 +1171,9 @@ export const PortalLive = Layer.effect(
                 .orderBy(desc(contactEditHistory.createdAt))
                 .execute(),
             ),
+            emails: query(database, "Could not load portal invitation state", (db) =>
+              db.select().from(emailLog).where(eq(emailLog.eventId, eventId)).execute(),
+            ),
             fields: query(database, "Could not load form fields", (db) =>
               db
                 .select({ field: formFields })
@@ -1173,6 +1219,55 @@ export const PortalLive = Layer.effect(
             }),
           },
           { concurrency: "unbounded" },
+        ).pipe(
+          Effect.map((data) => ({
+            ...data,
+            contacts: data.contacts.map((contact) => {
+              const linked = data.participants.flatMap((row) =>
+                row.contact.id === contact.id ? [row.submission] : [],
+              );
+              const outstandingTasks = data.assignments.filter(
+                (row) =>
+                  row.assignment.status === "todo" &&
+                  (row.assignment.contactId === contact.id ||
+                    (row.assignment.submissionId !== null &&
+                      linked.some((submission) => submission.id === row.assignment.submissionId))),
+              ).length;
+              const outstandingFiles = data.requirementAssignments.filter(
+                (row) =>
+                  row.assignment.status === "outstanding" &&
+                  (row.assignment.contactId === contact.id ||
+                    (row.assignment.contactId === null &&
+                      linked.some((submission) => submission.id === row.assignment.submissionId))),
+              ).length;
+              return {
+                ...contact,
+                pipeline:
+                  deriveSpeakerPipeline({
+                    isSpeaker: true,
+                    acceptedSessions: linked
+                      .filter((submission) => submission.status === "accepted")
+                      .map((submission) => ({ cancelledBy: submission.cancelledBy })),
+                    confirmedAt: contact.confirmedAt,
+                    outstandingTasks,
+                    outstandingFiles,
+                    profileReady: profileIsReady({
+                      bio: contact.bio,
+                      headshotUrl: contact.headshotUrl,
+                      hasHeadshotFile: data.files.some(
+                        (row) => row.contact.id === contact.id && row.upload.kind === "headshot",
+                      ),
+                      dietaryRequirements: contact.dietaryRequirements,
+                      tshirtSize: contact.tshirtSize,
+                    }),
+                    portalInvitationSent: data.emails.some(
+                      (row) => row.contactId === contact.id && row.type === "portal_invitation",
+                    ),
+                    decisionInformed: linked.some((submission) => submission.notifiedAt !== null),
+                  }) ?? "added",
+              };
+            }),
+          })),
         ),
       editAdminSubmission: (eventId, actor, submissionId, title, description) =>
         Effect.gen(function* () {
@@ -1389,11 +1484,8 @@ export const PortalLive = Layer.effect(
         query(database, "Could not confirm participation", (db) =>
           db
             .update(contacts)
-            // Confirming also advances the organizer-facing workflow pipeline
-            // when it still says invited/onboarding — one-way, never back.
             .set({
               confirmedAt: sql`coalesce(${contacts.confirmedAt}, now())`,
-              workflowStatus: sql`case when ${contacts.workflowStatus} in ('invited', 'onboarding') then 'confirmed' else ${contacts.workflowStatus} end`,
               updatedAt: new Date(),
             })
             .where(eq(contacts.id, contactId))
@@ -1437,7 +1529,10 @@ export const PortalLive = Layer.effect(
             .where(
               and(
                 eq(submissions.id, submissionId),
-                inArray(submissions.status, ["draft", "pending", "maybe"]),
+                or(
+                  inArray(submissions.status, ["draft", "pending", "maybe"]),
+                  and(eq(submissions.status, "accepted"), isNull(submissions.notifiedAt)),
+                ),
                 or(
                   eq(submissions.submitterContactId, contactId),
                   inArray(

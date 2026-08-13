@@ -5,7 +5,7 @@ import { contacts, submissionParticipants, submissions } from "../../db/schema";
 import { Db } from "../db";
 import type { DbError, NotFound } from "../errors";
 import { Contact, type ContactCreate, type ContactUpdate } from "../schema/submissions";
-import { decode, decodeFound, decodeMany, query } from "./shared";
+import { decode, decodeFound, decodeMany, query, speakerContact } from "./shared";
 
 interface ContactsService {
   readonly listByEvent: (eventId: string) => Effect.Effect<ReadonlyArray<Contact>, DbError>;
@@ -32,7 +32,7 @@ export const ContactsLive = Layer.effect(
           db
             .select()
             .from(contacts)
-            .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
+            .where(and(eq(contacts.eventId, eventId), speakerContact(db)))
             .orderBy(asc(contacts.lastName), asc(contacts.firstName))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Contact, "contact", rows))),

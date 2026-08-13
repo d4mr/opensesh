@@ -1,5 +1,5 @@
 import { outreach } from "@opensesh/email";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { freeformToHtml } from "../../rich-text";
@@ -11,7 +11,10 @@ import {
   emailLog,
   emailTemplates,
   events,
+  fileUploads,
   reminderRules,
+  sessionFileRequirementAssignments,
+  sessionFileRequirements,
   submissionParticipants,
   submissions,
   taskAssignments,
@@ -29,10 +32,11 @@ import {
   ReminderRule,
   reminderAlreadyRanInWindow,
   reminderAssignmentsWithinWindow,
+  audienceMemberIds,
   type SpeakerProfileMutationRequest,
 } from "../schema/communications";
-import { Contact, type SpeakerWorkflowStatus } from "../schema/submissions";
-import { decode, decodeFound, decodeMany, query } from "./shared";
+import { Contact, deriveSpeakerPipeline, profileIsReady } from "../schema/submissions";
+import { decode, decodeFound, decodeMany, query, speakerContact } from "./shared";
 
 type SpeakerInput = typeof SpeakerProfileMutationRequest.Type;
 
@@ -41,17 +45,12 @@ interface SpeakerCommsService {
     input: SpeakerInput,
     actor: AuditActor,
   ) => Effect.Effect<Contact, DbError | InvalidInput | NotFound>;
-  readonly setWorkflowStatus: (
-    eventId: string,
-    contactId: string,
-    workflowStatus: SpeakerWorkflowStatus,
-  ) => Effect.Effect<Contact, DbError | NotFound>;
   readonly center: (eventId: string) => Effect.Effect<typeof CommunicationCenter.Type, DbError>;
   readonly queuePortalInvitations: (
     eventId: string,
     contactIds: ReadonlyArray<string>,
     portalOrigin: string,
-  ) => Effect.Effect<ReadonlyArray<PortalInvitationResult>, DbError>;
+  ) => Effect.Effect<ReadonlyArray<PortalInvitationResult>, DbError | InvalidInput>;
   readonly saveTemplate: (input: {
     readonly eventId: string;
     readonly id: string | null;
@@ -66,6 +65,7 @@ interface SpeakerCommsService {
     readonly subject: string;
     readonly body: string;
     readonly recipientFilter: Readonly<Record<string, Schema.Json>>;
+    readonly segment: import("../schema/communications").AudienceSegment;
     readonly contactIds: ReadonlyArray<string>;
     readonly actor: AuditActor;
     readonly portalOrigin: string;
@@ -73,9 +73,6 @@ interface SpeakerCommsService {
     { readonly campaignId: string; readonly logIds: ReadonlyArray<string> },
     DbError | InvalidInput | NotFound
   >;
-  readonly completeCampaign: (
-    campaignId: string,
-  ) => Effect.Effect<EmailCampaign, DbError | NotFound>;
   readonly saveReminderRule: (
     eventId: string,
     id: string | null,
@@ -138,7 +135,6 @@ const profileValues = (input: SpeakerInput) => ({
   websiteUrl: input.websiteUrl,
   dietaryRequirements: input.dietaryRequirements,
   tshirtSize: input.tshirtSize,
-  workflowStatus: input.workflowStatus,
 });
 
 export const SpeakerCommsLive = Layer.effect(
@@ -146,7 +142,7 @@ export const SpeakerCommsLive = Layer.effect(
   Effect.gen(function* () {
     const { database } = yield* Db;
 
-    return {
+    const service: SpeakerCommsService = {
       saveSpeaker: (input, actor) =>
         query(database, "Could not save speaker", (db) =>
           db.transaction(async (transaction) => {
@@ -199,7 +195,6 @@ export const SpeakerCommsLive = Layer.effect(
             const [saved] = await transaction
               .update(contacts)
               .set({
-                participation: "speaker",
                 ...values,
                 custom,
                 profileReviewStatus: "approved",
@@ -263,31 +258,18 @@ export const SpeakerCommsLive = Layer.effect(
             return decode(Contact, "speaker", outcome.row);
           }),
         ),
-      setWorkflowStatus: (eventId, contactId, workflowStatus) =>
-        query(database, "Could not update speaker workflow", (db) =>
-          db
-            .update(contacts)
-            // Marking a speaker confirmed/ready on their behalf is a real
-            // confirmation ("they emailed me") — record the timestamp too.
-            // One-way: moving the pipeline back never un-confirms.
-            .set({
-              workflowStatus,
-              ...(workflowStatus === "confirmed" || workflowStatus === "ready"
-                ? { confirmedAt: sql`coalesce(${contacts.confirmedAt}, now())` }
-                : {}),
-              updatedAt: new Date(),
-            })
-            .where(and(eq(contacts.id, contactId), eq(contacts.eventId, eventId)))
-            .returning()
-            .execute(),
-        ).pipe(Effect.flatMap((rows) => decodeFound(Contact, "Speaker", rows[0]))),
       center: (eventId) =>
         Effect.gen(function* () {
           const [
             eventRows,
-            contactRows,
+            speakerRows,
+            submitterRows,
             assignmentRows,
             participantRows,
+            requirementRows,
+            headshotRows,
+            mailRows,
+            decisionRows,
             templateRows,
             campaignRows,
             ruleRows,
@@ -296,7 +278,7 @@ export const SpeakerCommsLive = Layer.effect(
               query(database, "Could not load communication event", (db) =>
                 db.select().from(events).where(eq(events.id, eventId)).limit(1).execute(),
               ),
-              query(database, "Could not load communication contacts", (db) =>
+              query(database, "Could not load communication speakers", (db) =>
                 db
                   .select({ contact: contacts, submission: submissions })
                   .from(contacts)
@@ -305,7 +287,22 @@ export const SpeakerCommsLive = Layer.effect(
                     eq(submissionParticipants.contactId, contacts.id),
                   )
                   .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                  .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
+                  .where(and(eq(contacts.eventId, eventId), speakerContact(db)))
+                  .orderBy(
+                    asc(contacts.lastName),
+                    asc(contacts.firstName),
+                    asc(submissions.createdAt),
+                  )
+                  .execute(),
+              ),
+              query(database, "Could not load communication submitters", (db) =>
+                db
+                  .select({ contact: contacts, submission: submissions })
+                  .from(contacts)
+                  .innerJoin(submissions, eq(submissions.submitterContactId, contacts.id))
+                  .where(
+                    and(eq(contacts.eventId, eventId), eq(contacts.participation, "submitter")),
+                  )
                   .orderBy(
                     asc(contacts.lastName),
                     asc(contacts.firstName),
@@ -330,6 +327,40 @@ export const SpeakerCommsLive = Layer.effect(
                   .from(submissionParticipants)
                   .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
                   .where(eq(submissions.eventId, eventId))
+                  .execute(),
+              ),
+              query(database, "Could not load communication file assignments", (db) =>
+                db
+                  .select({ assignment: sessionFileRequirementAssignments })
+                  .from(sessionFileRequirementAssignments)
+                  .innerJoin(
+                    sessionFileRequirements,
+                    eq(sessionFileRequirements.id, sessionFileRequirementAssignments.requirementId),
+                  )
+                  .where(eq(sessionFileRequirements.eventId, eventId))
+                  .execute(),
+              ),
+              query(database, "Could not load communication headshots", (db) =>
+                db
+                  .select({ contactId: fileUploads.contactId })
+                  .from(fileUploads)
+                  .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
+                  .where(and(eq(contacts.eventId, eventId), eq(fileUploads.kind, "headshot")))
+                  .execute(),
+              ),
+              query(database, "Could not load communication email state", (db) =>
+                db.select().from(emailLog).where(eq(emailLog.eventId, eventId)).execute(),
+              ),
+              query(database, "Could not load pending decisions", (db) =>
+                db
+                  .select({ status: submissions.status, notifiedAt: submissions.notifiedAt })
+                  .from(submissions)
+                  // Same eligibility as the To inform tab: manual sessions have
+                  // no submitter and can never be informed, so they must not
+                  // sit in the pending counts forever.
+                  .where(
+                    and(eq(submissions.eventId, eventId), isNotNull(submissions.submitterContactId)),
+                  )
                   .execute(),
               ),
               query(database, "Could not load email templates", (db) =>
@@ -373,8 +404,8 @@ export const SpeakerCommsLive = Layer.effect(
             { concurrency: "unbounded" },
           );
           const event = eventRows[0];
-          const uniqueContacts = Array.from(
-            new Map(contactRows.map((row) => [row.contact.id, row.contact])).values(),
+          const uniqueSpeakers = Array.from(
+            new Map(speakerRows.map((row) => [row.contact.id, row.contact])).values(),
           );
           const contactTaskStatus = (contactId: string) =>
             assignmentRows.flatMap((row) => {
@@ -415,11 +446,15 @@ export const SpeakerCommsLive = Layer.effect(
           return yield* decode(CommunicationCenter, "communication center", {
             eventName: event?.name ?? "Event",
             eventSlug: event?.slug ?? "event",
-            contacts: uniqueContacts.map((contact) => {
+            speakers: uniqueSpeakers.map((contact) => {
               const statuses = contactTaskStatus(contact.id);
+              const linked = speakerRows.flatMap((row) =>
+                row.contact.id === contact.id && row.submission !== null ? [row.submission] : [],
+              );
               const talkTitle =
-                contactRows.find((row) => row.contact.id === contact.id && row.submission !== null)
+                speakerRows.find((row) => row.contact.id === contact.id && row.submission !== null)
                   ?.submission?.title ?? "";
+              const decisionInformed = linked.some((submission) => submission.notifiedAt !== null);
               return {
                 id: contact.id,
                 email: contact.email,
@@ -428,109 +463,178 @@ export const SpeakerCommsLive = Layer.effect(
                 headshotUrl: contact.headshotUrl,
                 title: contact.title,
                 company: contact.company,
-                workflowStatus: contact.workflowStatus,
+                pipeline:
+                  deriveSpeakerPipeline({
+                    isSpeaker: true,
+                    acceptedSessions: linked
+                      .filter((submission) => submission.status === "accepted")
+                      .map((submission) => ({ cancelledBy: submission.cancelledBy })),
+                    confirmedAt: contact.confirmedAt,
+                    outstandingTasks: statuses.filter((status) => status === "todo").length,
+                    outstandingFiles: requirementRows.filter(
+                      (row) =>
+                        row.assignment.status === "outstanding" &&
+                        (row.assignment.contactId === contact.id ||
+                          (row.assignment.contactId === null &&
+                            linked.some(
+                              (submission) => submission.id === row.assignment.submissionId,
+                            ))),
+                    ).length,
+                    profileReady: profileIsReady({
+                      bio: contact.bio,
+                      headshotUrl: contact.headshotUrl,
+                      hasHeadshotFile: headshotRows.some((row) => row.contactId === contact.id),
+                      dietaryRequirements: contact.dietaryRequirements,
+                      tshirtSize: contact.tshirtSize,
+                    }),
+                    portalInvitationSent: mailRows.some(
+                      (row) => row.contactId === contact.id && row.type === "portal_invitation",
+                    ),
+                    decisionInformed,
+                  }) ?? "added",
+                confirmedAt: contact.confirmedAt,
+                decisionInformed,
                 taskTotal: statuses.length,
                 taskDone: statuses.filter((status) => status !== "todo").length,
                 taskIncomplete: statuses.filter((status) => status === "todo").length,
                 talkTitle,
               };
             }),
+            submitters: Array.from(
+              new Map(submitterRows.map((row) => [row.contact.id, row.contact])).values(),
+            )
+              .filter((contact) => !uniqueSpeakers.some((speaker) => speaker.id === contact.id))
+              .map((contact) => ({
+                id: contact.id,
+                email: contact.email,
+                firstName: contact.firstName,
+                lastName: contact.lastName,
+                headshotUrl: contact.headshotUrl,
+                submissions: submitterRows
+                  .filter((row) => row.contact.id === contact.id)
+                  .map((row) => ({
+                    status: row.submission.status,
+                    notifiedAt: row.submission.notifiedAt,
+                  })),
+              })),
+            pending: {
+              acceptedNotInformed: decisionRows.filter(
+                (row) => row.status === "accepted" && row.notifiedAt === null,
+              ).length,
+              declinedNotInformed: decisionRows.filter(
+                (row) => row.status === "declined" && row.notifiedAt === null,
+              ).length,
+              awaitingConfirmation: uniqueSpeakers.filter((contact) => {
+                const informedAccepted = speakerRows.some(
+                  (row) =>
+                    row.contact.id === contact.id &&
+                    row.submission?.status === "accepted" &&
+                    row.submission.notifiedAt !== null,
+                );
+                return informedAccepted && contact.confirmedAt === null;
+              }).length,
+              queued: mailRows.filter((row) => row.status === "queued").length,
+              sending: mailRows.filter((row) => row.status === "sending").length,
+            },
             templates: templateRows,
             campaigns,
             reminderRules: ruleRows,
           });
         }),
       queuePortalInvitations: (eventId, requestedIds, portalOrigin) =>
-        query(database, "Could not queue portal invitations", (db) =>
-          db.transaction(async (transaction) => {
-            const event = await transaction
-              .select()
-              .from(events)
-              .where(eq(events.id, eventId))
-              .limit(1)
-              .execute();
-            const selected =
-              requestedIds.length === 0
-                ? []
-                : await transaction
-                    .select()
-                    .from(contacts)
-                    .where(
-                      and(
-                        eq(contacts.eventId, eventId),
-                        eq(contacts.participation, "speaker"),
-                        inArray(contacts.id, requestedIds),
-                      ),
-                    )
-                    .orderBy(asc(contacts.lastName), asc(contacts.firstName))
-                    .execute();
-            const existing = await transaction
-              .select({ contactId: emailLog.contactId })
-              .from(emailLog)
-              .where(
-                and(
-                  eq(emailLog.eventId, eventId),
-                  eq(emailLog.type, "custom"),
-                  eq(emailLog.subject, `Your speaker portal for ${event[0]?.name ?? "this event"}`),
-                ),
-              )
-              .execute();
-            const invited = new Set(
-              existing.flatMap((row) => (row.contactId === null ? [] : [row.contactId])),
+        Effect.gen(function* () {
+          const center = yield* service.center(eventId);
+          const eligible = new Set(center.speakers.map((speaker) => speaker.id));
+          if (requestedIds.some((id) => !eligible.has(id))) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "Portal invitations can only be sent to speakers" }),
             );
-            const results: Array<PortalInvitationResult> = [];
-            for (const contact of selected) {
-              const portalPath = "/portal";
-              if (invited.has(contact.id)) {
+          }
+          return yield* query(database, "Could not queue portal invitations", (db) =>
+            db.transaction(async (transaction) => {
+              const event = await transaction
+                .select()
+                .from(events)
+                .where(eq(events.id, eventId))
+                .limit(1)
+                .execute();
+              const selected =
+                requestedIds.length === 0
+                  ? []
+                  : await transaction
+                      .select()
+                      .from(contacts)
+                      .where(
+                        and(
+                          eq(contacts.eventId, eventId),
+                          speakerContact(transaction),
+                          inArray(contacts.id, requestedIds),
+                        ),
+                      )
+                      .orderBy(asc(contacts.lastName), asc(contacts.firstName))
+                      .execute();
+              const existing = await transaction
+                .select({ contactId: emailLog.contactId })
+                .from(emailLog)
+                .where(and(eq(emailLog.eventId, eventId), eq(emailLog.type, "portal_invitation")))
+                .execute();
+              const invited = new Set(
+                existing.flatMap((row) => (row.contactId === null ? [] : [row.contactId])),
+              );
+              const results: Array<PortalInvitationResult> = [];
+              for (const contact of selected) {
+                const portalPath = "/portal";
+                if (invited.has(contact.id)) {
+                  results.push({
+                    contactId: contact.id,
+                    contactName: speakerName(contact),
+                    portalPath,
+                    alreadyInvited: true,
+                    logId: null,
+                  });
+                  continue;
+                }
+                const subject = `Your speaker portal for ${event[0]?.name ?? "this event"}`;
+                const bodyText = `Hi ${contact.firstName},\n\nWelcome to ${event[0]?.name ?? "the event"}. Your speaker portal has your profile, tasks, and session details in one place.`;
+                const rendered = outreach({
+                  eventName: event[0]?.name ?? "this event",
+                  logoUrl: event[0]?.logoUrl ?? null,
+                  subject,
+                  bodyHtml: freeformToHtml(bodyText),
+                  bodyText,
+                  cta: { label: "Open your portal", url: `${portalOrigin}${portalPath}` },
+                });
+                const [logged] = await transaction
+                  .insert(emailLog)
+                  .values({
+                    eventId,
+                    contactId: contact.id,
+                    submissionId: null,
+                    type: "portal_invitation",
+                    recipient: contact.email,
+                    subject,
+                    body: rendered.text,
+                    htmlBody: rendered.html,
+                    status: "queued",
+                    provider: null,
+                    providerId: null,
+                    error: null,
+                    sentAt: null,
+                  })
+                  .returning({ id: emailLog.id })
+                  .execute();
                 results.push({
                   contactId: contact.id,
                   contactName: speakerName(contact),
                   portalPath,
-                  alreadyInvited: true,
-                  logId: null,
+                  alreadyInvited: false,
+                  logId: logged?.id ?? null,
                 });
-                continue;
               }
-              const subject = `Your speaker portal for ${event[0]?.name ?? "this event"}`;
-              const bodyText = `Hi ${contact.firstName},\n\nWelcome to ${event[0]?.name ?? "the event"}. Your speaker portal has your profile, tasks, and session details in one place.`;
-              const rendered = outreach({
-                eventName: event[0]?.name ?? "this event",
-                logoUrl: event[0]?.logoUrl ?? null,
-                subject,
-                bodyHtml: freeformToHtml(bodyText),
-                bodyText,
-                cta: { label: "Open your portal", url: `${portalOrigin}${portalPath}` },
-              });
-              const [logged] = await transaction
-                .insert(emailLog)
-                .values({
-                  eventId,
-                  contactId: contact.id,
-                  submissionId: null,
-                  type: "custom",
-                  recipient: contact.email,
-                  subject,
-                  body: rendered.text,
-                  htmlBody: rendered.html,
-                  status: "queued",
-                  provider: null,
-                  providerId: null,
-                  error: null,
-                  sentAt: null,
-                })
-                .returning({ id: emailLog.id })
-                .execute();
-              results.push({
-                contactId: contact.id,
-                contactName: speakerName(contact),
-                portalPath,
-                alreadyInvited: false,
-                logId: logged?.id ?? null,
-              });
-            }
-            return results;
-          }),
-        ),
+              return results;
+            }),
+          );
+        }),
       saveTemplate: (input) => {
         const templateId = input.id;
         const values = {
@@ -567,156 +671,150 @@ export const SpeakerCommsLive = Layer.effect(
             .execute(),
         ).pipe(Effect.asVoid),
       createCampaign: (input) =>
-        query(database, "Could not create email campaign", (db) =>
-          db.transaction(async (transaction) => {
-            const [event] = await transaction
-              .select()
-              .from(events)
-              .where(eq(events.id, input.eventId))
-              .limit(1)
-              .execute();
-            if (event === undefined) return { kind: "notFound" as const };
-            const selected =
-              input.contactIds.length === 0
-                ? []
-                : await transaction
-                    .select({ contact: contacts, submission: submissions })
-                    .from(contacts)
-                    .leftJoin(
-                      submissionParticipants,
-                      eq(submissionParticipants.contactId, contacts.id),
-                    )
-                    .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                    .where(
-                      and(
-                        eq(contacts.eventId, input.eventId),
-                        eq(contacts.participation, "speaker"),
-                        inArray(contacts.id, input.contactIds),
-                      ),
-                    )
-                    .execute();
-            if (selected.length === 0) return { kind: "empty" as const };
-            const [campaign] = await transaction
-              .insert(emailCampaigns)
-              .values({
-                eventId: input.eventId,
-                templateId: input.templateId,
-                subjectSnapshot: input.subject,
-                bodySnapshot: input.body,
-                recipientFilter: input.recipientFilter,
-                status: "sending",
-                ...createdBy(input.actor),
-              })
-              .returning()
-              .execute();
-            if (campaign === undefined) return { kind: "notFound" as const };
-            const recipientSources = Array.from(
-              new Map(selected.map((row) => [row.contact.id, row.contact])).values(),
-            ).map((contact) => ({
-              contactId: contact.id,
-              speakerName: speakerName(contact),
-              talkTitle:
-                selected.find((row) => row.contact.id === contact.id && row.submission !== null)
-                  ?.submission?.title ?? "",
-              email: contact.email,
-            }));
-            const resolved = buildCampaignRecipientRows({
-              campaignId: campaign.id,
-              subject: input.subject,
-              body: input.body,
-              eventName: event.name,
-              portalUrl: `${input.portalOrigin}/portal`,
-              recipients: recipientSources,
-            });
-            const recipientRows = await transaction
-              .insert(emailCampaignRecipients)
-              .values(
-                resolved.map((row) => ({
-                  ...row,
-                  deliveryStatus: "pending" as const,
-                })),
-              )
-              .returning()
-              .execute();
-            const logIds: Array<string> = [];
-            for (const recipient of resolved) {
-              // The composer body is freeform markdown; the event-branded
-              // outreach frame carries it, with the subject as the headline.
-              const rendered = outreach({
-                eventName: event.name,
-                logoUrl: event.logoUrl,
-                subject: recipient.resolvedSubject,
-                bodyHtml: freeformToHtml(recipient.resolvedBody),
-                bodyText: recipient.resolvedBody,
-              });
-              const [logged] = await transaction
-                .insert(emailLog)
+        Effect.gen(function* () {
+          const center = yield* service.center(input.eventId);
+          const requested = new Set(input.contactIds);
+          const eligible = new Set(audienceMemberIds(center, input.segment, requested));
+          if (requested.size === 0 || Array.from(requested).some((id) => !eligible.has(id))) {
+            return yield* Effect.fail(
+              new InvalidInput({ message: "One or more recipients are outside this audience" }),
+            );
+          }
+          return yield* query(database, "Could not create email campaign", (db) =>
+            db.transaction(async (transaction) => {
+              const [event] = await transaction
+                .select()
+                .from(events)
+                .where(eq(events.id, input.eventId))
+                .limit(1)
+                .execute();
+              if (event === undefined) return { kind: "notFound" as const };
+              const selected =
+                input.contactIds.length === 0
+                  ? []
+                  : await transaction
+                      .select({ contact: contacts, submission: submissions })
+                      .from(contacts)
+                      .leftJoin(
+                        submissionParticipants,
+                        eq(submissionParticipants.contactId, contacts.id),
+                      )
+                      .leftJoin(
+                        submissions,
+                        eq(submissions.id, submissionParticipants.submissionId),
+                      )
+                      .where(
+                        and(
+                          eq(contacts.eventId, input.eventId),
+                          inArray(contacts.id, input.contactIds),
+                        ),
+                      )
+                      .execute();
+              if (selected.length === 0) return { kind: "empty" as const };
+              const [campaign] = await transaction
+                .insert(emailCampaigns)
                 .values({
                   eventId: input.eventId,
-                  contactId: recipient.contactId,
-                  submissionId: null,
-                  type: "custom",
-                  recipient: recipient.recipientEmail,
-                  subject: recipient.resolvedSubject,
-                  body: recipient.resolvedBody,
-                  htmlBody: rendered.html,
-                  status: "queued",
-                  provider: null,
-                  providerId: null,
-                  error: null,
-                  sentAt: null,
+                  templateId: input.templateId,
+                  subjectSnapshot: input.subject,
+                  bodySnapshot: input.body,
+                  recipientFilter: input.recipientFilter,
+                  status: "sending",
+                  ...createdBy(input.actor),
                 })
-                .returning({ id: emailLog.id })
+                .returning()
                 .execute();
-              const recipientRow = recipientRows.find(
-                (row) => row.contactId === recipient.contactId,
-              );
-              if (logged !== undefined && recipientRow !== undefined) {
-                logIds.push(logged.id);
-                await transaction
-                  .update(emailCampaignRecipients)
-                  .set({ emailLogId: logged.id, updatedAt: new Date() })
-                  .where(eq(emailCampaignRecipients.id, recipientRow.id))
+              if (campaign === undefined) return { kind: "notFound" as const };
+              const recipientSources = Array.from(
+                new Map(selected.map((row) => [row.contact.id, row.contact])).values(),
+              ).map((contact) => ({
+                contactId: contact.id,
+                speakerName: speakerName(contact),
+                talkTitle:
+                  selected.find((row) => row.contact.id === contact.id && row.submission !== null)
+                    ?.submission?.title ?? "",
+                email: contact.email,
+              }));
+              const resolved = buildCampaignRecipientRows({
+                campaignId: campaign.id,
+                subject: input.subject,
+                body: input.body,
+                eventName: event.name,
+                portalUrl: `${input.portalOrigin}/portal`,
+                recipients: recipientSources,
+              });
+              const recipientRows = await transaction
+                .insert(emailCampaignRecipients)
+                .values(
+                  resolved.map((row) => ({
+                    ...row,
+                    deliveryStatus: "pending" as const,
+                  })),
+                )
+                .returning()
+                .execute();
+              const logIds: Array<string> = [];
+              for (const recipient of resolved) {
+                // The composer body is freeform markdown; the event-branded
+                // outreach frame carries it, with the subject as the headline.
+                const rendered = outreach({
+                  eventName: event.name,
+                  logoUrl: event.logoUrl,
+                  subject: recipient.resolvedSubject,
+                  bodyHtml: freeformToHtml(recipient.resolvedBody),
+                  bodyText: recipient.resolvedBody,
+                });
+                const [logged] = await transaction
+                  .insert(emailLog)
+                  .values({
+                    eventId: input.eventId,
+                    contactId: recipient.contactId,
+                    submissionId: null,
+                    type: "custom",
+                    recipient: recipient.recipientEmail,
+                    subject: recipient.resolvedSubject,
+                    body: recipient.resolvedBody,
+                    htmlBody: rendered.html,
+                    status: "queued",
+                    provider: null,
+                    providerId: null,
+                    error: null,
+                    sentAt: null,
+                  })
+                  .returning({ id: emailLog.id })
                   .execute();
+                const recipientRow = recipientRows.find(
+                  (row) => row.contactId === recipient.contactId,
+                );
+                if (logged !== undefined && recipientRow !== undefined) {
+                  logIds.push(logged.id);
+                  await transaction
+                    .update(emailCampaignRecipients)
+                    .set({ emailLogId: logged.id, updatedAt: new Date() })
+                    .where(eq(emailCampaignRecipients.id, recipientRow.id))
+                    .execute();
+                }
               }
-            }
-            return { kind: "ok" as const, campaignId: campaign.id, logIds };
-          }),
-        ).pipe(
-          Effect.flatMap(
-            (
-              outcome,
-            ): Effect.Effect<
-              { readonly campaignId: string; readonly logIds: ReadonlyArray<string> },
-              DbError | InvalidInput | NotFound
-            > =>
-              outcome.kind === "notFound"
-                ? decodeFound(EmailCampaign, "Campaign", undefined).pipe(
-                    Effect.map(() => ({ campaignId: "", logIds: [] })),
-                  )
-                : outcome.kind === "empty"
-                  ? Effect.fail(new InvalidInput({ message: "Choose at least one recipient" }))
-                  : Effect.succeed({ campaignId: outcome.campaignId, logIds: outcome.logIds }),
-          ),
-        ),
-      completeCampaign: (campaignId) =>
-        query(database, "Could not complete campaign", (db) =>
-          db.transaction(async (transaction) => {
-            const now = new Date();
-            await transaction
-              .update(emailCampaignRecipients)
-              .set({ deliveryStatus: "sent", updatedAt: now })
-              .where(eq(emailCampaignRecipients.campaignId, campaignId))
-              .execute();
-            const [saved] = await transaction
-              .update(emailCampaigns)
-              .set({ status: "sent", sentAt: now, updatedAt: now })
-              .where(eq(emailCampaigns.id, campaignId))
-              .returning()
-              .execute();
-            return saved;
-          }),
-        ).pipe(Effect.flatMap((row) => decodeFound(EmailCampaign, "Campaign", row))),
+              return { kind: "ok" as const, campaignId: campaign.id, logIds };
+            }),
+          ).pipe(
+            Effect.flatMap(
+              (
+                outcome,
+              ): Effect.Effect<
+                { readonly campaignId: string; readonly logIds: ReadonlyArray<string> },
+                DbError | InvalidInput | NotFound
+              > =>
+                outcome.kind === "notFound"
+                  ? decodeFound(EmailCampaign, "Campaign", undefined).pipe(
+                      Effect.map(() => ({ campaignId: "", logIds: [] })),
+                    )
+                  : outcome.kind === "empty"
+                    ? Effect.fail(new InvalidInput({ message: "Choose at least one recipient" }))
+                    : Effect.succeed({ campaignId: outcome.campaignId, logIds: outcome.logIds }),
+            ),
+          );
+        }),
       saveReminderRule: (eventId, id, daysBeforeDue, enabled) =>
         query(database, "Could not save reminder rule", (db) =>
           db
@@ -762,7 +860,7 @@ export const SpeakerCommsLive = Layer.effect(
               transaction
                 .select()
                 .from(contacts)
-                .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
+                .where(and(eq(contacts.eventId, eventId), speakerContact(transaction)))
                 .execute(),
               transaction
                 .select({ assignment: taskAssignments, template: taskTemplates })
@@ -865,5 +963,6 @@ export const SpeakerCommsLive = Layer.effect(
           ),
         ),
     };
+    return service;
   }),
 );

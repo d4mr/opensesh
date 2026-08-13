@@ -113,22 +113,28 @@ const verifyFailure = Effect.gen(function* () {
     eventId,
     submissionIds: ["sub_02"],
     decision: "accept",
-    feedback: "Strong practical proposal.",
     confirmRedecide: false,
     approveContent: true,
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
-  const deliveries = yield* Effect.forEach(
-    decision.deliveries,
-    (delivery) => mail.sendLogged(delivery.logId, delivery.mail),
-    { concurrency: 5 },
-  );
+  const informed = yield* reviewDesk.inform({
+    eventId,
+    submissionIds: ["sub_02"],
+    feedback: "Strong practical proposal.",
+    actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
+  });
+  const deliveries = yield* Effect.forEach(informed.logIds, (logId) => mail.sendQueued(logId), {
+    concurrency: 1,
+  });
   const emails = yield* admin.list(eventId);
-  const logged = emails.find((email) => email.id === deliveries[0]?.id);
+  const logged = emails.find(
+    (email) => email.submissionId === "sub_02" && email.type === "accepted",
+  );
   if (
     decision.result.submissions[0]?.status !== "accepted" ||
     logged?.status !== "demo" ||
-    logged.error !== null
+    logged.error !== null ||
+    !deliveries.some((delivery) => delivery.status === "demo")
   ) {
     return yield* Effect.fail(
       new InvalidInput({ message: "Demo-org decision email reached the transport" }),
@@ -137,15 +143,13 @@ const verifyFailure = Effect.gen(function* () {
   return logged.id;
 });
 
-// Re-sending the same logged email is idempotent and still never delivers.
+// A redelivered queue message is idempotent and never sends a completed row.
 const verifyRetry = (emailId: string) =>
   Effect.gen(function* () {
     const mail = yield* Mail;
     const retried = yield* mail.sendQueued(emailId);
-    if (retried.status !== "demo") {
-      return yield* Effect.fail(
-        new InvalidInput({ message: "Demo-org email resend was not log-only" }),
-      );
+    if (retried.status !== "skipped") {
+      return yield* Effect.fail(new InvalidInput({ message: "Completed email was sent twice" }));
     }
     return retried;
   });
@@ -175,6 +179,7 @@ if (connectionString === undefined) {
           new MailError({
             message: "Intentional provider failure",
             cause: new Error("Intentional provider failure"),
+            transient: false,
           }),
         ),
       "resend",

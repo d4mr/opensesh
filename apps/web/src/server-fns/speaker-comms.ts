@@ -8,18 +8,17 @@ import {
   ReminderRuleRunRequest,
   SpeakerHeadshotUploadRequest,
   SpeakerProfileMutationRequest,
-  SpeakerWorkflowMutationRequest,
   campaignMergeTokens,
 } from "@opensesh/domain";
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { DbError, Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
-import { Mail } from "@opensesh/domain/server/mail";
 import { Contacts, Portal, SpeakerComms } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
+import { MailQueue } from "@/server/mail-queue";
 
 const requireEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
@@ -62,23 +61,6 @@ export const saveAdminSpeaker = createServerFn({ method: "POST" })
         return yield* communications.saveSpeaker(
           { ...data, firstName, lastName, email: data.email.trim().toLowerCase() },
           { kind: "user", userId: user.userId, name: user.name },
-        );
-      }),
-      { require: "staff" },
-    ),
-  );
-
-export const setSpeakerWorkflowStatus = createServerFn({ method: "POST" })
-  .validator(Schema.toStandardSchemaV1(SpeakerWorkflowMutationRequest))
-  .handler(async ({ data }) =>
-    runServer(
-      Effect.gen(function* () {
-        yield* requireEvent(data.eventId);
-        const communications = yield* SpeakerComms;
-        return yield* communications.setWorkflowStatus(
-          data.eventId,
-          data.contactId,
-          data.workflowStatus,
         );
       }),
       { require: "staff" },
@@ -153,7 +135,6 @@ export const inviteSpeakerPortals = createServerFn({ method: "POST" })
         if (data.contactIds.length === 0)
           return yield* Effect.fail(new InvalidInput({ message: "Choose at least one speaker" }));
         const communications = yield* SpeakerComms;
-        const mail = yield* Mail;
         const invitations = yield* communications.queuePortalInvitations(
           data.eventId,
           data.contactIds,
@@ -162,8 +143,9 @@ export const inviteSpeakerPortals = createServerFn({ method: "POST" })
         const logIds = invitations.flatMap((invitation) =>
           invitation.logId === null ? [] : [invitation.logId],
         );
-        yield* Effect.forEach(logIds, (logId) => mail.sendQueued(logId), { concurrency: 5 });
-        return { invitations, sent: logIds.length };
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(logIds);
+        return { invitations, queued: logIds.length };
       }),
       { require: "staff" },
     );
@@ -223,20 +205,16 @@ export const sendSpeakerCampaign = createServerFn({ method: "POST" })
           requiredText(data.body, "Enter a campaign message"),
         ]);
         const communications = yield* SpeakerComms;
-        const mail = yield* Mail;
         const queued = yield* communications.createCampaign({
           ...data,
           actor: { kind: "user", userId: user.userId, name: user.name },
           portalOrigin: origin,
         });
-        const results = yield* Effect.forEach(queued.logIds, (logId) => mail.sendQueued(logId), {
-          concurrency: 5,
-        });
-        const campaign = yield* communications.completeCampaign(queued.campaignId);
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(queued.logIds);
         return {
-          campaign,
-          sent: results.filter((result) => result.status !== "failed").length,
-          failed: results.filter((result) => result.status === "failed").length,
+          campaignId: queued.campaignId,
+          queued: queued.logIds.length,
         };
       }),
       { require: "staff" },
@@ -273,20 +251,17 @@ export const runTaskReminderRule = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         yield* requireEvent(data.eventId);
         const communications = yield* SpeakerComms;
-        const mail = yield* Mail;
         const queued = yield* communications.queueReminderRule(
           data.eventId,
           data.id,
           origin,
           new Date(),
         );
-        const results = yield* Effect.forEach(queued.logIds, (logId) => mail.sendQueued(logId), {
-          concurrency: 5,
-        });
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(queued.logIds);
         return {
           skippedAsDuplicate: queued.skippedAsDuplicate,
-          sent: results.filter((result) => result.status !== "failed").length,
-          failed: results.filter((result) => result.status === "failed").length,
+          queued: queued.logIds.length,
         };
       }),
       { require: "staff" },

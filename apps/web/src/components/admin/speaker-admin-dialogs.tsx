@@ -2,7 +2,7 @@ import type {
   DietaryRequirement,
   SpeakerCsvRow,
   SpeakerDirectoryRow,
-  SpeakerWorkflowStatus,
+  SpeakerPipeline,
   TshirtSize,
 } from "@opensesh/domain";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -46,26 +46,26 @@ import { type CsvPreview, parseSpeakerCsv } from "@/lib/speaker-csv";
 import { saveAdminSpeaker, uploadAdminSpeakerHeadshot } from "@/server-fns/speaker-comms";
 import { importSpeakerCsv } from "@/server-fns/widgets";
 
-export const workflowLabels: Readonly<Record<SpeakerWorkflowStatus, string>> = {
-  invited: "Invited",
-  onboarding: "Onboarding",
-  confirmed: "Confirmed",
+export const pipelineLabels: Readonly<Record<SpeakerPipeline, string>> = {
+  withdrawn: "Withdrawn",
   ready: "Ready",
-  declined: "Declined",
+  onboarding: "Onboarding",
+  invited: "Invited",
+  added: "Not invited",
 };
 
-const workflowClasses: Readonly<Record<SpeakerWorkflowStatus, string>> = {
-  invited: "bg-[var(--status-pending)] text-[var(--status-pending-foreground)]",
-  onboarding: "bg-[var(--status-maybe)] text-[var(--status-maybe-foreground)]",
-  confirmed: "bg-[var(--status-accepted)] text-[var(--status-accepted-foreground)]",
+const pipelineClasses: Readonly<Record<SpeakerPipeline, string>> = {
+  withdrawn: "bg-[var(--status-withdrawn)] text-[var(--status-withdrawn-foreground)]",
   ready: "bg-[var(--status-accepted)] text-[var(--status-accepted-foreground)]",
-  declined: "bg-[var(--status-declined)] text-[var(--status-declined-foreground)]",
+  onboarding: "bg-[var(--status-maybe)] text-[var(--status-maybe-foreground)]",
+  invited: "bg-[var(--status-pending)] text-[var(--status-pending-foreground)]",
+  added: "bg-muted text-muted-foreground",
 };
 
-export function WorkflowBadge({ status }: { readonly status: SpeakerWorkflowStatus }) {
+export function PipelineBadge({ status }: { readonly status: SpeakerPipeline }) {
   return (
-    <Badge className={`rounded-md px-1.5 py-0.5 text-xs ${workflowClasses[status]}`}>
-      {workflowLabels[status]}
+    <Badge className={`rounded-md px-1.5 py-0.5 text-xs ${pipelineClasses[status]}`}>
+      {pipelineLabels[status]}
     </Badge>
   );
 }
@@ -85,7 +85,6 @@ interface SpeakerFormState {
   readonly dietaryRequirements: DietaryRequirement;
   readonly tshirtSize: TshirtSize | "none";
   readonly travelLogistics: string;
-  readonly workflowStatus: SpeakerWorkflowStatus;
 }
 
 const dietaryValue = (value: string): DietaryRequirement =>
@@ -101,11 +100,6 @@ const tshirtValue = (value: string): TshirtSize | "none" =>
   value === "XXL"
     ? value
     : "none";
-const workflowValue = (value: string): SpeakerWorkflowStatus =>
-  value === "onboarding" || value === "confirmed" || value === "ready" || value === "declined"
-    ? value
-    : "invited";
-
 export function SpeakerFormDialog({
   eventId,
   speaker,
@@ -131,7 +125,6 @@ export function SpeakerFormDialog({
     dietaryRequirements: dietaryValue(speaker?.contact.dietaryRequirements ?? "none"),
     tshirtSize: tshirtValue(speaker?.contact.tshirtSize ?? "none"),
     travelLogistics: typeof logistics === "string" ? logistics : "",
-    workflowStatus: speaker?.contact.workflowStatus ?? "invited",
   }));
   const [headshot, setHeadshot] = useState<File | null>(null);
   const queryClient = useQueryClient();
@@ -153,7 +146,6 @@ export function SpeakerFormDialog({
           dietaryRequirements: form.dietaryRequirements,
           tshirtSize: form.tshirtSize === "none" ? null : form.tshirtSize,
           travelLogistics: valueOrNull(form.travelLogistics),
-          workflowStatus: form.workflowStatus,
         },
       });
       if (!saved.ok || headshot === null) return saved;
@@ -229,12 +221,6 @@ export function SpeakerFormDialog({
           </div>
           <div className="grid content-start gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <SelectField
-                label="Workflow status"
-                value={form.workflowStatus}
-                options={Object.entries(workflowLabels)}
-                set={(value) => update("workflowStatus", workflowValue(value))}
-              />
               <SelectField
                 label="Dietary"
                 value={form.dietaryRequirements}

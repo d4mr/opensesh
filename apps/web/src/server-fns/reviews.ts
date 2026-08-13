@@ -24,6 +24,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
+import { MailQueue } from "@/server/mail-queue";
 
 const requireAdminEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
@@ -371,19 +372,13 @@ export const sendReviewReminders = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         yield* requireRound(data.eventId, data.roundId);
         const reviews = yield* Reviews;
-        const mail = yield* Mail;
         const reminders = yield* reviews.queueReminders(data.roundId, data.eventMemberIds);
-        const deliveries = yield* Effect.forEach(
-          reminders,
-          (reminder) => mail.sendQueued(reminder.logId),
-          { concurrency: 5 },
-        );
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(reminders.map((reminder) => reminder.logId));
         return {
           queued: reminders.length,
-          sent: deliveries.filter(
-            (delivery) => delivery.status === "sent" || delivery.status === "demo",
-          ).length,
-          failed: deliveries.filter((delivery) => delivery.status === "failed").length,
+          sent: 0,
+          failed: 0,
         };
       }),
       { require: "staff" },

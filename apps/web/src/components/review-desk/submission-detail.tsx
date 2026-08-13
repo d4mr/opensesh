@@ -1,4 +1,5 @@
 import {
+  renderDecisionEmail,
   type DecisionResult,
   type ReviewDeskEmail,
   type ReviewDeskReview,
@@ -38,6 +39,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { reviewDeskDetailQuery } from "@/lib/review-desk-queries";
 import { adminPortalQuery } from "@/lib/portal-queries";
@@ -61,11 +64,17 @@ export function SubmissionDetail({
   variant = "page",
   onClose,
   onStatusChanged,
+  informPreview,
 }: {
   readonly id: string;
   readonly variant?: "page" | "spotlight";
   readonly onClose?: () => void;
   readonly onStatusChanged?: (id: string) => void;
+  readonly informPreview?: {
+    readonly note: string;
+    readonly count: number;
+    readonly onNoteChange: (note: string) => void;
+  };
 }) {
   const context = useAdminEvent();
   const eventId = context?.event.id ?? "";
@@ -93,6 +102,17 @@ export function SubmissionDetail({
           .map((item) => item.history)
           .filter((item) => item.submissionId === submission.id)
       : [];
+  const decisionPreview =
+    submission.status === "accepted" || submission.status === "declined"
+      ? renderDecisionEmail({
+          decision: submission.status === "accepted" ? "accept" : "decline",
+          eventName: context.event.name,
+          speakerName: submission.submitter?.name.split(" ")[0] ?? "Submitter",
+          submissionTitle: submission.title,
+          feedback: informPreview?.note ?? "",
+          confirmationRequested: context.event.speakerConfirmationEnabled,
+        })
+      : null;
 
   const setDetail = (status: SubmissionStatus, notifiedAt = submission.notifiedAt) => {
     queryClient.setQueryData<DetailResult>(
@@ -176,6 +196,45 @@ export function SubmissionDetail({
             : "min-h-0 flex-1 overflow-y-auto p-4 lg:p-6"
         }
       >
+        {informPreview === undefined || decisionPreview === null ? null : (
+          <section className="mb-3 overflow-hidden rounded-lg border bg-muted/20">
+            <div className="space-y-2 border-b bg-background p-3">
+              <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                Decision email
+              </p>
+              <p className="text-xs text-muted-foreground">
+                To {submission.submitter?.name ?? "Missing submitter"} ·{" "}
+                {submission.submitter?.email ?? "—"}
+              </p>
+              <Label htmlFor={`inform-note-${submission.status}`} className="text-xs">
+                {informPreview.count === 0
+                  ? `Note — sent with every ${submission.status === "accepted" ? "acceptance" : "decline"} you inform`
+                  : `Note — sent with the ${informPreview.count} selected ${
+                      submission.status === "accepted"
+                        ? informPreview.count === 1
+                          ? "acceptance"
+                          : "acceptances"
+                        : informPreview.count === 1
+                          ? "decline"
+                          : "declines"
+                    }`}
+              </Label>
+              <Textarea
+                id={`inform-note-${submission.status}`}
+                value={informPreview.note}
+                onChange={(event) => informPreview.onNoteChange(event.target.value)}
+                placeholder="Optional note"
+                className="min-h-20 resize-none text-xs"
+              />
+            </div>
+            <div className="border-b px-3 py-2">
+              <p className="text-xs font-semibold">{decisionPreview.subject}</p>
+            </div>
+            <div className="whitespace-pre-wrap px-3 py-3 text-xs leading-5">
+              {decisionPreview.text}
+            </div>
+          </section>
+        )}
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             {variant === "page" ? (
@@ -242,6 +301,27 @@ export function SubmissionDetail({
               )}
             </DetailSection>
 
+            <DetailSection title="Submitter">
+              {submission.submitter === null ? (
+                <EmptyRow>No submitter recorded.</EmptyRow>
+              ) : (
+                <div className="px-3 py-2.5">
+                  <SpeakerRow
+                    person={{
+                      id: submission.submitter.id,
+                      name: submission.submitter.name,
+                      image: null,
+                      title: null,
+                      company: null,
+                      bio: null,
+                      status: null,
+                    }}
+                    email={submission.submitter.email}
+                  />
+                </div>
+              )}
+            </DetailSection>
+
             <DetailSection title="Speakers" className="divide-y">
               {submission.speakers.map((speaker) => (
                 <div key={speaker.id} className="px-3 py-2.5">
@@ -286,13 +366,28 @@ export function SubmissionDetail({
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    This submission is a session — manage it from the Sessions page.
+                    This submission is a session. Cancellation stays in Sessions; replacing the
+                    decision remains available here.
                   </p>
-                  <Button size="xs" variant="outline" asChild className="pressable">
-                    <Link to="/admin/sessions" search={{ state: "all", spotlight: submission.id }}>
-                      View session
-                    </Link>
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="xs" variant="outline" asChild className="pressable">
+                      <Link
+                        to="/admin/sessions"
+                        search={{ state: "all", spotlight: submission.id }}
+                      >
+                        View session
+                      </Link>
+                    </Button>
+                    {submission.cancelledAt === null ? (
+                      <Button
+                        size="xs"
+                        variant="destructive"
+                        onClick={() => openDecision("decline")}
+                      >
+                        Decline
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <>

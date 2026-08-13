@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  audienceMemberIds,
   buildCampaignRecipientRows,
   reminderAlreadyRanInWindow,
   reminderAssignmentsWithinWindow,
@@ -69,6 +70,69 @@ describe("campaign recipient snapshots", () => {
     expect(rows[0]?.resolvedBody).toContain("Taming 40-Minute CI");
     expect(rows[1]?.resolvedSubject).toContain("Marcus Okafor");
     expect(rows[1]?.resolvedBody).toContain("Agents in Production");
+  });
+});
+
+describe("communication audience segments", () => {
+  const speaker = (
+    id: string,
+    confirmedAt: Date | null,
+    decisionInformed: boolean,
+    taskIncomplete: number,
+  ) => ({
+    id,
+    email: `${id}@example.com`,
+    firstName: id,
+    lastName: "Speaker",
+    headshotUrl: null,
+    title: null,
+    company: null,
+    pipeline: "added" as const,
+    confirmedAt,
+    decisionInformed,
+    taskTotal: taskIncomplete,
+    taskDone: 0,
+    taskIncomplete,
+    talkTitle: "Talk",
+  });
+  const submitter = (
+    id: string,
+    status: "pending" | "maybe" | "declined",
+    notifiedAt: Date | null,
+  ) => ({
+    id,
+    email: `${id}@example.com`,
+    firstName: id,
+    lastName: "Submitter",
+    headshotUrl: null,
+    submissions: [{ status, notifiedAt }],
+  });
+  const center = {
+    speakers: [
+      speaker("confirmed", new Date("2027-04-01T00:00:00.000Z"), true, 0),
+      speaker("awaiting", null, true, 0),
+      speaker("incomplete", new Date("2027-04-01T00:00:00.000Z"), true, 2),
+    ],
+    submitters: [
+      submitter("pending", "pending", null),
+      submitter("maybe", "maybe", null),
+      submitter("declined", "declined", new Date("2027-04-01T00:00:00.000Z")),
+      submitter("uninformed-decline", "declined", null),
+    ],
+  };
+
+  it("returns exact live membership for every derived segment", () => {
+    expect(audienceMemberIds(center, "all_speakers")).toEqual([
+      "confirmed",
+      "awaiting",
+      "incomplete",
+    ]);
+    expect(audienceMemberIds(center, "confirmed")).toEqual(["confirmed", "incomplete"]);
+    expect(audienceMemberIds(center, "awaiting_confirmation")).toEqual(["awaiting"]);
+    expect(audienceMemberIds(center, "incomplete_tasks")).toEqual(["incomplete"]);
+    expect(audienceMemberIds(center, "awaiting_decision")).toEqual(["pending", "maybe"]);
+    expect(audienceMemberIds(center, "declined")).toEqual(["declined"]);
+    expect(audienceMemberIds(center, "selected", new Set(["awaiting"]))).toEqual(["awaiting"]);
   });
 });
 

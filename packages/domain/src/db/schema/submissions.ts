@@ -12,11 +12,11 @@ import type { Schema } from "effect";
 
 import {
   contentApprovalStatus,
+  contactParticipation,
   dietaryRequirement,
   id,
   reviewDecision,
   sessionCancelledBy,
-  speakerWorkflowStatus,
   submissionActivityType,
   submissionStatus,
   timestamps,
@@ -37,7 +37,7 @@ export const contacts = pgTable(
     email: text("email").notNull(),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
-    participation: text("participation").notNull().default("speaker"),
+    participation: contactParticipation("participation").notNull(),
     title: text("title"),
     company: text("company"),
     salutation: text("salutation"),
@@ -66,7 +66,6 @@ export const contacts = pgTable(
     profileReviewStatus: contentApprovalStatus("profile_review_status")
       .notNull()
       .default("approved"),
-    workflowStatus: speakerWorkflowStatus("workflow_status").notNull().default("invited"),
     ...timestamps,
   },
   (table) => [

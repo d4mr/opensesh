@@ -1,10 +1,10 @@
 import type {
+  AudienceSegment,
   CampaignRecipientHistory,
   CommunicationCenter,
   EmailTemplate,
-  SpeakerWorkflowStatus,
 } from "@opensesh/domain";
-import { campaignMergeTokens, resolveMergeFields } from "@opensesh/domain";
+import { audienceMemberIds, campaignMergeTokens, resolveMergeFields } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -17,10 +17,9 @@ import {
   Trash2Icon,
   UsersIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { workflowLabels } from "@/components/admin/speaker-admin-dialogs";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SpeakerPickerDialog } from "@/components/admin/speaker-picker-dialog";
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -98,35 +97,44 @@ function Communications({
   readonly data: CenterData;
 }) {
   const queryClient = useQueryClient();
-  const [recipientMode, setRecipientMode] = useState<"all" | "status" | "incomplete" | "selected">(
-    "all",
-  );
-  const [status, setStatus] = useState<SpeakerWorkflowStatus>("confirmed");
+  const [segment, setSegment] = useState<AudienceSegment>("all_speakers");
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [templateId, setTemplateId] = useState<string | null>(data.templates[0]?.id ?? null);
   const initialTemplate = data.templates.find((template) => template.id === templateId);
   const [subject, setSubject] = useState(initialTemplate?.subjectTemplate ?? "");
   const [body, setBody] = useState(initialTemplate?.bodyTemplate ?? "");
-  const [previewId, setPreviewId] = useState(data.contacts[0]?.id ?? "");
+  const [previewId, setPreviewId] = useState(data.speakers[0]?.id ?? "");
   const [templateOpen, setTemplateOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate>();
   const [expandedCampaign, setExpandedCampaign] = useState<string>();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [sendProgress, setSendProgress] = useState<{
+    readonly sent: number;
+    readonly total: number;
+  }>();
   const refresh = () => invalidateAfterMutation(queryClient, eventId);
-  const recipients = useMemo(
-    () =>
-      data.contacts.filter((contact) =>
-        recipientMode === "all"
-          ? true
-          : recipientMode === "status"
-            ? contact.workflowStatus === status
-            : recipientMode === "incomplete"
-              ? contact.taskIncomplete > 0
-              : selectedIds.has(contact.id),
-      ),
-    [data.contacts, recipientMode, selectedIds, status],
+  const allContacts = useMemo(
+    () => [
+      ...data.speakers,
+      ...data.submitters.map((contact) => ({
+        ...contact,
+        title: null,
+        company: null,
+        pipeline: "added" as const,
+        talkTitle: "",
+      })),
+    ],
+    [data.speakers, data.submitters],
   );
-  const preview = data.contacts.find((contact) => contact.id === previewId) ?? recipients[0];
+  const recipientIds = useMemo(
+    () => new Set(audienceMemberIds(data, segment, selectedIds)),
+    [data, segment, selectedIds],
+  );
+  const recipients = useMemo(
+    () => allContacts.filter((contact) => recipientIds.has(contact.id)),
+    [allContacts, recipientIds],
+  );
+  const preview = allContacts.find((contact) => contact.id === previewId) ?? recipients[0];
   const fields =
     preview === undefined
       ? { speaker_name: "", talk_title: "", event_name: data.eventName, portal_url: "/portal" }
@@ -136,6 +144,13 @@ function Communications({
           event_name: data.eventName,
           portal_url: "/portal",
         };
+  const pendingMail = data.pending.queued + data.pending.sending;
+  useEffect(() => {
+    if (sendProgress === undefined) return;
+    const sent = Math.max(0, sendProgress.total - Math.min(sendProgress.total, pendingMail));
+    if (pendingMail === 0) setSendProgress(undefined);
+    else if (sent !== sendProgress.sent) setSendProgress({ sent, total: sendProgress.total });
+  }, [pendingMail, sendProgress]);
   const send = useMutation({
     mutationFn: () =>
       sendSpeakerCampaign({
@@ -144,7 +159,8 @@ function Communications({
           templateId,
           subject,
           body,
-          recipientFilter: { mode: recipientMode, status },
+          recipientFilter: { segment },
+          segment,
           contactIds: recipients.map((recipient) => recipient.id),
         },
       }),
@@ -153,15 +169,14 @@ function Communications({
         toast.error(result.error.message);
         return;
       }
-      if (result.data.failed > 0) toast.error(`${result.data.failed} campaign emails failed`);
-      else
-        toast.success(
-          `Sent ${result.data.sent} campaign email${result.data.sent === 1 ? "" : "s"}`,
-        );
+      toast.success(
+        `Queued ${result.data.queued} campaign email${result.data.queued === 1 ? "" : "s"}`,
+      );
       await refresh();
+      setSendProgress({ sent: 0, total: result.data.queued });
     },
   });
-  if (data.contacts.length === 0) {
+  if (allContacts.length === 0) {
     return (
       <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-5 overflow-hidden p-4 text-sm lg:p-6">
         <div className="shrink-0">
@@ -172,8 +187,8 @@ function Communications({
         </div>
         <AdminEmptyState
           icon={UsersIcon}
-          title="Add speakers before sending a campaign"
-          description="Communications become available as soon as your speaker directory has recipients."
+          title="Add contacts before sending a campaign"
+          description="Campaigns become available when an audience segment has eligible recipients."
           action={
             <Button asChild size="sm" className="pressable">
               <Link to="/admin/speakers" search={{ spotlight: undefined }}>
@@ -207,7 +222,64 @@ function Communications({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
-        <section className="grid shrink-0 gap-3 rounded-lg border p-3">
+        <section className="grid shrink-0 gap-2 rounded-lg border bg-muted/20 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">Pending communications</h2>
+            <Button asChild size="xs" variant="outline">
+              <Link to="/admin/emails" search={{ email: undefined }}>
+                Open outbox
+              </Link>
+            </Button>
+          </div>
+          {data.pending.acceptedNotInformed +
+            data.pending.declinedNotInformed +
+            data.pending.awaitingConfirmation ===
+          0 ? (
+            <p className="text-xs text-muted-foreground">Nothing pending.</p>
+          ) : (
+            <div className="divide-y rounded-md border bg-background">
+              <Link
+                to="/admin/submissions"
+                search={{ status: "to_inform", spotlight: undefined }}
+                className="pressable-row flex items-center px-2.5 py-2 text-xs hover:bg-muted/50"
+              >
+                <span>Accepted — not informed</span>
+                <span className="ml-auto font-medium tabular-nums">
+                  {data.pending.acceptedNotInformed}
+                </span>
+              </Link>
+              <Link
+                to="/admin/submissions"
+                search={{ status: "to_inform", spotlight: undefined }}
+                className="pressable-row flex items-center px-2.5 py-2 text-xs hover:bg-muted/50"
+              >
+                <span>Declined — not informed</span>
+                <span className="ml-auto font-medium tabular-nums">
+                  {data.pending.declinedNotInformed}
+                </span>
+              </Link>
+              <Link
+                to="/admin/communications"
+                hash="awaiting-confirmation"
+                onClick={() => setSegment("awaiting_confirmation")}
+                className="pressable-row flex items-center px-2.5 py-2 text-xs hover:bg-muted/50"
+              >
+                <span>Awaiting confirmation</span>
+                <span className="ml-auto font-medium tabular-nums">
+                  {data.pending.awaitingConfirmation}
+                </span>
+              </Link>
+            </div>
+          )}
+          {data.pending.queued + data.pending.sending > 0 ? (
+            <p className="text-[11px] text-muted-foreground tabular-nums" aria-live="polite">
+              {sendProgress === undefined
+                ? `Sending · ${data.pending.sending} active · ${data.pending.queued} queued`
+                : `Sending ${sendProgress.sent}/${sendProgress.total}…`}
+            </p>
+          ) : null}
+        </section>
+        <section id="awaiting-confirmation" className="grid shrink-0 gap-3 rounded-lg border p-3">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="mr-auto text-sm font-medium">Campaign composer</h2>
             <Badge variant="secondary" className="tabular-nums">
@@ -218,51 +290,47 @@ function Communications({
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <Select
-                  value={recipientMode}
-                  onValueChange={(value) =>
-                    setRecipientMode(
-                      value === "status" || value === "incomplete" || value === "selected"
-                        ? value
-                        : "all",
+                  value={segment}
+                  onValueChange={(value) => {
+                    if (
+                      value === "all_speakers" ||
+                      value === "confirmed" ||
+                      value === "awaiting_confirmation" ||
+                      value === "incomplete_tasks" ||
+                      value === "selected" ||
+                      value === "awaiting_decision" ||
+                      value === "declined"
                     )
-                  }
+                      setSegment(value);
+                  }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All speakers</SelectItem>
-                    <SelectItem value="status">By workflow status</SelectItem>
-                    <SelectItem value="incomplete">Tasks incomplete</SelectItem>
-                    <SelectItem value="selected">Explicit selection</SelectItem>
+                    <SelectItem value="all_speakers">
+                      All speakers ({data.speakers.length})
+                    </SelectItem>
+                    <SelectItem value="confirmed">
+                      Confirmed ({audienceMemberIds(data, "confirmed").length})
+                    </SelectItem>
+                    <SelectItem value="awaiting_confirmation">
+                      Awaiting confirmation (
+                      {audienceMemberIds(data, "awaiting_confirmation").length})
+                    </SelectItem>
+                    <SelectItem value="incomplete_tasks">
+                      Incomplete tasks ({audienceMemberIds(data, "incomplete_tasks").length})
+                    </SelectItem>
+                    <SelectItem value="awaiting_decision">
+                      Submitters awaiting decision (
+                      {audienceMemberIds(data, "awaiting_decision").length})
+                    </SelectItem>
+                    <SelectItem value="declined">
+                      Declined submitters ({audienceMemberIds(data, "declined").length})
+                    </SelectItem>
+                    <SelectItem value="selected">Selected speakers ({selectedIds.size})</SelectItem>
                   </SelectContent>
                 </Select>
-                {recipientMode !== "status" ? null : (
-                  <Select
-                    value={status}
-                    onValueChange={(value) => {
-                      if (
-                        value === "invited" ||
-                        value === "onboarding" ||
-                        value === "confirmed" ||
-                        value === "ready" ||
-                        value === "declined"
-                      )
-                        setStatus(value);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(workflowLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
                 <Select
                   value={templateId ?? "custom"}
                   onValueChange={(value) => {
@@ -291,7 +359,7 @@ function Communications({
                   </SelectContent>
                 </Select>
               </div>
-              {recipientMode !== "selected" ? null : (
+              {segment !== "selected" ? null : (
                 <div className="flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
                   {recipients.length === 0 ? (
                     <span className="px-1.5 text-xs text-muted-foreground">
@@ -393,7 +461,7 @@ function Communications({
               }
               onClick={() => send.mutate()}
             >
-              <SendIcon /> {send.isPending ? "Sending…" : `Send to ${recipients.length}`}
+              <SendIcon /> {send.isPending ? "Queuing…" : `Send to ${recipients.length}`}
             </Button>
           </div>
         </section>
@@ -484,7 +552,7 @@ function Communications({
       <SpeakerPickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        contacts={data.contacts}
+        contacts={data.speakers}
         value={selectedIds}
         onChange={setSelectedIds}
         title="Select recipients"
@@ -727,8 +795,11 @@ function ReminderSettings({
       if (!result.ok) toast.error(result.error.message);
       else if (!("skippedAsDuplicate" in result.data)) return;
       else if (result.data.skippedAsDuplicate) toast.success("Already ran in this delivery window");
-      else
-        toast.success(`Sent ${result.data.sent} task reminder${result.data.sent === 1 ? "" : "s"}`);
+      else {
+        toast.success(
+          `Queued ${result.data.queued} task reminder${result.data.queued === 1 ? "" : "s"}`,
+        );
+      }
       await refresh();
     },
   });

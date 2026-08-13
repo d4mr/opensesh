@@ -103,14 +103,14 @@ export type AdminData = Extract<
   { readonly ok: true }
 >["data"];
 
-const personFor = (data: AdminData, contact: AdminData["contacts"][number]) => ({
+const personFor = (data: AdminData, contact: AdminData["participants"][number]["contact"]) => ({
   id: contact.id,
   name: `${contact.firstName} ${contact.lastName}`,
   image: contact.headshotUrl,
   title: contact.title,
   company: contact.company,
   bio: contact.bio,
-  status: contact.workflowStatus,
+  status: data.contacts.find((candidate) => candidate.id === contact.id)?.pipeline ?? "added",
   sessionsCount: new Set(
     data.participants
       .filter((row) => row.contact.id === contact.id && row.submission.status === "accepted")
@@ -274,16 +274,9 @@ function AdminTasks({
         toast.error(result.error.message);
         return;
       }
-      if (result.data.failed > 0) {
-        toast.error(
-          `${result.data.failed} of ${result.data.attempted} reminders failed. Retry them in Email delivery.`,
-        );
-      } else {
-        const label = result.data.demo > 0 ? "recorded in demo mode" : "sent";
-        toast.success(
-          `${result.data.attempted} ${result.data.attempted === 1 ? "reminder" : "reminders"} ${label}`,
-        );
-      }
+      toast.success(
+        `Queued ${result.data.queued} ${result.data.queued === 1 ? "reminder" : "reminders"}`,
+      );
       setSelectedSpeakerIds((current) => {
         const next = new Set(current);
         for (const id of _variables.ids) next.delete(id);
@@ -1344,7 +1337,7 @@ function DeliverablesAdmin({
         toast.error(result.error.message);
         return;
       }
-      toast.success(`Queued ${result.data.attempted} reminders`);
+      toast.success(`Queued ${result.data.queued} reminders`);
       await invalidateAfterMutation(queryClient, eventId);
     },
   });

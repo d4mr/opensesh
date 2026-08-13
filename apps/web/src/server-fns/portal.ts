@@ -157,7 +157,14 @@ export const getEventContactProfile = createServerFn({ method: "GET" })
             .filter((row) => row.contact.id === contact.id && row.submission.status === "accepted")
             .map((row) => row.submission.id),
         ).size;
-        return { contact, sessionCount };
+        return {
+          contact: {
+            ...contact,
+            pipeline:
+              admin.contacts.find((candidate) => candidate.id === contact.id)?.pipeline ?? null,
+          },
+          sessionCount,
+        };
       }),
       { require: "staff" },
     ),

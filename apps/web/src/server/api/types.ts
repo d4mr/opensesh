@@ -1,6 +1,7 @@
 import type { CurrentUser } from "@opensesh/domain/server/current-user";
 import type { Mail } from "@opensesh/domain/server/mail";
 import type { RepositoryServices } from "@opensesh/domain/server/repos";
+import type { MailQueue } from "../mail-queue";
 import type { AppError } from "@opensesh/domain/server/runtime";
 import type { AuditActor } from "@opensesh/domain/server/schema/common";
 import type { Effect, Schema } from "effect";
@@ -40,7 +41,7 @@ export interface ApiRequestContext {
   readonly body: unknown;
 }
 
-export type ApiServices = RepositoryServices | CurrentUser | Mail;
+export type ApiServices = RepositoryServices | CurrentUser | Mail | MailQueue;
 
 export interface ApiQueryParam {
   readonly name: string;

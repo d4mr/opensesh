@@ -13,15 +13,9 @@ import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
+import { MailQueue } from "@/server/mail-queue";
 
 const requireAdminEvent = (eventId: string) => requireEventAccess(eventId, "admin");
-
-const summarize = (results: ReadonlyArray<{ readonly status: "demo" | "sent" | "failed" }>) => ({
-  attempted: results.length,
-  demo: results.filter((result) => result.status === "demo").length,
-  sent: results.filter((result) => result.status === "sent").length,
-  failed: results.filter((result) => result.status === "failed").length,
-});
 
 export const getAdminEmails = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(EventMailRequest))
@@ -57,12 +51,10 @@ export const sendCalendarInvites = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         const origin = new URL(getRequest().url).origin;
         const admin = yield* MailAdmin;
-        const mail = yield* Mail;
         const queued = yield* admin.queueCalendarInvites(data.eventId, origin);
-        const results = yield* Effect.forEach(queued, (item) => mail.sendQueued(item.logId), {
-          concurrency: 5,
-        });
-        return summarize(results);
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(queued.map((entry) => entry.logId));
+        return { queued: queued.length };
       }),
       { require: "staff" },
     ),
@@ -76,7 +68,6 @@ export const sendTaskReminders = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         const origin = new URL(getRequest().url).origin;
         const admin = yield* MailAdmin;
-        const mail = yield* Mail;
         const requested = data.contactIds ?? [data.contactId];
         const batches = yield* Effect.forEach(
           requested,
@@ -84,10 +75,9 @@ export const sendTaskReminders = createServerFn({ method: "POST" })
           { concurrency: 5 },
         );
         const queued = batches.flat();
-        const results = yield* Effect.forEach(queued, (item) => mail.sendQueued(item.logId), {
-          concurrency: 5,
-        });
-        return summarize(results);
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(queued.map((entry) => entry.logId));
+        return { queued: queued.length };
       }),
       { require: "staff" },
     ),
@@ -101,17 +91,15 @@ export const sendDeliverableReminders = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         const origin = new URL(getRequest().url).origin;
         const admin = yield* MailAdmin;
-        const mail = yield* Mail;
         const queued = yield* admin.queueDeliverableReminders(
           data.eventId,
           data.contactIds,
           data.requirementId ?? null,
           origin,
         );
-        const results = yield* Effect.forEach(queued, (item) => mail.sendQueued(item.logId), {
-          concurrency: 5,
-        });
-        return summarize(results);
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(queued.map((entry) => entry.logId));
+        return { queued: queued.length };
       }),
       { require: "staff" },
     ),
@@ -131,7 +119,10 @@ export const retryEmail = createServerFn({ method: "POST" })
           );
         }
         const mail = yield* Mail;
-        return yield* mail.sendQueued(entry.id);
+        yield* mail.requeueFailed(entry.id);
+        const queue = yield* MailQueue;
+        yield* queue.enqueue([entry.id]);
+        return { id: entry.id, status: "queued" as const, error: null };
       }),
       { require: "staff" },
     ),

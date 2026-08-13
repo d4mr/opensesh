@@ -1,9 +1,9 @@
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { InvalidInput, NotFound } from "@opensesh/domain/server/errors";
-import { Mail } from "@opensesh/domain/server/mail";
 import { Contacts, ReviewDesk } from "@opensesh/domain/server/repos";
 import {
   DecisionResult,
+  InformResult,
   ReviewDeskDetail,
   ReviewDeskList,
   StatusChangeResult,
@@ -11,14 +11,19 @@ import {
 import { Contact } from "@opensesh/domain/server/schema/submissions";
 import { Effect, Schema } from "effect";
 
+import { MailQueue } from "../../mail-queue";
 import { endpoint, type ApiEndpoint } from "../types";
 
 const DecideBody = Schema.Struct({
   submissionIds: Schema.Array(Schema.String),
   decision: Schema.Literals(["accept", "decline"]),
-  feedback: Schema.String,
   confirmRedecide: Schema.optionalKey(Schema.Boolean),
   approveContent: Schema.optionalKey(Schema.Boolean),
+});
+
+const InformBody = Schema.Struct({
+  submissionIds: Schema.Array(Schema.String),
+  feedback: Schema.optionalKey(Schema.String),
 });
 
 const StatusBody = Schema.Struct({
@@ -91,7 +96,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "decideSubmissions",
     summary: "Accept or decline submissions",
     description:
-      "Applies the decision to every submission id, snapshots accepted content for the program, and sends decision emails. Set confirmRedecide to change already-decided submissions.",
+      "Applies the decision to every submission id and snapshots accepted content for the program. Set confirmRedecide to change an informed final decision.",
     tag: "Submissions",
     bodySchema: DecideBody,
     successSchema: DecisionResult,
@@ -105,22 +110,40 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           );
         }
         const reviewDesk = yield* ReviewDesk;
-        const mail = yield* Mail;
         const decision = yield* reviewDesk.decide({
           eventId: access.event.id,
           submissionIds: body.submissionIds,
           decision: body.decision,
-          feedback: body.feedback,
           confirmRedecide: body.confirmRedecide ?? false,
           approveContent: body.approveContent ?? false,
           actor: context.actor,
         });
-        yield* Effect.forEach(
-          decision.deliveries,
-          (delivery) => mail.sendLogged(delivery.logId, delivery.mail),
-          { concurrency: 5 },
-        );
         return decision.result;
+      }),
+  }),
+  endpoint({
+    method: "POST",
+    path: "/events/{eventId}/submissions/inform",
+    operationId: "informSubmissions",
+    summary: "Queue decision emails",
+    description: "Queues one decision email to each uninformed submission's submitter.",
+    tag: "Submissions",
+    bodySchema: InformBody,
+    successSchema: InformResult,
+    handler: (context) =>
+      Effect.gen(function* () {
+        const body = context.body as typeof InformBody.Type;
+        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
+        const reviewDesk = yield* ReviewDesk;
+        const informed = yield* reviewDesk.inform({
+          eventId: access.event.id,
+          submissionIds: body.submissionIds,
+          feedback: body.feedback ?? "",
+          actor: context.actor,
+        });
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(informed.logIds);
+        return informed.result;
       }),
   }),
   endpoint({

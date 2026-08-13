@@ -16,9 +16,10 @@ export const EmailType = Schema.Literals([
   "reinstated",
   "task_reminder",
   "calendar_invite",
+  "portal_invitation",
   "custom",
 ]);
-export const EmailStatus = Schema.Literals(["queued", "demo", "sent", "failed"]);
+export const EmailStatus = Schema.Literals(["queued", "sending", "demo", "sent", "failed"]);
 export type EmailStatus = typeof EmailStatus.Type;
 
 export const PortalFormSection = Schema.Struct({

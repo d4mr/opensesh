@@ -8,4 +8,10 @@ export const communicationCenterQuery = (eventId: string) =>
     queryKey: qk.communications(eventId),
     queryFn: () => getCommunicationCenter({ data: { eventId } }),
     staleTime: 10_000,
+    refetchInterval: (query) => {
+      const result = query.state.data;
+      return result?.ok && result.data.pending.queued + result.data.pending.sending > 0
+        ? 1_000
+        : false;
+    },
   });

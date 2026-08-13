@@ -19,19 +19,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { decideSubmissions } from "@/server-fns/review-desk";
+import { decideSubmissions, informSubmissions } from "@/server-fns/review-desk";
 
-// The one decision flow: any surface that accepts or declines a submission
-// (review desk, Content) opens this dialog — decisions always carry the
-// personal message, the logged email, and the publication checkbox. The prop
-// type is the subset the dialog reads so non-desk surfaces can supply it.
 export interface DecisionDialogSubmission {
   readonly id: string;
   readonly code: string;
   readonly title: string;
   readonly status: ReviewDeskListItem["status"];
+  readonly notifiedAt?: Date | null;
+  readonly submitter: ReviewDeskListItem["submitter"];
   readonly speakers: ReadonlyArray<{ readonly name: string; readonly role: string }>;
-  readonly reviewComments: ReadonlyArray<string>;
+  readonly reviewComments?: ReadonlyArray<string>;
 }
 
 export function DecisionDialog({
@@ -61,6 +59,7 @@ export function DecisionDialog({
 }) {
   const [decision, setDecision] = useState<SubmissionDecision>(initialDecision);
   const [feedback, setFeedback] = useState("");
+  const [sendEmail, setSendEmail] = useState(false);
   const [confirmRedecide, setConfirmRedecide] = useState(false);
   const [approveContent, setApproveContent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -71,21 +70,20 @@ export function DecisionDialog({
     setDecision(initialDecision);
     setFeedback(
       submissions
-        .flatMap((submission) => submission.reviewComments)
+        .flatMap((submission) => submission.reviewComments ?? [])
         .slice(0, 3)
         .join("\n\n"),
     );
     setConfirmRedecide(false);
     setApproveContent(false);
+    setSendEmail(false);
   }, [initialDecision, open, submissions]);
 
   const first = submissions[0];
-  const speaker =
-    first?.speakers.find((candidate) => /primary/i.test(candidate.role)) ?? first?.speakers[0];
   const preview = renderDecisionEmail({
     decision,
     eventName,
-    speakerName: speaker?.name.split(" ")[0] ?? "Speaker",
+    speakerName: first?.submitter?.name.split(" ")[0] ?? "Submitter",
     submissionTitle: first?.title ?? "Submission",
     feedback,
     confirmationRequested,
@@ -93,7 +91,9 @@ export function DecisionDialog({
   const replacingDecision = submissions.some(
     (submission) =>
       (submission.status === "accepted" || submission.status === "declined") &&
-      submission.status !== (decision === "accept" ? "accepted" : "declined"),
+      submission.status !== (decision === "accept" ? "accepted" : "declined") &&
+      submission.notifiedAt !== null &&
+      submission.notifiedAt !== undefined,
   );
 
   const submit = async () => {
@@ -106,7 +106,6 @@ export function DecisionDialog({
         eventId,
         submissionIds: submissions.map((submission) => submission.id),
         decision,
-        feedback,
         confirmRedecide,
         approveContent: decision === "accept" && approveContent,
       },
@@ -119,6 +118,23 @@ export function DecisionDialog({
       return;
     }
     onComplete(result.data);
+    if (sendEmail) {
+      const informed = await informSubmissions({
+        data: {
+          eventId,
+          submissionIds: submissions.map((submission) => submission.id),
+          feedback,
+        },
+      });
+      if (!informed.ok) {
+        toast.error(`Decision saved, but email was not queued: ${informed.error.message}`);
+        onOpenChange(false);
+        return;
+      }
+      toast.success(
+        `Queued ${informed.data.queued} decision email${informed.data.queued === 1 ? "" : "s"}`,
+      );
+    }
     onOpenChange(false);
     toast.success(
       `${submissions.length} ${submissions.length === 1 ? "submission" : "submissions"} ${decision === "accept" ? "accepted" : "declined"}`,
@@ -133,8 +149,8 @@ export function DecisionDialog({
             Decide {submissions.length === 1 ? first?.code : `${submissions.length} submissions`}
           </DialogTitle>
           <DialogDescription className="max-w-3xl">
-            This updates the program, creates acceptance tasks when applicable, and records the
-            email below.
+            This updates the program and creates acceptance tasks when applicable. Sending the
+            decision is optional.
           </DialogDescription>
         </DialogHeader>
 
@@ -161,21 +177,30 @@ export function DecisionDialog({
                 </Button>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="decision-feedback" className="text-xs">
-                Personal message
-              </Label>
-              <Textarea
-                id="decision-feedback"
-                value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
-                placeholder="Optional feedback or requested changes"
-                className="min-h-24 resize-none px-2.5 py-2 text-[13px] leading-5"
+            <Label className="flex items-start gap-2 rounded-md border p-2 text-xs leading-4 font-normal">
+              <Checkbox
+                checked={sendEmail}
+                onCheckedChange={(checked) => setSendEmail(checked === true)}
               />
-              <p className="text-[11px] leading-4 text-muted-foreground">
-                Review comments are prefilled when available. Edit freely before sending.
-              </p>
-            </div>
+              Also send the decision email now
+            </Label>
+            {sendEmail ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="decision-feedback" className="text-xs">
+                  Personal message
+                </Label>
+                <Textarea
+                  id="decision-feedback"
+                  value={feedback}
+                  onChange={(event) => setFeedback(event.target.value)}
+                  placeholder="Optional feedback or requested changes"
+                  className="min-h-24 resize-none px-2.5 py-2 text-[13px] leading-5"
+                />
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  This message is included in the email to each submission's submitter.
+                </p>
+              </div>
+            ) : null}
             {decision === "accept" ? (
               <div className="space-y-1.5">
                 <Label className="flex items-start gap-2 rounded-md border p-2 text-xs leading-4 font-normal">
@@ -203,21 +228,29 @@ export function DecisionDialog({
           </div>
 
           <section className="min-h-0 overflow-y-auto border-t bg-muted/20 sm:border-t-0">
-            <div className="border-b px-4 py-3">
-              <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-                Email preview
-              </p>
-              <p className="mt-1 text-[13px] font-semibold">{preview.subject}</p>
-            </div>
-            <div className="whitespace-pre-wrap px-4 py-3 text-[13px] leading-6">
-              {preview.text}
-            </div>
-            {submissions.length > 1 || (first?.speakers.length ?? 0) > 1 ? (
-              <p className="border-t px-4 py-3 text-[11px] leading-4 text-muted-foreground">
-                Previewing the first recipient. A separate personalized message is sent to every
-                recipient.
-              </p>
-            ) : null}
+            {sendEmail ? (
+              <>
+                <div className="border-b px-4 py-3">
+                  <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                    Email preview
+                  </p>
+                  <p className="mt-1 text-[13px] font-semibold">{preview.subject}</p>
+                </div>
+                <div className="whitespace-pre-wrap px-4 py-3 text-[13px] leading-6">
+                  {preview.text}
+                </div>
+                {submissions.length > 1 ? (
+                  <p className="border-t px-4 py-3 text-[11px] leading-4 text-muted-foreground">
+                    Previewing the first submitter. A separate personalized message is sent for
+                    every submission.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="flex min-h-48 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+                Turn on “Also send” to preview the decision email.
+              </div>
+            )}
           </section>
         </div>
 
@@ -231,7 +264,11 @@ export function DecisionDialog({
             disabled={submitting || (replacingDecision && !confirmRedecide)}
             onClick={() => void submit()}
           >
-            {submitting ? "Applying…" : `${decision === "accept" ? "Accept" : "Decline"} and send`}
+            {submitting
+              ? sendEmail
+                ? "Applying and sending…"
+                : "Applying…"
+              : `${decision === "accept" ? "Accept" : "Decline"}${sendEmail ? " and send" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

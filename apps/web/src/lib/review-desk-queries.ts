@@ -16,6 +16,12 @@ export const reviewDeskListQuery = (eventId: string) =>
     queryKey: qk.reviewDesk(eventId),
     queryFn: () => getReviewDeskList({ data: { eventId } }),
     staleTime: 30_000,
+    refetchInterval: (query) => {
+      const result = query.state.data;
+      return result?.ok && result.data.mailStatus.queued + result.data.mailStatus.sending > 0
+        ? 1_000
+        : false;
+    },
   });
 
 export const sessionListQuery = (eventId: string) =>

@@ -14,6 +14,17 @@
   // */15 resets the demo sandbox; the hourly cron sends task reminders.
   "triggers": { "crons": ["*/15 * * * *", "0 * * * *"] },
   "send_email": [{ "name": "EMAIL" }],
+  "queues": {
+    "producers": [{ "binding": "MAIL_QUEUE", "queue": "opensesh-mail" }],
+    "consumers": [
+      {
+        "queue": "opensesh-mail",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+      },
+    ],
+  },
   "r2_buckets": [
     {
       "binding": "FILES",

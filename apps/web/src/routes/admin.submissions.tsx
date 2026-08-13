@@ -12,6 +12,7 @@ const parseStatus = (value: unknown): SubmissionStatusFilter => {
   if (
     value === "pending" ||
     value === "maybe" ||
+    value === "to_inform" ||
     value === "accepted" ||
     value === "declined" ||
     value === "withdrawn" ||
