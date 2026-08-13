@@ -61,7 +61,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | SPK-S2 | Speaker completes onboarding in the portal | Complete | `093`–`101`; scoped portal, accepted session, persisted portal bio/headshot, tasks 2/3 complete |
 | SPK-S3 | Organizer tracks progress and sends bulk communications | Complete | `102`–`109`; synced portal profile/file/tasks, 5-recipient resolved campaign, persisted travel notes |
 | CNT-S1 | Organizer sets up content collection | Complete | `110`–`113`; two distinct sessions, two one-upload-per-session requirements, all outstanding |
-| CNT-S2 | Speaker uploads and versions a deliverable | Pending | — |
+| CNT-S2 | Speaker uploads and versions a deliverable | Complete | `114`–`120`; exact constraints, two `slides.pdf` versions with current marker, comment, headshot outstanding, admin redirect and speaker scope |
 | CNT-S3 | Organizer tracks, reviews, approves, and exports | Pending | — |
 | AIA-S1 | Build agenda structure, place sessions, trigger and resolve conflicts | Pending | — |
 | AIA-S2 | Auto-schedule assist and publish the agenda | Pending | — |
@@ -219,6 +219,18 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - As with other create flows, the successful requirement toast left the empty state visible until a full reload; persistence was correct.
 - No console errors or warnings appeared during the scenario.
 - Evidence: `110-cnt-s1-two-distinct-sessions.png` through `113-cnt-s1-presentation-assignment-rows.png`. Every file was written and size-verified in this run.
+
+### CNT-S2 — Speaker uploads and versions a deliverable
+
+- Signed in as the isolated Round 03 Priya identity and opened portal Tasks. The Session files section listed both Round 03 requirements with their instructions, exact deadlines, and Outstanding status: presentation due May 1, 2027 and print-quality headshot due Apr 14, 2027.
+- Expanded Upload Session Presentation. The product exposed the exact configured constraints before selection: `Accepted: .pdf · Maximum: 50 MB`.
+- Used the visible product Upload control and the browser file-chooser event to select the prescribed `slides.pdf` fixture. The mutation completed without a manual save step; task progress moved from 2 of 5 to 3 of 5, the requirement changed to Uploaded, and the version list showed `slides.pdf · Current`, Priya Raman · Speaker, date, and size.
+- Added the exact comment `Draft deck - final version coming Friday.` and verified it persisted in the file thread under Priya Raman · Speaker.
+- Used the visible Replace control and the same browser file-chooser path to upload `slides.pdf` again. The version list then contained two separate `slides.pdf` entries and marked only the newest row Current. The comment remained attached to the file thread.
+- Deliberately left Upload Final Headshot (print quality) Outstanding. Portal home summarized `1 of 2 files uploaded` for SESS-1 and named the headshot as the next due item.
+- Navigated directly to `/admin` while still signed in as Priya. The product redirected to `/portal` and exposed no organizer surface. My Sessions contained only Priya's accepted SESS-1; the Marcus-only manual SESS-4 and Dana Kowalski were absent.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `114-cnt-s2-portal-deliverables-before.png` through `120-cnt-s2-speaker-scope.png`. Every file was written and size-verified in this run.
 
 ## Issues discovered
 
