@@ -246,7 +246,7 @@ export function SubmissionDetail({
               title={`Preview of ${decisionPreview.subject}`}
               sandbox=""
               srcDoc={decisionPreview.html}
-              className="h-[380px] w-full bg-white"
+              className="h-[460px] w-full bg-white"
             />
           </section>
         )}

@@ -143,7 +143,7 @@ export function DecisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(48rem,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
+      <DialogContent className="flex max-h-[min(56rem,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
         <DialogHeader className="m-0 shrink-0 gap-1 border-b px-5 py-4 pr-12">
           <DialogTitle className="text-base">
             Decide {submissions.length === 1 ? first?.code : `${submissions.length} submissions`}
@@ -227,7 +227,7 @@ export function DecisionDialog({
             ) : null}
           </div>
 
-          <section className="min-h-0 overflow-y-auto border-t bg-muted/20 sm:border-t-0">
+          <section className="flex min-h-0 flex-col overflow-y-auto border-t bg-muted/20 sm:border-t-0">
             {sendEmail ? (
               <>
                 <div className="border-b px-4 py-3">
@@ -240,7 +240,7 @@ export function DecisionDialog({
                   title={`Preview of ${preview.subject}`}
                   sandbox=""
                   srcDoc={preview.html}
-                  className="h-[420px] w-full bg-white"
+                  className="min-h-[480px] w-full flex-1 bg-white"
                 />
                 {submissions.length > 1 ? (
                   <p className="border-t px-4 py-3 text-[11px] leading-4 text-muted-foreground">

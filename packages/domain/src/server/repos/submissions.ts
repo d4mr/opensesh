@@ -1,4 +1,4 @@
-import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import {
@@ -123,6 +123,8 @@ export interface DashboardStats {
   readonly acceptedUnscheduled: number;
   /** Overlapping accepted sessions sharing a room. */
   readonly conflicts: number;
+  /** Decided (accepted/declined) CFP submissions whose decision email has not been sent. */
+  readonly decisionsUnsent: number;
   readonly cfpCloseDate: Date | null;
   /** Counts that derive the program-lifecycle guide on Overview. */
   readonly lifecycle: {
@@ -333,6 +335,7 @@ export const SubmissionsLive = Layer.effect(
                 tasksTotal: 0,
                 tasksComplete: 0,
                 notified: 0,
+                decisionsUnsent: 0,
                 agendaPublished: false,
               };
               if (event === undefined) return empty;
@@ -346,6 +349,7 @@ export const SubmissionsLive = Layer.effect(
                 widgetCount,
                 taskTotals,
                 notifiedCount,
+                decisionsUnsentCount,
               ] = await Promise.all([
                 value(
                   db
@@ -400,6 +404,22 @@ export const SubmissionsLive = Layer.effect(
                     )
                     .execute(),
                 ),
+                // Same informability rule as the To inform tab: manual
+                // sessions have no submitter and no decision to send.
+                value(
+                  db
+                    .select({ value: count() })
+                    .from(submissions)
+                    .where(
+                      and(
+                        eq(submissions.eventId, event.id),
+                        inArray(submissions.status, ["accepted", "declined"]),
+                        isNull(submissions.notifiedAt),
+                        isNotNull(submissions.submitterContactId),
+                      ),
+                    )
+                    .execute(),
+                ),
               ]);
               return {
                 tracks: trackCount,
@@ -410,6 +430,7 @@ export const SubmissionsLive = Layer.effect(
                 tasksTotal: Number(taskTotals[0]?.total ?? 0),
                 tasksComplete: Number(taskTotals[0]?.complete ?? 0),
                 notified: notifiedCount,
+                decisionsUnsent: decisionsUnsentCount,
                 agendaPublished: event.agendaPublishedAt !== null,
               };
             }),
@@ -563,6 +584,7 @@ export const SubmissionsLive = Layer.effect(
                   scheduled: scheduledSessions.length,
                   acceptedUnscheduled: accepted - scheduledSessions.length,
                   conflicts,
+                  decisionsUnsent: lifecycleCounts.decisionsUnsent,
                   cfpCloseDate:
                     openCloseDates.length === 0
                       ? null

@@ -33,6 +33,13 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
       destructive: false,
     },
     {
+      count: stats.decisionsUnsent,
+      one: "decision not yet sent to its submitter",
+      many: "decisions not yet sent to their submitters",
+      section: "to_inform",
+      destructive: false,
+    },
+    {
       count: stats.acceptedUnscheduled,
       one: "accepted session not yet scheduled",
       many: "accepted sessions not yet scheduled",
@@ -110,7 +117,12 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
                     key={item.label}
                     to="/admin/submissions"
                     search={{
-                      status: item.section === "submissions" ? "draft" : "all",
+                      status:
+                        item.section === "to_inform"
+                          ? "to_inform"
+                          : item.section === "submissions"
+                            ? "draft"
+                            : "all",
                       spotlight: undefined,
                     }}
                     className={className}
