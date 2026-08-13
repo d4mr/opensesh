@@ -2,11 +2,11 @@ import type { FormFieldDefinition } from "@opensesh/domain";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  ChevronDownIcon,
   ChevronRightIcon,
   CircleCheckIcon,
   CircleDashedIcon,
   CircleDotIcon,
+  CircleMinusIcon,
   DownloadIcon,
   ExternalLinkIcon,
   FileArchiveIcon,
@@ -18,7 +18,7 @@ import {
   PencilIcon,
   SendIcon,
 } from "lucide-react";
-import { Fragment, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { RichText } from "@/components/forms/rich-text";
@@ -39,6 +39,7 @@ import {
   zonedDateTimeIso,
 } from "@/components/forms/datetime-picker";
 import { SpeakerPickerDialog } from "@/components/admin/speaker-picker-dialog";
+import { DetailSection } from "@/components/review-desk/submission-detail";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { FileThread } from "@/components/portal/file-thread";
@@ -183,6 +184,8 @@ function PortalAdminData({
         timezone={timezone}
         data={portal.data.data}
         fileRequestId={fileRequestId}
+        spotlightId={spotlightId}
+        onSpotlightChange={onSpotlightChange}
       />
     );
   if (section === "portal-forms")
@@ -207,18 +210,27 @@ function AdminTasks({
   timezone,
   data,
   fileRequestId,
+  spotlightId,
+  onSpotlightChange,
 }: {
   readonly eventId: string;
   readonly timezone: string;
   readonly data: AdminData;
   readonly fileRequestId: string | undefined;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
 }) {
   const queryClient = useQueryClient();
   const [drawer, setDrawer] = useState(fileRequestId !== undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [outstandingOnly, setOutstandingOnly] = useState(true);
   const [taskTemplateId, setTaskTemplateId] = useState("any");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // A spotlighted speaker lives on the assignments tab; opening one (incl.
+  // from a URL) lands there, and leaving the tab closes the spotlight.
+  const [tab, setTab] = useState(spotlightId === undefined ? "templates" : "assignments");
   const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<ReadonlySet<string>>(new Set());
   const refresh = () => invalidateAfterMutation(queryClient, eventId);
@@ -320,7 +332,10 @@ function AdminTasks({
     );
   const speakerPages = usePagination(speakers, {
     resetKey: `${String(outstandingOnly)}:${taskTemplateId}`,
+    spotlightId,
+    getId: (row) => row.contact.id,
   });
+  const spotlightRow = speakers.find((row) => row.contact.id === spotlightId);
   const open = (id: string | null) => {
     setEditingId(id);
     setDrawer(true);
@@ -333,271 +348,260 @@ function AdminTasks({
   const selectedReminderIds = outstandingIds.filter((id) => selectedSpeakerIds.has(id));
 
   return (
-    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
-      <div className="flex shrink-0 items-end justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Tasks</h1>
-          <p className="text-xs text-muted-foreground">
-            Templates and real-time speaker readiness.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => open(null)}>
-          <PlusIcon /> Add task
-        </Button>
-      </div>
-      <Tabs defaultValue="templates" className="flex min-h-0 flex-1 flex-col">
-        <TabsList variant="line">
-          <TabsTrigger value="templates">Templates ({templateRows.length})</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments board</TabsTrigger>
-        </TabsList>
-        <TabsContent value="templates" className="min-h-0 flex-1 overflow-y-auto pt-3">
-          {templateRows.length === 0 ? (
-            <AdminEmptyState
-              icon={ListTodoIcon}
-              title="Create your first speaker task"
-              description="Define one reusable onboarding step, then assign it to speakers."
-              action={
-                <Button size="sm" className="pressable" onClick={() => open(null)}>
-                  <PlusIcon /> Add task
-                </Button>
-              }
-            />
-          ) : (
-            <div className="max-w-4xl divide-y overflow-hidden rounded-lg border">
-              {templateRows.map((row) => (
-                <button
-                  key={row.template.id}
-                  type="button"
-                  className="pressable flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
-                  onClick={() => open(row.template.id)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{row.template.title}</span>
-                      <Badge variant="outline" className="capitalize">
-                        {row.template.scope}
-                      </Badge>
-                      {row.template.autoAssignOnAccept ? (
-                        <Badge variant="secondary">Auto-assign</Badge>
-                      ) : null}
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {row.form?.name ?? row.fileRequest?.title ?? "Manual completion"}
-                    </p>
-                  </div>
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {row.done.length}/{row.assigned.length} done
-                  </span>
-                </button>
-              ))}
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
+      <SpotlightLayout
+        spotlightId={spotlightId}
+        orderedIds={speakers.map((row) => row.contact.id)}
+        onSpotlightChange={onSpotlightChange}
+        clearFilters={() => {
+          setOutstandingOnly(false);
+          setTaskTemplateId("any");
+        }}
+        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+          <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-6">
+            <div className="flex shrink-0 items-end justify-between">
+              <div>
+                <h1 className="text-lg font-semibold">Tasks</h1>
+                <p className="text-xs text-muted-foreground">
+                  Templates and real-time speaker readiness.
+                </p>
+              </div>
+              <Button size="sm" onClick={() => open(null)}>
+                <PlusIcon /> Add task
+              </Button>
             </div>
-          )}
-        </TabsContent>
-        <TabsContent value="assignments" className="flex min-h-0 flex-1 flex-col pt-3">
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
-                <Checkbox
-                  checked={outstandingOnly}
-                  onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
-                />
-                <FilterIcon className="size-3.5" /> Has outstanding
-              </label>
-              <Select value={taskTemplateId} onValueChange={setTaskTemplateId}>
-                <SelectTrigger size="sm" className="w-44 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Any task</SelectItem>
-                  {data.templates.map((row) => (
-                    <SelectItem key={row.template.id} value={row.template.id}>
-                      {row.template.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
-                <Checkbox
-                  checked={
-                    allOutstandingSelected
-                      ? true
-                      : outstandingIds.some((id) => selectedSpeakerIds.has(id))
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={(checked) =>
-                    setSelectedSpeakerIds(checked === true ? new Set(outstandingIds) : new Set())
-                  }
-                />
-                Select outstanding
-              </label>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={remind.isPending || selectedReminderIds.length === 0}
-              onClick={() => {
-                remind.mutate({ contactIds: selectedReminderIds, ids: selectedReminderIds });
+            <Tabs
+              value={spotlightId === undefined ? tab : "assignments"}
+              onValueChange={(value) => {
+                setTab(value);
+                if (value === "templates" && spotlightId !== undefined)
+                  onSpotlightChange(undefined, { replace: true, keyboard: false });
               }}
+              className="flex min-h-0 flex-1 flex-col"
             >
-              <SendIcon />
-              {remind.isPending
-                ? "Sending…"
-                : `Send ${selectedReminderIds.length} reminder${selectedReminderIds.length === 1 ? "" : "s"}`}
-            </Button>
-          </div>
-          <TableShell
-            footer={
-              <PaginationFooter
-                page={speakerPages.page}
-                pageSize={speakerPages.pageSize}
-                total={speakers.length}
-                onPageChange={speakerPages.setPage}
-              />
-            }
-          >
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-9">
-                    <span className="sr-only">Select</span>
-                  </TableHead>
-                  <TableHead>Speaker</TableHead>
-                  <TableHead>Dietary</TableHead>
-                  <TableHead>T-shirt</TableHead>
-                  <TableHead className="text-right">Outstanding</TableHead>
-                  <TableHead className="text-right">Done</TableHead>
-                  <TableHead className="w-28 text-right">Reminder</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {speakerPages.pageItems.map((row) => (
-                  <Fragment key={row.contact.id}>
-                    <TableRow
-                      className="cursor-pointer"
-                      onClick={() =>
-                        setExpanded(expanded === row.contact.id ? null : row.contact.id)
-                      }
-                    >
-                      <TableCell className="w-9">
-                        <Checkbox
-                          aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
-                          checked={selectedSpeakerIds.has(row.contact.id)}
-                          disabled={row.outstanding === 0}
-                          onClick={(event) => event.stopPropagation()}
-                          onCheckedChange={(checked) =>
-                            setSelectedSpeakerIds((current) => {
-                              const next = new Set(current);
-                              if (checked === true) next.add(row.contact.id);
-                              else next.delete(row.contact.id);
-                              return next;
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <ChevronDownIcon
-                            className={`size-3.5 ${expanded === row.contact.id ? "rotate-180" : ""}`}
-                          />
-                          <SpeakerBadge person={personFor(data, row.contact)} />
+              <TabsList variant="line">
+                <TabsTrigger value="templates">Templates ({templateRows.length})</TabsTrigger>
+                <TabsTrigger value="assignments">Assignments board</TabsTrigger>
+              </TabsList>
+              <TabsContent value="templates" className="min-h-0 flex-1 overflow-y-auto pt-3">
+                {templateRows.length === 0 ? (
+                  <AdminEmptyState
+                    icon={ListTodoIcon}
+                    title="Create your first speaker task"
+                    description="Define one reusable onboarding step, then assign it to speakers."
+                    action={
+                      <Button size="sm" className="pressable" onClick={() => open(null)}>
+                        <PlusIcon /> Add task
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <div className="max-w-4xl divide-y overflow-hidden rounded-lg border">
+                    {templateRows.map((row) => (
+                      <button
+                        key={row.template.id}
+                        type="button"
+                        className="pressable flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
+                        onClick={() => open(row.template.id)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{row.template.title}</span>
+                            <Badge variant="outline" className="capitalize">
+                              {row.template.scope}
+                            </Badge>
+                            {row.template.autoAssignOnAccept ? (
+                              <Badge variant="secondary">Auto-assign</Badge>
+                            ) : null}
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {row.form?.name ?? row.fileRequest?.title ?? "Manual completion"}
+                          </p>
                         </div>
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {row.contact.dietaryRequirements.replace("_", "-")}
-                      </TableCell>
-                      <TableCell>{row.contact.tshirtSize ?? "—"}</TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        {row.outstanding}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{row.done}</TableCell>
-                      <TableCell className="text-right">
-                        {row.outstanding === 0 ? null : (
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            disabled={reminded.has(row.contact.id)}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              remind.mutate({
-                                contactIds: [row.contact.id],
-                                ids: [row.contact.id],
-                              });
-                            }}
-                          >
-                            <SendIcon />
-                            {reminded.has(row.contact.id) ? "Queued" : "Remind"}
-                          </Button>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {row.done.length}/{row.assigned.length} done
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="assignments" className="flex min-h-0 flex-1 flex-col pt-3">
+                <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                      <Checkbox
+                        checked={outstandingOnly}
+                        onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
+                      />
+                      <FilterIcon className="size-3.5" /> Has outstanding
+                    </label>
+                    <Select value={taskTemplateId} onValueChange={setTaskTemplateId}>
+                      <SelectTrigger size="sm" className="w-44 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any task</SelectItem>
+                        {data.templates.map((row) => (
+                          <SelectItem key={row.template.id} value={row.template.id}>
+                            {row.template.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                      <Checkbox
+                        checked={
+                          allOutstandingSelected
+                            ? true
+                            : outstandingIds.some((id) => selectedSpeakerIds.has(id))
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={(checked) =>
+                          setSelectedSpeakerIds(
+                            checked === true ? new Set(outstandingIds) : new Set(),
+                          )
+                        }
+                      />
+                      Select outstanding
+                    </label>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={remind.isPending || selectedReminderIds.length === 0}
+                    onClick={() => {
+                      remind.mutate({ contactIds: selectedReminderIds, ids: selectedReminderIds });
+                    }}
+                  >
+                    <SendIcon />
+                    {remind.isPending
+                      ? "Sending…"
+                      : `Send ${selectedReminderIds.length} reminder${selectedReminderIds.length === 1 ? "" : "s"}`}
+                  </Button>
+                </div>
+                <TableShell
+                  scrollRef={scrollRef}
+                  footer={
+                    <PaginationFooter
+                      page={speakerPages.page}
+                      pageSize={speakerPages.pageSize}
+                      total={speakers.length}
+                      onPageChange={speakerPages.setPage}
+                    />
+                  }
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-9">
+                          <span className="sr-only">Select</span>
+                        </TableHead>
+                        <TableHead>Speaker</TableHead>
+                        {compact ? null : <TableHead>Dietary</TableHead>}
+                        {compact ? null : <TableHead>T-shirt</TableHead>}
+                        <TableHead className="text-right">Outstanding</TableHead>
+                        {compact ? null : <TableHead className="text-right">Done</TableHead>}
+                        {compact ? null : (
+                          <TableHead className="w-28 text-right">Reminder</TableHead>
                         )}
-                      </TableCell>
-                    </TableRow>
-                    {expanded === row.contact.id ? (
-                      <TableRow key={`${row.contact.id}-details`}>
-                        <TableCell colSpan={7} className="bg-muted/20 p-3">
-                          <div className="grid max-w-4xl gap-0 border-y">
-                            {row.assignments.map((assignment) => (
-                              <div
-                                key={assignment.assignment.id}
-                                className="flex items-center justify-between border-b bg-background px-2.5 py-1.5 text-xs last:border-b-0"
-                              >
-                                <span>
-                                  {assignment.template.title}
-                                  {assignment.submission === null
-                                    ? ""
-                                    : ` · ${assignment.submission.code}`}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <Badge
-                                    variant={
-                                      assignment.assignment.status === "todo"
-                                        ? "outline"
-                                        : "secondary"
-                                    }
-                                    className="capitalize"
-                                  >
-                                    {assignment.assignment.status}
-                                  </Badge>
-                                  {assignment.assignment.status === "todo" ? (
-                                    <Button
-                                      size="xs"
-                                      variant="outline"
-                                      onClick={() => waive.mutate(assignment.assignment.id)}
-                                    >
-                                      Waive
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-2 px-2.5 py-1.5">
-                              <span className="text-xs text-muted-foreground">Manual assign:</span>
-                              {data.templates.map((template) => (
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {speakerPages.pageItems.map((row) => (
+                        <TableRow
+                          key={row.contact.id}
+                          ref={rowRef(row.contact.id)}
+                          className={cn("h-9 cursor-pointer", rowClassName(row.contact.id))}
+                          onClick={() => openSpotlight(row.contact.id)}
+                        >
+                          <TableCell className="w-9">
+                            <Checkbox
+                              aria-label={`Select ${row.contact.firstName} ${row.contact.lastName}`}
+                              checked={selectedSpeakerIds.has(row.contact.id)}
+                              disabled={row.outstanding === 0}
+                              onClick={(event) => event.stopPropagation()}
+                              onCheckedChange={(checked) =>
+                                setSelectedSpeakerIds((current) => {
+                                  const next = new Set(current);
+                                  if (checked === true) next.add(row.contact.id);
+                                  else next.delete(row.contact.id);
+                                  return next;
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="h-9 py-1.5">
+                            <SpeakerBadge person={personFor(data, row.contact)} />
+                          </TableCell>
+                          {compact ? null : (
+                            <TableCell className="capitalize">
+                              {row.contact.dietaryRequirements.replace("_", "-")}
+                            </TableCell>
+                          )}
+                          {compact ? null : <TableCell>{row.contact.tshirtSize ?? "—"}</TableCell>}
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {row.outstanding}
+                          </TableCell>
+                          {compact ? null : (
+                            <TableCell className="text-right tabular-nums">{row.done}</TableCell>
+                          )}
+                          {compact ? null : (
+                            <TableCell className="text-right">
+                              {row.outstanding === 0 ? null : (
                                 <Button
-                                  key={template.template.id}
                                   size="xs"
                                   variant="outline"
-                                  onClick={() =>
-                                    assign.mutate({
-                                      taskTemplateId: template.template.id,
-                                      contactId: row.contact.id,
-                                    })
-                                  }
+                                  disabled={reminded.has(row.contact.id)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    remind.mutate({
+                                      contactIds: [row.contact.id],
+                                      ids: [row.contact.id],
+                                    });
+                                  }}
                                 >
-                                  {template.template.title}
+                                  <SendIcon />
+                                  {reminded.has(row.contact.id) ? "Queued" : "Remind"}
                                 </Button>
-                              ))}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </Fragment>
-                ))}
-              </TableBody>
-            </Table>
-          </TableShell>
-        </TabsContent>
-      </Tabs>
+                              )}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableShell>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+        panel={
+          spotlightRow === undefined ? null : (
+            <TaskSpeakerPeek
+              data={data}
+              timezone={timezone}
+              row={spotlightRow}
+              reminded={reminded.has(spotlightRow.contact.id)}
+              remindPending={remind.isPending}
+              onRemind={() =>
+                remind.mutate({
+                  contactIds: [spotlightRow.contact.id],
+                  ids: [spotlightRow.contact.id],
+                })
+              }
+              waivePending={waive.isPending}
+              onWaive={(assignmentId) => waive.mutate(assignmentId)}
+              assignPending={assign.isPending}
+              onAssign={(templateId) =>
+                assign.mutate({ taskTemplateId: templateId, contactId: spotlightRow.contact.id })
+              }
+              onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+            />
+          )
+        }
+      />
       {/* Mounted on demand so the form re-seeds from scratch each open — the
           always-mounted variant kept the previous task's fields alive. */}
       {drawer ? (
@@ -612,6 +616,179 @@ function AdminTasks({
         />
       ) : null}
     </main>
+  );
+}
+
+const taskStatusMeta = {
+  todo: { icon: CircleDotIcon, className: "text-[var(--status-pending)]", label: "Open" },
+  done: { icon: CircleCheckIcon, className: "text-[var(--status-accepted)]", label: "Done" },
+  waived: { icon: CircleMinusIcon, className: "text-muted-foreground", label: "Waived" },
+} as const;
+
+function TaskSpeakerPeek({
+  data,
+  timezone,
+  row,
+  reminded,
+  remindPending,
+  onRemind,
+  waivePending,
+  onWaive,
+  assignPending,
+  onAssign,
+  onClose,
+}: {
+  readonly data: AdminData;
+  readonly timezone: string;
+  readonly row: {
+    readonly contact: AdminData["contacts"][number];
+    readonly assignments: AdminData["assignments"];
+    readonly outstanding: number;
+    readonly done: number;
+  };
+  readonly reminded: boolean;
+  readonly remindPending: boolean;
+  readonly onRemind: () => void;
+  readonly waivePending: boolean;
+  readonly onWaive: (assignmentId: string) => void;
+  readonly assignPending: boolean;
+  readonly onAssign: (taskTemplateId: string) => void;
+  readonly onClose: () => void;
+}) {
+  const unassigned = data.templates.filter(
+    (template) =>
+      template.template.scope === "contact" &&
+      !row.assignments.some((item) => item.template.id === template.template.id),
+  );
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <SpotlightPanelHeader
+        identity={<SpeakerBadge person={personFor(data, row.contact)} />}
+        status={
+          row.outstanding === 0 ? (
+            <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-[var(--status-accepted)]">
+              All done
+            </span>
+          ) : (
+            <span className="rounded-sm border px-1 py-px text-[10px] font-normal text-muted-foreground tabular-nums">
+              {row.outstanding} open
+            </span>
+          )
+        }
+        actions={
+          <div className="flex items-center gap-1">
+            {row.outstanding === 0 ? null : (
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                className="pressable"
+                disabled={reminded || remindPending}
+                onClick={onRemind}
+              >
+                <SendIcon /> {reminded ? "Queued" : "Remind"}
+              </Button>
+            )}
+            <Button type="button" size="icon-sm" variant="ghost" className="pressable" asChild>
+              <Link
+                to="/admin/speakers"
+                search={{ spotlight: row.contact.id }}
+                aria-label="Open speaker profile"
+              >
+                <ExternalLinkIcon />
+              </Link>
+            </Button>
+          </div>
+        }
+        onClose={onClose}
+      />
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 pb-16">
+        <DetailSection
+          title={`Tasks (${row.done}/${row.assignments.length} done)`}
+          className="divide-y"
+        >
+          {row.assignments.length === 0 ? (
+            <p className="px-3 py-2.5 text-xs text-muted-foreground">No tasks assigned yet.</p>
+          ) : (
+            row.assignments.map((item) => {
+              const meta = taskStatusMeta[item.assignment.status];
+              const due =
+                item.template.dueDate === null
+                  ? null
+                  : `Due ${formatDateTime(new Date(item.template.dueDate).toISOString(), timezone)}`;
+              return (
+                <div key={item.assignment.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                  <meta.icon className={cn("size-3.5 shrink-0", meta.className)} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{item.template.title}</p>
+                    {item.submission === null && due === null ? null : (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {item.submission === null ? null : (
+                          <span className="font-mono tabular-nums">{item.submission.code}</span>
+                        )}
+                        {item.submission !== null && due !== null ? " · " : null}
+                        {due}
+                      </p>
+                    )}
+                  </div>
+                  {item.assignment.status === "todo" ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      className="pressable text-muted-foreground"
+                      disabled={waivePending}
+                      onClick={() => onWaive(item.assignment.id)}
+                    >
+                      Waive
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{meta.label}</span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </DetailSection>
+        <DetailSection title="Assign a task" className="p-3">
+          {unassigned.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Every task is already assigned.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {unassigned.map((template) => (
+                <Button
+                  key={template.template.id}
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  className="pressable"
+                  disabled={assignPending}
+                  onClick={() => onAssign(template.template.id)}
+                >
+                  <PlusIcon /> {template.template.title}
+                </Button>
+              ))}
+            </div>
+          )}
+        </DetailSection>
+        <DetailSection title="Profile" className="divide-y">
+          <div className="flex items-center justify-between gap-3 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Email</span>
+            <span className="truncate text-xs">{row.contact.email}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-3 py-2">
+            <span className="text-xs text-muted-foreground">Dietary</span>
+            <span className="text-xs capitalize">
+              {row.contact.dietaryRequirements.replace("_", "-")}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-3 py-2">
+            <span className="text-xs text-muted-foreground">T-shirt</span>
+            <span className="text-xs">{row.contact.tshirtSize ?? "—"}</span>
+          </div>
+        </DetailSection>
+      </div>
+    </div>
   );
 }
 

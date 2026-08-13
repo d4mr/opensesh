@@ -565,7 +565,8 @@ function EmptyRow({ children }: { readonly children: React.ReactNode }) {
 
 // Dense section shell: h-9 muted header strip instead of CardHeader, whose
 // [.border-b]:pb-6 variant inflates any bordered header past what py-* can fix.
-function DetailSection({
+// Shared spotlight-panel surface — the tasks board's speaker peek uses it too.
+export function DetailSection({
   title,
   className,
   children,
