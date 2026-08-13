@@ -26,16 +26,18 @@ explicitly; campaigns are *sent* from the composer and *read* from the list.
 
 ## Page anatomy
 
-Two levels. `/admin/communications` gains `tab` (campaigns | reminders |
-templates) and keeps `spotlight` (used by the Templates tab's editor).
-`/admin/communications/$campaignId` is the campaign's own page with a
+Three route states. `/admin/communications` gains `tab` (campaigns |
+reminders | templates) and keeps `spotlight` (used by the Templates tab's
+editor). `/admin/communications/new` is the composer.
+`/admin/communications/$campaignId` is a sent campaign's page with a
 `spotlight` param for its recipients. Header on the index: title + subtitle,
-primary CTA **New campaign**.
+primary CTA **New campaign** → `/new`.
 
 The navigation principle: lists of objects live at the top level; an object
 whose detail is itself a collection gets a page; a spotlight only ever holds
 one element's detail. Communications → campaign → recipient is three honest
-levels, not one page with everything folded in.
+levels, not one page with everything folded in — and creating a campaign is
+just the `new` state of the same hierarchy, not a modal floating over it.
 
 ### Stat cards (always visible, above the tabs)
 
@@ -46,7 +48,7 @@ is a click-through. The four cards are the four communication verbs:
 | Card | Value | Detail / zero state | Tone | Goes to |
 | --- | --- | --- | --- | --- |
 | Decisions to send | acceptedNotInformed + declinedNotInformed | "3 acceptances · 1 decline" / "Every decision delivered" | pending amber when >0, green check at 0 | Submissions → To inform |
-| Awaiting confirmation | informed ∧ unconfirmed speakers | "Nudge them with a campaign" / "Every informed speaker confirmed" | pending / ok | opens composer preset to `awaiting_confirmation` |
+| Awaiting confirmation | informed ∧ unconfirmed speakers | "Nudge them with a campaign" / "Every informed speaker confirmed" | pending / ok | `/new?audience=awaiting_confirmation` |
 | Tasks due soon | todo assignments due within the reminder window | "Due within N days" / "Nothing due in the window" | pending / ok | Reminders tab |
 | Outbox | queued + sending while active, else sent total | "2 sending · 12 queued" / "All delivered · N sent" · failed badged destructive | live / ok / destructive | /admin/emails |
 
@@ -91,18 +93,35 @@ The app's deeper-nav pattern (`/admin/submissions/$id`,
 Reads come from the existing `CommunicationCenter.campaigns` payload (find by
 id; the route loader ensures the same query) — no new server reads.
 
-### Composer (dialog, decision-dialog anatomy)
+### Composer — `/admin/communications/new`
 
-- Left rail (18rem): Audience select (segments with live counts, grouped
-  Speakers / Submitters; "Selected speakers" opens SpeakerPickerDialog),
-  Template select (prefills subject/body; "Custom message"), Subject, Message
-  (markdown) with merge-token chips, recipient count.
-- Right: the **real rendered email** — `outreach({ eventName, logoUrl,
+A page, not a dialog. The dialog anatomy fits confirm-and-send moments
+attached to an existing object (decide, inform, cancel); composing a campaign
+is authoring a new object from nothing — the page's primary creative act —
+and it inherits the send dialogs' two-pane anatomy at page scale:
+
+- Left rail: Audience select (segments with live counts, grouped Speakers /
+  Submitters; "Selected speakers" opens SpeakerPickerDialog), Template select
+  (prefills subject/body; "Custom message"), Subject, Message (markdown) with
+  merge-token chips, recipient count.
+- Right pane: the **real rendered email** — `outreach({ eventName, logoUrl,
   subject: resolved, bodyHtml: freeformToHtml(resolvedBody) })` in a sandboxed
-  iframe (min-h 480, flex-1), with a recipient switcher so resolution is
-  previewed per person. Same anatomy as the decision/cancel dialogs.
-- Footer: Cancel · **Send to N**. On send: close, land on Campaigns tab with
-  the new row showing live delivery.
+  iframe, with a recipient switcher so resolution is previewed per person.
+- Footer bar: Back to Communications · **Send to N**. On send:
+  replace-navigate to the new campaign's page and watch delivery tick.
+
+Entry points all funnel here, carried in the URL so prefills are
+deterministic:
+
+- **New campaign** (index header) → `/new`.
+- **Use as new campaign** (campaign page) → `/new?from=‹campaignId›`,
+  prefilled from the snapshot.
+- **Awaiting confirmation** stat card → `/new?audience=awaiting_confirmation`.
+
+No server-side drafts — sending stays one explicit act and the `draft`
+campaign status stays unused. Instead the composer persists its state locally
+per event (localStorage), so navigating away never eats a half-written
+campaign; sending or discarding clears it.
 
 ### Reminders tab
 
@@ -157,8 +176,10 @@ ReminderSettings card, the expandable history rows, TemplateDialog, and the
 
 1. Landing on Communications reads state in one glance: four cards with
    correct counts, tones, and click-throughs; zero states are affirmative.
-2. "New campaign" is the only composer entry; sending records a campaign and
-   the Campaigns row shows live delivery until the queue drains.
+2. Every compose entry (header CTA, stat card, "Use as new campaign") lands
+   on `/new` with its prefill in the URL; sending replace-navigates to the
+   campaign's page, which shows live delivery until the queue drains; a
+   half-written campaign survives navigation via local persistence.
 3. Clicking a campaign navigates to its page: delivery chips, recipient
    table, and a per-recipient spotlight showing that person's delivery facts
    and their exact rendered email; "Use as new campaign" prefills the
