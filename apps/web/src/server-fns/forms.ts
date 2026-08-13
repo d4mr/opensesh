@@ -36,7 +36,7 @@ export const createForm = createServerFn({ method: "POST" })
           collectParticipants: true,
           status: "open",
           welcomeHeading: "Welcome",
-          welcomeMessage: "<p>Tell us what you would like to share.</p>",
+          welcomeMessage: "Tell us what you would like to share.",
           showWelcome: true,
           abstractSection: {
             title: "Your session",
@@ -55,11 +55,11 @@ export const createForm = createServerFn({ method: "POST" })
           closeDate: null,
           submissionLimit: null,
           allowMultipleDrafts: false,
-          successMessage: "<p>Thank you. Your submission has been received.</p>",
+          successMessage: "Thank you. Your submission has been received.",
           autoRedirectPortal: false,
           confirmationEmailEnabled: true,
           confirmationEmailBody:
-            "<p>Hi {{name}}, we received {{title}}. Manage it at {{portal_link}}.</p>",
+            "Hi {{name}}, we received {{title}}. Manage it at {{portal_link}}.",
           adminAlertUserIds: [],
         });
         yield* forms.replaceFields(form.id, [
