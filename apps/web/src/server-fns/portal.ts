@@ -1,8 +1,6 @@
 import {
   AdminFilesExportRequest,
-  AdminHeadshotUploadRequest,
   AdminSessionContentRequest,
-  AdminSpeakerProfileRequest,
   buildZip,
   AdminAssignmentRequest,
   ContentReviewRequest,
@@ -188,79 +186,6 @@ export const updateAdminSessionContent = createServerFn({ method: "POST" })
       { require: "staff" },
     ),
   );
-
-export const updateAdminSpeakerProfile = createServerFn({ method: "POST" })
-  .validator(Schema.toStandardSchemaV1(AdminSpeakerProfileRequest))
-  .handler(async ({ data }) =>
-    runServer(
-      Effect.gen(function* () {
-        const { user } = yield* requireAdminEvent(data.eventId);
-        const portal = yield* Portal;
-        return yield* portal.editAdminProfile(
-          data.eventId,
-          { userId: user.userId, name: user.name },
-          data.contactId,
-          data.bio,
-        );
-      }),
-      { require: "staff" },
-    ),
-  );
-
-export const uploadAdminHeadshot = createServerFn({ method: "POST" })
-  .validator(Schema.toStandardSchemaV1(AdminHeadshotUploadRequest))
-  .handler(async ({ data }) => {
-    const { env } = await import("cloudflare:workers");
-    return runServer(
-      Effect.gen(function* () {
-        const { user } = yield* requireAdminEvent(data.eventId);
-        if (data.size > 5 * 1024 * 1024) {
-          return yield* Effect.fail(
-            new InvalidInput({ message: "Headshots must be 5 MB or smaller" }),
-          );
-        }
-        if (data.contentType !== "image/png" && data.contentType !== "image/jpeg") {
-          return yield* Effect.fail(new InvalidInput({ message: "Use a PNG or JPG headshot" }));
-        }
-        const bytes = decodeBase64(data.base64);
-        if (bytes.byteLength !== data.size) {
-          return yield* Effect.fail(
-            new InvalidInput({ message: "The uploaded headshot is incomplete" }),
-          );
-        }
-        const portal = yield* Portal;
-        const prepared = yield* portal.prepareAdminHeadshot(
-          data.eventId,
-          { userId: user.userId, name: user.name },
-          data.contactId,
-        );
-        const storageKey = `${data.contactId}/${prepared.fileUploadId}/${crypto.randomUUID()}`;
-        yield* Effect.tryPromise({
-          try: () =>
-            env.FILES.put(storageKey, bytes, {
-              httpMetadata: {
-                contentType: data.contentType,
-                contentDisposition: `inline; filename="${data.filename.replaceAll('"', "")}"`,
-              },
-            }),
-          catch: (cause) => new DbError({ message: "Could not store the headshot", cause }),
-        });
-        return yield* portal.recordFileVersion({
-          fileUploadId: prepared.fileUploadId,
-          storageKey,
-          filename: data.filename,
-          contentType: data.contentType,
-          size: data.size,
-          uploaderContactId: null,
-          uploaderUserId: prepared.uploaderUserId,
-          headshotContactId: data.contactId,
-          adminApproved: true,
-          completeAssignmentId: null,
-        });
-      }),
-      { require: "staff" },
-    );
-  });
 
 // Seeded upload rows reference `seed/…` keys that have no stored object;
 // serve a deterministic placeholder so demo downloads and exports work.

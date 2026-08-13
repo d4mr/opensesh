@@ -304,12 +304,6 @@ interface PortalService {
     title: string,
     description: string,
   ) => Effect.Effect<Submission, DbError | Forbidden | InvalidInput | NotFound>;
-  readonly editAdminProfile: (
-    eventId: string,
-    actor: PortalActor,
-    contactId: string,
-    bio: string,
-  ) => Effect.Effect<Contact, DbError | Forbidden | NotFound>;
   readonly prepareAdminHeadshot: (
     eventId: string,
     actor: PortalActor,
@@ -1326,45 +1320,6 @@ export const PortalLive = Layer.effect(
             }),
           );
           return yield* decodeFound(Submission, "Session", updatedRows[0]);
-        }),
-      editAdminProfile: (eventId, actor, contactId, bio) =>
-        Effect.gen(function* () {
-          const rows = yield* query(database, "Could not save speaker bio", (db) =>
-            db.transaction(async (transaction) => {
-              const existingRows = await transaction
-                .select()
-                .from(contacts)
-                .where(and(eq(contacts.id, contactId), eq(contacts.eventId, eventId)))
-                .limit(1);
-              const existing = existingRows[0];
-              if (existing === undefined) return [];
-              if ((existing.bio ?? "") === bio) return existingRows;
-              const now = new Date();
-              await transaction.insert(contactEditHistory).values({
-                contactId,
-                authorContactId: null,
-                authorUserId: actor.userId,
-                authorName: actor.name,
-                changedFields: ["bio"],
-                previousValues: { bio: existing.bio },
-                newValues: { bio },
-                approvalStatus: "approved",
-                reviewedAt: now,
-                reviewedByUserId: actor.userId,
-              });
-              return await transaction
-                .update(contacts)
-                .set({
-                  bio,
-                  approvedProfile: { ...approvedBaseline(existing), bio },
-                  profileReviewStatus: "approved",
-                  updatedAt: now,
-                })
-                .where(eq(contacts.id, contactId))
-                .returning();
-            }),
-          );
-          return yield* decodeFound(Contact, "Contact", rows[0]);
         }),
       prepareAdminHeadshot: (eventId, actor, contactId) =>
         Effect.gen(function* () {

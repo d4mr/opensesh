@@ -14,7 +14,7 @@ import {
   SendIcon,
   UploadIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { RichText } from "@/components/forms/rich-text";
@@ -31,13 +31,11 @@ import {
   SpeakerFormDialog,
   pipelineLabels,
 } from "@/components/admin/speaker-admin-dialogs";
-import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { PaginationFooter, usePagination } from "@/components/ui/pagination";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -57,14 +55,12 @@ import {
 import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { describeChangedFields, profileDiffRows } from "@/lib/content-diff";
-import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
+import { dataUrlForVersion, downloadVersion } from "@/lib/files";
 import { cn } from "@/lib/utils";
 import { speakerDirectoryQuery } from "@/lib/widget-queries";
 import {
   approveProfileChange,
   rejectProfileChange,
-  updateAdminSpeakerProfile,
-  uploadAdminHeadshot,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
 import { inviteSpeakerPortals } from "@/server-fns/speaker-comms";
@@ -775,13 +771,7 @@ function Directory({
                       </div>
                     </section>
                   )}
-                  <SpeakerProfileEditor
-                    key={selected.contact.id}
-                    eventId={eventId}
-                    timezone={timezone}
-                    row={selected}
-                    refresh={refresh}
-                  />
+                  <SpeakerProfileHistory timezone={timezone} row={selected} />
                   <section>
                     <SectionLabel>Profile readiness</SectionLabel>
                     <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
@@ -1125,152 +1115,21 @@ function ProfileReadiness({ row }: { readonly row: SpeakerDirectoryRow }) {
 const formatBytes = (size: number) =>
   size < 1024 ? `${size} B` : `${Math.max(1, Math.round(size / 1024))} KB`;
 
-function SpeakerProfileEditor({
-  eventId,
+// Read-only: profile edits (bio, headshot, logistics) all go through the
+// Edit speaker dialog — the spotlight only shows what changed and when.
+function SpeakerProfileHistory({
   timezone,
   row,
-  refresh,
 }: {
-  readonly eventId: string;
   readonly timezone: string;
   readonly row: SpeakerDirectoryRow;
-  readonly refresh: () => Promise<unknown>;
 }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState(row.contact.bio ?? "");
-  const [bioError, setBioError] = useState<string>();
-  const [headshotError, setHeadshotError] = useState<string>();
-  const saveBio = useMutation({
-    mutationFn: () =>
-      updateAdminSpeakerProfile({
-        data: { eventId, contactId: row.contact.id, bio },
-      }),
-    onSuccess: async (result) => {
-      if (!result.ok) {
-        setBioError(result.error.message);
-        return;
-      }
-      setEditing(false);
-      setBioError(undefined);
-      toast.success(`${row.contact.firstName}'s bio saved and approved`);
-      await refresh();
-    },
-  });
-  const replaceHeadshot = useMutation({
-    mutationFn: async (file: File) =>
-      uploadAdminHeadshot({
-        data: {
-          eventId,
-          contactId: row.contact.id,
-          filename: file.name,
-          contentType: file.type,
-          size: file.size,
-          base64: await fileAsBase64(file),
-        },
-      }),
-    onSuccess: async (result) => {
-      if (!result.ok) {
-        setHeadshotError(result.error.message);
-        return;
-      }
-      setHeadshotError(undefined);
-      toast.success(`${row.contact.firstName}'s headshot replaced and approved`);
-      await refresh();
-    },
-  });
   const history = [...row.profileChanges].sort(
     (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
   );
-
   return (
     <section>
       <div className="flex items-center justify-between gap-2">
-        <SectionLabel>Profile</SectionLabel>
-        {editing ? null : (
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            className="pressable"
-            onClick={() => setEditing(true)}
-          >
-            <PencilIcon /> Edit
-          </Button>
-        )}
-      </div>
-      {editing ? (
-        <div className="mt-2 grid gap-3 rounded-lg border p-3">
-          <div className="grid gap-1.5">
-            <Label>Bio</Label>
-            <RichTextEditor value={bio} onChange={setBio} />
-          </div>
-          {bioError === undefined ? null : (
-            <p className="text-xs text-destructive" role="alert">
-              {bioError}
-            </p>
-          )}
-          <div className="grid gap-1">
-            <Label>Headshot</Label>
-            <p className="text-[11px] text-muted-foreground">
-              Accepted: PNG or JPG · Maximum: 5 MB
-            </p>
-            <input
-              ref={input}
-              type="file"
-              accept="image/png,image/jpeg"
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file !== undefined) {
-                  setHeadshotError(undefined);
-                  replaceHeadshot.mutate(file);
-                }
-                event.target.value = "";
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="pressable mt-1 w-fit"
-              disabled={replaceHeadshot.isPending}
-              onClick={() => input.current?.click()}
-            >
-              <UploadIcon />
-              {replaceHeadshot.isPending ? "Uploading…" : "Replace headshot"}
-            </Button>
-            {headshotError === undefined ? null : (
-              <p className="text-xs text-destructive" role="alert">
-                {headshotError}
-              </p>
-            )}
-          </div>
-          <div className="flex justify-end gap-2 border-t pt-3">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setBio(row.contact.bio ?? "");
-                setBioError(undefined);
-                setEditing(false);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={saveBio.isPending}
-              onClick={() => saveBio.mutate()}
-            >
-              {saveBio.isPending ? "Saving…" : "Save bio"}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      <div className="mt-3 flex items-center justify-between gap-2">
         <SectionLabel>Profile history</SectionLabel>
         <span className="text-[11px] text-muted-foreground tabular-nums">
           {history.length} version{history.length === 1 ? "" : "s"}

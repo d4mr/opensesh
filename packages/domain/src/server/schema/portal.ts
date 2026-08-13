@@ -333,19 +333,6 @@ export const AdminSessionContentRequest = Schema.Struct({
   title: Schema.String,
   description: Schema.String,
 });
-export const AdminSpeakerProfileRequest = Schema.Struct({
-  eventId: Schema.String,
-  contactId: Schema.String,
-  bio: Schema.String,
-});
-export const AdminHeadshotUploadRequest = Schema.Struct({
-  eventId: Schema.String,
-  contactId: Schema.String,
-  filename: Schema.String,
-  contentType: Schema.String,
-  size: Schema.Number,
-  base64: Schema.String,
-});
 export const AdminFilesExportRequest = Schema.Struct({
   eventId: Schema.String,
   uploadIds: Schema.Array(Schema.String),
