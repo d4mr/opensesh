@@ -62,7 +62,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | SPK-S3 | Organizer tracks progress and sends bulk communications | Complete | `102`–`109`; synced portal profile/file/tasks, 5-recipient resolved campaign, persisted travel notes |
 | CNT-S1 | Organizer sets up content collection | Complete | `110`–`113`; two distinct sessions, two one-upload-per-session requirements, all outstanding |
 | CNT-S2 | Speaker uploads and versions a deliverable | Complete | `114`–`120`; exact constraints, two `slides.pdf` versions with current marker, comment, headshot outstanding, admin redirect and speaker scope |
-| CNT-S3 | Organizer tracks, reviews, approves, and exports | Pending | — |
+| CNT-S3 | Organizer tracks, reviews, approves, and exports | Complete | `121`–`138`; dashboard/filter/reminders, file metadata/thread, content history+restore, profile edit, approval split, ZIP ready, title cleanup |
 | AIA-S1 | Build agenda structure, place sessions, trigger and resolve conflicts | Pending | — |
 | AIA-S2 | Auto-schedule assist and publish the agenda | Pending | — |
 | EMB-S1 | Non-admin tour of the four browse widgets | Pending | — |
@@ -232,6 +232,20 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `114-cnt-s2-portal-deliverables-before.png` through `120-cnt-s2-speaker-scope.png`. Every file was written and size-verified in this run.
 
+### CNT-S3 — Organizer tracks, reviews, approves, and exports
+
+- Signed in as the isolated Round 03 organizer and opened the central Files dashboard. Its five records accurately included the SESS-1 `slides.pdf` upload with Priya and Marcus, Aug 12 upload date, Uploaded status, and version count 2; the SESS-4 presentation remained Outstanding; both session headshot slots remained Outstanding; Priya's separate profile `headshot.png` appeared as an uploaded profile file.
+- Applied the Outstanding filter. The visible set changed from five records to the three outstanding session slots and exposed `Remind outstanding (4)`. Triggering it produced the explicit confirmation `Queued 4 reminders`.
+- Opened `slides.pdf`. The organizer detail showed exact deliverable constraints, SESS-1 and both speakers, two individually downloadable versions with only the newest marked Current, and Priya's exact timestamped comment. Replied `Thanks - please confirm the final version by Tuesday.` and verified both roles in the same thread.
+- Edited SESS-1 through Content: prefixed the title with `UPDATED: ` and appended `This session now includes a live demo of remote build caching.`. Save and approve persisted both fields, produced a Jordan-attributed history entry, and updated the Content list. Reopened the session, appended `Attendees should bring a laptop.`, and saved a second distinct Jordan revision.
+- Content history then showed three versions including two distinct Jordan Alvarez entries with timestamps. Expanded the version immediately before the second edit, inspected its title/description diff, and restored it. The restored current abstract retained the live-demo sentence and no longer contained the laptop sentence; the product added another attributed approved version rather than deleting history.
+- Edited Priya's organizer-side profile. Appended `Priya leads the developer-productivity group at Latticework Systems.` and saved; replaced the headshot with the exact `headshot.png` fixture through the visible product control. A clean reload showed the full appended biography, Headshot Present, Approved, six history entries, the current visual avatar/file, and confirmation `Priya's headshot replaced and approved` during the mutation.
+- Captured the approval gate side by side: SESS-1 Approved and SESS-4 Awaiting approval. No public agenda or widget exists yet in this isolated event—the Widgets surface explicitly showed `Publish your first widget`—so public-output verification is deferred exactly as permitted to the agenda/public-widget scenarios. No fixture state from another run was used.
+- Selected both currently uploaded files (`slides.pdf` and profile `headshot.png`) in Files and opened Export ZIP. The dialog explicitly said only the latest version of each of the two selected files would be included, offered grouping by Session code, and moved to `Ready · 2 latest versions` with a Download ZIP control. The ZIP was not downloaded or inspected. No share-link action was present.
+- Final cleanup restored the exact canonical title `Taming 40-Minute CI: Incremental Builds at Monorepo Scale` while retaining the restored live-demo abstract. The Content list showed the canonical title Approved and SESS-4 Awaiting approval.
+- The browser diagnostic log was empty at scenario completion; no console errors or warnings were observed.
+- Evidence: `121-cnt-s3-files-unfiltered.png` through `138-cnt-s3-title-restored.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -256,6 +270,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 20. **Task progress lacks a complete-only filter.** The assignment board's default `Has outstanding` filter and task-name selector are useful, but there is no inverse or explicit status filter for completed assignments. Mixed totals are visible at list level, so core progress tracking passes; the requested complete-only slice cannot be produced.
 21. **Creating sessions and deliverable requirements leaves stale list/empty state until reload.** Saving SESS-4 returned to a one-session table; saving the first requirement returned to `Create your first deliverable`. Both new records appeared correctly after reload. This repeats the product-wide stale-success pattern and invites duplicate creation.
 22. **Deliverable reminder counts mix session slots and speaker associations.** Each one-upload-per-session requirement correctly shows `0 of 2 sessions uploaded`, while its action says `Remind outstanding (3)` because SESS-1 has two speakers and SESS-4 has one. The differing denominators are defensible internally but unexplained in the UI and look inconsistent to an organizer.
+23. **The file dashboard cannot express the rubric's per-speaker-per-task state because requirements are session-level.** The SESS-1 presentation row becomes Uploaded for both Priya and co-presenter Marcus after Priya uploads once, while Marcus separately has an Outstanding SESS-4 presentation row. Filtering Outstanding produced three session slots but `Remind outstanding (4)` because reminder recipients are counted per speaker association, not as unique people or visible rows. The data is internally consistent with one upload per session, but the dashboard and reminder count make it hard to answer the organizer's simpler question: which individual speaker still owes which file?
 
 ## Score
 
