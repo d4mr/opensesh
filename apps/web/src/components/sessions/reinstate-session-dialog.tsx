@@ -96,34 +96,38 @@ export function ReinstateSessionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Reinstate {session.code}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="flex max-h-[min(48rem,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
+        <DialogHeader className="m-0 shrink-0 gap-1 border-b px-5 py-4 pr-12">
+          <DialogTitle className="text-base">Reinstate {session.code}</DialogTitle>
+          <DialogDescription className="max-w-3xl">
             The session returns to the program{scheduled ? ", takes its slot back," : ""} and the
             tasks waived by the cancellation reopen.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="reinstate-message">Personal message</Label>
-              <Textarea
-                id="reinstate-message"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Optional context for the speakers"
-                className="min-h-24 resize-none text-sm"
-              />
-            </div>
-            <Label className="flex items-start gap-2 rounded-md border p-2 text-xs font-normal">
+        <div className="grid min-h-0 flex-1 sm:grid-cols-[18rem_minmax(0,1fr)]">
+          <div className="min-h-0 space-y-4 overflow-y-auto p-4 sm:border-r">
+            <Label className="flex items-start gap-2 rounded-md border p-2 text-xs leading-4 font-normal">
               <Checkbox
                 checked={notifySpeakers}
                 onCheckedChange={(checked) => setNotifySpeakers(checked === true)}
               />
               Email the speakers
             </Label>
+            {notifySpeakers ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="reinstate-message" className="text-xs">
+                  Personal message
+                </Label>
+                <Textarea
+                  id="reinstate-message"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder="Optional context for the speakers"
+                  className="min-h-24 resize-none px-2.5 py-2 text-[13px] leading-5"
+                />
+              </div>
+            ) : null}
             {scheduled ? (
               <p className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
                 Scheduled <Timestamp value={session.startsAt ?? new Date()} timezone={timezone} />
@@ -134,32 +138,41 @@ export function ReinstateSessionDialog({
             ) : null}
           </div>
 
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs font-medium text-muted-foreground">Email preview</p>
+          <section className="min-h-0 overflow-y-auto border-t bg-muted/20 sm:border-t-0">
             {notifySpeakers ? (
               <>
-                <p className="mt-2 text-sm font-semibold">{preview.subject}</p>
-                <div className="mt-3 whitespace-pre-wrap text-sm leading-6">{preview.text}</div>
+                <div className="border-b px-4 py-3">
+                  <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                    Email preview
+                  </p>
+                  <p className="mt-1 text-[13px] font-semibold">{preview.subject}</p>
+                </div>
+                <iframe
+                  title={`Preview of ${preview.subject}`}
+                  sandbox=""
+                  srcDoc={preview.html}
+                  className="h-[420px] w-full bg-white"
+                />
                 {session.speakers.length > 1 ? (
-                  <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
+                  <p className="border-t px-4 py-3 text-[11px] leading-4 text-muted-foreground">
                     Previewing the first recipient. A separate personalized message is sent to every
                     speaker.
                   </p>
                 ) : null}
               </>
             ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <div className="flex min-h-48 items-center justify-center p-8 text-center text-sm text-muted-foreground">
                 No email will be sent — the session quietly returns to the program.
-              </p>
+              </div>
             )}
-          </div>
+          </section>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="m-0 shrink-0 border-t bg-background px-5 py-3">
+          <Button size="sm" variant="outline" onClick={() => onOpenChange(false)}>
             Keep cancelled
           </Button>
-          <Button disabled={submitting} onClick={() => void submit()}>
+          <Button size="sm" disabled={submitting} onClick={() => void submit()}>
             {submitting ? "Reinstating…" : "Reinstate session"}
           </Button>
         </DialogFooter>

@@ -236,9 +236,12 @@ export function DecisionDialog({
                   </p>
                   <p className="mt-1 text-[13px] font-semibold">{preview.subject}</p>
                 </div>
-                <div className="whitespace-pre-wrap px-4 py-3 text-[13px] leading-6">
-                  {preview.text}
-                </div>
+                <iframe
+                  title={`Preview of ${preview.subject}`}
+                  sandbox=""
+                  srcDoc={preview.html}
+                  className="h-[420px] w-full bg-white"
+                />
                 {submissions.length > 1 ? (
                   <p className="border-t px-4 py-3 text-[11px] leading-4 text-muted-foreground">
                     Previewing the first submitter. A separate personalized message is sent for
