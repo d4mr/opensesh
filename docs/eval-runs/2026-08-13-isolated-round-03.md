@@ -60,7 +60,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Complete | `081`–`092`; isolated Priya confirmed, fixture CSV imported, three tasks assigned to isolated Priya/Marcus, invite logged |
 | SPK-S2 | Speaker completes onboarding in the portal | Complete | `093`–`101`; scoped portal, accepted session, persisted portal bio/headshot, tasks 2/3 complete |
 | SPK-S3 | Organizer tracks progress and sends bulk communications | Complete | `102`–`109`; synced portal profile/file/tasks, 5-recipient resolved campaign, persisted travel notes |
-| CNT-S1 | Organizer sets up content collection | Pending | — |
+| CNT-S1 | Organizer sets up content collection | Complete | `110`–`113`; two distinct sessions, two one-upload-per-session requirements, all outstanding |
 | CNT-S2 | Speaker uploads and versions a deliverable | Pending | — |
 | CNT-S3 | Organizer tracks, reviews, approves, and exports | Pending | — |
 | AIA-S1 | Build agenda structure, place sessions, trigger and resolve conflicts | Pending | — |
@@ -208,6 +208,18 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `102-spk-s3-organizer-profile-sync-file.png` through `109-spk-s3-travel-notes-persisted.png`. Every file was written and size-verified in this run.
 
+### CNT-S1 — Organizer sets up content collection
+
+- Reused Round 03 `SESS-1 Taming 40-Minute CI: Incremental Builds at Monorepo Scale` for Priya. Created a distinct new manual accepted session `SESS-4 Lightning: Agents in Production Q&A`, Lightning Talk, AI Engineering, assigned specifically to the isolated Marcus email. Reloaded Sessions and verified both session rows; SESS-4 was correctly labeled Manual with Marcus as its only speaker.
+- No separate enable-file-uploads toggle was exposed in Sessions settings, Deliverables, or Files. Upload capability is always available through Deliverables requirements.
+- Created session requirement `Upload Session Presentation` with exact instructions `Final slide deck as a PDF, 16:9 aspect ratio.`, due May 1, 2027 at 9:00 AM PDT, one upload per session, `.pdf`, 50 MB. Captured the completely filled form before save.
+- Created session requirement `Upload Final Headshot (print quality)` due Apr 14, 2027 at 9:00 AM PDT, one upload per session, `.png,.jpg,.jpeg`, 10 MB.
+- After reload, Deliverables showed both requirements, their dates/types/limits, and `0 of 2 sessions uploaded`. Files filtered to the presentation requirement showed exactly two session rows: SESS-1 associated with Priya and co-presenter Marcus, and SESS-4 associated with Marcus; both Outstanding with zero versions.
+- The requirement cards report `Remind outstanding (3)` even though they report two session uploads outstanding. This reflects the chained SESS-1 co-presenter plus SESS-4 speaker. The one-upload-per-session dashboard still has exactly the required two session slots per deliverable; Marcus can see content for both sessions because he is legitimately attached to both within this Round 03 chain.
+- As with other create flows, the successful requirement toast left the empty state visible until a full reload; persistence was correct.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `110-cnt-s1-two-distinct-sessions.png` through `113-cnt-s1-presentation-assignment-rows.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -230,6 +242,8 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 18. **The communications `{talk_title}` token resolves blank for a speaker with a linked accepted session.** Priya's per-recipient preview resolved her name, event, and portal path, but rendered `Your session is .` even though `SESS-1` is linked in both her organizer record and My Sessions. This makes an advertised merge field unsafe for real campaigns.
 19. **Profile approval state becomes internally contradictory after an organizer logistics edit.** Priya's portal update produced two same-time pending-review versions and an Awaiting your review comparison. Saving unrelated travel notes then added an approved organizer version and changed Profile approval to Approved, while the Awaiting your review block and Approve/Reject controls remained visible. The organizer cannot tell whether the portal change is still pending or was implicitly approved.
 20. **Task progress lacks a complete-only filter.** The assignment board's default `Has outstanding` filter and task-name selector are useful, but there is no inverse or explicit status filter for completed assignments. Mixed totals are visible at list level, so core progress tracking passes; the requested complete-only slice cannot be produced.
+21. **Creating sessions and deliverable requirements leaves stale list/empty state until reload.** Saving SESS-4 returned to a one-session table; saving the first requirement returned to `Create your first deliverable`. Both new records appeared correctly after reload. This repeats the product-wide stale-success pattern and invites duplicate creation.
+22. **Deliverable reminder counts mix session slots and speaker associations.** Each one-upload-per-session requirement correctly shows `0 of 2 sessions uploaded`, while its action says `Remind outstanding (3)` because SESS-1 has two speakers and SESS-4 has one. The differing denominators are defensible internally but unexplained in the UI and look inconsistent to an organizer.
 
 ## Score
 
