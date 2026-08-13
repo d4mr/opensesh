@@ -70,6 +70,11 @@ flow, because a speaker landing from a conference site has exactly one job.
   outlined block.
 - **Overline labels** for list sections: `text-[11px] font-medium uppercase
   tracking-wider text-muted-foreground`.
+- **Timezone chip** — any surface that states or edits times shows
+  `<TimezoneChip timezone={…} />` (components/app/timezone-chip.tsx): the
+  datetime-picker-style abbreviation chip whose tooltip names the IANA zone
+  and points to Event Settings. Next to the label or header meta line, never
+  inside an input.
 - **Form dialogs mount on demand** — `{open ? <SomeDialog open … /> : null}`.
   A closed dialog holds no state: every open re-seeds its `useState`
   initializers from current data. Never keep a stateful form dialog mounted

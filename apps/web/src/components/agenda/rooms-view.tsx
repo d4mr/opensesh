@@ -30,6 +30,7 @@ import {
 } from "react";
 
 import { PersonHoverCard } from "@/components/app/person-popover";
+import { TimezoneChip } from "@/components/app/timezone-chip";
 import { RichText } from "@/components/forms/rich-text";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { Button } from "@/components/ui/button";
@@ -523,7 +524,9 @@ export function RoomsView({
           <div className="flex h-11 items-center justify-between border-b px-3">
             <div>
               <p className="text-sm font-medium">{formatLongDay(day)}</p>
-              <p className="text-[11px] text-muted-foreground">8:00 AM–7:00 PM · 15-minute grid</p>
+              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                8:00 AM–7:00 PM · 15-minute grid <TimezoneChip timezone={timezone} />
+              </p>
             </div>
             <ToggleGroup
               type="single"

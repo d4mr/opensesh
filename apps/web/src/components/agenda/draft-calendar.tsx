@@ -1,6 +1,7 @@
 import type { AgendaAdminData, AgendaDraftPlacement, AgendaSession } from "@opensesh/domain";
 import { useMemo, useState } from "react";
 
+import { TimezoneChip } from "@/components/app/timezone-chip";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import {
@@ -63,8 +64,9 @@ export function DraftCalendar({
       <div className="flex h-11 items-center justify-between gap-4 border-b px-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{formatLongDay(day)}</p>
-          <p className="text-[11px] text-muted-foreground">
-            Proposed schedule · changed sessions are highlighted
+          <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            Proposed schedule · changed sessions are highlighted{" "}
+            <TimezoneChip timezone={timezone} />
           </p>
         </div>
         <ToggleGroup

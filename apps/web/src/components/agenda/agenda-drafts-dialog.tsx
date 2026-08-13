@@ -22,6 +22,7 @@ import {
 import { useState } from "react";
 
 import { Timestamp } from "@/components/app/timestamp";
+import { TimezoneChip } from "@/components/app/timezone-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -328,9 +329,12 @@ function CriteriaForm({
           <form.Field name="criteria.dayStartMinutes">
             {(field) => (
               <div className="space-y-1.5">
-                <Label htmlFor={field.name} className="text-xs">
-                  First session starts
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={field.name} className="text-xs">
+                    First session starts
+                  </Label>
+                  <TimezoneChip timezone={agenda.event.timezone} />
+                </div>
                 <Select
                   value={String(field.state.value ?? CANVAS_START)}
                   onValueChange={(value) => {
@@ -362,9 +366,12 @@ function CriteriaForm({
           <form.Field name="criteria.dayEndMinutes">
             {(field) => (
               <div className="space-y-1.5">
-                <Label htmlFor={field.name} className="text-xs">
-                  Last session ends by
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={field.name} className="text-xs">
+                    Last session ends by
+                  </Label>
+                  <TimezoneChip timezone={agenda.event.timezone} />
+                </div>
                 <Select
                   value={String(field.state.value ?? CANVAS_END)}
                   onValueChange={(value) => {
