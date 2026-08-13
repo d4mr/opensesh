@@ -1,10 +1,11 @@
 # Production Evaluation — Isolated Round 03
 
-Status: **IN PROGRESS**  
-Started: 2026-08-13  
-Application: https://app.opensesh.io  
-Production Worker version: `66c6ceba-a1ed-4a23-90ee-2fa8c5ca481e`  
-Git revision: `f4bd513`  
+Status: **COMPLETE — FROZEN READ-ONLY RUN**
+Started: 2026-08-13
+Completed: 2026-08-13
+Application: https://app.opensesh.io
+Production Worker version: `66c6ceba-a1ed-4a23-90ee-2fa8c5ca481e`
+Git revision: `f4bd513`
 Eval definition baseline: `killmysaas-evals@8109958`
 
 ## Isolation contract
@@ -27,7 +28,7 @@ This is a sealed evaluation run.
 | Speaker 1 | Priya Raman — `sbek-speaker+r03-20260813-001@example.com` | Created in Round 03 |
 | Speaker 2 | Marcus Okafor — `sbek-speaker2+r03-20260813-001@example.com` | Added as a Round 03 co-presenter |
 | Reviewer | Sam Whitfield — `sbek-reviewer+r03-20260813-001@example.com` | Created in Round 03 |
-| Attendee | Alex Attendee — `alex.attendee+r03-20260813-001@example.com` | Pending |
+| Attendee | Anonymous non-admin browser state | Verified across all public surfaces; no account required |
 | Organization | `DevFlow Eval R03 20260813-001` | Created in Round 03 |
 | Event | `DevFlow Conf 2027` | Created in Round 03 |
 | Event slug / ID | `devflow-conf-2027-3` / form `O37jjey2KkezEeX6Rb4xd` | Created in Round 03 |
@@ -45,6 +46,8 @@ For each material step, record:
 5. Any prerequisite the fixture did not provide, including missing speaker-detail values.
 
 No workaround is silent. If a scenario requires extra setup, an unexpected navigation, a retry, a persona impersonation, or data outside the fixture, it is recorded as friction and considered during scoring.
+
+User direction changed the evidence protocol after AIA-S2: do not spend further time on screenshots. EMB-S1 through CRM-S2 therefore use contemporaneous written observations, exact values/URLs, persisted-state checks, and browser diagnostics only. Earlier evidence remains untouched.
 
 ## Scenario ledger
 
@@ -65,11 +68,11 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | CNT-S3 | Organizer tracks, reviews, approves, and exports | Complete | `121`–`138`; dashboard/filter/reminders, file metadata/thread, content history+restore, profile edit, approval split, ZIP ready, title cleanup |
 | AIA-S1 | Build agenda structure, place sessions, trigger and resolve conflicts | Complete | `139`–`149`; four rooms, four schedulable sessions, speaker+room conflicts, live clear, persisted final list |
 | AIA-S2 | Auto-schedule assist and publish the agenda | Complete | `150`–`157`; reviewable AI draft auto-placed SESS-4, explicit accept, publish confirmation, complete public agenda |
-| EMB-S1 | Non-admin tour of the four browse widgets | Pending | — |
-| EMB-S2 | Schedule itinerary browsing and personal-schedule building | Pending | — |
-| EMB-S3 | Organizer embed generation, snippet retrieval and data consistency | Pending | — |
-| CRM-S1 | Build and organize the speaker database | Pending | — |
-| CRM-S2 | Source a speaker through the pipeline and reuse across events | Pending | — |
+| EMB-S1 | Non-admin tour of the four browse widgets | Complete | Anonymous Sessions, Speakers, Agenda, and Speaker Gallery; written observations only per user direction |
+| EMB-S2 | Schedule itinerary browsing and personal-schedule building | Complete | Two selections, exact personal view, reload persistence, removal, and ICS download confirmation |
+| EMB-S3 | Organizer embed generation, snippet retrieval and data consistency | Complete | Saved `R03 Platform Sessions` widget; live filtered iframe, share URL, JSON, and ICS endpoints |
+| CRM-S1 | Build and organize the speaker database | Complete | Three fixture contacts, search/filter/segment, persistent note/tag/custom field, CSV update import, duplicate merge |
+| CRM-S2 | Source a speaker through the pipeline and reuse across events | Complete | Six-stage board, persistent Marcus moves/note/history, bulk personalized campaign, populated overview; event handoff only partial |
 
 ## Working log
 
@@ -271,6 +274,64 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - The browser diagnostic log was empty; no console errors or warnings were observed.
 - Evidence: `150-aia-s2-ai-drafts-control.png` through `157-aia-s2-public-agenda-day2.png`. Every file was written and size-verified in this run.
 
+### EMB-S1 — Anonymous public program tour
+
+- Signed out completely and loaded the public event surfaces anonymously. Sessions, Speakers, Agenda, Itinerary, and Speaker Gallery all rendered outside organizer UI with no account gate.
+- Sessions showed all four approved/published sessions with codes, dates/times, rooms, speakers, job titles, companies, track/format chips, descriptions, and in-place Show more/Show less controls where a description existed. SESS-4, created manually without a description, necessarily had no description or expansion control.
+- Search `Taming` narrowed Sessions to 1 of 4 by title. Search `Raman` narrowed it to Priya's three sessions by speaker name. Combining `Raman` with the Platform & Infra facet narrowed it to SESS-1. Track, Format, and Room facets were all visible and the active-filter count updated.
+- Speakers rendered two public program speakers in surname order: Marcus Okafor and Priya Raman. Search `Priya` narrowed the list to 1 of 2. Priya's detail opened in place with photo, title/company, biography, and all three sessions with exact times and rooms.
+- Speaker Gallery rendered the same two people as visual cards, gracefully falling back to initials for Marcus's missing headshot. Priya's gallery detail contained the same photo, biography, and exact three-session list, and closed back to the intact grid.
+- Agenda rendered three May 12 sessions chronologically and one May 13 session. Day navigation changed the visible set. Opening SESS-1 displayed its complete 10:00–10:30 AM range, Room 2A, Platform & Infra, Talk, description, Priya, Marcus, and Close control.
+- SESS-1 was consistent everywhere: exact canonical title, May 12 10:00–10:30 AM, Room 2A, Platform & Infra, Talk, Priya Raman and Marcus Okafor. Priya's name/title/company were also identical between list, gallery, session card, and agenda detail.
+- Per user direction, screenshot capture stopped after AIA-S2. Evidence for EMB and CRM is this contemporaneous durable written log plus the exact recorded product URLs and values.
+- Browser diagnostic log remained empty.
+
+### EMB-S2 — Itinerary and personal schedule
+
+- From the anonymous Sessions surface, added SESS-1 and SESS-2 to My Schedule. Itinerary immediately reported `My Schedule (2)` while retaining an All sessions view.
+- Itinerary grouped all four sessions chronologically under Wednesday, May 12 and Thursday, May 13. Cards showed code, full date/time, room, all speakers with title/company, track, format, description, and expansion controls.
+- `My Schedule (2)` contained exactly SESS-1 and SESS-2. A full page reload retained both the selected view and both selections, proving browser persistence.
+- Removed SESS-2; the count changed to `My Schedule (1)` and only SESS-1 remained.
+- Export ICS produced the explicit notification `Downloaded devflow-conf-2027-3-my-schedule.ics`. The file contents were not independently opened or parsed in this run.
+- Browser diagnostic log remained empty.
+
+### EMB-S3 — Saved widget and embed generation
+
+- Returned as the isolated Round 03 organizer and opened Widgets. The first Add widget action briefly disabled both empty-state buttons while the empty state remained visible; after the asynchronous create completed, the editor appeared.
+- The editor offered Sessions as the default view; Track, Format, Day, and Tag filters; Auto theme; 12-hour time; primary color; visible-field controls for company, title, bio, description, level, format, and calendar; custom CSS with documented stable class hooks; and an enabled switch.
+- Named the widget `R03 Platform Sessions` and selected only Platform & Infra. The live iframe immediately narrowed from four sessions to exactly SESS-1 with organizer-source title, speakers, room, time, track, format, and description intact.
+- Generated and recorded the exact share URL:
+  `https://app.opensesh.io/embed/nsWXu2sb6XLYpP0d_jZ1A?view=sessions&theme=auto&color=default&time=12h&tracks=49lpntaO6SGewTN0ke2Sl&formats=&days=&tags=&company=1&title=1&bio=1&description=1&level=1&format=1&calendar=1`
+- Generated iframe snippet:
+  `<iframe src="https://app.opensesh.io/embed/nsWXu2sb6XLYpP0d_jZ1A?view=sessions&theme=auto&color=default&time=12h&tracks=49lpntaO6SGewTN0ke2Sl&formats=&days=&tags=&company=1&title=1&bio=1&description=1&level=1&format=1&calendar=1" title="R03 Platform Sessions" width="100%" height="640" style="border:0" loading="lazy"></iframe>`
+- JSON feed: `https://app.opensesh.io/embed/nsWXu2sb6XLYpP0d_jZ1A/json`. Calendar feed: `https://app.opensesh.io/embed/nsWXu2sb6XLYpP0d_jZ1A/ics`.
+- Loaded the public share URL directly; it rendered exactly one Platform & Infra session with the same data as the live editor and public program. Returning to Widgets after navigation showed the saved `R03 Platform Sessions` card enabled and retrievable.
+- Browser diagnostic log remained empty.
+
+### CRM-S1 — Organization speaker database
+
+- The organization-level Speaker CRM was reachable from the Organization navigation above all event-program modules. Tabs were Directory, Pipeline, Segments, and Overview.
+- The fresh CRM empty state exposed only Add contact; Import CSV was absent until at least one contact existed. To continue without silently borrowing event-level records, manually created the three exact `speakers.csv` contacts: Priya Raman, Marcus Okafor, and Dana Kowalski.
+- Three rapid successful creates produced three success toasts but immediately rendered only two contacts; reload corrected the directory to 3 of 3. Name, email, title, and company were visible for every row.
+- Search `Priya` narrowed to 1 of 3. Company filter `Latticework Systems` independently narrowed to Priya and Clear filters restored the directory. A second title filter was available.
+- Saved the active company filter as dynamic segment `AI Experts`. Segments showed `AI Experts · Latticework Systems · 1 contacts`; reopening it restored the dynamic-filter banner and Priya member row.
+- Priya's canonical profile exposed identity, tags/custom metadata, events/sessions, internal notes, pipeline, communication history, and activity. Added `Met at DevFlow 2026 - strong on CI topics; shortlist for keynote.` and tag `AI`; reload retained both and added a timestamped Jordan activity entry.
+- Added typed custom metadata `Speaker Type = External`. The editor supports Text, Number, and Yes/no value types rather than a reusable dropdown option set. Reload retained the value and reported 1 custom field.
+- Created same-name/different-email duplicate `Priya Raman / priya.raman.alt@sbek-test.example.com`. Reload surfaced `Review duplicates 1`. The merge dialog allowed choosing the canonical primary, previewed the combined record, warned the duplicate would be removed while preserving notes/tags/event links/custom metadata/pipeline history, and required acknowledgement. The success toast appeared while both rows and count 4 remained stale; reload reduced the directory to the single original Priya and 3 total contacts.
+- Once contacts existed, Import CSV appeared. The native file picker accepted the exact fixture. Mapping auto-selected name/email/title/company/bio, previewed all three rows, and labeled each Update under normalized-email matching. Completion reported 0 Created, 3 Updated, 0 Skipped; the directory remained three deduplicated contacts.
+- Browser diagnostic log remained empty.
+
+### CRM-S2 — Pipeline, outreach, reuse, and overview
+
+- The fresh CRM pipeline had no default stages and rendered no board columns until configuration. Created Researching, Identified, Contacted, Interested as open; Confirmed as won; and Declined as lost. The resulting board had six named lifecycle columns.
+- Enrolled Marcus Okafor into Identified with card note `Score 85 — Strong platform-engineering track record; ideal for Platform & Infra track.` The submission disabled the dialog but left the board at 0 cards until reload; reload showed Marcus in Identified.
+- Moved Marcus to Contacted and then Interested through the Move to menu. The board updated immediately, showed success for both moves, and a full reload retained Marcus in Interested.
+- Marcus detail showed all three timestamped transitions: Not in pipeline → Identified, Identified → Contacted, and Contacted → Interested. Added `Left voicemail 2027-01-15; follow up next week.`; reload retained the note and showed it in both Internal notes and chronological Activity.
+- The chained event already contained a distinct `marcus.speaker@sbek-test.example.com` speaker imported during SPK-S1. CRM used the same email, so DevFlow was excluded from Add to event, yet the CRM profile still reported `0 linked events`; only Forward Summit 2028 was offered. Therefore the requested explicit Marcus → DevFlow handoff could not be demonstrated and no hidden workaround or extra identity was introduced.
+- Selected Dana and Marcus in Directory. `Email selected` opened a two-recipient composer with `{speaker_name}` and `{talk_title}` support and resolved both names in preview. Entered subject `Speak at DevFlow Conf 2027?` and a tokenized invitation body. The only selectable Campaign event was Forward Summit 2028, not DevFlow, for the same current-event/existing-email interaction. Sending reported `Sent 2 personalized emails` and `Campaign sent · 2 recipients`; the record was Demo delivery and was logged under Forward Summit 2028 despite the DevFlow subject/body.
+- Overview accurately reported 3 total contacts, 0 events reached, 1 open, 0 won, 0 lost, 86% profile complete, six-stage distribution, three populated companies, one AI tag, and one campaign. Clicking Cloudreach Labs drilled into a one-contact Marcus directory filter.
+- Browser diagnostic log remained empty.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -299,7 +360,52 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 24. **The agenda's inline Add room button stopped responding to locator/DOM activation after the first room.** The control remained visible, enabled, and correctly labeled, but repeated semantic clicks and keyboard activation did nothing. A normal coordinate-based computer click on the same visible button opened the room-name field and allowed all remaining rooms to be added. This is not a data workaround—the same product UI was used—but it is a serious browser-evaluator trip-up on a required CRUD action.
 25. **Agenda publication does not surface its attendee URL.** Publish succeeds and the status becomes Published, but `Agenda publication options` contains only `Unpublish agenda`; there is no Open public agenda, copy link, or preview action. The attendee route works and is well rendered, but an evaluator has to infer `/e/{eventSlug}/agenda` or discover it elsewhere.
 26. **The agenda does not explain that content approval gates published sessions.** Immediately after publication, the public schedule showed one of four scheduled sessions because only SESS-1 was approved. The builder still said Published and gave no missing-content warning or link to Content. Approving the other three through Content made them appear dynamically, but the separate prerequisite is invisible from the publishing workflow.
+27. **Public attendee pages expose the production Demo roles switcher.** Sessions, Speakers, Agenda, Itinerary, and Speaker Gallery all render a floating `Demo roles` control to anonymous viewers. It does not block the rubric, but it materially undermines production polish and signals a demo environment to judges.
+28. **Internal evaluation sentinels are publicly visible in the speaker biography.** Priya's public list/gallery detail includes `SBEK-ORG-EDIT-01 SBEK-PORTAL-BIO-01`. The public surfaces correctly round-trip organizer and portal edits; the issue is that the evaluation fixture's persistence markers were stored as user content and consequently leak into attendee-facing copy.
+29. **The public program contains only two speaker cards despite the fixture importing three named speakers.** This is internally correct because only Priya and Marcus are assigned to approved published sessions; Dana has no programmed session. It is a fixture/precondition gap worth preserving because a judge expecting three gallery cards may interpret the populated public surface as thin.
+30. **The manually created SESS-4 has no public description or Show more control.** The session CRUD used during the chained agenda/content setup did not require or collect a description, so the card cannot satisfy the Sessions List's per-card description/expansion expectation. The other three proposal-origin sessions do render descriptions and expansion normally.
+31. **Widget creation initially leaves a disabled empty state on screen.** Clicking Add widget disables both Add widget buttons but shows no progress indicator or editor until the asynchronous create finishes. The editor then appears and autosaves correctly. This repeats the product-wide delayed-success ambiguity.
+32. **CRM hides CSV import in the empty state.** A fresh organization CRM exposes only Add contact even though the scenario's primary population path is CSV import. `Import CSV` appears only after at least one contact exists. The evaluator therefore had to manually create fixture contacts before it could test the advertised bulk import.
+33. **Rapid CRM contact creation renders stale rows and counts.** Three successful adds produced three success toasts but immediately showed only two contacts. Reload revealed all three. This is the same stale-success defect seen across library, task, session, deliverable, and content create flows.
+34. **CRM duplicate merge reports success before removing the duplicate from the view.** After confirming the irreversible merge, the toast said `Merged into Priya Raman`, but the table still showed four rows, both Priya records, and `Review duplicates 1`. Reload corrected it to three rows and one Priya. A reasonable evaluator may conclude the destructive merge failed and retry.
+35. **CRM has no default sourcing stages.** The first Pipeline view has zero columns and requires the organizer to invent and configure the entire lifecycle before any contact can be enrolled. The capability is deep once configured, but the empty starting state adds significant setup and product-decision burden compared with a ready-to-use Researching/Identified/Contacted/Interested/Confirmed/Declined pipeline.
+36. **Pipeline enrollment has a stale-success state.** Submitting Marcus disabled Add to pipeline but left the dialog open and the board at `0 cards`; only reload showed the persisted card in Identified. Stage moves themselves updated immediately and persisted correctly.
+37. **CRM does not reconcile an existing event contact into cross-event history.** The event already contained the exact `marcus.speaker@sbek-test.example.com` identity from SPK-S1. CRM correctly prevented adding that email to DevFlow again, but Marcus's canonical CRM profile still reported `0 linked events` and offered only Forward Summit 2028. The organizer sees neither a usable handoff action nor an accurate existing connection.
+38. **CRM campaigns can be forced onto the wrong event context.** Because DevFlow was unavailable in the CRM event picker, the `Speak at DevFlow Conf 2027?` campaign could only be associated with Forward Summit 2028. Personalization and logging worked, but campaign history now says `Forward Summit 2028` under a DevFlow subject. This is a real data-integrity and organizer-trust problem.
+39. **Production email actions are Demo-only, not real delivery.** Confirmation, decision, invitation, reminder, general campaign, and CRM campaign surfaces all provide convincing success/log states, but Email Delivery rows are explicitly `Demo` and no real mailbox delivery is configured. Browser rubrics largely pass; strict manual email-delivery checks fail or receive partial credit.
+40. **CRM custom metadata is per-contact typed key/value data, not a managed reusable field definition.** Text, Number, and Yes/no persist correctly and tags satisfy the rubric, but there is no organization-level dropdown schema with reusable options such as Speaker Type = Internal/External. This is good metadata depth, not full custom-field administration.
+41. **Minor CRM copy polish is unfinished.** The UI renders `1 cards` and `1 contacts` instead of singular grammar. This does not affect functionality but is conspicuous in a judged walkthrough.
+42. **The eval README and current YAML disagree on Public Widgets weight.** README says Public Widgets has 34 item-weight points and required total 182; the loaded `06-public-widgets.yaml` contains 35 points, making the current required total 183. This report scores against the actual pinned YAML while calling out the specification inconsistency.
 
 ## Score
 
-Not scored while the run is in progress.
+### Frozen read-only grade
+
+Two scores are reported because the harness deliberately separates browser evidence from manual side effects:
+
+| Area | Area weight | Browser verdict points | Browser area score | Strict points after manual reality | Strict area score |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Call for Papers | 20 | 38 / 38 judgeable | 100.0% | 36 / 38 | 94.7% |
+| Abstract Management | 20 | 27 / 28 | 96.4% | 25.5 / 28 | 91.1% |
+| Speaker Management | 15 | 31.5 / 33 | 95.5% | 28.5 / 33 | 86.4% |
+| Content Management | 15 | 29.5 / 31 | 95.2% | 27.5 / 31 | 88.7% |
+| AI Agenda | 10 | 18 / 18 | 100.0% | 18 / 18 | 100.0% |
+| Public Widgets | 20 | 35 / 35 | 100.0% | 34.5 / 35 | 98.6% |
+| **Required overall** | **100** | — | **97.9%** | — | **93.1%** |
+| Optional Speaker CRM | +10 | 18 / 19 | 94.7% | 17.5 / 19 | 92.1% |
+
+The **97.9% browser score** reflects what a browser judge can verify from persisted UI, explicit send/export confirmations, and round-trips. The **93.1% strict score** is the honest competition-readiness score: it gives only partial/no credit where real email delivery, downloaded file contents, or exact per-speaker deliverable semantics were not actually proven. Speaker CRM remains optional and does not change the required overall score; on a 10-point bonus interpretation it earns about **9.2 strict bonus points**.
+
+### Exhaustive rubric verdicts
+
+- **CFP:** CFP-01–07, 09–13, 15–18 pass. CFP-08 fails strict manual delivery because production is Demo-only. CFP-14 is partial strict: acceptance/rejection sends are composed, queued, confirmed, and logged, but not delivered externally.
+- **ABS:** ABS-01–08, 10–12 pass. ABS-09 is partial strict because reminders are queued/logged but not delivered and missing feedback caused a duplicate. ABS-13 is partial strict because export was confirmed but the CSV contents were not inspected. ABS-14 fails: the first-pass surface exists but cannot run without an Anthropic key.
+- **SPK:** SPK-01–05, 07–09, 11–12, 15 pass. SPK-06 is partial strict because the invitation is Demo-only. SPK-10 is partial strict because the organizer sees exact file metadata and a download control, but the downloaded bytes were not independently verified. SPK-13 is partial strict because the personalized bulk send is logged but Demo-only. SPK-14 is partial because `{speaker_name}`, `{event_name}`, and `{portal_url}` resolve while `{talk_title}` resolves blank for a linked accepted session. SPK-16 fails because no automated due-date reminder system was found.
+- **CNT:** CNT-01–06, 09–13 pass. CNT-07 is partial because the dashboard is session-slot based rather than per-speaker-per-task and its visible rows/reminder counts use different denominators. CNT-08 is partial strict because outstanding reminders are explicitly queued but Demo-only. CNT-14 is partial strict because ZIP generation reached Ready with two latest versions and grouping, but the archive was not downloaded/inspected.
+- **AIA:** AIA-01–08 all pass, including explicit speaker and room conflicts, persistence, live conflict clearing, reviewable auto-placement, and public handoff.
+- **EMB:** EMB-01–10 and EMB-12–16 pass. EMB-11 is partial strict: exact personal selections persist across reload and ICS download is confirmed, but the calendar file was not parsed/opened.
+- **CRM (optional):** CRM-01–09 and CRM-12 pass. CRM-10 is partial because the exact event speaker already exists by email but CRM reports zero linked events and does not permit/reconcile the handoff. CRM-11 is partial strict because multi-recipient personalization, confirmation, per-contact history, and overview history work, but delivery is Demo-only and the campaign is associated with the wrong selectable event.
+
+### Bottom line
+
+The required product is functionally excellent and the browser walkthrough should score in the high 90s. The remaining score loss is concentrated, not broad: real production email delivery, automated incomplete-task reminders, AI-first-pass credentials, per-speaker deliverable semantics, artifact-content verification, and CRM event-link reconciliation. No product fix was made during or after this run.
