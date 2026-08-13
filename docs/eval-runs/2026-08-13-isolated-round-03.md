@@ -63,8 +63,8 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | CNT-S1 | Organizer sets up content collection | Complete | `110`–`113`; two distinct sessions, two one-upload-per-session requirements, all outstanding |
 | CNT-S2 | Speaker uploads and versions a deliverable | Complete | `114`–`120`; exact constraints, two `slides.pdf` versions with current marker, comment, headshot outstanding, admin redirect and speaker scope |
 | CNT-S3 | Organizer tracks, reviews, approves, and exports | Complete | `121`–`138`; dashboard/filter/reminders, file metadata/thread, content history+restore, profile edit, approval split, ZIP ready, title cleanup |
-| AIA-S1 | Build agenda structure, place sessions, trigger and resolve conflicts | Pending | — |
-| AIA-S2 | Auto-schedule assist and publish the agenda | Pending | — |
+| AIA-S1 | Build agenda structure, place sessions, trigger and resolve conflicts | Complete | `139`–`149`; four rooms, four schedulable sessions, speaker+room conflicts, live clear, persisted final list |
+| AIA-S2 | Auto-schedule assist and publish the agenda | Complete | `150`–`157`; reviewable AI draft auto-placed SESS-4, explicit accept, publish confirmation, complete public agenda |
 | EMB-S1 | Non-admin tour of the four browse widgets | Pending | — |
 | EMB-S2 | Schedule itinerary browsing and personal-schedule building | Pending | — |
 | EMB-S3 | Organizer embed generation, snippet retrieval and data consistency | Pending | — |
@@ -246,6 +246,31 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - The browser diagnostic log was empty at scenario completion; no console errors or warnings were observed.
 - Evidence: `121-cnt-s3-files-unfiltered.png` through `138-cnt-s3-title-restored.png`. Every file was written and size-verified in this run.
 
+### AIA-S1 — Build agenda structure, place sessions, trigger and resolve conflicts
+
+- Opened the Round 03 agenda builder in Draft state. The initial Rooms view exposed all three event days, an 8:00 AM–7:00 PM 15-minute grid, room columns, unscheduled pool, track filter, List and Conflicts views, AI drafts, and Publish agenda.
+- Created the four fixture rooms through the inline agenda UI: Main Stage, Room 2A, Room 2B, and Workshop Lab. All appeared immediately as schedulable columns and survived navigation/reload. The pre-existing chained tracks were confirmed on session peeks/cards: Platform & Infra, AI Engineering, and Developer Experience.
+- Promoted the Round 03 SESS-2 and SESS-3 proposals to Accepted through the normal decision UI so they became sessions. SESS-2 already had Priya Raman as its speaker, giving the required shared-speaker pair with SESS-1; the unscheduled pool then contained all four accepted Round 03 sessions.
+- Scheduled SESS-1 at May 12, 10:00 AM in Room 2A with the click-to-schedule editor. The grid rendered its title, SESS-1 code, Priya Raman and Marcus Okafor, and the unscheduled count dropped.
+- Scheduled SESS-2 at the same May 12 10:00 AM in Room 2B. Conflicts updated live from 0 to 1. The Conflicts panel explicitly reported `Speaker double-booking`, May 12 10:00–10:30, named SESS-2 and SESS-1, named Priya Raman, named Room 2B and Room 2A, and explained `Priya Raman is assigned to both sessions at once.`
+- Scheduled SESS-3 at May 12 10:00 AM in the already occupied Room 2A. Placement was accepted but visibly flagged; Conflicts rose to 4 because SESS-3 also carries Priya. The first article explicitly reported `Room overlap`, named SESS-3 and SESS-1, Room 2A, and explained `Both sessions occupy Room 2A during the same time window.` Three speaker-overlap articles were also visible.
+- Moved SESS-2 live to May 12, 2:00 PM in Room 2B. Moved SESS-3 live to May 13, 11:00 AM in Room 2B. After the second move, Conflicts changed to 0 without a page reload. Day 2 rendered SESS-3 in the correct room/time.
+- Reloaded the page and opened List. It retained exactly: SESS-1 May 12 10:00 AM Room 2A 30 min; SESS-2 May 12 2:00 PM Room 2B 30 min; SESS-3 May 13 11:00 AM Room 2B 10 min; SESS-4 unscheduled 10 min. Conflicts remained 0.
+- The browser diagnostic log was empty; no console errors or warnings were observed.
+- Evidence: `139-aia-s1-initial-builder.png` through `149-aia-s1-persisted-list.png`. Every file was written and size-verified in this run.
+
+### AIA-S2 — Auto-schedule assist and publish the agenda
+
+- Began from the reloaded AIA-S1 list with SESS-4 deliberately unscheduled. Opened AI drafts; the product explained `Generate, compare, then explicitly accept changes` and kept the live agenda unchanged.
+- Created `Round 03 auto-place` across all three days and four rooms with Respect existing placements enabled. The generated comparison proposed exactly one change: SESS-4 from unscheduled to May 12 8:00 AM, Main Stage, reason `Earliest conflict-free slot, interleaved by track.` It selected 1 of 1 and exposed explicit Accept controls.
+- Accepted the single proposal. Rooms returned with SESS-4 at 8:00 AM Main Stage, the unscheduled count moved to 0, Conflicts remained 0, and the product confirmed `1 change accepted`.
+- Captured the pre-publish state and invoked Publish agenda. The builder changed from Draft/Unpublished changes to Published, disabled the Published button, retained Conflicts 0, and toasted `Agenda published`.
+- The public attendee agenda initially showed only SESS-1 because SESS-2, SESS-3, and SESS-4 still had Awaiting approval content. The Agenda screen did not explain this prerequisite. Through the normal Content UI, `Approve all` approved the three scheduled sessions; its success toast appeared immediately but the rows stayed stale until reload. The reloaded Content table showed all four Approved.
+- Returning to Agenda still showed Published with no additional publish action required; approval gating is applied dynamically to the published schedule. The attendee URL `/e/devflow-conf-2027-3/agenda` then showed three May 12 sessions with correct times/rooms/tracks, including AI-placed SESS-4, and the May 13 tab showed SESS-3 at 11:00 AM in Room 2B.
+- No attendee/public URL is surfaced from the publish button or its options menu; the only post-publish menu item is Unpublish agenda. The public page had to be located by its event-route convention, a material evaluator findability problem recorded below.
+- The browser diagnostic log was empty; no console errors or warnings were observed.
+- Evidence: `150-aia-s2-ai-drafts-control.png` through `157-aia-s2-public-agenda-day2.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -271,6 +296,9 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 21. **Creating sessions and deliverable requirements leaves stale list/empty state until reload.** Saving SESS-4 returned to a one-session table; saving the first requirement returned to `Create your first deliverable`. Both new records appeared correctly after reload. This repeats the product-wide stale-success pattern and invites duplicate creation.
 22. **Deliverable reminder counts mix session slots and speaker associations.** Each one-upload-per-session requirement correctly shows `0 of 2 sessions uploaded`, while its action says `Remind outstanding (3)` because SESS-1 has two speakers and SESS-4 has one. The differing denominators are defensible internally but unexplained in the UI and look inconsistent to an organizer.
 23. **The file dashboard cannot express the rubric's per-speaker-per-task state because requirements are session-level.** The SESS-1 presentation row becomes Uploaded for both Priya and co-presenter Marcus after Priya uploads once, while Marcus separately has an Outstanding SESS-4 presentation row. Filtering Outstanding produced three session slots but `Remind outstanding (4)` because reminder recipients are counted per speaker association, not as unique people or visible rows. The data is internally consistent with one upload per session, but the dashboard and reminder count make it hard to answer the organizer's simpler question: which individual speaker still owes which file?
+24. **The agenda's inline Add room button stopped responding to locator/DOM activation after the first room.** The control remained visible, enabled, and correctly labeled, but repeated semantic clicks and keyboard activation did nothing. A normal coordinate-based computer click on the same visible button opened the room-name field and allowed all remaining rooms to be added. This is not a data workaround—the same product UI was used—but it is a serious browser-evaluator trip-up on a required CRUD action.
+25. **Agenda publication does not surface its attendee URL.** Publish succeeds and the status becomes Published, but `Agenda publication options` contains only `Unpublish agenda`; there is no Open public agenda, copy link, or preview action. The attendee route works and is well rendered, but an evaluator has to infer `/e/{eventSlug}/agenda` or discover it elsewhere.
+26. **The agenda does not explain that content approval gates published sessions.** Immediately after publication, the public schedule showed one of four scheduled sessions because only SESS-1 was approved. The builder still said Published and gave no missing-content warning or link to Content. Approving the other three through Content made them appear dynamically, but the separate prerequisite is invisible from the publishing workflow.
 
 ## Score
 
