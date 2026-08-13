@@ -1,0 +1,99 @@
+---
+title: "MCP server"
+description: "Connect Claude — or any MCP client — to opensesh and drive your program in conversation."
+---
+
+opensesh ships a remote [MCP](https://modelcontextprotocol.io) server at `/api/mcp`. Connect it to Claude, Claude Code, or any MCP client and the agent can work your program in conversation — list sessions, chase missing slides, build the agenda, or clear a review queue.
+
+Two properties define it:
+
+- **It acts as you.** Connecting runs a normal OAuth sign-in to your opensesh account — there is no API key to paste. Every change the agent makes is attributed to you by name in timelines and activity feeds, exactly as if you had clicked it yourself.
+- **It is scoped to your role.** The tools the agent sees are derived from what your account can do. An organizer's agent gets the full program surface; a reviewer's agent gets their review queue and nothing else. There is no way to reach past your own permissions through MCP.
+
+## Connect
+
+The server lives at:
+
+```
+https://app.opensesh.io/api/mcp
+```
+
+If you self-host, replace the host with your own deployment's domain.
+
+<Tabs items={["claude.ai", "Claude Code"]}>
+<Tab value="claude.ai">
+
+Go to **Settings → Connectors → Add custom connector** and paste the server URL. Claude opens the opensesh sign-in, then the consent screen below.
+
+</Tab>
+<Tab value="Claude Code">
+
+```bash
+claude mcp add --transport http opensesh https://app.opensesh.io/api/mcp
+```
+
+The first `/mcp` authentication opens your browser for the same sign-in and consent flow.
+
+</Tab>
+</Tabs>
+
+## The consent screen
+
+Nothing is granted silently. Every connection lands on a consent screen that names the client, states the acts-as-you contract, and lists exactly what is being granted:
+
+<img
+  src="/mcp/consent-review-light.webp"
+  alt="The opensesh consent screen, asking to connect Claude"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/mcp/consent-review-dark.webp"
+  alt="The opensesh consent screen, asking to connect Claude"
+  className="hidden rounded-lg border dark:block"
+/>
+
+**Deny** sends the client away with nothing. **Connect** grants access and confirms it explicitly before returning you to the client:
+
+<img
+  src="/mcp/consent-connected-light.webp"
+  alt="The consent screen's connected confirmation state"
+  className="rounded-lg border dark:hidden"
+/>
+<img
+  src="/mcp/consent-connected-dark.webp"
+  alt="The consent screen's connected confirmation state"
+  className="hidden rounded-lg border dark:block"
+/>
+
+To disconnect, remove the connector in your MCP client — its token stops working immediately for new sessions.
+
+## What the agent can do
+
+Tools are generated from the same endpoint definitions as the [REST API](/api), so the agent's surface always matches the documented one — same inputs, same validation, same errors.
+
+- **Organizers** get the full program surface as tools — sessions, submissions, speakers, CFP forms, reviews, agenda, communications, resources — plus `whoami`.
+- **Reviewers** get exactly five tools: `whoami`, `getMyReviews`, `submitReviewAnswers`, `recuseReview`, and `saveMyReview`.
+
+`whoami` returns your identity and your events with per-event roles. Agents are instructed to call it first, so they discover real event ids instead of guessing.
+
+<Callout title="Blind review stays blind">
+  Review tools apply the same redaction as the web workspace: in a blind round, speaker identities
+  are stripped from a reviewer's workspace before the agent ever sees the data — an agent cannot be
+  used to peek behind the curtain.
+</Callout>
+
+## MCP vs API keys
+
+|                    | MCP server                       | Organization API key                    |
+| ------------------ | -------------------------------- | --------------------------------------- |
+| Acts as            | The signed-in person             | The organization (admin)                |
+| Granted by         | OAuth sign-in + consent screen   | Created in Organization settings        |
+| Permission scope   | The person's own role, per event | Full organization access                |
+| Attribution        | The person, by name              | The API key, by name                    |
+| Reviewer workflows | Yes — reviewer-scoped tools      | No — reviewer endpoints reject org keys |
+
+Use an API key for servers and integrations that belong to the organization; use MCP for agents that work on a person's behalf.
+
+## The data model
+
+Session and submission tools share one id space — a session's id **is** its submission's id. The server's instructions carry this model, and the [sessions vs submissions](/api#sessions-vs-submissions) section explains it in full.

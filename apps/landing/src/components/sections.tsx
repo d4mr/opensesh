@@ -5,6 +5,7 @@ import {
   MapPinIcon,
   MinusIcon,
   ReplyIcon,
+  SparklesIcon,
 } from "lucide-react";
 
 import { demoHref, DOCS_URL, GITHUB_URL } from "../config";
@@ -463,6 +464,124 @@ export function Confidence() {
   );
 }
 
+/* ------------------------------------------------------------------ mcp */
+
+const mcpBullets = [
+  "One URL to connect — OAuth sign-in with a real consent screen, never a pasted API key",
+  "Role-scoped tools — organizers drive the whole program, reviewers get exactly their queue",
+  "Acts as you, attributed to you — every change lands in the timeline under your name",
+  "Blind review stays blind — speaker identities are redacted before the agent sees them",
+];
+
+const mcpTranscript: ReadonlyArray<
+  | { readonly kind: "user"; readonly text: string }
+  | { readonly kind: "tool"; readonly name: string; readonly result: string }
+  | { readonly kind: "assistant"; readonly text: string }
+> = [
+  { kind: "user", text: "Who still owes slides for Thursday?" },
+  { kind: "tool", name: "listSessions", result: "14 sessions · 3 missing slides" },
+  {
+    kind: "assistant",
+    text: "Three sessions are missing slides: Taming 40-Minute CI, Docs That Answer Back, and the verification-patterns talk. Want me to nudge the speakers?",
+  },
+  { kind: "user", text: "Nudge them." },
+  { kind: "tool", name: "sendCampaign", result: "3 reminders queued" },
+  {
+    kind: "assistant",
+    text: "Done — three reminders sent. Each one is logged on its session's timeline.",
+  },
+];
+
+/** Non-interactive transcript mock: an MCP client driving opensesh tools. */
+function McpMock() {
+  return (
+    <div aria-hidden="true" className="overflow-hidden rounded-lg border bg-background select-none">
+      <div className="flex h-9 items-center gap-1.5 border-b bg-paper px-3.5">
+        <span className="size-2.5 rounded-full border" />
+        <span className="size-2.5 rounded-full border" />
+        <span className="size-2.5 rounded-full border" />
+        <span className="ml-2 font-mono text-[10px] whitespace-nowrap text-muted-foreground">
+          claude.ai
+        </span>
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] whitespace-nowrap text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-status-accepted" />
+          connected to opensesh
+        </span>
+      </div>
+      <div className="space-y-3 p-4 md:p-5">
+        {mcpTranscript.map((entry, index) =>
+          entry.kind === "user" ? (
+            <div key={index} className="flex justify-end">
+              <p className="max-w-[85%] rounded-lg bg-paper px-3 py-2 text-[13px]">{entry.text}</p>
+            </div>
+          ) : entry.kind === "tool" ? (
+            <div
+              key={index}
+              className="flex items-center gap-2 rounded-md border border-dashed px-2.5 py-1.5 font-mono text-[11px]"
+            >
+              <BrandMark className="size-3.5" />
+              <span>{entry.name}</span>
+              <span className="ml-auto text-muted-foreground">{entry.result}</span>
+            </div>
+          ) : (
+            <div key={index} className="flex items-start gap-2.5">
+              <SparklesIcon className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+              <p className="max-w-[85%] text-[13px] leading-relaxed">{entry.text}</p>
+            </div>
+          ),
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t bg-paper px-3.5 py-2 font-mono text-[10px] text-muted-foreground">
+        <span>acting as Dana Organizer · admin</span>
+        <span className="ml-auto hidden sm:inline">granted on the consent screen · revocable</span>
+      </div>
+    </div>
+  );
+}
+
+export function Mcp() {
+  return (
+    <section id="mcp" className="relative border-b">
+      <Narrow>
+        <Reveal className="bg-background px-6 py-16 md:py-20">
+          <Overline>MCP</Overline>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            Talk to your program.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            opensesh ships a remote MCP server. Connect Claude — or any MCP client — and ask who
+            still owes slides, nudge the stragglers, or work through your review queue in
+            conversation. The agent signs in as you, and a consent screen stands between it and your
+            program: nothing is granted silently, and it can never do more than your role allows.
+          </p>
+        </Reveal>
+      </Narrow>
+      <div className="grid items-center gap-10 border-t px-6 py-16 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16 md:px-10 md:py-20">
+        <Reveal>
+          <p className="text-[15px] leading-relaxed text-muted-foreground">
+            Every REST operation is generated into an MCP tool from the same definitions, so agents
+            get the exact surface you do — sessions, submissions, speakers, agenda, reviews. An
+            organizer's Claude can run the back office; a reviewer's Claude sees five tools and
+            nothing else.
+          </p>
+          <ul className="mt-5 space-y-2">
+            {mcpBullets.map((bullet) => (
+              <li key={bullet} className="flex items-start gap-2.5 text-sm">
+                <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+        <Reveal delay={100}>
+          <McpMock />
+        </Reveal>
+      </div>
+      <Crosses />
+    </section>
+  );
+}
+
 /* ------------------------------------------- compare, on the garden image */
 
 const compareRows: ReadonlyArray<{
@@ -480,6 +599,7 @@ const compareRows: ReadonlyArray<{
   },
   { capability: "Embeddable schedule and speaker gallery", opensesh: true, sessionboard: true },
   { capability: "Automated speaker communications", opensesh: true, sessionboard: true },
+  { capability: "Remote MCP server — talk to it from Claude", opensesh: true, sessionboard: false },
   { capability: "Full source code, MIT-licensed", opensesh: true, sessionboard: false },
   { capability: "Self-hosted on your own infrastructure", opensesh: true, sessionboard: false },
   { capability: "Your data in your own Postgres database", opensesh: true, sessionboard: false },
@@ -586,8 +706,9 @@ export function OpenSource() {
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-ink-muted">
             It is API-first, too: everything the UI does is exposed over a fully documented REST
-            API, from submissions and reviews to agenda publishing — with an interactive reference,
-            code samples, and response schemas in{" "}
+            API, from submissions and reviews to agenda publishing — and the same operations are
+            served as a remote MCP server for agents. Interactive reference, code samples, and
+            response schemas in{" "}
             <a
               href={`${DOCS_URL}/api`}
               target="_blank"

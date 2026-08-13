@@ -31,12 +31,13 @@ const ReinstateBody = Schema.Struct({
   notifySpeakers: Schema.optionalKey(Schema.Boolean),
 });
 
-const apiActor = (context: { readonly principal: { keyId: string; keyName: string } }) =>
-  ({
-    kind: "api_key",
-    apiKeyId: context.principal.keyId,
-    name: `API key: ${context.principal.keyName}`,
-  }) as const;
+// A session is its submission seen through the program lens — one record, one
+// id — so these routes keep the honest {submissionId} name and the parameter
+// description says the session's own id is that id.
+const sessionIdParam = {
+  name: "submissionId",
+  description: "The session's id, which is its submission's id — one record, one id.",
+} as const;
 
 // Sessions are the program lens over accepted submissions plus manually added
 // sessions. There is no acceptance state here — the lifecycle is readiness,
@@ -73,7 +74,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "createSession",
     summary: "Create a session directly",
     description:
-      "Creates an accepted session without a CFP submission — the manual-add path. Speakers must already be event contacts. Manual sessions have no submission to decline; delete them if added by mistake, or cancel them to notify speakers.",
+      "Creates an accepted session without a CFP submission — the manual-add path. Speakers must already be event contacts. Manual sessions have no submission to decline; delete them if added by mistake, or cancel them to notify speakers. Returns the underlying submission record (a session is its submission); its id works across Session, Submission, and Agenda endpoints.",
     tag: "Sessions",
     bodySchema: ManualSessionBody,
     successStatus: 201,
@@ -153,6 +154,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "Cancels the session with a recorded cause (organizer or speaker). The acceptance stays on record and the schedule is kept as history; the session leaves the agenda and public pages, its open tasks are waived, and — when notifySpeakers is on — speakers get a cancellation email carrying a calendar cancellation if invites went out.",
     tag: "Sessions",
+    pathParams: [sessionIdParam],
     bodySchema: CancelBody,
     successSchema: SessionCancelResult,
     handler: (context) =>
@@ -167,7 +169,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
           cause: body.cause,
           message: body.message ?? "",
           notifySpeakers: body.notifySpeakers ?? true,
-          actor: apiActor(context),
+          actor: context.actor,
         });
         yield* Effect.forEach(cancelled.logIds, (logId) => mail.sendQueued(logId), {
           concurrency: 5,
@@ -183,6 +185,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "Clears the cancellation and reopens tasks that were waived by it. With notifySpeakers on, speakers get a reinstatement email — carrying a fresh calendar invite when the session is scheduled and invites had gone out; otherwise the schedule is flagged so a fresh invite can be sent later.",
     tag: "Sessions",
+    pathParams: [sessionIdParam],
     bodySchema: ReinstateBody,
     successSchema: SessionReinstateResult,
     handler: (context) =>
@@ -196,7 +199,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
           submissionId: context.params.submissionId ?? "",
           message: body.message ?? "",
           notifySpeakers: body.notifySpeakers ?? true,
-          actor: apiActor(context),
+          actor: context.actor,
         });
         yield* Effect.forEach(reinstated.logIds, (logId) => mail.sendQueued(logId), {
           concurrency: 5,
@@ -212,6 +215,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "Mistake cleanup for manual sessions only — CFP-origin sessions keep their submission history and must be cancelled instead.",
     tag: "Sessions",
+    pathParams: [sessionIdParam],
     successStatus: 204,
     successSchema: Schema.Void,
     handler: (context) =>
@@ -229,6 +233,7 @@ export const sessionEndpoints: ReadonlyArray<ApiEndpoint> = [
     description:
       "The merged activity log: submission lifecycle, decisions, schedule changes, cancellation and reinstatement, emails, content edits, file uploads, task completions, and speaker confirmations — newest first.",
     tag: "Sessions",
+    pathParams: [sessionIdParam],
     successSchema: Schema.Array(TimelineEntry),
     handler: (context) =>
       Effect.gen(function* () {

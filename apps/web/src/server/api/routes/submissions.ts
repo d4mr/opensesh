@@ -81,11 +81,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           access.event.id,
           context.params.submissionId ?? "",
           body.status,
-          {
-            kind: "api_key",
-            apiKeyId: context.principal.keyId,
-            name: `API key: ${context.principal.keyName}`,
-          },
+          context.actor,
         );
       }),
   }),
@@ -117,11 +113,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           feedback: body.feedback,
           confirmRedecide: body.confirmRedecide ?? false,
           approveContent: body.approveContent ?? false,
-          actor: {
-            kind: "api_key",
-            apiKeyId: context.principal.keyId,
-            name: `API key: ${context.principal.keyName}`,
-          },
+          actor: context.actor,
         });
         yield* Effect.forEach(
           decision.deliveries,

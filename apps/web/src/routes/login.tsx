@@ -24,6 +24,17 @@ function Login() {
   const demoEmail = demo === undefined ? undefined : demoPersonaByRole[demo];
   const [demoFailed, setDemoFailed] = useState(false);
   const attempted = useRef(false);
+  // When an OAuth authorize redirect landed here (an MCP client connecting),
+  // carry its full query so sign-in can resume the authorization instead of
+  // dropping the user at the dashboard. Read post-mount: the raw query holds
+  // params validateSearch doesn't model.
+  const [resumeUrl, setResumeUrl] = useState<string>();
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
+    if (search.has("client_id") && search.has("response_type")) {
+      setResumeUrl(`/api/auth/mcp/authorize${window.location.search}`);
+    }
+  }, []);
 
   // Landing-page deep link (/login?demo=organizer): sign straight into the
   // persona when demo mode is on; fall back to the normal form otherwise.
@@ -54,7 +65,7 @@ function Login() {
   return (
     <LoginBackdrop>
       <div className="w-full max-w-sm md:max-w-4xl">
-        <LoginForm initialEmail={email} />
+        <LoginForm initialEmail={email} resumeUrl={resumeUrl} />
       </div>
     </LoginBackdrop>
   );

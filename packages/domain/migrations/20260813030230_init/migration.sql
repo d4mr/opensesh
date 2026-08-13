@@ -422,6 +422,44 @@ CREATE TABLE "users" (
 	"updated_at" timestamp with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "oauth_access_tokens" (
+	"id" text PRIMARY KEY,
+	"access_token" text NOT NULL UNIQUE,
+	"refresh_token" text NOT NULL UNIQUE,
+	"access_token_expires_at" timestamp with time zone NOT NULL,
+	"refresh_token_expires_at" timestamp with time zone NOT NULL,
+	"client_id" text NOT NULL,
+	"user_id" text,
+	"scopes" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_applications" (
+	"id" text PRIMARY KEY,
+	"name" text NOT NULL,
+	"icon" text,
+	"metadata" text,
+	"client_id" text NOT NULL UNIQUE,
+	"client_secret" text,
+	"redirect_urls" text NOT NULL,
+	"type" text NOT NULL,
+	"disabled" boolean DEFAULT false NOT NULL,
+	"user_id" text,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_consents" (
+	"id" text PRIMARY KEY,
+	"client_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"scopes" text NOT NULL,
+	"consent_given" boolean NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "api_keys" (
 	"id" text PRIMARY KEY,
 	"organization_id" text NOT NULL,
@@ -910,6 +948,11 @@ CREATE INDEX "email_templates_event_idx" ON "email_templates" ("event_id");--> s
 CREATE INDEX "reminder_rules_event_idx" ON "reminder_rules" ("event_id");--> statement-breakpoint
 CREATE INDEX "form_fields_form_position_idx" ON "form_fields" ("form_id","position");--> statement-breakpoint
 CREATE INDEX "forms_event_idx" ON "forms" ("event_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_tokens_client_id_idx" ON "oauth_access_tokens" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_tokens_user_id_idx" ON "oauth_access_tokens" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_applications_user_id_idx" ON "oauth_applications" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_consents_client_id_idx" ON "oauth_consents" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_consents_user_id_idx" ON "oauth_consents" ("user_id");--> statement-breakpoint
 CREATE INDEX "api_keys_org_idx" ON "api_keys" ("organization_id");--> statement-breakpoint
 CREATE INDEX "email_log_event_idx" ON "email_log" ("event_id");--> statement-breakpoint
 CREATE INDEX "email_log_contact_idx" ON "email_log" ("contact_id");--> statement-breakpoint
@@ -1002,6 +1045,11 @@ ALTER TABLE "email_templates" ADD CONSTRAINT "email_templates_event_id_events_id
 ALTER TABLE "reminder_rules" ADD CONSTRAINT "reminder_rules_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "form_fields" ADD CONSTRAINT "form_fields_form_id_forms_id_fkey" FOREIGN KEY ("form_id") REFERENCES "forms"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "forms" ADD CONSTRAINT "forms_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_client_id_oauth_applications_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_applications"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_tokens" ADD CONSTRAINT "oauth_access_tokens_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_applications" ADD CONSTRAINT "oauth_applications_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_consents" ADD CONSTRAINT "oauth_consents_client_id_oauth_applications_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_applications"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_consents" ADD CONSTRAINT "oauth_consents_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_created_by_user_id_users_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_integrations" ADD CONSTRAINT "event_integrations_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -258,11 +258,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
       Effect.gen(function* () {
         const body = context.body as typeof NoteBody.Type;
         const crm = yield* Crm;
-        return yield* crm.addNote(context.params.contactId ?? "", body.body, {
-          kind: "api_key",
-          apiKeyId: context.principal.keyId,
-          name: `API key: ${context.principal.keyName}`,
-        });
+        return yield* crm.addNote(context.params.contactId ?? "", body.body, context.actor);
       }),
   }),
   endpoint({
@@ -390,11 +386,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           body.stageId,
           body.note,
           null,
-          {
-            kind: "api_key",
-            apiKeyId: context.principal.keyId,
-            name: `API key: ${context.principal.keyName}`,
-          },
+          context.actor,
         );
       }),
   }),
@@ -414,11 +406,7 @@ export const crmEndpoints: ReadonlyArray<ApiEndpoint> = [
           context.principal.organizationId,
           context.params.cardId ?? "",
           body.toStageId,
-          {
-            kind: "api_key",
-            apiKeyId: context.principal.keyId,
-            name: `API key: ${context.principal.keyName}`,
-          },
+          context.actor,
         );
       }),
   }),

@@ -1,6 +1,9 @@
 import { makeDatabase } from "@opensesh/domain/server/db";
 import {
   accounts,
+  oauthAccessTokens,
+  oauthApplications,
+  oauthConsents,
   organizationInvitations,
   organizationMembers,
   organizations,
@@ -12,7 +15,7 @@ import { sendMagicLink, sendOrganizationInvitation } from "@opensesh/domain/serv
 import { run } from "@opensesh/domain/server/runtime";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink, organization } from "better-auth/plugins";
+import { magicLink, mcp, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
@@ -57,6 +60,9 @@ const buildAuth = (
         organizations,
         organizationMembers,
         organizationInvitations,
+        oauthApplication: oauthApplications,
+        oauthAccessToken: oauthAccessTokens,
+        oauthConsent: oauthConsents,
       },
     }),
     user: { modelName: "users" },
@@ -123,6 +129,16 @@ const buildAuth = (
           member: { modelName: "organizationMembers" },
           invitation: { modelName: "organizationInvitations" },
         },
+      }),
+      // Turns the app into an OAuth 2.1 authorization server for MCP
+      // clients: dynamic client registration, PKCE, and a consent screen.
+      // Unauthenticated authorize requests are sent to the login page and
+      // resume after sign-in. The auth route boundary injects prompt=consent
+      // into every authorize request, so this consent page is always shown —
+      // never a silent code issue.
+      mcp({
+        loginPage: "/login",
+        oidcConfig: { loginPage: "/login", consentPage: "/oauth/consent" },
       }),
       tanstackStartCookies(),
     ],

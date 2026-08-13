@@ -94,11 +94,7 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
             lastName,
             email: body.email.trim().toLowerCase(),
           },
-          {
-            kind: "api_key",
-            apiKeyId: context.principal.keyId,
-            name: `API key: ${context.principal.keyName}`,
-          },
+          context.actor,
         );
       }),
   }),
@@ -241,11 +237,7 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           body: body.body,
           recipientFilter: {},
           contactIds: body.contactIds,
-          actor: {
-            kind: "api_key",
-            apiKeyId: context.principal.keyId,
-            name: `API key: ${context.principal.keyName}`,
-          },
+          actor: context.actor,
           portalOrigin: "https://app.opensesh.io",
         });
         const results = yield* Effect.forEach(queued.logIds, (logId) => mail.sendQueued(logId), {

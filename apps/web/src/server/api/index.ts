@@ -1,5 +1,6 @@
 import { agendaEndpoints } from "./routes/agenda";
 import { crmEndpoints } from "./routes/crm";
+import { evaluationEndpoints } from "./routes/evaluation";
 import { eventEndpoints } from "./routes/events";
 import { integrationEndpoints } from "./routes/integrations";
 import { reviewEndpoints } from "./routes/reviews";
@@ -16,6 +17,7 @@ export const apiEndpoints: ReadonlyArray<ApiEndpoint> = [
   ...sessionEndpoints,
   ...speakerEndpoints,
   ...reviewEndpoints,
+  ...evaluationEndpoints,
   ...resourceEndpoints,
   ...agendaEndpoints,
   ...crmEndpoints,

@@ -285,7 +285,7 @@ describe.sequential("all opensesh REST operations through local workerd and Post
     const openapi = await server.fetch("/api/v1/openapi.json");
     expect(openapi.status).toBe(200);
     collectOperationIds(await openapi.json(), documentedOperations);
-    expect(documentedOperations.size).toBe(64);
+    expect(documentedOperations.size).toBe(80);
     expect(documentedOperations.size).toBe(apiEndpoints.length);
 
     const preflight = await server.fetch("/api/v1/events", { method: "OPTIONS" });
@@ -670,6 +670,366 @@ describe.sequential("all opensesh REST operations through local workerd and Post
       },
     });
     expect(numberField(overridden, "overriddenScore")).toBe(4.5);
+  });
+
+  it("covers the sessions program lens: list, timeline, cancel, reinstate, manual delete", async () => {
+    const listed = asRecord(
+      await requestOperation("listSessions", { params: { eventId: DEVFLOW_EVENT_ID } }),
+    );
+    const sessions = asArray(listed.sessions).map(asRecord);
+    expect(sessions.some((session) => session.id === "sub_devflow_1")).toBe(true);
+    const manual = sessions.find((session) => session.id === manualSessionId);
+    if (manual === undefined) throw new Error("Manual session is missing from the sessions list");
+    expect(manual.source).toBe("manual");
+
+    const cancelled = asRecord(
+      await requestOperation("cancelSession", {
+        params: { eventId: DEVFLOW_EVENT_ID, submissionId: "sub_devflow_1" },
+        body: { cause: "organizer", message: "Cancelled by the suite", notifySpeakers: false },
+      }),
+    );
+    expect(cancelled.cancelledBy).toBe("organizer");
+
+    const cancelledList = asRecord(
+      await requestOperation("listSessions", {
+        params: { eventId: DEVFLOW_EVENT_ID },
+        query: { state: "cancelled" },
+      }),
+    );
+    expect(
+      asArray(cancelledList.sessions)
+        .map(asRecord)
+        .some((session) => session.id === "sub_devflow_1"),
+    ).toBe(true);
+
+    const reinstated = asRecord(
+      await requestOperation("reinstateSession", {
+        params: { eventId: DEVFLOW_EVENT_ID, submissionId: "sub_devflow_1" },
+        body: { notifySpeakers: false },
+      }),
+    );
+    expect(reinstated.id).toBe("sub_devflow_1");
+
+    const timeline = asArray(
+      await requestOperation("getSessionTimeline", {
+        params: { eventId: DEVFLOW_EVENT_ID, submissionId: "sub_devflow_1" },
+      }),
+    ).map(asRecord);
+    const kinds = new Set(timeline.map((entry) => entry.kind));
+    expect(kinds.has("cancelled")).toBe(true);
+    expect(kinds.has("reinstated")).toBe(true);
+    // API-key mutations stay attributed to the key, never a person.
+    const cancelEntry = timeline.find((entry) => entry.kind === "cancelled");
+    expect(stringField(cancelEntry, "actorName")).toContain("API key");
+
+    await requestOperation("deleteSession", {
+      params: { eventId: DEVFLOW_EVENT_ID, submissionId: manualSessionId },
+    });
+    const afterDelete = asRecord(
+      await requestOperation("listSessions", { params: { eventId: DEVFLOW_EVENT_ID } }),
+    );
+    expect(
+      asArray(afterDelete.sessions)
+        .map(asRecord)
+        .some((session) => session.id === manualSessionId),
+    ).toBe(false);
+    // Later agenda sections schedule the manual session, so recreate it.
+    const recreated = await requestOperation("createSession", {
+      params: { eventId: DEVFLOW_EVENT_ID },
+      body: {
+        title: "Local API Contract Testing in Production-Shaped Runtimes",
+        description: "A direct session created through the public REST API.",
+        formatId: "fmt_devflow_talk",
+        speakerIds: ["con_devflow_priya"],
+      },
+    });
+    manualSessionId = stringField(recreated, "id");
+    agendaSessionIds = ["sub_devflow_1", manualSessionId];
+  });
+
+  it("covers organizer resources: create, update, reorder, list, delete", async () => {
+    const resourceBody = {
+      title: "Speaker Logistics Handbook",
+      subtitle: "Everything speakers need before arrival",
+      body: "<p>Check-in opens at 8am; AV rehearsal slots are bookable.</p>",
+      published: true,
+      audienceMode: "all",
+      attachmentKind: "link",
+      linkUrl: "https://example.com/logistics",
+      embedUrl: null,
+      trackIds: [],
+      contactIds: [],
+    };
+    const created = asRecord(
+      await requestOperation("createResource", {
+        params: { eventId: DEVFLOW_EVENT_ID },
+        body: resourceBody,
+      }),
+    );
+    const resourceId = stringField(created, "id");
+
+    const second = asRecord(
+      await requestOperation("createResource", {
+        params: { eventId: DEVFLOW_EVENT_ID },
+        body: { ...resourceBody, title: "Recording Consent", attachmentKind: null, linkUrl: null },
+      }),
+    );
+    const secondId = stringField(second, "id");
+
+    const updated = asRecord(
+      await requestOperation("updateResource", {
+        params: { eventId: DEVFLOW_EVENT_ID, resourceId },
+        body: { ...resourceBody, subtitle: "Updated by the integration suite" },
+      }),
+    );
+    expect(updated.subtitle).toBe("Updated by the integration suite");
+
+    await requestOperation("reorderResources", {
+      params: { eventId: DEVFLOW_EVENT_ID },
+      body: { resourceIds: [secondId, resourceId] },
+    });
+    const listed = asArray(
+      await requestOperation("listResources", { params: { eventId: DEVFLOW_EVENT_ID } }),
+    ).map(asRecord);
+    const ids = listed.map((resource) => resource.id);
+    expect(ids.indexOf(secondId)).toBeLessThan(ids.indexOf(resourceId));
+
+    await requestOperation("deleteResource", {
+      params: { eventId: DEVFLOW_EVENT_ID, resourceId: secondId },
+    });
+    const afterDelete = asArray(
+      await requestOperation("listResources", { params: { eventId: DEVFLOW_EVENT_ID } }),
+    ).map(asRecord);
+    expect(afterDelete.some((resource) => resource.id === secondId)).toBe(false);
+  });
+
+  it("covers the reviewer surface end-to-end over MCP with a user OAuth session", async () => {
+    // The Reviewer operations require a user principal, so they are exercised
+    // through the MCP endpoint: password sign-in → dynamic client
+    // registration → PKCE authorize → token → tools/call. The REST dispatcher
+    // (API keys, org-admin) correctly refuses them, which the suite's admin
+    // sections never touch.
+    const openapi = asRecord(await (await server.fetch("/api/v1/openapi.json")).json());
+    const origin = new URL(stringField(asArray(asRecord(openapi).servers)[0], "url")).origin;
+
+    const signIn = await server.fetch("/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin },
+      body: JSON.stringify({
+        email: "sam.reviewer@sbek-test.example.com",
+        password: "SbekTest!2027-rev",
+      }),
+    });
+    expect(signIn.status, await signIn.clone().text()).toBe(200);
+    const cookies = signIn.headers
+      .getSetCookie()
+      .map((cookie) => cookie.split(";")[0])
+      .join("; ");
+
+    const registration = asRecord(
+      await (
+        await server.fetch("/api/auth/mcp/register", {
+          method: "POST",
+          headers: { "content-type": "application/json", origin },
+          body: JSON.stringify({
+            client_name: "api-e2e",
+            redirect_uris: ["http://localhost:6274/oauth/callback"],
+            token_endpoint_auth_method: "none",
+          }),
+        })
+      ).json(),
+    );
+
+    const verifierBytes = new Uint8Array(32);
+    crypto.getRandomValues(verifierBytes);
+    const b64url = (bytes: ArrayBuffer | Uint8Array) =>
+      btoa(String.fromCharCode(...new Uint8Array(bytes)))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replaceAll(/=+$/g, "");
+    const verifier = b64url(verifierBytes);
+    const challenge = b64url(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)),
+    );
+    const authorizeSearch = new URLSearchParams({
+      client_id: stringField(registration, "client_id"),
+      redirect_uri: "http://localhost:6274/oauth/callback",
+      response_type: "code",
+      scope: "openid profile email offline_access",
+      state: "api-e2e",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+    });
+    // The route boundary forces prompt=consent, so authorize must land on the
+    // consent screen — never a silent code issue.
+    const runAuthorize = async () => {
+      const authorize = await server.fetch(`/api/auth/mcp/authorize?${authorizeSearch}`, {
+        headers: { cookie: cookies },
+        redirect: "manual",
+      });
+      expect(authorize.status, await authorize.clone().text()).toBe(302);
+      const consentLocation = new URL(authorize.headers.get("location") ?? "", origin);
+      expect(consentLocation.pathname).toBe("/oauth/consent");
+      expect(consentLocation.searchParams.get("client_id")).toBe(
+        stringField(registration, "client_id"),
+      );
+      const consentCode = consentLocation.searchParams.get("consent_code");
+      if (consentCode === null) throw new Error("consent redirect carried no consent_code");
+      const consentCookies = authorize.headers
+        .getSetCookie()
+        .map((cookie) => cookie.split(";")[0])
+        .join("; ");
+      return { consentCode, cookie: `${cookies}; ${consentCookies}` };
+    };
+
+    // Deny first: the client gets an explicit access_denied, no code.
+    const denied = await runAuthorize();
+    const denyResponse = await server.fetch("/api/auth/oauth2/consent", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: denied.cookie, origin },
+      body: JSON.stringify({ accept: false, consent_code: denied.consentCode }),
+    });
+    expect(denyResponse.status, await denyResponse.clone().text()).toBe(200);
+    const deniedRedirect = stringField(asRecord(await denyResponse.json()), "redirectURI");
+    expect(deniedRedirect).toContain("error=access_denied");
+
+    // Then approve a fresh request and complete the code exchange.
+    const approved = await runAuthorize();
+    const consentResponse = await server.fetch("/api/auth/oauth2/consent", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: approved.cookie, origin },
+      body: JSON.stringify({ accept: true, consent_code: approved.consentCode }),
+    });
+    expect(consentResponse.status, await consentResponse.clone().text()).toBe(200);
+    const redirectURI = new URL(stringField(asRecord(await consentResponse.json()), "redirectURI"));
+    expect(redirectURI.searchParams.get("state")).toBe("api-e2e");
+    const code = redirectURI.searchParams.get("code");
+    if (code === null) throw new Error("consent approval did not return a code");
+
+    const token = asRecord(
+      await (
+        await server.fetch("/api/auth/mcp/token", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "authorization_code",
+            code,
+            redirect_uri: "http://localhost:6274/oauth/callback",
+            client_id: stringField(registration, "client_id"),
+            code_verifier: verifier,
+          }).toString(),
+        })
+      ).json(),
+    );
+    const accessToken = stringField(token, "access_token");
+
+    let nextRequestId = 1;
+    const mcpCall = async (method: string, params: unknown) => {
+      const response = await server.fetch("/api/mcp", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: nextRequestId++, method, params }),
+      });
+      const text = await response.text();
+      expect(response.status, `${method}: ${text}`).toBe(200);
+      return asRecord(asRecord(JSON.parse(text)).result);
+    };
+    const mcpTool = (name: string, args: unknown) =>
+      mcpCall("tools/call", { name, arguments: args }).then((result) => {
+        expect(result.isError, JSON.stringify(result.content)).toBeUndefined();
+        return JSON.parse(stringField(asArray(result.content)[0], "text")) as unknown;
+      });
+
+    await mcpCall("initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "api-e2e", version: "0" },
+    });
+    const toolList = asArray(asRecord(await mcpCall("tools/list", {})).tools).map((tool) =>
+      stringField(tool, "name"),
+    );
+    expect(toolList.sort()).toEqual([
+      "getMyReviews",
+      "recuseReview",
+      "saveMyReview",
+      "submitReviewAnswers",
+      "whoami",
+    ]);
+
+    // Give Sam deterministic assignments through the admin surface, then act
+    // on them as the reviewer.
+    await requestOperation("assignReviews", {
+      params: { eventId: DEVFLOW_EVENT_ID, roundId: INITIAL_ROUND_ID },
+      body: { eventMemberId: "mem_sam_devflow", submissionIds: ["sub_devflow_2", "sub_devflow_3"] },
+    });
+
+    const workspace = asRecord(await mcpTool("getMyReviews", { eventId: DEVFLOW_EVENT_ID }));
+    expect(workspace.eventMemberId).toBe("mem_sam_devflow");
+    const round = asArray(workspace.rounds)
+      .map(asRecord)
+      .find((entry) => stringField(asRecord(entry.round), "id") === INITIAL_ROUND_ID);
+    if (round === undefined) throw new Error("Sam cannot see the initial round");
+    const criteria = asArray(round.criteria).map(asRecord);
+    const items = asArray(round.items).map(asRecord);
+    const itemFor = (submissionId: string) =>
+      items.find((item) => asRecord(item.assignment).submissionId === submissionId);
+    const answered = itemFor("sub_devflow_2");
+    const recused = itemFor("sub_devflow_3");
+    if (answered === undefined || recused === undefined) {
+      throw new Error("Sam's assignments are missing from the reviewer workspace");
+    }
+
+    const answers = criteria
+      .filter((criterion) => criterion.required === true)
+      .map((criterion) => ({
+        criterionId: stringField(criterion, "id"),
+        numericValue: criterion.type === "numeric" ? 4 : null,
+        textValue: criterion.type === "text" ? "Solid, practical proposal." : null,
+        optionValue:
+          criterion.type === "dropdown" ? String(asArray(criterion.options)[0] ?? "") : null,
+      }));
+    const submitted = asRecord(
+      await mcpTool("submitReviewAnswers", {
+        eventId: DEVFLOW_EVENT_ID,
+        assignmentId: stringField(asRecord(answered.assignment), "id"),
+        answers,
+      }),
+    );
+    expect(submitted.status).toBe("completed");
+
+    const recusal = asRecord(
+      await mcpTool("recuseReview", {
+        eventId: DEVFLOW_EVENT_ID,
+        assignmentId: stringField(asRecord(recused.assignment), "id"),
+        reason: "Conflict of interest declared by the local integration suite",
+      }),
+    );
+    expect(recusal.status).toBe("recused");
+
+    // Quick score on a pending submission inside Sam's assigned track.
+    const quickScore = asRecord(
+      await mcpTool("saveMyReview", {
+        eventId: DEVFLOW_EVENT_ID,
+        submissionId: "sub_devflow_2",
+        decision: "approve",
+        score: 4,
+        comment: "Scored over MCP by the local integration suite.",
+      }),
+    );
+    expect(quickScore.score).toBe(4);
+
+    for (const operationId of [
+      "getMyReviews",
+      "submitReviewAnswers",
+      "recuseReview",
+      "saveMyReview",
+    ]) {
+      exercisedOperations.add(operationId);
+    }
   });
 
   it("covers scheduling, publication, AI drafts, draft changes, and draft acceptance", async () => {

@@ -419,11 +419,12 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
           return yield* Effect.fail(new InvalidInput({ message: "Enter a valid override score" }));
         }
         const reviews = yield* Reviews;
-        return yield* reviews.overrideAiResult(body.resultId, body.score, body.reason, {
-          kind: "api_key",
-          apiKeyId: context.principal.keyId,
-          name: `API key: ${context.principal.keyName}`,
-        });
+        return yield* reviews.overrideAiResult(
+          body.resultId,
+          body.score,
+          body.reason,
+          context.actor,
+        );
       }),
   }),
 ];

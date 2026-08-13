@@ -1,0 +1,39 @@
+diff --git a/cjs/react-server-dom-webpack-client.browser.development.js b/cjs/react-server-dom-webpack-client.browser.development.js
+index 1d17c98ba981a0858d2dd55d464d196d11a24aa1..dcdca05b1cf4f688675b86411f46edae3e66f78d 100644
+--- a/cjs/react-server-dom-webpack-client.browser.development.js
++++ b/cjs/react-server-dom-webpack-client.browser.development.js
+@@ -3321,6 +3321,8 @@
+       }
+     }
+     function initializeDebugInfo(response, debugInfo) {
++      if (debugInfo === null || typeof debugInfo !== "object")
++        return { time: 0 };
+       void 0 !== debugInfo.stack && initializeFakeTask(response, debugInfo);
+       if (null == debugInfo.owner && null != response._debugRootOwner) {
+         var _componentInfoOrAsyncInfo = debugInfo;
+diff --git a/cjs/react-server-dom-webpack-client.edge.development.js b/cjs/react-server-dom-webpack-client.edge.development.js
+index b6aad4105737db858ece1779522a0ea86be0346e..adf7010b118ef2aa825f0362381f486fbb138f7e 100644
+--- a/cjs/react-server-dom-webpack-client.edge.development.js
++++ b/cjs/react-server-dom-webpack-client.edge.development.js
+@@ -3462,6 +3462,8 @@
+       }
+     }
+     function initializeDebugInfo(response, debugInfo) {
++      if (debugInfo === null || typeof debugInfo !== "object")
++        return { time: 0 };
+       void 0 !== debugInfo.stack && initializeFakeTask(response, debugInfo);
+       if (null == debugInfo.owner && null != response._debugRootOwner) {
+         var _componentInfoOrAsyncInfo = debugInfo;
+diff --git a/cjs/react-server-dom-webpack-client.node.development.js b/cjs/react-server-dom-webpack-client.node.development.js
+index f9696f33428e8b69245b22591ef9ef8a107d8434..2f6a66e1de9df8ba540f1520f3b47639e99fb8a1 100644
+--- a/cjs/react-server-dom-webpack-client.node.development.js
++++ b/cjs/react-server-dom-webpack-client.node.development.js
+@@ -3482,6 +3482,8 @@
+       }
+     }
+     function initializeDebugInfo(response, debugInfo) {
++      if (debugInfo === null || typeof debugInfo !== "object")
++        return { time: 0 };
+       void 0 !== debugInfo.stack && initializeFakeTask(response, debugInfo);
+       if (null == debugInfo.owner && null != response._debugRootOwner) {
+         var _componentInfoOrAsyncInfo = debugInfo;

@@ -21,8 +21,16 @@ import { requestMagicLink } from "@/server-fns/auth";
 export function LoginForm({
   className,
   initialEmail = "",
+  resumeUrl,
   ...props
-}: React.ComponentProps<"div"> & { readonly initialEmail?: string }) {
+}: React.ComponentProps<"div"> & {
+  readonly initialEmail?: string;
+  // Where to continue after sign-in when this login interrupts another flow
+  // (an OAuth authorize redirect). The password path navigates there itself
+  // because the server may answer the sign-in with a redirect of its own,
+  // which an XHR cannot follow usefully.
+  readonly resumeUrl?: string;
+}) {
   const [error, setError] = useState<string>();
   const [magicSending, setMagicSending] = useState(false);
   const [panelFailed, setPanelFailed] = useState(false);
@@ -31,6 +39,23 @@ export function LoginForm({
     defaultValues: { email: initialEmail, password: "" },
     onSubmit: async ({ value }) => {
       setError(undefined);
+      if (resumeUrl !== undefined) {
+        const response = await fetch("/api/auth/sign-in/email", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email: value.email, password: value.password }),
+          redirect: "manual",
+        });
+        // Success is either JSON (no pending OAuth prompt server-side) or an
+        // opaque redirect (the server already resumed the flow); only a real
+        // error status means the credentials failed.
+        if (response.type !== "opaqueredirect" && !response.ok) {
+          setError("Could not sign in — check your email and password");
+          return;
+        }
+        window.location.assign(resumeUrl);
+        return;
+      }
       const result = await authClient.signIn.email({
         email: value.email,
         password: value.password,
@@ -52,7 +77,9 @@ export function LoginForm({
     }
     setError(undefined);
     setMagicSending(true);
-    const result = await requestMagicLink({ data: { email } });
+    const result = await requestMagicLink({
+      data: { email, ...(resumeUrl === undefined ? {} : { callbackUrl: resumeUrl }) },
+    });
     setMagicSending(false);
     if (!result.ok) {
       setError(result.error.message);

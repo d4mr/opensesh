@@ -6,3 +6,4 @@ export {
   sessions,
   verifications,
 } from "./schema/auth";
+export { oauthAccessTokens, oauthApplications, oauthConsents } from "./schema/oauth";
