@@ -112,7 +112,7 @@ function EvaluationRoute() {
                 key={round.id}
                 to="/admin/evaluation/$roundId"
                 params={{ roundId: round.id }}
-                className="pressable grid min-h-12 grid-cols-[minmax(15rem,1.4fr)_minmax(14rem,1fr)_8rem_9rem_11rem_2rem] items-center gap-3 border-b px-3 last:border-b-0 hover:bg-muted/40"
+                className="pressable-row grid min-h-12 grid-cols-[minmax(15rem,1.4fr)_minmax(14rem,1fr)_8rem_9rem_11rem_2rem] items-center gap-3 border-b px-3 last:border-b-0 hover:bg-muted/40"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-medium">{round.name}</span>

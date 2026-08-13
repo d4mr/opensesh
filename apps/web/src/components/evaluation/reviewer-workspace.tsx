@@ -254,7 +254,7 @@ export function ReviewerEvaluationWorkspace({
                   <button
                     key={item.assignment.id}
                     type="button"
-                    className={`pressable flex w-full items-center gap-2 border-b px-2.5 py-2 text-left last:border-b-0 hover:bg-muted/50 ${selected?.item.assignment.id === item.assignment.id ? "bg-muted" : ""}`}
+                    className={`pressable-row flex w-full items-center gap-2 border-b px-2.5 py-2 text-left last:border-b-0 hover:bg-muted/50 ${selected?.item.assignment.id === item.assignment.id ? "bg-muted" : ""}`}
                     onClick={() => setSelectedId(item.assignment.id)}
                   >
                     <span className="font-mono text-[11px] text-muted-foreground tabular-nums">

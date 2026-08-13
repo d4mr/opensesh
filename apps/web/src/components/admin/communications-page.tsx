@@ -425,7 +425,7 @@ function Communications({
                 <div key={entry.campaign.id}>
                   <button
                     type="button"
-                    className="pressable flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
+                    className="pressable-row flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
                     onClick={() =>
                       setExpandedCampaign((current) =>
                         current === entry.campaign.id ? undefined : entry.campaign.id,

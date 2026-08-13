@@ -595,7 +595,7 @@ function Segments({
               <button
                 key={segment.id}
                 type="button"
-                className="pressable flex w-full items-center px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+                className="pressable-row flex w-full items-center px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
                 onClick={() => open(segment.id)}
               >
                 <span className="min-w-0 flex-1">
@@ -757,7 +757,7 @@ function Overview({
                 <button
                   key={company}
                   type="button"
-                  className="pressable flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                  className="pressable-row flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
                   onClick={() => openFiltered({ ...emptyCrmFilters, company })}
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">{company}</span>
@@ -784,7 +784,7 @@ function Overview({
                 <button
                   key={tag.id}
                   type="button"
-                  className="pressable flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                  className="pressable-row flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50"
                   onClick={() => openFiltered({ ...emptyCrmFilters, tagIds: [tag.id] })}
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">{tag.name}</span>

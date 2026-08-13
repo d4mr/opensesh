@@ -295,7 +295,7 @@ function SubmissionContent({
                   onClick={() =>
                     onSpotlightChange(submission.id, { replace: false, keyboard: false })
                   }
-                  className="pressable group w-full rounded-xl border bg-card p-5 text-left transition-colors hover:bg-muted/30"
+                  className="pressable-row group w-full rounded-xl border bg-card p-5 text-left transition-colors hover:bg-muted/30"
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground tabular-nums">

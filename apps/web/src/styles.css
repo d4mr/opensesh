@@ -257,6 +257,15 @@
   transform: scale(0.97);
 }
 
+/* Row- and card-shaped clickables (full-width rows, table rows, cards) never
+   scale — 3% of a 1400px row reads as the element snapping inward. Their
+   press feedback is an instant background tint one step past hover; release
+   fades out with the row's normal color transition. */
+.pressable-row:active {
+  background-color: var(--muted);
+  transition-duration: 0s;
+}
+
 .spotlight-layout {
   display: grid;
   grid-template-columns: minmax(18rem, 100%) minmax(0, 0%);

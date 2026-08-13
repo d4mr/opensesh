@@ -401,7 +401,7 @@ function AdminTasks({
                       <button
                         key={row.template.id}
                         type="button"
-                        className="pressable flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
+                        className="pressable-row flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
                         onClick={() => open(row.template.id)}
                       >
                         <div className="min-w-0 flex-1">
@@ -958,7 +958,7 @@ export function TaskTemplateDialog({
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
-                className="pressable flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
+                className="pressable-row flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
               >
                 {form.contactIds.size === 0 ? (
                   <span className="text-muted-foreground">No speakers selected</span>
@@ -1133,7 +1133,7 @@ function AdminPortalForms({
                   to="/admin/portal-forms/$formId"
                   params={{ formId: form.id }}
                   className={cn(
-                    "spotlight-row pressable relative flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
+                    "spotlight-row pressable-row relative flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
                     highlightedId === form.id && "spotlight-row-highlight",
                   )}
                   onClick={() => rememberPortalFormList(eventId, form.id)}

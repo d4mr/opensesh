@@ -90,7 +90,12 @@ everything off. Utilities already exist in `styles.css` — reuse them:
   capped at nth-child(5+). Keyframes with `backwards` fill (not transitions)
   so delays don't pollute later state changes.
 - `.wizard-pop` — icon/emphasis entrance: 260ms from `scale(0.85)`.
-- `.pressable` — every clickable: `active: scale(0.97)` at 120ms.
+- `.pressable` — compact clickables only (buttons, chips, icon targets):
+  `active: scale(0.97)` at 120ms.
+- `.pressable-row` — row- and card-shaped clickables (full-width rows, table
+  rows, cards, wide trigger fields). Never scale these: 3% of a 1400px row
+  reads as the element snapping inward. Press feedback is an instant
+  `bg-muted` tint (one step past hover) that fades out on release.
 - `.conditional-field` — reveal/hide at 150ms (max-height + opacity).
 - **Sliding indicators** (nav pill, rail tooltip): ONE persistent element that
   moves, never per-item backgrounds toggling. Measure the active target

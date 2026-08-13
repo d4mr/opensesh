@@ -250,7 +250,7 @@ export function ProgramLifecycle({ stats }: { readonly stats: DashboardStats }) 
     return (
       <section className="px-4 lg:px-6">
         <details className="group overflow-hidden rounded-lg border">
-          <summary className="pressable flex h-9 cursor-pointer list-none items-center gap-2 px-3 text-sm transition-colors hover:bg-muted/50">
+          <summary className="pressable-row flex h-9 cursor-pointer list-none items-center gap-2 px-3 text-sm transition-colors hover:bg-muted/50">
             <CircleCheckIcon className="size-4 shrink-0 text-status-accepted" />
             <span className="font-medium">Program live</span>
             <span className="ml-auto text-xs text-muted-foreground tabular-nums">

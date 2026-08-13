@@ -168,7 +168,7 @@ export function AddSessionDialog({
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="pressable flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
+              className="pressable-row flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
             >
               {speakerIds.size === 0 ? (
                 <span className="text-muted-foreground">No speakers selected</span>

@@ -614,7 +614,7 @@ export function SpeakerList({
               key={entry.speaker.id}
               type="button"
               onClick={() => setSelected(entry)}
-              className="os-speaker pressable flex w-full gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+              className="os-speaker pressable-row flex w-full gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
             >
               <Headshot speaker={entry.speaker} className="size-10 text-xs" />
               <div className="min-w-0 flex-1">
@@ -874,7 +874,7 @@ export function Agenda({
                       type="button"
                       onClick={() => setDetail(session)}
                       className={cn(
-                        "pressable block w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50",
+                        "pressable-row block w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50",
                         (options?.showAddToCalendar ?? true) && "pr-10",
                       )}
                     >

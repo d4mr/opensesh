@@ -142,7 +142,7 @@ export function DataTable({ data }: { readonly data: ReadonlyArray<DashboardSubm
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="pressable cursor-pointer hover:bg-muted/50"
+                  className="pressable-row cursor-pointer hover:bg-muted/50"
                   onClick={() =>
                     void navigate({
                       to: "/admin/submissions",

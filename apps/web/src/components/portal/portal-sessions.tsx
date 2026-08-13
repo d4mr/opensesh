@@ -47,7 +47,7 @@ export function PortalSessions() {
                 to="/portal/$section"
                 params={{ section: "submissions" }}
                 search={{ spotlight: submission.id }}
-                className="pressable group block rounded-xl border bg-card p-5 transition-colors hover:bg-muted/30"
+                className="pressable-row group block rounded-xl border bg-card p-5 transition-colors hover:bg-muted/30"
               >
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs text-muted-foreground tabular-nums">

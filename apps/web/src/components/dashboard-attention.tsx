@@ -146,7 +146,7 @@ export function DashboardAttention({ stats }: { readonly stats: DashboardStats }
                 {stats.agendaDays.map((day) => (
                   <TableRow
                     key={day.date}
-                    className="pressable cursor-pointer hover:bg-muted/50"
+                    className="pressable-row cursor-pointer hover:bg-muted/50"
                     onClick={() =>
                       void navigate({
                         to: "/admin/agenda",
