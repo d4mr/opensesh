@@ -18,6 +18,7 @@ import {
   GripVerticalIcon,
   PlusIcon,
   SearchIcon,
+  Settings2Icon,
   XIcon,
 } from "lucide-react";
 import {
@@ -50,6 +51,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import {
@@ -58,19 +61,51 @@ import {
   formatDay,
   formatLongDay,
   formatTime,
+  minuteLabel,
   minutesFor,
   zonedDateTimeIso,
 } from "./date-utils";
 import { ScheduleEditor } from "./schedule-editor";
 
-const START_MINUTES = 8 * 60;
-const END_MINUTES = 19 * 60;
-const SLOT_MINUTES = 15;
 const SLOT_HEIGHT = 36;
-const slots = Array.from(
-  { length: (END_MINUTES - START_MINUTES) / SLOT_MINUTES },
-  (_, index) => START_MINUTES + index * SLOT_MINUTES,
-);
+
+// The grid's increment and open/close times are a per-user view preference —
+// the data-model floor stays validateScheduleChange's 5-minute mark. The grid
+// widens itself past the preference whenever a session sits outside it, so a
+// placement can never become invisible.
+interface GridConfig {
+  readonly start: number;
+  readonly end: number;
+  readonly slot: number;
+}
+const gridConfigKey = "agenda-grid-config";
+const defaultGridConfig: GridConfig = { start: 8 * 60, end: 19 * 60, slot: 15 };
+const slotChoices = [5, 10, 15, 30];
+const timeRange = (from: number, to: number) =>
+  Array.from({ length: (to - from) / 30 + 1 }, (_, index) => from + index * 30);
+
+const loadGridConfig = (): GridConfig => {
+  try {
+    const raw = localStorage.getItem(gridConfigKey);
+    if (raw === null) return defaultGridConfig;
+    const record = JSON.parse(raw) as Record<string, unknown>;
+    const slot =
+      typeof record.slot === "number" && slotChoices.includes(record.slot)
+        ? record.slot
+        : defaultGridConfig.slot;
+    const start =
+      typeof record.start === "number" && record.start >= 0 && record.start % 30 === 0
+        ? record.start
+        : defaultGridConfig.start;
+    const end =
+      typeof record.end === "number" && record.end <= 24 * 60 && record.end % 30 === 0
+        ? record.end
+        : defaultGridConfig.end;
+    return end > start ? { start, end, slot } : defaultGridConfig;
+  } catch {
+    return defaultGridConfig;
+  }
+};
 
 const slotId = (roomId: string, day: string, minutes: number) => `slot:${roomId}:${day}:${minutes}`;
 
@@ -123,6 +158,7 @@ function DropSlot({ roomId, day, minutes }: { roomId: string; day: string; minut
 function SessionBlock({
   session,
   timezone,
+  grid,
   conflicted,
   highlighted,
   open,
@@ -131,6 +167,7 @@ function SessionBlock({
 }: {
   readonly session: AgendaSession;
   readonly timezone: string;
+  readonly grid: GridConfig;
   readonly conflicted: boolean;
   readonly highlighted: boolean;
   readonly open: () => void;
@@ -160,11 +197,11 @@ function SessionBlock({
   const [previewDuration, setPreviewDuration] = useState(originalDuration);
   const resizeStart = useRef<{ readonly y: number; readonly duration: number } | null>(null);
   const startMinutes =
-    session.startsAt === null ? START_MINUTES : minutesFor(session.startsAt, timezone);
+    session.startsAt === null ? grid.start : minutesFor(session.startsAt, timezone);
   const track = session.tracks[0];
   const style: CSSProperties = {
-    top: ((startMinutes - START_MINUTES) / SLOT_MINUTES) * SLOT_HEIGHT + 1,
-    height: Math.max((previewDuration / SLOT_MINUTES) * SLOT_HEIGHT - 2, 34),
+    top: ((startMinutes - grid.start) / grid.slot) * SLOT_HEIGHT + 1,
+    height: Math.max((previewDuration / grid.slot) * SLOT_HEIGHT - 2, 34),
     borderLeftColor: track?.color,
     transform:
       transform === null
@@ -236,11 +273,11 @@ function SessionBlock({
         onPointerMove={(event) => {
           if (resizeStart.current === null) return;
           const deltaSlots = Math.round((event.clientY - resizeStart.current.y) / SLOT_HEIGHT);
-          const maxDuration = END_MINUTES - startMinutes;
+          const maxDuration = grid.end - startMinutes;
           setPreviewDuration(
             Math.max(
-              SLOT_MINUTES,
-              Math.min(maxDuration, resizeStart.current.duration + deltaSlots * SLOT_MINUTES),
+              grid.slot,
+              Math.min(maxDuration, resizeStart.current.duration + deltaSlots * grid.slot),
             ),
           );
         }}
@@ -250,10 +287,10 @@ function SessionBlock({
           if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
           event.preventDefault();
           const next = Math.max(
-            SLOT_MINUTES,
+            grid.slot,
             Math.min(
-              END_MINUTES - startMinutes,
-              originalDuration + (event.key === "ArrowDown" ? SLOT_MINUTES : -SLOT_MINUTES),
+              grid.end - startMinutes,
+              originalDuration + (event.key === "ArrowDown" ? grid.slot : -grid.slot),
             ),
           );
           if (next !== originalDuration) resize(next);
@@ -460,10 +497,49 @@ export function RoomsView({
       : (agenda.sessions.find((session) => session.id === peekSessionId) ?? null);
   const [search, setSearch] = useState("");
   const [trackId, setTrackId] = useState("all");
+  const [gridConfig, setGridConfig] = useState(loadGridConfig);
   const timezone = agenda.event.timezone;
   const days = eventDateKeys(agenda.event.startsAt, agenda.event.endsAt, timezone);
   const scheduled = agenda.sessions.filter(
     (session) => session.startsAt !== null && dateKeyFor(session.startsAt, timezone) === day,
+  );
+
+  const updateGridConfig = (patch: Partial<GridConfig>) =>
+    setGridConfig((current) => {
+      const next = { ...current, ...patch };
+      localStorage.setItem(gridConfigKey, JSON.stringify(next));
+      return next;
+    });
+
+  // Effective bounds: the preference, widened to whole hours around any
+  // session scheduled outside it.
+  const scheduledSpans = scheduled.flatMap((session) => {
+    if (session.startsAt === null || session.endsAt === null) return [];
+    const start = minutesFor(session.startsAt, timezone);
+    return [
+      {
+        start,
+        end:
+          start + Math.round((Date.parse(session.endsAt) - Date.parse(session.startsAt)) / 60_000),
+      },
+    ];
+  });
+  const gridStart = Math.max(
+    0,
+    Math.floor(Math.min(gridConfig.start, ...scheduledSpans.map((span) => span.start)) / 60) * 60,
+  );
+  const gridEnd = Math.min(
+    24 * 60,
+    Math.ceil(Math.max(gridConfig.end, ...scheduledSpans.map((span) => span.end)) / 60) * 60,
+  );
+  const grid: GridConfig = { start: gridStart, end: gridEnd, slot: gridConfig.slot };
+  const slots = useMemo(
+    () =>
+      Array.from(
+        { length: Math.ceil((gridEnd - gridStart) / gridConfig.slot) },
+        (_, index) => gridStart + index * gridConfig.slot,
+      ),
+    [gridStart, gridEnd, gridConfig.slot],
   );
   const pool = useMemo(
     () =>
@@ -525,22 +601,102 @@ export function RoomsView({
             <div>
               <p className="text-sm font-medium">{formatLongDay(day)}</p>
               <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                8:00 AM–7:00 PM · 15-minute grid <TimezoneChip timezone={timezone} />
+                {minuteLabel(gridStart)}–{minuteLabel(gridEnd)} · {gridConfig.slot}-minute grid{" "}
+                <TimezoneChip timezone={timezone} />
               </p>
             </div>
-            <ToggleGroup
-              type="single"
-              value={day}
-              onValueChange={(value) => value !== "" && onDayChange(value)}
-              variant="outline"
-              size="sm"
-            >
-              {days.map((item) => (
-                <ToggleGroupItem key={item} value={item} className="pressable h-7 px-2 text-xs">
-                  {formatDay(item)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <div className="flex items-center gap-1">
+              <ToggleGroup
+                type="single"
+                value={day}
+                onValueChange={(value) => value !== "" && onDayChange(value)}
+                variant="outline"
+                size="sm"
+              >
+                {days.map((item) => (
+                  <ToggleGroupItem key={item} value={item} className="pressable h-7 px-2 text-xs">
+                    {formatDay(item)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="pressable"
+                    aria-label="Grid settings"
+                  >
+                    <Settings2Icon />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-56 p-3">
+                  <div className="grid gap-3">
+                    <p className="text-xs font-medium">Grid settings</p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="grid-slot" className="text-xs text-muted-foreground">
+                        Time increment
+                      </Label>
+                      <Select
+                        value={String(gridConfig.slot)}
+                        onValueChange={(value) => updateGridConfig({ slot: Number(value) })}
+                      >
+                        <SelectTrigger id="grid-slot" size="sm" className="w-full text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {slotChoices.map((choice) => (
+                            <SelectItem key={choice} value={String(choice)}>
+                              {choice} minutes
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="grid-start" className="text-xs text-muted-foreground">
+                        Opens at
+                      </Label>
+                      <Select
+                        value={String(gridConfig.start)}
+                        onValueChange={(value) => updateGridConfig({ start: Number(value) })}
+                      >
+                        <SelectTrigger id="grid-start" size="sm" className="w-full text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeRange(5 * 60, 12 * 60).map((minutes) => (
+                            <SelectItem key={minutes} value={String(minutes)}>
+                              {minuteLabel(minutes)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="grid-end" className="text-xs text-muted-foreground">
+                        Closes at
+                      </Label>
+                      <Select
+                        value={String(gridConfig.end)}
+                        onValueChange={(value) => updateGridConfig({ end: Number(value) })}
+                      >
+                        <SelectTrigger id="grid-end" size="sm" className="w-full text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeRange(13 * 60, 24 * 60).map((minutes) => (
+                            <SelectItem key={minutes} value={String(minutes)}>
+                              {minuteLabel(minutes)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
           {/* The grid is the page's only scroll surface (both axes); isolate
               keeps its sticky/z layers from stacking above the app sidebar. */}
@@ -567,7 +723,7 @@ export function RoomsView({
                   <span
                     key={minutes}
                     className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums"
-                    style={{ top: ((minutes - START_MINUTES) / SLOT_MINUTES) * SLOT_HEIGHT }}
+                    style={{ top: ((minutes - gridStart) / gridConfig.slot) * SLOT_HEIGHT }}
                   >
                     {minutes % 60 === 0
                       ? formatTime(zonedDateTimeIso(day, minutes, timezone), timezone)
@@ -591,6 +747,7 @@ export function RoomsView({
                         key={session.id}
                         session={session}
                         timezone={timezone}
+                        grid={grid}
                         conflicted={conflictedIds.has(session.id)}
                         highlighted={highlightedIds.has(session.id)}
                         open={() => setPeekSessionId(session.id)}

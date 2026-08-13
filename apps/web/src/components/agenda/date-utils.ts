@@ -59,6 +59,14 @@ export const zonedDateTimeIso = (dateKey: string, minutes: number, timezone: str
   return new Date(guess).toISOString();
 };
 
+// Label a minutes-since-midnight value ("8:00 AM") without needing a date or
+// timezone — for grid bounds and schedule-window options, not instants.
+export const minuteLabel = (minutes: number) => {
+  const hour = Math.floor(minutes / 60) % 24;
+  const display = hour % 12 === 0 ? 12 : hour % 12;
+  return `${display}:${String(minutes % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+};
+
 export const formatTime = (value: string, timezone: string) =>
   new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,

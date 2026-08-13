@@ -50,17 +50,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { eventDateKeys, formatLongDay } from "./date-utils";
+import { eventDateKeys, formatLongDay, minuteLabel } from "./date-utils";
 
 const CANVAS_START = 8 * 60;
 const CANVAS_END = 19 * 60;
 const timeOptions = (from: number, to: number) =>
   Array.from({ length: (to - from) / 30 + 1 }, (_, index) => from + index * 30);
-const minuteLabel = (minutes: number) => {
-  const hour = Math.floor(minutes / 60);
-  const display = hour % 12 === 0 ? 12 : hour % 12;
-  return `${display}:${String(minutes % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
-};
 
 const statusStyles = {
   draft: {
