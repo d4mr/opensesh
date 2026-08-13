@@ -21,6 +21,13 @@ import { ConfigProvider, Effect, Layer, ManagedRuntime } from "effect";
 
 import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
+import {
+  consumeMailBatch,
+  enqueueMailLogIds,
+  MailQueue,
+  type MailQueueMessage,
+  makeMailQueueLive,
+} from "@/server/mail-queue";
 
 const demoEmails = new Set<string>(DEMO_PERSONA_EMAILS);
 const preferredEventSlugForSession = (session: SessionIdentity) =>
@@ -46,7 +53,7 @@ const sessionIdentity = (headers: Headers, origin: string) =>
         };
   });
 
-type AppServices = RepositoryServices | CurrentUser | Mail;
+type AppServices = RepositoryServices | CurrentUser | Mail | MailQueue;
 type AppRuntime = ManagedRuntime.ManagedRuntime<AppServices, never>;
 
 // One runtime — one Postgres client, one auth-session load, one cached
@@ -69,6 +76,7 @@ const requestRuntime = async (): Promise<AppRuntime> => {
     makeRepositoriesLiveWith(dbLive),
     makeCurrentUserLiveWith(dbLive, loadSession, preferredEventSlugForSession),
     mailLayerFromEnv(env),
+    makeMailQueueLive(env.MAIL_QUEUE),
     ConfigProvider.layer(
       ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
     ),
@@ -114,7 +122,7 @@ export const runSessionServer = async <A, E extends AppError>(
 };
 
 export const runServer = async <A, E extends AppError>(
-  program: Effect.Effect<A, E, RepositoryServices | CurrentUser | Mail>,
+  program: Effect.Effect<A, E, RepositoryServices | CurrentUser | Mail | MailQueue>,
   options?: { readonly require?: RequiredRole },
 ) => {
   const runtime = await requestRuntime();
@@ -149,6 +157,7 @@ export const runScheduledTaskReminders = async (env: Cloudflare.Env, now: Date) 
     Layer.mergeAll(
       makeRepositoriesLiveWith(dbLive),
       mailLayerFromEnv(env),
+      makeMailQueueLive(env.MAIL_QUEUE),
       ConfigProvider.layer(
         ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
       ),
@@ -159,7 +168,6 @@ export const runScheduledTaskReminders = async (env: Cloudflare.Env, now: Date) 
       toServerResult(
         Effect.gen(function* () {
           const communications = yield* SpeakerComms;
-          const mail = yield* Mail;
           const rules = yield* communications.listEnabledReminderRules();
           const deliveries = yield* Effect.forEach(
             rules,
@@ -171,33 +179,95 @@ export const runScheduledTaskReminders = async (env: Cloudflare.Env, now: Date) 
                   env.APP_ORIGIN,
                   now,
                 );
-                const sent = yield* Effect.forEach(
-                  queued.logIds,
-                  (logId) => mail.sendQueued(logId),
-                  { concurrency: 5 },
-                );
                 return {
                   skipped: queued.skippedAsDuplicate,
-                  sent: sent.filter((delivery) => delivery.status !== "failed").length,
-                  failed: sent.filter((delivery) => delivery.status === "failed").length,
+                  queued: queued.logIds.length,
+                  logIds: queued.logIds,
                 };
               }),
             { concurrency: 3 },
           );
           let skipped = 0;
-          let sent = 0;
-          let failed = 0;
+          let queued = 0;
           for (const delivery of deliveries) {
             if (delivery.skipped) skipped += 1;
-            sent += delivery.sent;
-            failed += delivery.failed;
+            queued += delivery.queued;
           }
-          return { rules: deliveries.length, skipped, sent, failed };
+          const mailQueue = yield* MailQueue;
+          yield* mailQueue.enqueue(deliveries.flatMap((delivery) => delivery.logIds));
+          return { rules: deliveries.length, skipped, queued };
         }),
       ),
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.data;
+  } finally {
+    await runtime.dispose();
+  }
+};
+
+export const runMailSweep = async (env: Cloudflare.Env, now: Date) => {
+  const runtime = ManagedRuntime.make(mailLayerFromEnv(env));
+  try {
+    const result = await runtime.runPromise(
+      toServerResult(
+        Effect.gen(function* () {
+          const mail = yield* Mail;
+          const staleBefore = new Date(now.getTime() - 5 * 60 * 1000);
+          const logIds = yield* mail.sweepStale(staleBefore);
+          const enqueued = yield* Effect.promise(() => enqueueMailLogIds(env.MAIL_QUEUE, logIds));
+          return { stale: logIds.length, ...enqueued };
+        }),
+      ),
+    );
+    if (!result.ok) throw new Error(result.error.message);
+    return result.data;
+  } finally {
+    await runtime.dispose();
+  }
+};
+
+export const runMailQueueBatch = async (
+  env: Cloudflare.Env,
+  batch: MessageBatch<MailQueueMessage>,
+) => {
+  const runtime = ManagedRuntime.make(mailLayerFromEnv(env));
+  try {
+    await consumeMailBatch(batch, async ({ logId }, attempts) => {
+      const outcome = await runtime.runPromise(
+        Effect.result(
+          Effect.gen(function* () {
+            const mail = yield* Mail;
+            const delivery = yield* mail.sendQueued(logId);
+            if (delivery.status === "queued" && attempts > 5) {
+              yield* mail.failQueued(logId, delivery.error ?? "Delivery retries exhausted");
+              return { kind: "permanent" } as const;
+            }
+            if (delivery.status === "queued") return { kind: "transient" } as const;
+            if (delivery.status === "skipped") return { kind: "skipped" } as const;
+            if (delivery.status === "failed") return { kind: "permanent" } as const;
+            return { kind: "delivered" } as const;
+          }),
+        ),
+      );
+      if (outcome._tag === "Success") return outcome.success;
+      const released = await runtime.runPromise(
+        Effect.result(
+          Effect.gen(function* () {
+            const mail = yield* Mail;
+            if (attempts > 5) {
+              yield* mail.failQueued(logId, "Delivery retries exhausted");
+            } else {
+              yield* mail.releaseQueued(logId);
+            }
+          }),
+        ),
+      );
+      if (released._tag === "Failure") {
+        console.error(JSON.stringify({ event: "mail_release_failed", logId, attempts }));
+      }
+      return attempts > 5 ? { kind: "permanent" } : { kind: "transient" };
+    });
   } finally {
     await runtime.dispose();
   }

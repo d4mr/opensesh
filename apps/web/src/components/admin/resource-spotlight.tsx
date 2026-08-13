@@ -1,4 +1,9 @@
-import type { ResourceAdmin, ResourceAttachmentKind, ResourceAudienceMode } from "@opensesh/domain";
+import type {
+  ResourceAdmin,
+  ResourceAttachmentKind,
+  ResourceAudienceMode,
+  SpeakerPipeline,
+} from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import {
   DownloadIcon,
@@ -68,7 +73,7 @@ type ResourceContact = {
   readonly email: string;
   readonly headshotUrl: string | null;
   readonly company: string | null;
-  readonly workflowStatus: "invited" | "onboarding" | "confirmed" | "ready" | "declined";
+  readonly pipeline?: SpeakerPipeline;
 };
 
 function SectionLabel({ children }: { readonly children: string }) {
@@ -473,7 +478,10 @@ export function ResourceSpotlight({
                             <SpeakerPickerDialog
                               open={pickerOpen}
                               onOpenChange={setPickerOpen}
-                              contacts={contacts}
+                              contacts={contacts.map((contact) => ({
+                                ...contact,
+                                pipeline: contact.pipeline ?? "added",
+                              }))}
                               value={contactField.state.value}
                               onChange={(value) => contactField.handleChange(new Set(value))}
                               title="Resource audience"

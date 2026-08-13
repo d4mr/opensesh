@@ -1,12 +1,13 @@
 CREATE TYPE "agenda_draft_status" AS ENUM('draft', 'generated', 'committed', 'discarded');--> statement-breakpoint
 CREATE TYPE "campaign_delivery_status" AS ENUM('pending', 'sent', 'failed');--> statement-breakpoint
+CREATE TYPE "contact_participation" AS ENUM('submitter', 'speaker', 'organizer');--> statement-breakpoint
 CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rejected');--> statement-breakpoint
 CREATE TYPE "crm_semantic_status" AS ENUM('open', 'won', 'lost');--> statement-breakpoint
 CREATE TYPE "deliverable_status" AS ENUM('outstanding', 'uploaded');--> statement-breakpoint
 CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
 CREATE TYPE "email_campaign_status" AS ENUM('draft', 'sending', 'sent');--> statement-breakpoint
-CREATE TYPE "email_status" AS ENUM('queued', 'demo', 'sent', 'failed');--> statement-breakpoint
-CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'cancelled', 'reinstated', 'task_reminder', 'calendar_invite', 'custom');--> statement-breakpoint
+CREATE TYPE "email_status" AS ENUM('queued', 'sending', 'demo', 'sent', 'failed');--> statement-breakpoint
+CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'cancelled', 'reinstated', 'task_reminder', 'calendar_invite', 'portal_invitation', 'custom');--> statement-breakpoint
 CREATE TYPE "embed_view" AS ENUM('sessions', 'speakers', 'speaker_gallery', 'agenda', 'itinerary');--> statement-breakpoint
 CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
 CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
@@ -21,8 +22,7 @@ CREATE TYPE "review_criterion_type" AS ENUM('numeric', 'dropdown', 'text');--> s
 CREATE TYPE "review_decision" AS ENUM('approve', 'maybe', 'deny');--> statement-breakpoint
 CREATE TYPE "review_round_status" AS ENUM('draft', 'open', 'closed');--> statement-breakpoint
 CREATE TYPE "session_cancelled_by" AS ENUM('organizer', 'speaker');--> statement-breakpoint
-CREATE TYPE "speaker_workflow_status" AS ENUM('invited', 'onboarding', 'confirmed', 'ready', 'declined');--> statement-breakpoint
-CREATE TYPE "submission_activity_type" AS ENUM('status_changed', 'decided', 'cancelled', 'reinstated', 'scheduled', 'content_approved');--> statement-breakpoint
+CREATE TYPE "submission_activity_type" AS ENUM('status_changed', 'decided', 'informed', 'cancelled', 'reinstated', 'scheduled', 'content_approved');--> statement-breakpoint
 CREATE TYPE "submission_status" AS ENUM('draft', 'pending', 'maybe', 'accepted', 'declined', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "target_type" AS ENUM('contact', 'submission');--> statement-breakpoint
 CREATE TYPE "task_status" AS ENUM('todo', 'done', 'waived');--> statement-breakpoint
@@ -789,7 +789,7 @@ CREATE TABLE "contacts" (
 	"email" text NOT NULL,
 	"first_name" text NOT NULL,
 	"last_name" text NOT NULL,
-	"participation" text DEFAULT 'speaker' NOT NULL,
+	"participation" "contact_participation" NOT NULL,
 	"title" text,
 	"company" text,
 	"salutation" text,
@@ -810,7 +810,6 @@ CREATE TABLE "contacts" (
 	"custom" jsonb NOT NULL,
 	"approved_profile" jsonb DEFAULT '{}' NOT NULL,
 	"profile_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
-	"workflow_status" "speaker_workflow_status" DEFAULT 'invited'::"speaker_workflow_status" NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "contacts_event_email_unique" UNIQUE("event_id","email")

@@ -12,7 +12,6 @@ import {
   columnVisibilityFeature,
   createColumnHelper,
   createSortedRowModel,
-  rowSelectionFeature,
   rowSortingFeature,
   sortFn_alphanumeric,
   sortFn_datetime,
@@ -30,6 +29,7 @@ import {
   DownloadIcon,
   SearchIcon,
   FileInputIcon,
+  SendIcon,
 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -43,7 +43,16 @@ import { relativeLabel, Timestamp } from "@/components/app/timestamp";
 import { DecisionDialog } from "@/components/review-desk/decision-dialog";
 import { SubmissionDetail } from "@/components/review-desk/submission-detail";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -75,14 +84,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRowHighlight } from "@/hooks/use-row-highlight";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { reviewDeskListQuery } from "@/lib/review-desk-queries";
+import { selectedMatchingFilter, toggleFilteredSelection } from "@/lib/submission-selection";
 import { cn } from "@/lib/utils";
 import {
   changeSubmissionStatus,
   exportSubmissionsCsv,
   getReviewDeskList,
+  informSubmissions,
 } from "@/server-fns/review-desk";
 
-export type SubmissionStatusFilter = "all" | SubmissionStatus;
+export type SubmissionStatusFilter = "all" | "to_inform" | SubmissionStatus;
 
 const statusTabs: ReadonlyArray<{
   readonly value: SubmissionStatusFilter;
@@ -91,6 +102,7 @@ const statusTabs: ReadonlyArray<{
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "maybe", label: "Maybe" },
+  { value: "to_inform", label: "To inform" },
   { value: "accepted", label: "Accepted" },
   { value: "declined", label: "Declined" },
   { value: "withdrawn", label: "Withdrawn" },
@@ -127,6 +139,7 @@ const columnLabels: Readonly<Record<string, string>> = {
   title: "Title",
   tracks: "Tracks",
   format: "Format",
+  submitter: "Submitter",
   speakers: "Speakers",
   rating: "Rating",
   reviews: "Reviews",
@@ -136,7 +149,6 @@ const columnLabels: Readonly<Record<string, string>> = {
 };
 
 const features = tableFeatures({
-  rowSelectionFeature,
   columnVisibilityFeature,
   rowSortingFeature,
   sortedRowModel: createSortedRowModel(),
@@ -182,23 +194,6 @@ function StatusEditor({
   ) => void;
 }) {
   const [open, setOpen] = useState(false);
-  // Acceptance stands: what happens to an accepted talk afterwards is session
-  // lifecycle (cancel/reinstate on Sessions), never a status shuffle here.
-  if (submission.status === "accepted") {
-    return (
-      <span className="inline-flex items-center gap-1.5">
-        <StatusBadge status="accepted" />
-        {submission.cancelledAt === null ? null : (
-          <span
-            className="rounded-sm border px-1 py-px text-[10px] text-muted-foreground"
-            title={`Session cancelled by the ${submission.cancelledBy ?? "organizer"}`}
-          >
-            Session cancelled
-          </span>
-        )}
-      </span>
-    );
-  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -267,6 +262,16 @@ export function SubmissionTablePage({
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [decision, setDecision] = useState<SubmissionDecision>("accept");
   const [decisionTargets, setDecisionTargets] = useState<ReadonlyArray<ReviewDeskListItem>>([]);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const [informFilter, setInformFilter] = useState<"all" | "accepted" | "declined">("all");
+  const [selectedOnly, setSelectedOnly] = useState(false);
+  const [acceptanceNote, setAcceptanceNote] = useState("");
+  const [declineNote, setDeclineNote] = useState("");
+  const [informConfirmOpen, setInformConfirmOpen] = useState(false);
+  const [sendProgress, setSendProgress] = useState<{
+    readonly sent: number;
+    readonly total: number;
+  }>();
   const decisionSnapshot = useRef<ListResult | undefined>(undefined);
   const { highlightedIds, highlightRows } = useRowHighlight();
 
@@ -295,12 +300,40 @@ export function SubmissionTablePage({
     if (visibilityReady) window.localStorage.setItem(storageKey, JSON.stringify(columnVisibility));
   }, [columnVisibility, storageKey, visibilityReady]);
 
+  useEffect(() => {
+    if (status !== "to_inform") {
+      setSelectedIds(new Set());
+      setSelectedOnly(false);
+    }
+  }, [status]);
+
   const data = list.data.ok ? list.data.data : null;
+  const pendingMail = (data?.mailStatus.queued ?? 0) + (data?.mailStatus.sending ?? 0);
+  useEffect(() => {
+    if (sendProgress === undefined) return;
+    const sent = Math.max(0, sendProgress.total - Math.min(sendProgress.total, pendingMail));
+    if (pendingMail === 0) {
+      setSendProgress(undefined);
+    } else if (sent !== sendProgress.sent) {
+      setSendProgress({ sent, total: sendProgress.total });
+    }
+  }, [pendingMail, sendProgress]);
   const filtered = useMemo(() => {
     if (data === null) return [];
     const query = search.trim().toLowerCase();
     return data.submissions.filter((submission) => {
-      if (status !== "all" && submission.status !== status) return false;
+      if (
+        status === "to_inform"
+          ? !(
+              (submission.status === "accepted" || submission.status === "declined") &&
+              submission.notifiedAt === null
+            )
+          : status !== "all" && submission.status !== status
+      )
+        return false;
+      if (status === "to_inform" && informFilter !== "all" && submission.status !== informFilter)
+        return false;
+      if (status === "to_inform" && selectedOnly && !selectedIds.has(submission.id)) return false;
       if (track !== "all" && !submission.tracks.some((item) => item.id === track)) return false;
       if (format !== "all" && submission.format !== format) return false;
       if (tag !== "all" && !submission.tags.some((item) => item.id === tag)) return false;
@@ -311,7 +344,7 @@ export function SubmissionTablePage({
         ...submission.speakers.flatMap((speaker) => [speaker.name, speaker.email]),
       ].some((value) => value.toLowerCase().includes(query));
     });
-  }, [data, format, search, status, tag, track]);
+  }, [data, format, informFilter, search, selectedIds, selectedOnly, status, tag, track]);
 
   const setList = useCallback(
     (update: (current: ReviewDeskList) => ReviewDeskList) => {
@@ -374,24 +407,38 @@ export function SubmissionTablePage({
         columnHelper.display({
           id: "select",
           enableHiding: false,
-          header: ({ table }) => (
-            <Checkbox
-              aria-label="Select all visible submissions"
-              checked={
-                table.getIsAllRowsSelected()
-                  ? true
-                  : table.getIsSomeRowsSelected()
-                    ? "indeterminate"
-                    : false
-              }
-              onCheckedChange={(checked) => table.toggleAllRowsSelected(checked === true)}
-            />
-          ),
+          header: () => {
+            const selected = selectedMatchingFilter(filtered, selectedIds).length;
+            return (
+              <Checkbox
+                aria-label="Select all filtered submissions"
+                checked={
+                  filtered.length > 0 && selected === filtered.length
+                    ? true
+                    : selected > 0
+                      ? "indeterminate"
+                      : false
+                }
+                onCheckedChange={(checked) =>
+                  setSelectedIds((current) =>
+                    toggleFilteredSelection(current, filtered, checked === true),
+                  )
+                }
+              />
+            );
+          },
           cell: ({ row }) => (
             <Checkbox
               aria-label={`Select ${row.original.code}`}
-              checked={row.getIsSelected()}
-              onCheckedChange={(checked) => row.toggleSelected(checked === true)}
+              checked={selectedIds.has(row.original.id)}
+              onCheckedChange={(checked) =>
+                setSelectedIds((current) => {
+                  const next = new Set(current);
+                  if (checked === true) next.add(row.original.id);
+                  else next.delete(row.original.id);
+                  return next;
+                })
+              }
               onClick={(event) => event.stopPropagation()}
             />
           ),
@@ -399,11 +446,19 @@ export function SubmissionTablePage({
         columnHelper.accessor("status", {
           header: "Status",
           cell: ({ row }) => (
-            <StatusEditor
-              submission={row.original}
-              change={directStatusChange}
-              decide={openDecision}
-            />
+            <span className="inline-flex items-center gap-1.5">
+              <StatusEditor
+                submission={row.original}
+                change={directStatusChange}
+                decide={openDecision}
+              />
+              {(row.original.status === "accepted" || row.original.status === "declined") &&
+              row.original.notifiedAt === null ? (
+                <Badge variant="outline" className="rounded-sm px-1 py-px text-[10px] font-normal">
+                  Not informed
+                </Badge>
+              ) : null}
+            </span>
           ),
         }),
         columnHelper.accessor("notifiedAt", {
@@ -443,6 +498,22 @@ export function SubmissionTablePage({
           header: "Format",
           cell: ({ row }) =>
             row.original.format ?? <span className="text-muted-foreground">—</span>,
+        }),
+        columnHelper.accessor((submission) => submission.submitter?.name ?? "", {
+          id: "submitter",
+          header: "Submitter",
+          cell: ({ row }) =>
+            row.original.submitter === null ? (
+              <span className="text-muted-foreground">—</span>
+            ) : (
+              <SpeakerBadge
+                person={{
+                  id: row.original.submitter.id,
+                  name: row.original.submitter.name,
+                  image: null,
+                }}
+              />
+            ),
         }),
         columnHelper.accessor(
           (submission) => submission.speakers.map((item) => item.name).join(", "),
@@ -494,7 +565,7 @@ export function SubmissionTablePage({
             ),
         }),
       ]),
-    [directStatusChange, openDecision, eventTimezone],
+    [directStatusChange, eventTimezone, filtered, openDecision, selectedIds],
   );
 
   const table = useTable(
@@ -510,7 +581,6 @@ export function SubmissionTablePage({
     },
     (state) => ({
       columnVisibility: state.columnVisibility,
-      rowSelection: state.rowSelection,
       sorting: state.sorting,
     }),
   );
@@ -528,11 +598,25 @@ export function SubmissionTablePage({
   const counts = new Map<SubmissionStatusFilter, number>([["all", readyData.submissions.length]]);
   for (const submission of readyData.submissions) {
     counts.set(submission.status, (counts.get(submission.status) ?? 0) + 1);
+    if (
+      (submission.status === "accepted" || submission.status === "declined") &&
+      submission.notifiedAt === null
+    )
+      counts.set("to_inform", (counts.get("to_inform") ?? 0) + 1);
   }
-  const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
-  // Accepted rows are already decided — the exits from accepted live on the
-  // Sessions surface (cancel/reinstate), so bulk decisions skip them.
-  const decidableRows = selectedRows.filter((row) => row.status !== "accepted");
+  const selectedRows = selectedMatchingFilter(filtered, selectedIds);
+  const decidableRows = selectedRows.filter(
+    (row) => row.status !== "draft" && row.status !== "withdrawn",
+  );
+  const toInform = readyData.submissions.filter(
+    (submission) =>
+      (submission.status === "accepted" || submission.status === "declined") &&
+      submission.notifiedAt === null,
+  );
+  const acceptanceCount = toInform.filter((submission) => submission.status === "accepted").length;
+  const declineCount = toInform.length - acceptanceCount;
+  const informAcceptances = selectedRows.filter((row) => row.status === "accepted");
+  const informDeclines = selectedRows.filter((row) => row.status === "declined");
   const orderedIds = tableRows.map((row) => row.original.id);
   const exportRows = async (rows: ReadonlyArray<ReviewDeskListItem>) => {
     const columns = table
@@ -586,10 +670,50 @@ export function SubmissionTablePage({
           : { ...submission, status: next.status, notifiedAt: next.notifiedAt };
       }),
     }));
-    table.resetRowSelection(true);
+    setSelectedIds(new Set());
     void invalidateAfterMutation(queryClient, eventId).then(() =>
       highlightRows(result.submissions.map((submission) => submission.id)),
     );
+  };
+
+  const informSelected = async () => {
+    const acceptances = informAcceptances;
+    const declines = informDeclines;
+    if (acceptances.length + declines.length === 0) return;
+    setInformConfirmOpen(false);
+    let queued = 0;
+    const informedIds: Array<string> = [];
+    for (const group of [
+      { rows: acceptances, feedback: acceptanceNote },
+      { rows: declines, feedback: declineNote },
+    ]) {
+      if (group.rows.length === 0) continue;
+      const result = await informSubmissions({
+        data: {
+          eventId,
+          submissionIds: group.rows.map((row) => row.id),
+          feedback: group.feedback,
+        },
+      });
+      if (!result.ok) {
+        toast.error(result.error.message);
+        await invalidateAfterMutation(queryClient, eventId);
+        return;
+      }
+      queued += result.data.queued;
+      informedIds.push(...group.rows.map((row) => row.id));
+    }
+    const informed = new Set(informedIds);
+    setList((current) => ({
+      ...current,
+      submissions: current.submissions.map((submission) =>
+        informed.has(submission.id) ? { ...submission, notifiedAt: new Date() } : submission,
+      ),
+    }));
+    setSelectedIds((current) => new Set([...current].filter((id) => !informed.has(id))));
+    await invalidateAfterMutation(queryClient, eventId);
+    setSendProgress({ sent: 0, total: queued });
+    toast.success(`Queued ${queued} decision email${queued === 1 ? "" : "s"}`);
   };
 
   if (readyData.submissions.length === 0) {
@@ -655,7 +779,7 @@ export function SubmissionTablePage({
                 className="max-w-full justify-start overflow-x-auto border-b pb-1"
               >
                 {statusTabs.map((tab) => {
-                  const value = tab.value === "all" ? null : tab.value;
+                  const value = tab.value === "all" || tab.value === "to_inform" ? null : tab.value;
                   const Icon = value === null ? null : statusIcon[value];
                   return (
                     <TabsTrigger key={tab.value} value={tab.value} className="flex-none text-xs">
@@ -676,6 +800,51 @@ export function SubmissionTablePage({
                 })}
               </TabsList>
               <TabsContent value={status} className="mt-2 flex min-h-0 flex-1 flex-col gap-2">
+                {status === "to_inform" ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-1.5">
+                    <div className="flex gap-0.5 rounded-md bg-muted p-0.5">
+                      {[
+                        ["all", "All", toInform.length],
+                        ["accepted", "Acceptances", acceptanceCount],
+                        ["declined", "Declines", declineCount],
+                      ].map(([value, label, count]) => (
+                        <Button
+                          key={String(value)}
+                          size="xs"
+                          variant={informFilter === value ? "default" : "ghost"}
+                          onClick={() =>
+                            setInformFilter(
+                              value === "accepted" || value === "declined" ? value : "all",
+                            )
+                          }
+                        >
+                          {label} ({count})
+                        </Button>
+                      ))}
+                    </div>
+                    <Button
+                      size="xs"
+                      variant={selectedOnly ? "secondary" : "outline"}
+                      disabled={selectedIds.size === 0}
+                      onClick={() => setSelectedOnly((current) => !current)}
+                    >
+                      Selected only ({selectedIds.size})
+                    </Button>
+                    <span className="ml-auto text-xs font-medium tabular-nums">
+                      {selectedRows.length} selected
+                    </span>
+                    <Button
+                      size="xs"
+                      disabled={selectedRows.length === 0 || sendProgress !== undefined}
+                      onClick={() => setInformConfirmOpen(true)}
+                    >
+                      <SendIcon />
+                      {sendProgress === undefined
+                        ? `Inform (${selectedRows.length})`
+                        : `Sending ${sendProgress.sent}/${sendProgress.total}…`}
+                    </Button>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="relative min-w-56 flex-1 sm:max-w-sm">
                     <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -781,7 +950,7 @@ export function SubmissionTablePage({
                   </Button>
                 </div>
 
-                {selectedRows.length > 0 ? (
+                {status !== "to_inform" && selectedRows.length > 0 ? (
                   <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
                     <span className="mr-auto text-xs font-medium tabular-nums">
                       {selectedRows.length} selected
@@ -829,6 +998,28 @@ export function SubmissionTablePage({
                     <TableHeader>
                       {compact ? (
                         <TableRow className="h-8 hover:bg-transparent">
+                          {/* Selection must survive the spotlight: the wave is
+                              curated while previewing, so compact keeps the
+                              checkbox column on the inform queue. */}
+                          {status === "to_inform" ? (
+                            <TableHead className="h-8 w-8 text-xs">
+                              <Checkbox
+                                aria-label="Select all filtered submissions"
+                                checked={
+                                  filtered.length > 0 && selectedRows.length === filtered.length
+                                    ? true
+                                    : selectedRows.length > 0
+                                      ? "indeterminate"
+                                      : false
+                                }
+                                onCheckedChange={(checked) =>
+                                  setSelectedIds((current) =>
+                                    toggleFilteredSelection(current, filtered, checked === true),
+                                  )
+                                }
+                              />
+                            </TableHead>
+                          ) : null}
                           <TableHead className="h-8 w-28 text-xs">Status</TableHead>
                           <TableHead className="h-8 w-24 text-xs">Code</TableHead>
                           <TableHead className="h-8 text-xs">Title</TableHead>
@@ -873,7 +1064,9 @@ export function SubmissionTablePage({
                             colSpan={table.getVisibleLeafColumns().length}
                             className="h-24 text-center text-muted-foreground"
                           >
-                            No submissions match these filters.
+                            {status === "to_inform" && toInform.length === 0
+                              ? "Every decision has been sent."
+                              : "No submissions match these filters."}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -881,12 +1074,31 @@ export function SubmissionTablePage({
                           <TableRow
                             key={row.id}
                             ref={rowRef(row.original.id)}
-                            data-state={row.getIsSelected() ? "selected" : undefined}
+                            data-state={selectedIds.has(row.original.id) ? "selected" : undefined}
                             className={cn("h-9 cursor-pointer", rowClassName(row.original.id))}
                             onClick={() => openSpotlight(row.original.id)}
                           >
                             {compact ? (
                               <>
+                                {status === "to_inform" ? (
+                                  <TableCell
+                                    className="h-9 w-8 py-1.5"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <Checkbox
+                                      aria-label={`Select ${row.original.code}`}
+                                      checked={selectedIds.has(row.original.id)}
+                                      onCheckedChange={(checked) =>
+                                        setSelectedIds((current) => {
+                                          const next = new Set(current);
+                                          if (checked === true) next.add(row.original.id);
+                                          else next.delete(row.original.id);
+                                          return next;
+                                        })
+                                      }
+                                    />
+                                  </TableCell>
+                                ) : null}
                                 <TableCell className="h-9 w-28 py-1.5">
                                   <StatusBadge status={row.original.status} />
                                 </TableCell>
@@ -935,11 +1147,64 @@ export function SubmissionTablePage({
                 variant="spotlight"
                 onStatusChanged={(id) => highlightRows([id])}
                 onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+                informPreview={
+                  status !== "to_inform"
+                    ? undefined
+                    : (() => {
+                        const focused = readyData.submissions.find(
+                          (submission) => submission.id === spotlightId,
+                        );
+                        if (
+                          focused === undefined ||
+                          (focused.status !== "accepted" && focused.status !== "declined")
+                        )
+                          return undefined;
+                        const accepted = focused.status === "accepted";
+                        return {
+                          note: accepted ? acceptanceNote : declineNote,
+                          count: selectedRows.filter((row) => row.status === focused.status).length,
+                          onNoteChange: accepted ? setAcceptanceNote : setDeclineNote,
+                        };
+                      })()
+                }
               />
             </Suspense>
           )
         }
       />
+
+      {/* Mounted on demand like every confirm in the app; the wave was already
+          reviewed in the spotlight, so this only restates the split. */}
+      {informConfirmOpen ? (
+        <Dialog open onOpenChange={setInformConfirmOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Send decision emails</DialogTitle>
+              <DialogDescription>
+                {[
+                  informAcceptances.length > 0
+                    ? `${informAcceptances.length} acceptance${informAcceptances.length === 1 ? "" : "s"}`
+                    : null,
+                  informDeclines.length > 0
+                    ? `${informDeclines.length} decline${informDeclines.length === 1 ? "" : "s"}`
+                    : null,
+                ]
+                  .filter((part) => part !== null)
+                  .join(" and ")}{" "}
+                will be emailed to their submitters and marked notified.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setInformConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={() => void informSelected()}>
+                <SendIcon /> Send
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <DecisionDialog
         open={decisionOpen}

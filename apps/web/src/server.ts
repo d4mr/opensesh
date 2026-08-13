@@ -1,6 +1,12 @@
 import handler from "@tanstack/react-start/server-entry";
 
-import { runDemoReset, runScheduledTaskReminders } from "@/server/runtime";
+import {
+  runDemoReset,
+  runMailQueueBatch,
+  runMailSweep,
+  runScheduledTaskReminders,
+} from "@/server/runtime";
+import type { MailQueueMessage } from "@/server/mail-queue";
 
 // Documents must revalidate on every load: without this, browsers
 // heuristically cache the HTML shell and keep referencing deleted asset
@@ -24,9 +30,14 @@ export default {
     if (controller.cron === "*/15 * * * *") {
       const result = await runDemoReset(env);
       console.log(JSON.stringify({ event: "demo_reset_completed", ...result }));
-      return;
+    } else {
+      const result = await runScheduledTaskReminders(env, new Date(controller.scheduledTime));
+      console.log(JSON.stringify({ event: "task_reminders_completed", ...result }));
     }
-    const result = await runScheduledTaskReminders(env, new Date(controller.scheduledTime));
-    console.log(JSON.stringify({ event: "task_reminders_completed", ...result }));
+    const sweep = await runMailSweep(env, new Date(controller.scheduledTime));
+    console.log(JSON.stringify({ event: "mail_sweep_completed", ...sweep }));
   },
-} satisfies ExportedHandler<Cloudflare.Env>;
+  async queue(batch, env) {
+    await runMailQueueBatch(env, batch);
+  },
+} satisfies ExportedHandler<Cloudflare.Env, MailQueueMessage>;

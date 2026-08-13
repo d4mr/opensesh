@@ -1,8 +1,8 @@
-import type { SpeakerWorkflowStatus } from "@opensesh/domain";
+import type { SpeakerPipeline } from "@opensesh/domain";
 import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { WorkflowBadge, workflowLabels } from "@/components/admin/speaker-admin-dialogs";
+import { PipelineBadge, pipelineLabels } from "@/components/admin/speaker-admin-dialogs";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,7 +42,7 @@ export type SpeakerPickerContact = {
   readonly email: string;
   readonly headshotUrl: string | null;
   readonly company: string | null;
-  readonly workflowStatus: SpeakerWorkflowStatus;
+  readonly pipeline: SpeakerPipeline;
   readonly talkTitle?: string;
   readonly taskIncomplete?: number;
 };
@@ -68,11 +68,11 @@ export function SpeakerPickerDialog({
   readonly description?: string;
 }) {
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | SpeakerWorkflowStatus>("all");
+  const [status, setStatus] = useState<"all" | SpeakerPipeline>("all");
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return contacts.filter((contact) => {
-      if (status !== "all" && contact.workflowStatus !== status) return false;
+      if (status !== "all" && contact.pipeline !== status) return false;
       if (query.length === 0) return true;
       return [
         `${contact.firstName} ${contact.lastName}`,
@@ -112,8 +112,8 @@ export function SpeakerPickerDialog({
           <Select
             value={status}
             onValueChange={(next) => {
-              if (next === "all" || next in workflowLabels)
-                setStatus(next as "all" | SpeakerWorkflowStatus);
+              if (next === "all" || next in pipelineLabels)
+                setStatus(next as "all" | SpeakerPipeline);
             }}
           >
             <SelectTrigger size="sm" aria-label="Filter by workflow status">
@@ -121,7 +121,7 @@ export function SpeakerPickerDialog({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {Object.entries(workflowLabels).map(([key, label]) => (
+              {Object.entries(pipelineLabels).map(([key, label]) => (
                 <SelectItem key={key} value={key}>
                   {label}
                 </SelectItem>
@@ -200,7 +200,7 @@ export function SpeakerPickerDialog({
                       </div>
                     </TableCell>
                     <TableCell className="h-9 py-1.5">
-                      <WorkflowBadge status={contact.workflowStatus} />
+                      <PipelineBadge status={contact.pipeline} />
                     </TableCell>
                     {showTasks ? (
                       <TableCell className="h-9 py-1.5 text-right text-xs text-muted-foreground tabular-nums">

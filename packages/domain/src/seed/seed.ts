@@ -166,6 +166,7 @@ const submissionRows = seedData.submissions.map((submission) => {
   const cancelled = submission.id === "sub_17";
   return {
     ...submission,
+    ...(submission.sourceFormId === null ? { submitterContactId: null } : {}),
     scheduleDirty: false,
     answers,
     approvedSnapshot,
@@ -569,16 +570,19 @@ export const seedDemoOrg = async (transaction: SeedTransaction, withIdentities: 
                 participant.submissionId === submission.id && participant.contactId === contact.id,
             ),
         );
-        const declined = seedData.submissions.some(
+        const submittedCfp = seedData.submissions.some(
           (submission) =>
-            submission.status === "declined" &&
-            seedData.submissionParticipants.some(
-              (participant) =>
-                participant.submissionId === submission.id && participant.contactId === contact.id,
-            ),
+            submission.sourceFormId !== null &&
+            (submission.submitterContactId === contact.id ||
+              seedData.submissionParticipants.some(
+                (participant) =>
+                  participant.submissionId === submission.id &&
+                  participant.contactId === contact.id,
+              )),
         );
         return {
           ...contact,
+          participation: submittedCfp ? ("submitter" as const) : ("speaker" as const),
           ...(contact.id === "con_01"
             ? {
                 bio: mayaPendingBio,
@@ -586,15 +590,6 @@ export const seedDemoOrg = async (transaction: SeedTransaction, withIdentities: 
                 profileReviewStatus: "pending_review" as const,
               }
             : {}),
-          // With speaker confirmation on, a couple of accepted speakers
-          // have not confirmed yet — Sessions readiness shows real gaps.
-          workflowStatus: accepted
-            ? contact.id === "con_22" || contact.id === "con_16"
-              ? ("onboarding" as const)
-              : ("confirmed" as const)
-            : declined
-              ? ("declined" as const)
-              : ("invited" as const),
           confirmedAt:
             accepted && contact.id !== "con_22" && contact.id !== "con_16"
               ? new Date(1783080000000)

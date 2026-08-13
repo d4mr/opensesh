@@ -32,16 +32,9 @@ export function CalendarInviteAction() {
         toast.error(result.error.message);
         return;
       }
-      if (result.data.failed > 0) {
-        toast.error(
-          `${result.data.failed} of ${result.data.attempted} calendar invites failed. Retry them in Email delivery.`,
-        );
-      } else {
-        const label = result.data.demo > 0 ? "recorded in demo mode" : "sent";
-        toast.success(
-          `${result.data.attempted} calendar ${result.data.attempted === 1 ? "invite" : "invites"} ${label}`,
-        );
-      }
+      toast.success(
+        `Queued ${result.data.queued} calendar ${result.data.queued === 1 ? "invite" : "invites"}`,
+      );
       await invalidateAfterMutation(queryClient, eventId);
     },
     onError: (_error, _variables, context) => {

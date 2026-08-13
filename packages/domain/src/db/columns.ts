@@ -52,9 +52,15 @@ export const emailType = pgEnum("email_type", [
   "reinstated",
   "task_reminder",
   "calendar_invite",
+  "portal_invitation",
   "custom",
 ]);
-export const emailStatus = pgEnum("email_status", ["queued", "demo", "sent", "failed"]);
+export const emailStatus = pgEnum("email_status", ["queued", "sending", "demo", "sent", "failed"]);
+export const contactParticipation = pgEnum("contact_participation", [
+  "submitter",
+  "speaker",
+  "organizer",
+]);
 export const submissionStatus = pgEnum("submission_status", [
   "draft",
   "pending",
@@ -74,6 +80,7 @@ export const sessionCancelledBy = pgEnum("session_cancelled_by", ["organizer", "
 export const submissionActivityType = pgEnum("submission_activity_type", [
   "status_changed",
   "decided",
+  "informed",
   "cancelled",
   "reinstated",
   "scheduled",
@@ -92,13 +99,6 @@ export const reviewAssignmentStatus = pgEnum("review_assignment_status", [
   "pending",
   "completed",
   "recused",
-]);
-export const speakerWorkflowStatus = pgEnum("speaker_workflow_status", [
-  "invited",
-  "onboarding",
-  "confirmed",
-  "ready",
-  "declined",
 ]);
 export const emailCampaignStatus = pgEnum("email_campaign_status", ["draft", "sending", "sent"]);
 export const campaignDeliveryStatus = pgEnum("campaign_delivery_status", [

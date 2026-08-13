@@ -1,8 +1,4 @@
-import {
-  hasRichText,
-  type SpeakerDirectoryRow,
-  type SpeakerWorkflowStatus,
-} from "@opensesh/domain";
+import { hasRichText, type SpeakerDirectoryRow, type SpeakerPipeline } from "@opensesh/domain";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -32,10 +28,10 @@ import { Timestamp } from "@/components/app/timestamp";
 import { TaskTemplateDialog } from "@/components/admin/portal-admin";
 import {
   CsvImportDialog,
+  PipelineBadge,
   PortalInviteResultDialog,
   SpeakerFormDialog,
-  WorkflowBadge,
-  workflowLabels,
+  pipelineLabels,
 } from "@/components/admin/speaker-admin-dialogs";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
@@ -82,7 +78,7 @@ import {
   uploadAdminHeadshot,
   waiveAdminAssignment,
 } from "@/server-fns/portal";
-import { inviteSpeakerPortals, setSpeakerWorkflowStatus } from "@/server-fns/speaker-comms";
+import { inviteSpeakerPortals } from "@/server-fns/speaker-comms";
 
 const dietaryLabels: Readonly<Record<string, string>> = {
   none: "—",
@@ -101,6 +97,7 @@ const emailTypeLabels: Readonly<Record<SpeakerDirectoryRow["emails"][number]["ty
   reinstated: "Reinstated",
   task_reminder: "Task reminder",
   calendar_invite: "Calendar invite",
+  portal_invitation: "Portal invitation",
   custom: "Custom",
 };
 
@@ -243,12 +240,9 @@ function Directory({
   const [importOpen, setImportOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SpeakerDirectoryRow>();
-  const [statusFilter, setStatusFilter] = useState<"all" | SpeakerWorkflowStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | SpeakerPipeline>("all");
   const [taskFilter, setTaskFilter] = useState<"all" | "complete" | "incomplete">("all");
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const [statusOverrides, setStatusOverrides] = useState<
-    ReadonlyMap<string, SpeakerWorkflowStatus>
-  >(new Map());
   const [inviteResults, setInviteResults] = useState<
     ReadonlyArray<{
       readonly contactId: string;
@@ -326,30 +320,6 @@ function Directory({
         return next;
       }),
   });
-  const workflow = useMutation({
-    mutationFn: ({
-      contactId,
-      workflowStatus,
-    }: {
-      readonly contactId: string;
-      readonly workflowStatus: SpeakerWorkflowStatus;
-    }) => setSpeakerWorkflowStatus({ data: { eventId, contactId, workflowStatus } }),
-    onMutate: ({ contactId, workflowStatus }) =>
-      setStatusOverrides((current) => new Map(current).set(contactId, workflowStatus)),
-    onSuccess: async (result, { contactId }) => {
-      if (!result.ok) {
-        setStatusOverrides((current) => {
-          const next = new Map(current);
-          next.delete(contactId);
-          return next;
-        });
-        toast.error(result.error.message);
-        return;
-      }
-      toast.success("Speaker status saved");
-      await refresh();
-    },
-  });
   const invite = useMutation({
     mutationFn: (contactIds: ReadonlyArray<string>) =>
       inviteSpeakerPortals({ data: { eventId, contactIds } }),
@@ -361,7 +331,9 @@ function Directory({
       setInviteResults(result.data.invitations);
       setInviteOpen(true);
       setSelectedIds(new Set());
-      toast.success(`Sent ${result.data.sent} invitation${result.data.sent === 1 ? "" : "s"}`);
+      toast.success(
+        `Queued ${result.data.queued} invitation${result.data.queued === 1 ? "" : "s"}`,
+      );
       await refresh();
     },
   });
@@ -380,14 +352,14 @@ function Directory({
           .join(" ")
           .toLowerCase()
           .includes(search.trim().toLowerCase());
-        const status = statusOverrides.get(row.contact.id) ?? row.contact.workflowStatus;
+        const status = row.contact.pipeline;
         const todo = row.tasks.filter((task) => task.status === "todo").length;
         const matchesTasks =
           taskFilter === "all" ||
           (taskFilter === "complete" ? row.tasks.length > 0 && todo === 0 : todo > 0);
         return matchesSearch && (statusFilter === "all" || status === statusFilter) && matchesTasks;
       }),
-    [rows, search, statusFilter, statusOverrides, taskFilter],
+    [rows, search, statusFilter, taskFilter],
   );
   const selected = rows.find((row) => row.contact.id === spotlightId);
   const portalData = portal.data?.ok ? portal.data.data : undefined;
@@ -526,11 +498,11 @@ function Directory({
                     value={statusFilter}
                     onValueChange={(value) =>
                       setStatusFilter(
-                        value === "invited" ||
+                        value === "added" ||
+                          value === "invited" ||
                           value === "onboarding" ||
-                          value === "confirmed" ||
                           value === "ready" ||
-                          value === "declined"
+                          value === "withdrawn"
                           ? value
                           : "all",
                       )
@@ -541,7 +513,7 @@ function Directory({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All statuses</SelectItem>
-                      {Object.entries(workflowLabels).map(([value, label]) => (
+                      {Object.entries(pipelineLabels).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
                           {label}
                         </SelectItem>
@@ -607,7 +579,7 @@ function Directory({
                         <TableHead>Speaker</TableHead>
                         {compact ? null : <TableHead>Role</TableHead>}
                         {compact ? null : <TableHead>Profile readiness</TableHead>}
-                        {compact ? null : <TableHead>Workflow</TableHead>}
+                        {compact ? null : <TableHead>Pipeline</TableHead>}
                         {compact ? null : <TableHead>Task progress</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -675,12 +647,7 @@ function Directory({
                             )}
                             {compact ? null : (
                               <TableCell className="h-9 py-0 text-xs">
-                                <WorkflowBadge
-                                  status={
-                                    statusOverrides.get(row.contact.id) ??
-                                    row.contact.workflowStatus
-                                  }
-                                />
+                                <PipelineBadge status={row.contact.pipeline} />
                               </TableCell>
                             )}
                             {compact ? null : (
@@ -824,38 +791,6 @@ function Directory({
                     row={selected}
                     refresh={refresh}
                   />
-                  <section>
-                    <SectionLabel>Workflow status</SectionLabel>
-                    <Select
-                      value={
-                        statusOverrides.get(selected.contact.id) ?? selected.contact.workflowStatus
-                      }
-                      onValueChange={(value) => {
-                        if (
-                          value === "invited" ||
-                          value === "onboarding" ||
-                          value === "confirmed" ||
-                          value === "ready" ||
-                          value === "declined"
-                        )
-                          workflow.mutate({
-                            contactId: selected.contact.id,
-                            workflowStatus: value,
-                          });
-                      }}
-                    >
-                      <SelectTrigger size="sm" className="mt-1 w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(workflowLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </section>
                   <section>
                     <SectionLabel>Profile readiness</SectionLabel>
                     <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
@@ -1221,8 +1156,7 @@ function Directory({
                       title: selected.contact.title,
                       company: selected.contact.company,
                       bio: selected.contact.bio,
-                      status:
-                        statusOverrides.get(selected.contact.id) ?? selected.contact.workflowStatus,
+                      status: selected.contact.pipeline,
                       sessionsCount: selected.sessions.length,
                     }}
                   />

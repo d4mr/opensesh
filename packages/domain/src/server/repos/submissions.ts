@@ -40,7 +40,7 @@ import {
   SubmissionTrack,
   type SubmissionUpdate,
 } from "../schema/submissions";
-import { decode, decodeFound, decodeMany, query } from "./shared";
+import { decode, decodeFound, decodeMany, query, speakerContact } from "./shared";
 
 interface SubmissionsService {
   readonly listByEvent: (eventId: string) => Effect.Effect<ReadonlyArray<Submission>, DbError>;
@@ -185,7 +185,7 @@ export const SubmissionsLive = Layer.effect(
     const dashboardContactCounts = database
       .select({ eventId: contacts.eventId, speakers: countDistinct(contacts.id).as("speakers") })
       .from(contacts)
-      .where(eq(contacts.participation, "speaker"))
+      .where(speakerContact(database))
       .groupBy(contacts.eventId)
       .as("dashboard_contact_counts");
 

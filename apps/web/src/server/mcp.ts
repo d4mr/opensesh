@@ -15,6 +15,7 @@ import { ConfigProvider, Effect, Layer, ManagedRuntime, Result, Schema } from "e
 
 import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
+import { makeMailQueueLive } from "@/server/mail-queue";
 import { apiEndpoints } from "@/server/api";
 import { errorCode } from "@/server/api/dispatch";
 import { PATH_PARAM_DESCRIPTIONS, pathParams, schemaToJson } from "@/server/api/openapi";
@@ -142,11 +143,19 @@ const runtimeForUser = (env: Cloudflare.Env, userId: string) => {
       makeRepositoriesLiveWith(dbLive),
       makeCurrentUserLiveWith(dbLive, loadSession),
       mailLayerFromEnv(env),
+      makeMailQueueLive(env.MAIL_QUEUE),
       ConfigProvider.layer(
         ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
       ),
     ),
   );
+};
+
+const argumentText = (value: unknown) => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint")
+    return String(value);
+  return value === null || value === undefined ? "" : JSON.stringify(value);
 };
 
 export const handleMcpRequest = async (request: Request): Promise<Response> => {
@@ -211,11 +220,11 @@ export const handleMcpRequest = async (request: Request): Promise<Response> => {
         }
         const args = (call.params.arguments ?? {}) as Record<string, unknown>;
         const params: Record<string, string> = {};
-        for (const name of tool.paramNames) params[name] = String(args[name] ?? "");
+        for (const name of tool.paramNames) params[name] = argumentText(args[name]);
         const query = new URLSearchParams();
         for (const name of tool.queryNames) {
           const value = args[name];
-          if (value !== undefined && value !== null) query.set(name, String(value));
+          if (value !== undefined && value !== null) query.set(name, argumentText(value));
         }
         let body: unknown;
         if (tool.endpoint.bodySchema !== undefined) {

@@ -91,7 +91,7 @@ const contactInput = (
 ): ContactCreate => ({
   eventId,
   email,
-  participation: "speaker",
+  participation: "submitter",
   firstName: stringAnswer(
     answers,
     fields.find((field) => field.mapsTo === "first_name"),
@@ -126,7 +126,6 @@ const contactInput = (
   custom: customAnswers(answers, fields, PARTICIPANT_COLUMN_MAPPINGS),
   approvedProfile: {},
   profileReviewStatus: "approved",
-  workflowStatus: "invited",
 });
 
 const contactUpdate = (input: ContactCreate): ContactUpdate => ({
@@ -147,14 +146,11 @@ const upsertContact = Effect.fn("upsertCfpContact")(function* (input: ContactCre
   return yield* contacts.findByEmail(input.eventId, input.email).pipe(
     // CFP answers only fill blanks: a form that never asked for (or round-
     // tripped an older copy of) a field must not erase richer profile data
-    // the speaker or an organizer already provided. Participation is workflow
-    // state, not identity — submitting a CFP always marks the person a
-    // speaker.
+    // the person or an organizer already provided. Participation is
+    // provenance: an existing direct-added speaker or organizer keeps the
+    // way their event contact first came to exist.
     Effect.flatMap((contact) =>
-      contacts.update(contact.id, {
-        ...enrichContact(contact, contactUpdate(input), "fillBlanks"),
-        participation: "speaker",
-      }),
+      contacts.update(contact.id, enrichContact(contact, contactUpdate(input), "fillBlanks")),
     ),
     Effect.catchTag("NotFound", () => contacts.create(input)),
   );

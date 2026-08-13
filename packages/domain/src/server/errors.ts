@@ -62,6 +62,7 @@ export class Forbidden extends Data.TaggedError("Forbidden")<{
 export class MailError extends Data.TaggedError("MailError")<{
   readonly message: string;
   readonly cause: unknown;
+  readonly transient: boolean;
 }> {}
 
 export class RoundClosed extends Data.TaggedError("RoundClosed")<{

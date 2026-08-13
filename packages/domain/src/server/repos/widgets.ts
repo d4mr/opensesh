@@ -35,7 +35,8 @@ import {
   type WidgetOptions,
   type WidgetView,
 } from "../schema/widgets";
-import { activeSession, decode, decodeFound, decodeMany, query } from "./shared";
+import { deriveSpeakerPipeline, profileIsReady } from "../schema/submissions";
+import { activeSession, decode, decodeFound, decodeMany, query, speakerContact } from "./shared";
 
 type EventRow = typeof events.$inferSelect;
 type SubmissionRow = typeof submissions.$inferSelect;
@@ -424,81 +425,96 @@ export const WidgetsLive = Layer.effect(
         ),
       directory: (eventId) =>
         Effect.gen(function* () {
-          const [rows, assignmentRows, fileRows, emailRows, profileRows] = yield* Effect.all(
-            [
-              query(database, "Could not load speaker directory", (db) =>
-                db
-                  .select({ contact: contacts, submission: submissions })
-                  .from(contacts)
-                  .leftJoin(
-                    submissionParticipants,
-                    eq(submissionParticipants.contactId, contacts.id),
-                  )
-                  .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
-                  .where(and(eq(contacts.eventId, eventId), eq(contacts.participation, "speaker")))
-                  .orderBy(asc(contacts.lastName), asc(contacts.firstName))
-                  .execute(),
-              ),
-              query(database, "Could not load speaker tasks", (db) =>
-                db
-                  .select({
-                    assignment: taskAssignments,
-                    template: taskTemplates,
-                    submission: submissions,
-                  })
-                  .from(taskAssignments)
-                  .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
-                  .leftJoin(submissions, eq(submissions.id, taskAssignments.submissionId))
-                  .where(eq(taskTemplates.eventId, eventId))
-                  .orderBy(asc(taskTemplates.position))
-                  .execute(),
-              ),
-              query(database, "Could not load speaker files", (db) =>
-                db
-                  .select({
-                    upload: fileUploads,
-                    version: fileVersions,
-                    request: fileRequests,
-                    requirement: sessionFileRequirements,
-                    assignment: sessionFileRequirementAssignments,
-                    contact: contacts,
-                  })
-                  .from(fileUploads)
-                  .innerJoin(fileVersions, eq(fileVersions.fileUploadId, fileUploads.id))
-                  .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
-                  .leftJoin(fileRequests, eq(fileRequests.id, fileUploads.fileRequestId))
-                  .leftJoin(
-                    sessionFileRequirements,
-                    eq(sessionFileRequirements.id, fileUploads.requirementId),
-                  )
-                  .leftJoin(
-                    sessionFileRequirementAssignments,
-                    eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
-                  )
-                  .where(eq(contacts.eventId, eventId))
-                  .orderBy(desc(fileVersions.uploadedAt))
-                  .execute(),
-              ),
-              query(database, "Could not load speaker emails", (db) =>
-                db
-                  .select()
-                  .from(emailLog)
-                  .where(eq(emailLog.eventId, eventId))
-                  .orderBy(desc(emailLog.createdAt))
-                  .execute(),
-              ),
-              query(database, "Could not load speaker profile changes", (db) =>
-                db
-                  .select({ history: contactEditHistory, contact: contacts })
-                  .from(contactEditHistory)
-                  .innerJoin(contacts, eq(contacts.id, contactEditHistory.contactId))
-                  .where(eq(contacts.eventId, eventId))
-                  .orderBy(desc(contactEditHistory.createdAt))
-                  .execute(),
-              ),
-            ],
-            { concurrency: "unbounded" },
-          );
+          const [rows, assignmentRows, requirementRows, fileRows, emailRows, profileRows] =
+            yield* Effect.all(
+              [
+                query(database, "Could not load speaker directory", (db) =>
+                  db
+                    .select({ contact: contacts, submission: submissions })
+                    .from(contacts)
+                    .leftJoin(
+                      submissionParticipants,
+                      eq(submissionParticipants.contactId, contacts.id),
+                    )
+                    .leftJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+                    .where(and(eq(contacts.eventId, eventId), speakerContact(db)))
+                    .orderBy(asc(contacts.lastName), asc(contacts.firstName))
+                    .execute(),
+                ),
+                query(database, "Could not load speaker tasks", (db) =>
+                  db
+                    .select({
+                      assignment: taskAssignments,
+                      template: taskTemplates,
+                      submission: submissions,
+                    })
+                    .from(taskAssignments)
+                    .innerJoin(taskTemplates, eq(taskTemplates.id, taskAssignments.taskTemplateId))
+                    .leftJoin(submissions, eq(submissions.id, taskAssignments.submissionId))
+                    .where(eq(taskTemplates.eventId, eventId))
+                    .orderBy(asc(taskTemplates.position))
+                    .execute(),
+                ),
+                query(database, "Could not load speaker file assignments", (db) =>
+                  db
+                    .select({ assignment: sessionFileRequirementAssignments })
+                    .from(sessionFileRequirementAssignments)
+                    .innerJoin(
+                      sessionFileRequirements,
+                      eq(
+                        sessionFileRequirements.id,
+                        sessionFileRequirementAssignments.requirementId,
+                      ),
+                    )
+                    .where(eq(sessionFileRequirements.eventId, eventId))
+                    .execute(),
+                ),
+                query(database, "Could not load speaker files", (db) =>
+                  db
+                    .select({
+                      upload: fileUploads,
+                      version: fileVersions,
+                      request: fileRequests,
+                      requirement: sessionFileRequirements,
+                      assignment: sessionFileRequirementAssignments,
+                      contact: contacts,
+                    })
+                    .from(fileUploads)
+                    .innerJoin(fileVersions, eq(fileVersions.fileUploadId, fileUploads.id))
+                    .innerJoin(contacts, eq(contacts.id, fileUploads.contactId))
+                    .leftJoin(fileRequests, eq(fileRequests.id, fileUploads.fileRequestId))
+                    .leftJoin(
+                      sessionFileRequirements,
+                      eq(sessionFileRequirements.id, fileUploads.requirementId),
+                    )
+                    .leftJoin(
+                      sessionFileRequirementAssignments,
+                      eq(sessionFileRequirementAssignments.id, fileUploads.assignmentId),
+                    )
+                    .where(eq(contacts.eventId, eventId))
+                    .orderBy(desc(fileVersions.uploadedAt))
+                    .execute(),
+                ),
+                query(database, "Could not load speaker emails", (db) =>
+                  db
+                    .select()
+                    .from(emailLog)
+                    .where(eq(emailLog.eventId, eventId))
+                    .orderBy(desc(emailLog.createdAt))
+                    .execute(),
+                ),
+                query(database, "Could not load speaker profile changes", (db) =>
+                  db
+                    .select({ history: contactEditHistory, contact: contacts })
+                    .from(contactEditHistory)
+                    .innerJoin(contacts, eq(contacts.id, contactEditHistory.contactId))
+                    .where(eq(contacts.eventId, eventId))
+                    .orderBy(desc(contactEditHistory.createdAt))
+                    .execute(),
+                ),
+              ],
+              { concurrency: "unbounded" },
+            );
           const grouped = new Map<
             string,
             { contact: ContactRow; submissions: Array<SubmissionRow> }
@@ -516,10 +532,7 @@ export const WidgetsLive = Layer.effect(
           for (const row of fileRows) {
             if (!currentFiles.has(row.upload.id)) currentFiles.set(row.upload.id, row);
           }
-          const directoryEntries = Array.from(grouped.values()).filter(
-            ({ submissions: linked }) =>
-              linked.length === 0 || linked.some((submission) => submission.status === "accepted"),
-          );
+          const directoryEntries = Array.from(grouped.values());
           const directoryRows = directoryEntries.map(({ contact, submissions: linked }) => ({
             contact: {
               id: contact.id,
@@ -538,7 +551,46 @@ export const WidgetsLive = Layer.effect(
               twitterUrl: contact.twitterUrl,
               facebookUrl: contact.facebookUrl,
               websiteUrl: contact.websiteUrl,
-              workflowStatus: contact.workflowStatus,
+              pipeline:
+                deriveSpeakerPipeline({
+                  isSpeaker: true,
+                  acceptedSessions: linked
+                    .filter((submission) => submission.status === "accepted")
+                    .map((submission) => ({ cancelledBy: submission.cancelledBy })),
+                  confirmedAt: contact.confirmedAt,
+                  outstandingTasks: assignmentRows.filter(
+                    (row) =>
+                      row.assignment.status === "todo" &&
+                      (row.assignment.contactId === contact.id ||
+                        (row.assignment.submissionId !== null &&
+                          linked.some(
+                            (submission) => submission.id === row.assignment.submissionId,
+                          ))),
+                  ).length,
+                  outstandingFiles: requirementRows.filter(
+                    (row) =>
+                      row.assignment.status === "outstanding" &&
+                      (row.assignment.contactId === contact.id ||
+                        (row.assignment.contactId === null &&
+                          linked.some(
+                            (submission) => submission.id === row.assignment.submissionId,
+                          ))),
+                  ).length,
+                  profileReady: profileIsReady({
+                    bio: contact.bio,
+                    headshotUrl: contact.headshotUrl,
+                    hasHeadshotFile: fileRows.some(
+                      (row) =>
+                        row.upload.contactId === contact.id && row.upload.kind === "headshot",
+                    ),
+                    dietaryRequirements: contact.dietaryRequirements,
+                    tshirtSize: contact.tshirtSize,
+                  }),
+                  portalInvitationSent: emailRows.some(
+                    (row) => row.contactId === contact.id && row.type === "portal_invitation",
+                  ),
+                  decisionInformed: linked.some((submission) => submission.notifiedAt !== null),
+                }) ?? "added",
               custom: contact.custom,
             },
             sessions: linked

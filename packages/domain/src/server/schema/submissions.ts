@@ -40,16 +40,71 @@ export const TshirtSize = Schema.Literals(["XS", "S", "M", "L", "XL", "XXL"]);
 export type TshirtSize = typeof TshirtSize.Type;
 export const ReviewDecision = Schema.Literals(["approve", "maybe", "deny"]);
 export type ReviewDecision = typeof ReviewDecision.Type;
-export const SpeakerWorkflowStatus = Schema.Literals([
-  "invited",
-  "onboarding",
-  "confirmed",
+export const SpeakerPipeline = Schema.Literals([
+  "withdrawn",
   "ready",
-  "declined",
+  "onboarding",
+  "invited",
+  "added",
 ]);
-export type SpeakerWorkflowStatus = typeof SpeakerWorkflowStatus.Type;
-export const ContactParticipation = Schema.Literals(["speaker", "organizer"]);
+export type SpeakerPipeline = typeof SpeakerPipeline.Type;
+export const ContactParticipation = Schema.Literals(["submitter", "speaker", "organizer"]);
 export type ContactParticipation = typeof ContactParticipation.Type;
+
+export const portalStatus = (submission: {
+  readonly status: SubmissionStatus;
+  readonly notifiedAt: Date | null;
+}): SubmissionStatus =>
+  submission.status === "maybe" ||
+  ((submission.status === "accepted" || submission.status === "declined") &&
+    submission.notifiedAt === null)
+    ? "pending"
+    : submission.status;
+
+export const portalAcceptanceArtifactsVisible = (submission: {
+  readonly status: SubmissionStatus;
+  readonly notifiedAt: Date | null;
+}) => portalStatus(submission) === "accepted";
+
+export interface SpeakerPipelineInput {
+  readonly isSpeaker: boolean;
+  readonly acceptedSessions: ReadonlyArray<{ readonly cancelledBy: SessionCancelledBy | null }>;
+  readonly confirmedAt: Date | null;
+  readonly outstandingTasks: number;
+  readonly outstandingFiles: number;
+  readonly profileReady: boolean;
+  readonly portalInvitationSent: boolean;
+  readonly decisionInformed: boolean;
+}
+
+export const deriveSpeakerPipeline = (input: SpeakerPipelineInput): SpeakerPipeline | null => {
+  if (!input.isSpeaker) return null;
+  if (
+    input.acceptedSessions.length > 0 &&
+    input.acceptedSessions.every((session) => session.cancelledBy === "speaker")
+  ) {
+    return "withdrawn";
+  }
+  if (input.confirmedAt !== null) {
+    return input.outstandingTasks === 0 && input.outstandingFiles === 0 && input.profileReady
+      ? "ready"
+      : "onboarding";
+  }
+  return input.portalInvitationSent || input.decisionInformed ? "invited" : "added";
+};
+
+export const profileIsReady = (input: {
+  readonly bio: string | null;
+  readonly headshotUrl: string | null;
+  readonly hasHeadshotFile: boolean;
+  readonly dietaryRequirements: string;
+  readonly tshirtSize: string | null;
+}) =>
+  input.bio !== null &&
+  input.bio.trim().length > 0 &&
+  (input.headshotUrl !== null || input.hasHeadshotFile) &&
+  input.dietaryRequirements !== "none" &&
+  input.tshirtSize !== null;
 
 const contactFields = {
   eventId: Schema.String,
@@ -77,7 +132,6 @@ const contactFields = {
   custom: JsonObject,
   approvedProfile: JsonObject,
   profileReviewStatus: ContentApprovalStatus,
-  workflowStatus: SpeakerWorkflowStatus,
 };
 
 export const Contact = Schema.Struct({ ...EntityFields, ...contactFields });
@@ -167,6 +221,7 @@ export type SubmissionUpdate = typeof SubmissionUpdate.Type;
 export const SubmissionActivityType = Schema.Literals([
   "status_changed",
   "decided",
+  "informed",
   "cancelled",
   "reinstated",
   "scheduled",

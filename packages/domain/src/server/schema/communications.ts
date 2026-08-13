@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
 
-import { DietaryRequirement, SpeakerWorkflowStatus, TshirtSize } from "./submissions";
+import { DietaryRequirement, SpeakerPipeline, SubmissionStatus, TshirtSize } from "./submissions";
 
 export const EmailCampaignStatus = Schema.Literals(["draft", "sending", "sent"]);
 export const CampaignDeliveryStatus = Schema.Literals(["pending", "sent", "failed"]);
@@ -55,7 +55,7 @@ export const ReminderRule = Schema.Struct({
 });
 export type ReminderRule = typeof ReminderRule.Type;
 
-export const CommunicationContact = Schema.Struct({
+export const CommunicationSpeaker = Schema.Struct({
   id: Schema.String,
   email: Schema.String,
   firstName: Schema.String,
@@ -63,13 +63,25 @@ export const CommunicationContact = Schema.Struct({
   headshotUrl: NullableString,
   title: NullableString,
   company: NullableString,
-  workflowStatus: SpeakerWorkflowStatus,
+  pipeline: SpeakerPipeline,
+  confirmedAt: NullableDate,
+  decisionInformed: Schema.Boolean,
   taskTotal: Schema.Number,
   taskDone: Schema.Number,
   taskIncomplete: Schema.Number,
   talkTitle: Schema.String,
 });
-export type CommunicationContact = typeof CommunicationContact.Type;
+export type CommunicationSpeaker = typeof CommunicationSpeaker.Type;
+
+export const CommunicationSubmitter = Schema.Struct({
+  id: Schema.String,
+  email: Schema.String,
+  firstName: Schema.String,
+  lastName: Schema.String,
+  headshotUrl: NullableString,
+  submissions: Schema.Array(Schema.Struct({ status: SubmissionStatus, notifiedAt: NullableDate })),
+});
+export type CommunicationSubmitter = typeof CommunicationSubmitter.Type;
 
 export const CampaignRecipientHistory = Schema.Struct({
   id: Schema.String,
@@ -80,7 +92,7 @@ export const CampaignRecipientHistory = Schema.Struct({
   resolvedBody: Schema.String,
   deliveryStatus: CampaignDeliveryStatus,
   emailLogId: NullableString,
-  emailStatus: Schema.NullOr(Schema.Literals(["queued", "demo", "sent", "failed"])),
+  emailStatus: Schema.NullOr(Schema.Literals(["queued", "sending", "demo", "sent", "failed"])),
 });
 export type CampaignRecipientHistory = typeof CampaignRecipientHistory.Type;
 
@@ -94,12 +106,70 @@ export type CampaignHistory = typeof CampaignHistory.Type;
 export const CommunicationCenter = Schema.Struct({
   eventName: Schema.String,
   eventSlug: Schema.String,
-  contacts: Schema.Array(CommunicationContact),
+  speakers: Schema.Array(CommunicationSpeaker),
+  submitters: Schema.Array(CommunicationSubmitter),
+  pending: Schema.Struct({
+    acceptedNotInformed: Schema.Number,
+    declinedNotInformed: Schema.Number,
+    awaitingConfirmation: Schema.Number,
+    queued: Schema.Number,
+    sending: Schema.Number,
+  }),
   templates: Schema.Array(EmailTemplate),
   campaigns: Schema.Array(CampaignHistory),
   reminderRules: Schema.Array(ReminderRule),
 });
 export type CommunicationCenter = typeof CommunicationCenter.Type;
+
+export const AudienceSegment = Schema.Literals([
+  "all_speakers",
+  "confirmed",
+  "awaiting_confirmation",
+  "incomplete_tasks",
+  "selected",
+  "awaiting_decision",
+  "declined",
+]);
+export type AudienceSegment = typeof AudienceSegment.Type;
+
+export const audienceMemberIds = (
+  center: Pick<CommunicationCenter, "speakers" | "submitters">,
+  segment: AudienceSegment,
+  selectedIds: ReadonlySet<string> = new Set(),
+) => {
+  if (segment === "selected") {
+    return center.speakers
+      .filter((contact) => selectedIds.has(contact.id))
+      .map((contact) => contact.id);
+  }
+  if (segment === "all_speakers") return center.speakers.map((contact) => contact.id);
+  if (segment === "confirmed") {
+    return center.speakers
+      .filter((contact) => contact.confirmedAt !== null)
+      .map((contact) => contact.id);
+  }
+  if (segment === "awaiting_confirmation") {
+    return center.speakers
+      .filter((contact) => contact.decisionInformed && contact.confirmedAt === null)
+      .map((contact) => contact.id);
+  }
+  if (segment === "incomplete_tasks") {
+    return center.speakers
+      .filter((contact) => contact.taskIncomplete > 0)
+      .map((contact) => contact.id);
+  }
+  return center.submitters
+    .filter((contact) =>
+      segment === "awaiting_decision"
+        ? contact.submissions.some(
+            (submission) => submission.status === "pending" || submission.status === "maybe",
+          )
+        : contact.submissions.some(
+            (submission) => submission.status === "declined" && submission.notifiedAt !== null,
+          ),
+    )
+    .map((contact) => contact.id);
+};
 
 export const PortalInvitationResult = Schema.Struct({
   contactId: Schema.String,
@@ -170,13 +240,6 @@ export const SpeakerProfileMutationRequest = Schema.Struct({
   dietaryRequirements: DietaryRequirement,
   tshirtSize: Schema.NullOr(TshirtSize),
   travelLogistics: NullableString,
-  workflowStatus: SpeakerWorkflowStatus,
-});
-
-export const SpeakerWorkflowMutationRequest = Schema.Struct({
-  eventId: Schema.String,
-  contactId: Schema.String,
-  workflowStatus: SpeakerWorkflowStatus,
 });
 
 export const SpeakerHeadshotUploadRequest = Schema.Struct({
@@ -214,6 +277,7 @@ export const CampaignSendRequest = Schema.Struct({
   subject: Schema.String,
   body: Schema.String,
   recipientFilter: JsonObject,
+  segment: AudienceSegment,
   contactIds: Schema.Array(Schema.String),
 });
 

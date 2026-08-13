@@ -1,7 +1,7 @@
-import { sql } from "drizzle-orm";
+import { and, eq, exists, or, sql } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
-import { submissions } from "../../db/schema";
+import { contacts, submissionParticipants, submissions } from "../../db/schema";
 import type { Database } from "../db";
 import { DbError, NotFound } from "../errors";
 import type { AuditActor } from "../schema/common";
@@ -24,6 +24,33 @@ export const activityActorColumns = (actor: ActivityActor) => ({
 // Cancelled sessions keep status='accepted' (the acceptance is history) but
 // leave the agenda, invites, deliverable nags, and every public surface.
 export const activeSession = sql`${submissions.status} = 'accepted' and ${submissions.cancelledAt} is null`;
+
+export const contactIsSpeaker = (
+  participation: "submitter" | "speaker" | "organizer",
+  participantSubmissionStatuses: ReadonlyArray<
+    "draft" | "pending" | "maybe" | "accepted" | "declined" | "withdrawn"
+  >,
+) => participation === "speaker" || participantSubmissionStatuses.includes("accepted");
+
+// The single SQL definition of event speakerhood. Participation is provenance;
+// an accepted submission promotes every participant into speaker-facing views
+// without mutating the contact row.
+export const speakerContact = (database: Pick<Database, "select">) =>
+  or(
+    eq(contacts.participation, "speaker"),
+    exists(
+      database
+        .select({ id: submissionParticipants.id })
+        .from(submissionParticipants)
+        .innerJoin(submissions, eq(submissions.id, submissionParticipants.submissionId))
+        .where(
+          and(
+            eq(submissionParticipants.contactId, contacts.id),
+            eq(submissions.status, "accepted"),
+          ),
+        ),
+    ),
+  );
 
 // The client envelope only carries the generic operation label; the underlying
 // cause must reach Worker logs here or nowhere.

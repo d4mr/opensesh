@@ -149,7 +149,6 @@ const speakerBody = (id: string | null, email: string) => ({
   dietaryRequirements: "vegetarian",
   tshirtSize: "M",
   travelLogistics: "Arriving by train",
-  workflowStatus: "onboarding",
 });
 
 const widgetOptions = {
@@ -428,14 +427,21 @@ describe.sequential("all opensesh REST operations through local workerd and Post
     const decision = await requestOperation("decideSubmissions", {
       params: { eventId: DEVFLOW_EVENT_ID },
       body: {
-        submissionIds: ["sub_devflow_1"],
+        submissionIds: ["sub_devflow_2"],
         decision: "accept",
-        feedback: "Accepted by the local API integration suite.",
         approveContent: true,
       },
     });
     expect(asArray(asRecord(decision).submissions)).toHaveLength(1);
-    expect(numberField(decision, "createdEmails")).toBeGreaterThan(0);
+    expect(asRecord(asArray(asRecord(decision).submissions)[0]).notifiedAt).toBeNull();
+    const informed = await requestOperation("informSubmissions", {
+      params: { eventId: DEVFLOW_EVENT_ID },
+      body: {
+        submissionIds: ["sub_devflow_2"],
+        feedback: "Accepted by the local API integration suite.",
+      },
+    });
+    expect(numberField(informed, "queued")).toBe(1);
 
     const session = await requestOperation("createSession", {
       params: { eventId: DEVFLOW_EVENT_ID },
@@ -455,7 +461,7 @@ describe.sequential("all opensesh REST operations through local workerd and Post
     expect(stringField(speaker, "email")).toBe("priya.speaker@sbek-test.example.com");
   });
 
-  it("covers speaker CRUD, workflow, imports, invitations, campaigns, and email persistence", async () => {
+  it("covers speaker CRUD, derived pipelines, imports, invitations, campaigns, and email persistence", async () => {
     const before = asRecord(
       await requestOperation("listSpeakers", { params: { eventId: DEVFLOW_EVENT_ID } }),
     );
@@ -473,12 +479,6 @@ describe.sequential("all opensesh REST operations through local workerd and Post
       },
     });
     expect(stringField(updated, "company")).toBe("Updated Labs");
-
-    const workflow = await requestOperation("setSpeakerWorkflow", {
-      params: { eventId: DEVFLOW_EVENT_ID, contactId: speakerId },
-      body: { status: "confirmed" },
-    });
-    expect(stringField(workflow, "workflowStatus")).toBe("confirmed");
 
     const imported = await requestOperation("importSpeakers", {
       params: { eventId: DEVFLOW_EVENT_ID },
@@ -509,7 +509,7 @@ describe.sequential("all opensesh REST operations through local workerd and Post
       params: { eventId: DEVFLOW_EVENT_ID },
       body: { contactIds: [speakerId] },
     });
-    expect(numberField(invitations, "sent")).toBe(1);
+    expect(numberField(invitations, "queued")).toBe(1);
 
     const communicationsBefore = asRecord(
       await requestOperation("getCommunications", { params: { eventId: DEVFLOW_EVENT_ID } }),
@@ -521,9 +521,10 @@ describe.sequential("all opensesh REST operations through local workerd and Post
         subject: "API E2E speaker update",
         body: "Hello {speaker_name}, this is a local integration delivery.",
         contactIds: [speakerId],
+        segment: "selected",
       },
     });
-    expect(numberField(campaign, "sent")).toBe(1);
+    expect(numberField(campaign, "queued")).toBe(1);
 
     const communicationsAfter = asRecord(
       await requestOperation("getCommunications", { params: { eventId: DEVFLOW_EVENT_ID } }),
@@ -990,7 +991,9 @@ describe.sequential("all opensesh REST operations through local workerd and Post
         numericValue: criterion.type === "numeric" ? 4 : null,
         textValue: criterion.type === "text" ? "Solid, practical proposal." : null,
         optionValue:
-          criterion.type === "dropdown" ? String(asArray(criterion.options)[0] ?? "") : null,
+          criterion.type === "dropdown" && typeof asArray(criterion.options)[0] === "string"
+            ? asArray(criterion.options)[0]
+            : null,
       }));
     const submitted = asRecord(
       await mcpTool("submitReviewAnswers", {

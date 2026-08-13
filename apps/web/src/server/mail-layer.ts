@@ -9,6 +9,13 @@ type MailEnv = Cloudflare.Env & {
 
 const connectionString = (env: MailEnv) => env.HYPERDRIVE.connectionString;
 
+export const mailTransportFailureIsTransient = (cause: unknown) => {
+  if (cause instanceof TypeError) return true;
+  if (typeof cause !== "object" || cause === null || !("status" in cause)) return false;
+  const status = cause.status;
+  return typeof status === "number" && (status === 429 || status >= 500);
+};
+
 const cloudflareTransport =
   (env: MailEnv): MailTransport =>
   (mail) =>
@@ -33,7 +40,12 @@ const cloudflareTransport =
                 ],
               }),
         }),
-      catch: (cause) => new MailError({ message: "Cloudflare could not send email", cause }),
+      catch: (cause) =>
+        new MailError({
+          message: "Cloudflare could not send email",
+          cause,
+          transient: mailTransportFailureIsTransient(cause),
+        }),
     }).pipe(Effect.map((response) => ({ providerId: response.messageId ?? null })));
 
 const base64 = (value: string) => {
@@ -51,7 +63,11 @@ const resendTransport =
     const key = env.RESEND_API_KEY;
     if (key === undefined || key.length === 0) {
       return Effect.fail(
-        new MailError({ message: "Resend is not configured", cause: "RESEND_API_KEY is missing" }),
+        new MailError({
+          message: "Resend is not configured",
+          cause: "RESEND_API_KEY is missing",
+          transient: false,
+        }),
       );
     }
     return Effect.tryPromise({
@@ -80,19 +96,26 @@ const resendTransport =
         const body: unknown = await response.json();
         return { ok: response.ok, status: response.status, body };
       },
-      catch: (cause) => new MailError({ message: "Resend could not send email", cause }),
+      catch: (cause) =>
+        new MailError({ message: "Resend could not send email", cause, transient: true }),
     }).pipe(
       Effect.flatMap((response) =>
         response.ok
           ? Schema.decodeUnknownEffect(ResendResponse)(response.body).pipe(
               Effect.mapError(
-                (cause) => new MailError({ message: "Resend returned an invalid response", cause }),
+                (cause) =>
+                  new MailError({
+                    message: "Resend returned an invalid response",
+                    cause,
+                    transient: false,
+                  }),
               ),
             )
           : Effect.fail(
               new MailError({
                 message: `Resend rejected email (${response.status})`,
                 cause: response.body,
+                transient: response.status === 429 || response.status >= 500,
               }),
             ),
       ),

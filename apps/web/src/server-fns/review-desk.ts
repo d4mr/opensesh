@@ -1,6 +1,7 @@
 import {
   CsvExportRequest,
   DecisionRequest,
+  InformRequest,
   ManualSessionCreateRequest,
   ReviewDeskDetailRequest,
   ReviewDeskListRequest,
@@ -11,12 +12,12 @@ import {
 } from "@opensesh/domain";
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
-import { Mail } from "@opensesh/domain/server/mail";
 import { Contacts, Events, Portal, ReviewDesk, Submissions } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
+import { MailQueue } from "@/server/mail-queue";
 
 export const getReviewDeskList = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(ReviewDeskListRequest))
@@ -168,17 +169,32 @@ export const decideSubmissions = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const access = yield* requireEventAccess(data.eventId, "admin");
         const reviewDesk = yield* ReviewDesk;
-        const mail = yield* Mail;
         const decision = yield* reviewDesk.decide({
           ...data,
           actor: { kind: "user", userId: access.user.userId, name: access.user.name },
         });
-        yield* Effect.forEach(
-          decision.deliveries,
-          (delivery) => mail.sendLogged(delivery.logId, delivery.mail),
-          { concurrency: 5 },
-        );
         return decision.result;
+      }),
+      { require: "staff" },
+    ),
+  );
+
+export const informSubmissions = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(InformRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const access = yield* requireEventAccess(data.eventId, "admin");
+        const reviewDesk = yield* ReviewDesk;
+        const informed = yield* reviewDesk.inform({
+          eventId: data.eventId,
+          submissionIds: data.submissionIds,
+          feedback: data.feedback ?? "",
+          actor: { kind: "user", userId: access.user.userId, name: access.user.name },
+        });
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(informed.logIds);
+        return informed.result;
       }),
       { require: "staff" },
     ),

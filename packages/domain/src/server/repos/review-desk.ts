@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -31,7 +31,6 @@ import {
 } from "../../db/schema";
 import { Db, type Database } from "../db";
 import { AlreadyDecided, type DbError, Forbidden, InvalidInput, NotFound } from "../errors";
-import type { OutboundMail } from "../mail";
 import {
   JsonObject,
   NullableDate,
@@ -42,10 +41,12 @@ import {
 import { FormFieldType, FormSection } from "../schema/forms";
 import {
   DecisionResult,
+  InformResult,
   type EvaluationItem,
   EvaluationQueue,
   type ReviewDeskAnswer,
   ReviewDeskDetail,
+  ReviewDeskDetailItem,
   type ReviewDeskEmail,
   ReviewDeskList,
   ReviewDeskListItem,
@@ -67,6 +68,8 @@ import { ReviewDecision, SessionCancelledBy, SubmissionStatus } from "../schema/
 import { activityActorColumns, decode, decodeFound, decodeMany, query } from "./shared";
 import { loadTimeline } from "./timeline";
 
+const submitterContact = alias(contacts, "review_desk_submitter");
+
 const RawListRow = Schema.Struct({
   submissionId: Schema.String,
   eventId: Schema.String,
@@ -84,6 +87,10 @@ const RawListRow = Schema.Struct({
   createdAt: Schema.Date,
   updatedAt: Schema.Date,
   notifiedAt: NullableDate,
+  submitterId: NullableString,
+  submitterFirstName: NullableString,
+  submitterLastName: NullableString,
+  submitterEmail: NullableString,
   trackId: NullableString,
   trackName: NullableString,
   trackColor: NullableString,
@@ -145,7 +152,7 @@ const RawRoundReviewRow = Schema.Struct({
 
 interface MutableListItem {
   readonly base: Omit<
-    ReviewDeskListItem,
+    ReviewDeskDetailItem,
     "tracks" | "tags" | "speakers" | "rating" | "reviewCount" | "reviewComments"
   >;
   readonly tracks: Map<string, ReviewDeskTrack>;
@@ -174,6 +181,17 @@ const makeListItems = (rows: ReadonlyArray<RawListRow>) => {
           submittedAt: row.submittedAt,
           createdAt: row.createdAt,
           notifiedAt: row.notifiedAt,
+          submitter:
+            row.submitterId === null ||
+            row.submitterFirstName === null ||
+            row.submitterLastName === null ||
+            row.submitterEmail === null
+              ? null
+              : {
+                  id: row.submitterId,
+                  name: `${row.submitterFirstName} ${row.submitterLastName}`.trim(),
+                  email: row.submitterEmail,
+                },
         },
         tracks: new Map(),
         tags: new Map(),
@@ -265,6 +283,10 @@ const rawListSelection = {
   createdAt: submissions.createdAt,
   updatedAt: submissions.updatedAt,
   notifiedAt: submissions.notifiedAt,
+  submitterId: submitterContact.id,
+  submitterFirstName: submitterContact.firstName,
+  submitterLastName: submitterContact.lastName,
+  submitterEmail: submitterContact.email,
   trackId: tracks.id,
   trackName: tracks.name,
   trackColor: tracks.color,
@@ -303,6 +325,7 @@ const listQuery = (database: Database, eventId: string) =>
       .leftJoin(formats, eq(formats.id, submissions.formatId))
       .leftJoin(levels, eq(levels.id, submissions.levelId))
       .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+      .leftJoin(submitterContact, eq(submitterContact.id, submissions.submitterContactId))
       .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
       .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
       .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
@@ -378,15 +401,72 @@ const roundReviewRows = (database: Database, eventId: string, submissionId: stri
 
 type ReviewDeskFailure = DbError | Forbidden | InvalidInput | NotFound | AlreadyDecided;
 
-interface DecisionDelivery {
-  readonly logId: string;
-  readonly mail: OutboundMail;
-}
+export const decisionConfirmationRequired = (
+  current: typeof SubmissionStatus.Type,
+  notifiedAt: Date | null,
+  next: "accepted" | "declined",
+) => (current === "accepted" || current === "declined") && current !== next && notifiedAt !== null;
+
+export const decisionFactUpdate = (status: "accepted" | "declined", now: Date) => ({
+  status,
+  updatedAt: now,
+});
+
+export const informValidationError = (
+  rows: ReadonlyArray<{
+    readonly status: typeof SubmissionStatus.Type;
+    readonly notifiedAt: Date | null;
+    readonly submitterContactId: string | null;
+    readonly email: string | null;
+    readonly firstName: string | null;
+  }>,
+) => {
+  if (rows.some((row) => row.status !== "accepted" && row.status !== "declined"))
+    return "Only accepted or declined submissions can be informed";
+  if (rows.some((row) => row.notifiedAt !== null))
+    return "One or more decisions were already informed";
+  if (
+    rows.some(
+      (row) => row.submitterContactId === null || row.email === null || row.firstName === null,
+    )
+  )
+    return "Every informed submission needs a submitter";
+  return null;
+};
+
+export const informFactUpdate = (now: Date) => ({ notifiedAt: now, updatedAt: now });
+
+export const decisionEmailLogValue = (input: {
+  readonly eventId: string;
+  readonly submissionId: string;
+  readonly submitterContactId: string;
+  readonly decision: "accepted" | "declined";
+  readonly recipient: string;
+  readonly subject: string;
+  readonly text: string;
+  readonly html: string;
+}) => ({
+  eventId: input.eventId,
+  contactId: input.submitterContactId,
+  submissionId: input.submissionId,
+  type: input.decision,
+  recipient: input.recipient,
+  subject: input.subject,
+  body: input.text,
+  htmlBody: input.html,
+  icsAttached: false,
+  icsContent: null,
+  icsSequence: null,
+  status: "queued" as const,
+  provider: null,
+  providerId: null,
+  error: null,
+  sentAt: null,
+});
 
 interface DecisionSuccess {
   readonly kind: "success";
   readonly result: typeof DecisionResult.Type;
-  readonly deliveries: ReadonlyArray<DecisionDelivery>;
 }
 
 type DecisionTransaction =
@@ -394,6 +474,15 @@ type DecisionTransaction =
   | { readonly kind: "notFound" }
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "alreadyDecided"; readonly message: string };
+
+type InformTransaction =
+  | {
+      readonly kind: "success";
+      readonly result: typeof InformResult.Type;
+      readonly logIds: ReadonlyArray<string>;
+    }
+  | { readonly kind: "notFound" }
+  | { readonly kind: "invalid"; readonly message: string };
 
 type ReviewTransaction =
   | { readonly kind: "notFound" }
@@ -440,11 +529,19 @@ interface ReviewDeskService {
     readonly eventId: string;
     readonly submissionIds: ReadonlyArray<string>;
     readonly decision: SubmissionDecision;
-    readonly feedback: string;
     readonly confirmRedecide: boolean;
     readonly approveContent: boolean;
     readonly actor: AuditActor;
   }) => Effect.Effect<DecisionSuccess, ReviewDeskFailure>;
+  readonly inform: (input: {
+    readonly eventId: string;
+    readonly submissionIds: ReadonlyArray<string>;
+    readonly feedback: string;
+    readonly actor: AuditActor;
+  }) => Effect.Effect<
+    { readonly result: typeof InformResult.Type; readonly logIds: ReadonlyArray<string> },
+    DbError | InvalidInput | NotFound
+  >;
   readonly markEmail: (logId: string, status: "sent" | "failed") => Effect.Effect<void, DbError>;
 }
 
@@ -472,11 +569,18 @@ export const ReviewDeskLive = Layer.effect(
                 eventId,
                 items.map((item) => item.id),
               );
+              const mailRows = yield* query(database, "Could not count decision mail", (db) =>
+                db
+                  .select({ status: emailLog.status })
+                  .from(emailLog)
+                  .where(eq(emailLog.eventId, eventId))
+                  .execute(),
+              );
               const roundCounts = new Map<string, number>();
               for (const row of roundRows) {
                 roundCounts.set(row.submissionId, (roundCounts.get(row.submissionId) ?? 0) + 1);
               }
-              return yield* decodeMany(
+              const submissions = yield* decodeMany(
                 ReviewDeskListItem,
                 "review desk submission",
                 items.map((item) => ({
@@ -484,9 +588,16 @@ export const ReviewDeskLive = Layer.effect(
                   reviewCount: item.reviewCount + (roundCounts.get(item.id) ?? 0),
                 })),
               );
+              return {
+                submissions,
+                mailStatus: {
+                  queued: mailRows.filter((row) => row.status === "queued").length,
+                  sending: mailRows.filter((row) => row.status === "sending").length,
+                },
+              };
             }),
           ),
-          Effect.flatMap((items) => {
+          Effect.flatMap(({ submissions: items, mailStatus }) => {
             const trackMap = new Map<string, ReviewDeskTrack>();
             const tagMap = new Map<string, ReviewDeskTag>();
             const formatSet = new Set<string>();
@@ -500,6 +611,7 @@ export const ReviewDeskLive = Layer.effect(
               tracks: Array.from(trackMap.values()),
               formats: Array.from(formatSet).sort(),
               tags: Array.from(tagMap.values()),
+              mailStatus,
             });
           }),
         ),
@@ -528,6 +640,7 @@ export const ReviewDeskLive = Layer.effect(
             .leftJoin(formats, eq(formats.id, submissions.formatId))
             .leftJoin(levels, eq(levels.id, submissions.levelId))
             .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+            .leftJoin(submitterContact, eq(submitterContact.id, submissions.submitterContactId))
             .leftJoin(formFields, eq(formFields.formId, submissions.sourceFormId))
             .leftJoin(submissionTracks, eq(submissionTracks.submissionId, submissions.id))
             .leftJoin(tracks, eq(tracks.id, submissionTracks.trackId))
@@ -745,6 +858,7 @@ export const ReviewDeskLive = Layer.effect(
                 .leftJoin(formats, eq(formats.id, submissions.formatId))
                 .leftJoin(levels, eq(levels.id, submissions.levelId))
                 .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+                .leftJoin(submitterContact, eq(submitterContact.id, submissions.submitterContactId))
                 .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
                 .leftJoin(tags, eq(tags.id, submissionTags.tagId))
                 .leftJoin(
@@ -781,6 +895,7 @@ export const ReviewDeskLive = Layer.effect(
                 .leftJoin(formats, eq(formats.id, submissions.formatId))
                 .leftJoin(levels, eq(levels.id, submissions.levelId))
                 .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
+                .leftJoin(submitterContact, eq(submitterContact.id, submissions.submitterContactId))
                 .leftJoin(submissionTags, eq(submissionTags.submissionId, submissions.id))
                 .leftJoin(tags, eq(tags.id, submissionTags.tagId))
                 .leftJoin(
@@ -805,7 +920,7 @@ export const ReviewDeskLive = Layer.effect(
               }
               const decoded = yield* decodeMany(RawListRow, "evaluation row", rows);
               const items = yield* decodeMany(
-                ReviewDeskListItem,
+                ReviewDeskDetailItem,
                 "evaluation submission",
                 makeListItems(decoded),
               );
@@ -1047,13 +1162,8 @@ export const ReviewDeskLive = Layer.effect(
                 status: submissions.status,
                 cancelledAt: submissions.cancelledAt,
                 notifiedAt: submissions.notifiedAt,
-                title: submissions.title,
-                eventId: submissions.eventId,
-                eventName: events.name,
                 speakerConfirmationEnabled: events.speakerConfirmationEnabled,
                 contactId: contacts.id,
-                contactEmail: contacts.email,
-                contactFirstName: contacts.firstName,
               })
               .from(submissions)
               .innerJoin(
@@ -1075,19 +1185,7 @@ export const ReviewDeskLive = Layer.effect(
             if (targetRows.some((row) => row.status === "draft" || row.status === "withdrawn")) {
               return {
                 kind: "invalid",
-                message: "Draft and withdrawn submissions cannot receive decision emails",
-              };
-            }
-            // Acceptance is a decision that stands: what happens to the
-            // session afterwards is cancellation, never a re-decide.
-            if (
-              input.decision === "decline" &&
-              targetRows.some((row) => row.status === "accepted")
-            ) {
-              return {
-                kind: "invalid",
-                message:
-                  "Accepted submissions cannot be declined — cancel the session from Sessions instead",
+                message: "Draft and withdrawn submissions cannot be decided",
               };
             }
             if (
@@ -1102,26 +1200,14 @@ export const ReviewDeskLive = Layer.effect(
             const nextStatus: "accepted" | "declined" =
               input.decision === "accept" ? "accepted" : "declined";
             // The only surviving re-decide: declined → accepted.
-            const priorFinal = targetRows.find(
-              (row) =>
-                (row.status === "accepted" || row.status === "declined") &&
-                row.status !== nextStatus,
+            const priorFinal = targetRows.find((row) =>
+              decisionConfirmationRequired(row.status, row.notifiedAt, nextStatus),
             );
             if (priorFinal !== undefined && !input.confirmRedecide) {
               return {
                 kind: "alreadyDecided",
                 message: "This submission already has a decision. Confirm to replace it.",
               };
-            }
-            if (
-              targetRows.some(
-                (row) =>
-                  row.contactId === null ||
-                  row.contactEmail === null ||
-                  row.contactFirstName === null,
-              )
-            ) {
-              return { kind: "invalid", message: "Every submission must have a speaker" };
             }
             const now = new Date();
             const confirmationRequested = targetRows[0]?.speakerConfirmationEnabled === true;
@@ -1224,87 +1310,6 @@ export const ReviewDeskLive = Layer.effect(
                   .onConflictDoNothing();
               }
             }
-            const candidates = targetRows.flatMap((row) => {
-              // Retry-idempotent: rows already at this status and notified
-              // (same WHERE as the status update below) get no second email.
-              if (
-                (row.status === nextStatus && row.notifiedAt !== null) ||
-                row.contactId === null ||
-                row.contactEmail === null ||
-                row.contactFirstName === null
-              ) {
-                return [];
-              }
-              const rendered = renderDecisionEmail({
-                decision: input.decision,
-                eventName: row.eventName,
-                speakerName: row.contactFirstName,
-                submissionTitle: row.title,
-                feedback: input.feedback,
-                confirmationRequested,
-              });
-              return [
-                {
-                  key: `${row.submissionId}:${row.contactId}`,
-                  submissionId: row.submissionId,
-                  contactId: row.contactId,
-                  to: row.contactEmail,
-                  subject: rendered.subject,
-                  body: rendered.text,
-                  html: rendered.html,
-                  eventId: row.eventId,
-                },
-              ];
-            });
-            const queued = "queued" as const;
-            const insertedEmails =
-              candidates.length === 0
-                ? []
-                : await transaction
-                    .insert(emailLog)
-                    .values(
-                      candidates.map((candidate) => ({
-                        eventId: candidate.eventId,
-                        contactId: candidate.contactId,
-                        submissionId: candidate.submissionId,
-                        type: nextStatus,
-                        recipient: candidate.to,
-                        subject: candidate.subject,
-                        body: candidate.body,
-                        htmlBody: candidate.html,
-                        icsAttached: false,
-                        icsContent: null,
-                        icsSequence: null,
-                        status: queued,
-                        provider: null,
-                        providerId: null,
-                        error: null,
-                        sentAt: null,
-                      })),
-                    )
-                    .returning({
-                      id: emailLog.id,
-                      contactId: emailLog.contactId,
-                      submissionId: emailLog.submissionId,
-                    });
-            const candidateMap = new Map(candidates.map((candidate) => [candidate.key, candidate]));
-            const deliveries = insertedEmails.flatMap((email) => {
-              if (email.contactId === null || email.submissionId === null) return [];
-              const candidate = candidateMap.get(`${email.submissionId}:${email.contactId}`);
-              return candidate === undefined
-                ? []
-                : [
-                    {
-                      logId: email.id,
-                      mail: {
-                        to: candidate.to,
-                        subject: candidate.subject,
-                        text: candidate.body,
-                        html: candidate.html,
-                      },
-                    },
-                  ];
-            });
             const updated = await transaction
               .update(submissions)
               // Accepting makes the row a session (the Sessions surface is
@@ -1316,9 +1321,7 @@ export const ReviewDeskLive = Layer.effect(
               // approved public version. A previously approved session keeps
               // its approval on re-accept.
               .set({
-                status: nextStatus,
-                notifiedAt: now,
-                updatedAt: now,
+                ...decisionFactUpdate(nextStatus, now),
                 ...(nextStatus === "accepted"
                   ? input.approveContent
                     ? {
@@ -1330,12 +1333,7 @@ export const ReviewDeskLive = Layer.effect(
                       }
                   : {}),
               })
-              .where(
-                and(
-                  inArray(submissions.id, uniqueIds),
-                  or(ne(submissions.status, nextStatus), isNull(submissions.notifiedAt)),
-                ),
-              )
+              .where(and(inArray(submissions.id, uniqueIds), ne(submissions.status, nextStatus)))
               .returning({
                 id: submissions.id,
                 status: submissions.status,
@@ -1366,20 +1364,12 @@ export const ReviewDeskLive = Layer.effect(
               result: {
                 submissions: uniqueIds.flatMap((submissionId) => {
                   const submission = updatedMap.get(submissionId) ?? originalMap.get(submissionId);
-                  return submission === undefined || submission.notifiedAt === null
+                  return submission === undefined
                     ? []
-                    : [
-                        {
-                          id: submissionId,
-                          status: nextStatus,
-                          notifiedAt: submission.notifiedAt,
-                        },
-                      ];
+                    : [{ id: submissionId, status: nextStatus, notifiedAt: submission.notifiedAt }];
                 }),
                 createdTasks,
-                createdEmails: insertedEmails.length,
               },
-              deliveries,
             };
           }),
         ).pipe(
@@ -1393,6 +1383,116 @@ export const ReviewDeskLive = Layer.effect(
                 return yield* Effect.fail(new AlreadyDecided({ message: outcome.message }));
               const result = yield* decode(DecisionResult, "decision result", outcome.result);
               return { ...outcome, result };
+            }),
+          ),
+        );
+      },
+      inform: (input) => {
+        const uniqueIds = Array.from(new Set(input.submissionIds));
+        if (uniqueIds.length === 0) {
+          return Effect.fail(new InvalidInput({ message: "Select at least one decision" }));
+        }
+        return query(database, "Could not inform submitters", (db) =>
+          db.transaction(async (transaction): Promise<InformTransaction> => {
+            const rows = await transaction
+              .select({
+                id: submissions.id,
+                status: submissions.status,
+                notifiedAt: submissions.notifiedAt,
+                title: submissions.title,
+                submitterContactId: submissions.submitterContactId,
+                eventName: events.name,
+                speakerConfirmationEnabled: events.speakerConfirmationEnabled,
+                email: emailRecipient.email,
+                firstName: emailRecipient.firstName,
+              })
+              .from(submissions)
+              .innerJoin(
+                events,
+                and(eq(events.id, submissions.eventId), eq(events.id, input.eventId)),
+              )
+              .leftJoin(emailRecipient, eq(emailRecipient.id, submissions.submitterContactId))
+              .where(inArray(submissions.id, uniqueIds))
+              .for("update", { of: submissions });
+            if (rows.length !== uniqueIds.length) return { kind: "notFound" };
+            const validationError = informValidationError(rows);
+            if (validationError !== null) return { kind: "invalid", message: validationError };
+            const now = new Date();
+            const candidates = rows.flatMap((row) => {
+              if (
+                row.submitterContactId === null ||
+                row.email === null ||
+                row.firstName === null ||
+                (row.status !== "accepted" && row.status !== "declined")
+              ) {
+                return [];
+              }
+              const rendered = renderDecisionEmail({
+                decision: row.status === "accepted" ? "accept" : "decline",
+                eventName: row.eventName,
+                speakerName: row.firstName,
+                submissionTitle: row.title,
+                feedback: input.feedback,
+                confirmationRequested: row.speakerConfirmationEnabled,
+              });
+              return [
+                decisionEmailLogValue({
+                  eventId: input.eventId,
+                  submissionId: row.id,
+                  submitterContactId: row.submitterContactId,
+                  decision: row.status,
+                  recipient: row.email,
+                  subject: rendered.subject,
+                  text: rendered.text,
+                  html: rendered.html,
+                }),
+              ];
+            });
+            const inserted = await transaction
+              .insert(emailLog)
+              .values(candidates)
+              .returning({ id: emailLog.id });
+            const informed = await transaction
+              .update(submissions)
+              .set(informFactUpdate(now))
+              .where(
+                and(
+                  inArray(submissions.id, uniqueIds),
+                  isNull(submissions.notifiedAt),
+                  inArray(submissions.status, ["accepted", "declined"]),
+                ),
+              )
+              .returning({ id: submissions.id });
+            if (informed.length !== uniqueIds.length || inserted.length !== uniqueIds.length) {
+              return { kind: "invalid", message: "These decisions changed while informing" };
+            }
+            await transaction.insert(submissionActivity).values(
+              informed.map((submission) => ({
+                submissionId: submission.id,
+                type: "informed" as const,
+                ...activityActorColumns(input.actor),
+                payload: {},
+              })),
+            );
+            return {
+              kind: "success",
+              result: { queued: inserted.length },
+              logIds: inserted.map((row) => row.id),
+            };
+          }),
+        ).pipe(
+          Effect.flatMap((outcome) =>
+            Effect.gen(function* () {
+              if (outcome.kind === "notFound") {
+                return yield* Effect.fail(new NotFound({ message: "Submission not found" }));
+              }
+              if (outcome.kind === "invalid") {
+                return yield* Effect.fail(new InvalidInput({ message: outcome.message }));
+              }
+              return {
+                result: yield* decode(InformResult, "inform result", outcome.result),
+                logIds: outcome.logIds,
+              };
             }),
           ),
         );

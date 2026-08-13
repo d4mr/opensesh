@@ -342,7 +342,7 @@ function FilesLibraryData({
         toast.error(result.error.message);
         return;
       }
-      toast.success(`Queued ${result.data.attempted} reminders`);
+      toast.success(`Queued ${result.data.queued} reminders`);
       await invalidateAfterMutation(queryClient, eventId);
     },
   });

@@ -46,6 +46,7 @@ const statusMeta: Readonly<
   Record<EmailStatus, { readonly label: string; readonly icon: typeof Clock3Icon }>
 > = {
   queued: { label: "Queued", icon: Clock3Icon },
+  sending: { label: "Sending", icon: Clock3Icon },
   demo: { label: "Demo", icon: FlaskConicalIcon },
   sent: { label: "Sent", icon: CheckCircle2Icon },
   failed: { label: "Failed", icon: MailWarningIcon },
@@ -60,6 +61,7 @@ const typeLabels: Readonly<Record<AdminEmail["type"], string>> = {
   reinstated: "Reinstated",
   task_reminder: "Task reminder",
   calendar_invite: "Calendar invite",
+  portal_invitation: "Portal invitation",
   custom: "Custom",
 };
 
@@ -186,8 +188,7 @@ function EmailViewerData({
         toast.error(result.error.message);
         return;
       }
-      if (result.data.status === "failed") toast.error(result.data.error ?? "Retry failed");
-      else toast.success("Email retried");
+      toast.success("Email queued for retry");
       await invalidateAfterMutation(queryClient, eventId);
     },
     onError: (_error, _emailId, context) => {

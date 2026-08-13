@@ -1,17 +1,16 @@
 import { SpeakerCsvRow } from "@opensesh/domain";
 import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { InvalidInput } from "@opensesh/domain/server/errors";
-import { Mail } from "@opensesh/domain/server/mail";
 import { SpeakerComms, Widgets } from "@opensesh/domain/server/repos";
 import {
   CommunicationCenter,
-  EmailCampaign,
   PortalInvitationResult,
 } from "@opensesh/domain/server/schema/communications";
 import { Contact } from "@opensesh/domain/server/schema/submissions";
 import { SpeakerDirectory } from "@opensesh/domain/server/schema/widgets";
 import { Effect, Schema } from "effect";
 
+import { MailQueue } from "../../mail-queue";
 import { endpoint, type ApiEndpoint } from "../types";
 
 const SpeakerBody = Schema.Struct({
@@ -28,11 +27,6 @@ const SpeakerBody = Schema.Struct({
   dietaryRequirements: Schema.Literals(["none", "vegetarian", "vegan", "gluten_free", "other"]),
   tshirtSize: Schema.NullOr(Schema.Literals(["XS", "S", "M", "L", "XL", "XXL"])),
   travelLogistics: Schema.NullOr(Schema.String),
-  workflowStatus: Schema.Literals(["invited", "onboarding", "confirmed", "ready", "declined"]),
-});
-
-const WorkflowBody = Schema.Struct({
-  status: Schema.Literals(["invited", "onboarding", "confirmed", "ready", "declined"]),
 });
 
 const SpeakerImportBody = Schema.Struct({ rows: Schema.Array(SpeakerCsvRow) });
@@ -42,6 +36,15 @@ const CampaignBody = Schema.Struct({
   subject: Schema.String,
   body: Schema.String,
   contactIds: Schema.Array(Schema.String),
+  segment: Schema.Literals([
+    "all_speakers",
+    "confirmed",
+    "awaiting_confirmation",
+    "incomplete_tasks",
+    "selected",
+    "awaiting_decision",
+    "declined",
+  ]),
 });
 
 export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
@@ -51,7 +54,7 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "listSpeakers",
     summary: "List event speakers",
     description:
-      "The speaker directory: profile readiness, workflow status, task progress, and sessions per speaker.",
+      "The speaker directory: derived pipeline, profile readiness, task progress, and sessions per speaker.",
     tag: "Speakers",
     successSchema: SpeakerDirectory,
     handler: (context) =>
@@ -99,26 +102,6 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
       }),
   }),
   endpoint({
-    method: "PATCH",
-    path: "/events/{eventId}/speakers/{contactId}/workflow",
-    operationId: "setSpeakerWorkflow",
-    summary: "Set a speaker's workflow status",
-    tag: "Speakers",
-    bodySchema: WorkflowBody,
-    successSchema: Contact,
-    handler: (context) =>
-      Effect.gen(function* () {
-        const body = context.body as typeof WorkflowBody.Type;
-        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
-        const communications = yield* SpeakerComms;
-        return yield* communications.setWorkflowStatus(
-          access.event.id,
-          context.params.contactId ?? "",
-          body.status,
-        );
-      }),
-  }),
-  endpoint({
     method: "POST",
     path: "/events/{eventId}/speakers/import",
     operationId: "importSpeakers",
@@ -158,12 +141,12 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     path: "/events/{eventId}/speakers/invite",
     operationId: "inviteSpeakerPortals",
     summary: "Invite speakers to their portal",
-    description: "Queues and sends portal invitation emails for the given event contacts.",
+    description: "Queues portal invitation emails for the given event contacts.",
     tag: "Speakers",
     bodySchema: InviteBody,
     successSchema: Schema.Struct({
       invitations: Schema.Array(PortalInvitationResult),
-      sent: Schema.Number,
+      queued: Schema.Number,
     }),
     handler: (context) =>
       Effect.gen(function* () {
@@ -173,7 +156,6 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           return yield* Effect.fail(new InvalidInput({ message: "Choose at least one speaker" }));
         }
         const communications = yield* SpeakerComms;
-        const mail = yield* Mail;
         const invitations = yield* communications.queuePortalInvitations(
           access.event.id,
           body.contactIds,
@@ -182,8 +164,9 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
         const logIds = invitations.flatMap((invitation) =>
           invitation.logId === null ? [] : [invitation.logId],
         );
-        yield* Effect.forEach(logIds, (logId) => mail.sendQueued(logId), { concurrency: 5 });
-        return { invitations, sent: logIds.length };
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(logIds);
+        return { invitations, queued: logIds.length };
       }),
   }),
   endpoint({
@@ -207,14 +190,13 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "sendCampaign",
     summary: "Send a speaker campaign",
     description:
-      "Sends a templated or free-form email to the given event contacts and records the campaign.",
+      "Queues a templated or free-form email to eligible contacts in the chosen audience and records the campaign.",
     tag: "Mail",
     bodySchema: CampaignBody,
     successStatus: 201,
     successSchema: Schema.Struct({
-      campaign: EmailCampaign,
-      sent: Schema.Number,
-      failed: Schema.Number,
+      campaignId: Schema.String,
+      queued: Schema.Number,
     }),
     handler: (context) =>
       Effect.gen(function* () {
@@ -229,26 +211,20 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           return yield* Effect.fail(new InvalidInput({ message: "Choose at least one recipient" }));
         }
         const communications = yield* SpeakerComms;
-        const mail = yield* Mail;
         const queued = yield* communications.createCampaign({
           eventId: access.event.id,
           templateId: body.templateId,
           subject: body.subject,
           body: body.body,
-          recipientFilter: {},
+          recipientFilter: { segment: body.segment },
+          segment: body.segment,
           contactIds: body.contactIds,
           actor: context.actor,
           portalOrigin: "https://app.opensesh.io",
         });
-        const results = yield* Effect.forEach(queued.logIds, (logId) => mail.sendQueued(logId), {
-          concurrency: 5,
-        });
-        const campaign = yield* communications.completeCampaign(queued.campaignId);
-        return {
-          campaign,
-          sent: results.filter((result) => result.status !== "failed").length,
-          failed: results.filter((result) => result.status === "failed").length,
-        };
+        const queue = yield* MailQueue;
+        yield* queue.enqueue(queued.logIds);
+        return { campaignId: queued.campaignId, queued: queued.logIds.length };
       }),
   }),
 ];

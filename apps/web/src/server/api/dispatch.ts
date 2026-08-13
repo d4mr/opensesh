@@ -13,7 +13,8 @@ import type { AppError } from "@opensesh/domain/server/runtime";
 import { asc, eq, isNull, and } from "drizzle-orm";
 import { ConfigProvider, Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
 
-import { mailLayerFromEnv } from "@/server/mail-layer";
+import { mailLayerFromEnv } from "../mail-layer";
+import { makeMailQueueLive } from "../mail-queue";
 import { hashApiKey } from "./keys";
 import {
   actorForPrincipal,
@@ -237,6 +238,7 @@ export const dispatchApiRequest = async (
     makeRepositoriesLiveWith(dbLive),
     makeCurrentUserFromValueLive(resolved.user),
     mailLayerFromEnv(env),
+    makeMailQueueLive(env.MAIL_QUEUE),
     ConfigProvider.layer(
       ConfigProvider.fromEnvRecord({ ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY }),
     ),

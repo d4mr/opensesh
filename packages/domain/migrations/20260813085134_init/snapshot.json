@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ffd34470-315b-45ba-9cdf-dd933c5271b1",
+  "id": "40fb2d82-4928-4c3d-ac83-17293d55f66c",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -24,6 +24,16 @@
         "failed"
       ],
       "name": "campaign_delivery_status",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "submitter",
+        "speaker",
+        "organizer"
+      ],
+      "name": "contact_participation",
       "entityType": "enums",
       "schema": "public"
     },
@@ -81,6 +91,7 @@
     {
       "values": [
         "queued",
+        "sending",
         "demo",
         "sent",
         "failed"
@@ -99,6 +110,7 @@
         "reinstated",
         "task_reminder",
         "calendar_invite",
+        "portal_invitation",
         "custom"
       ],
       "name": "email_type",
@@ -252,20 +264,9 @@
     },
     {
       "values": [
-        "invited",
-        "onboarding",
-        "confirmed",
-        "ready",
-        "declined"
-      ],
-      "name": "speaker_workflow_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
         "status_changed",
         "decided",
+        "informed",
         "cancelled",
         "reinstated",
         "scheduled",
@@ -7893,11 +7894,11 @@
       "table": "contacts"
     },
     {
-      "type": "text",
-      "typeSchema": null,
+      "type": "contact_participation",
+      "typeSchema": "public",
       "notNull": true,
       "dimensions": 0,
-      "default": "'speaker'",
+      "default": null,
       "generated": null,
       "identity": null,
       "name": "participation",
@@ -8161,19 +8162,6 @@
       "generated": null,
       "identity": null,
       "name": "profile_review_status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "contacts"
-    },
-    {
-      "type": "speaker_workflow_status",
-      "typeSchema": "public",
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'invited'",
-      "generated": null,
-      "identity": null,
-      "name": "workflow_status",
       "entityType": "columns",
       "schema": "public",
       "table": "contacts"
