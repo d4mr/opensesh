@@ -1,7 +1,7 @@
 import type { AgendaAdminData, AgendaSession, ScheduleChange } from "@opensesh/domain";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
 import { CheckCircle2Icon, CircleDashedIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { dateKeyFor, formatDay, formatTime } from "./date-utils";
 import { ScheduleEditor } from "./schedule-editor";
+import { SessionPeek } from "./session-peek";
 
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, AgendaSession>();
@@ -27,6 +28,13 @@ export function AgendaListView({
 }) {
   const timezone = agenda.event.timezone;
   const roomById = new Map(agenda.rooms.map((room) => [room.id, room.name]));
+  // Track the peeked session by id and derive the row from live agenda data —
+  // holding the object would freeze the open dialog on pre-mutation state.
+  const [peekSessionId, setPeekSessionId] = useState<string | null>(null);
+  const peekSession =
+    peekSessionId === null
+      ? null
+      : (agenda.sessions.find((session) => session.id === peekSessionId) ?? null);
   const columns = useMemo(
     () =>
       columnHelper.columns([
@@ -100,7 +108,16 @@ export function AgendaListView({
         columnHelper.display({
           id: "edit",
           header: "",
-          cell: ({ row }) => <ScheduleEditor agenda={agenda} session={row.original} save={save} />,
+          // The editor lives inside a clickable row; stop propagation so
+          // opening it never also pops the peek dialog.
+          cell: ({ row }) => (
+            <span
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <ScheduleEditor agenda={agenda} session={row.original} save={save} />
+            </span>
+          ),
         }),
       ]),
     [agenda, roomById, save, timezone],
@@ -123,7 +140,11 @@ export function AgendaListView({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id} className="h-11">
+            <TableRow
+              key={row.id}
+              className="pressable-row h-11 cursor-pointer"
+              onClick={() => setPeekSessionId(row.id)}
+            >
               {row.getAllCells().map((cell) => (
                 <TableCell key={cell.id} className="py-1.5 text-[13px]">
                   <table.FlexRender cell={cell} />
@@ -133,6 +154,13 @@ export function AgendaListView({
           ))}
         </TableBody>
       </Table>
+      <SessionPeek
+        agenda={agenda}
+        session={peekSession}
+        open={peekSession !== null}
+        onOpenChange={(open) => !open && setPeekSessionId(null)}
+        save={save}
+      />
     </div>
   );
 }
