@@ -1288,19 +1288,12 @@ function Directory({
           }}
         />
       )}
-      <CsvImportDialog
-        eventId={eventId}
-        speakers={rows}
-        open={importOpen}
-        onOpenChange={setImportOpen}
-      />
-      <SpeakerFormDialog
-        key={editing?.contact.id ?? "new"}
-        eventId={eventId}
-        speaker={editing}
-        open={formOpen}
-        onOpenChange={setFormOpen}
-      />
+      {importOpen ? (
+        <CsvImportDialog eventId={eventId} speakers={rows} open onOpenChange={setImportOpen} />
+      ) : null}
+      {formOpen ? (
+        <SpeakerFormDialog eventId={eventId} speaker={editing} open onOpenChange={setFormOpen} />
+      ) : null}
       <PortalInviteResultDialog
         open={inviteOpen}
         onOpenChange={setInviteOpen}

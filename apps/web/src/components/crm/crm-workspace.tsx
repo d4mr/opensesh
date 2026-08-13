@@ -289,7 +289,7 @@ function Directory({
             </Button>
           }
         />
-        <ContactEditorDialog open={contactOpen} onOpenChange={setContactOpen} />
+        {contactOpen ? <ContactEditorDialog open onOpenChange={setContactOpen} /> : null}
       </section>
     );
   }
@@ -540,21 +540,25 @@ function Directory({
         </TableShell>
       </div>
 
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} workspace={workspace} />
-      <ContactEditorDialog open={contactOpen} onOpenChange={setContactOpen} />
-      <SegmentDialog open={segmentOpen} onOpenChange={setSegmentOpen} filters={filters} />
-      <CampaignDialog
-        open={campaignOpen}
-        onOpenChange={setCampaignOpen}
-        workspace={workspace}
-        contactIds={[...selected]}
-      />
-      <MergeDialog
-        open={mergeOpen}
-        onOpenChange={setMergeOpen}
-        workspace={workspace}
-        candidates={duplicates}
-      />
+      {importOpen ? <ImportDialog open onOpenChange={setImportOpen} workspace={workspace} /> : null}
+      {contactOpen ? <ContactEditorDialog open onOpenChange={setContactOpen} /> : null}
+      {segmentOpen ? <SegmentDialog open onOpenChange={setSegmentOpen} filters={filters} /> : null}
+      {campaignOpen ? (
+        <CampaignDialog
+          open
+          onOpenChange={setCampaignOpen}
+          workspace={workspace}
+          contactIds={[...selected]}
+        />
+      ) : null}
+      {mergeOpen ? (
+        <MergeDialog
+          open
+          onOpenChange={setMergeOpen}
+          workspace={workspace}
+          candidates={duplicates}
+        />
+      ) : null}
     </section>
   );
 }

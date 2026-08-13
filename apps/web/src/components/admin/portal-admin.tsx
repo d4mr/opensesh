@@ -598,16 +598,19 @@ function AdminTasks({
           </TableShell>
         </TabsContent>
       </Tabs>
-      <TaskTemplateDialog
-        key={editingId ?? fileRequestId ?? "new"}
-        eventId={eventId}
-        timezone={timezone}
-        data={data}
-        templateId={editingId}
-        initialLink={fileRequestId === undefined ? undefined : `file:${fileRequestId}`}
-        open={drawer}
-        onOpenChange={setDrawer}
-      />
+      {/* Mounted on demand so the form re-seeds from scratch each open — the
+          always-mounted variant kept the previous task's fields alive. */}
+      {drawer ? (
+        <TaskTemplateDialog
+          eventId={eventId}
+          timezone={timezone}
+          data={data}
+          templateId={editingId}
+          initialLink={fileRequestId === undefined ? undefined : `file:${fileRequestId}`}
+          open
+          onOpenChange={setDrawer}
+        />
+      ) : null}
     </main>
   );
 }

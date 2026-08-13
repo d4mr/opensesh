@@ -63,6 +63,13 @@ flow, because a speaker landing from a conference site has exactly one job.
   outlined block.
 - **Overline labels** for list sections: `text-[11px] font-medium uppercase
   tracking-wider text-muted-foreground`.
+- **Form dialogs mount on demand** — `{open ? <SomeDialog open … /> : null}`.
+  A closed dialog holds no state: every open re-seeds its `useState`
+  initializers from current data. Never keep a stateful form dialog mounted
+  with `open={false}` — its draft leaks into the next open (the create-task
+  dialog shipped this bug), and a `key` prop only papers over the edit path.
+  Internal resets on success may stay (they keep the component correct under
+  either mounting style), but mounting is the guarantee.
 - **Review/summary** — `dl` in a bordered rounded-lg with `divide-y`;
   `grid sm:grid-cols-[160px_1fr]` rows; dt `text-xs text-muted-foreground`,
   dd `text-sm`. Always resolve ids to display names — raw ids on screen are a

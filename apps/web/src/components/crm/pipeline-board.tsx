@@ -289,11 +289,13 @@ export function PipelineBoard({
             />
           ))}
         </div>
-        <ManageStagesDialog
-          open={manageOpen}
-          onOpenChange={setManageOpen}
-          stages={workspace.pipeline.columns.map((column) => column.stage)}
-        />
+        {manageOpen ? (
+          <ManageStagesDialog
+            open
+            onOpenChange={setManageOpen}
+            stages={workspace.pipeline.columns.map((column) => column.stage)}
+          />
+        ) : null}
         {/* Mounted on demand so contact/stage state re-seeds from the fresh
             directory each open — a stale contactId from a prior add would
             silently re-enroll (and move) the previous contact. */}

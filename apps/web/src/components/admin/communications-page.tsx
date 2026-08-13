@@ -466,14 +466,15 @@ function Communications({
           </div>
         </section>
       </div>
-      <TemplateDialog
-        key={editingTemplate?.id ?? "new"}
-        eventId={eventId}
-        template={editingTemplate}
-        open={templateOpen}
-        onOpenChange={setTemplateOpen}
-        refresh={refresh}
-      />
+      {templateOpen ? (
+        <TemplateDialog
+          eventId={eventId}
+          template={editingTemplate}
+          open
+          onOpenChange={setTemplateOpen}
+          refresh={refresh}
+        />
+      ) : null}
       <SpeakerPickerDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
