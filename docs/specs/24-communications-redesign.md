@@ -26,8 +26,16 @@ explicitly; campaigns are *sent* from the composer and *read* from the list.
 
 ## Page anatomy
 
-Route `/admin/communications` gains `tab` (campaigns | reminders | templates)
-and keeps `spotlight`. Header: title + subtitle, primary CTA **New campaign**.
+Two levels. `/admin/communications` gains `tab` (campaigns | reminders |
+templates) and keeps `spotlight` (used by the Templates tab's editor).
+`/admin/communications/$campaignId` is the campaign's own page with a
+`spotlight` param for its recipients. Header on the index: title + subtitle,
+primary CTA **New campaign**.
+
+The navigation principle: lists of objects live at the top level; an object
+whose detail is itself a collection gets a page; a spotlight only ever holds
+one element's detail. Communications → campaign → recipient is three honest
+levels, not one page with everything folded in.
 
 ### Stat cards (always visible, above the tabs)
 
@@ -44,17 +52,44 @@ is a click-through. The four cards are the four communication verbs:
 
 ### Campaigns tab (default)
 
-SpotlightLayout table: Subject · Audience · Recipients · Delivery · Sent.
+A plain table — Subject · Audience · Recipients · Delivery · Sent — where
 Delivery is a compact roll-up ("14 sent", "3 queued", "1 failed" destructive).
-Row → spotlight: subject/body snapshot rendered in the real outreach frame,
-audience + counts, per-recipient table (name, resolved subject, delivery
-status), and **Use as new campaign** (opens the composer prefilled from the
-snapshot — resend-to-failed without new server machinery). Empty state:
-"Send your first campaign".
+No spotlight here: a campaign's detail is a *collection* (its recipients), and
+a spotlight exists to detail a single element. Rows are links one level down.
+Empty state: "Send your first campaign".
 
 While the queue drains, the freshest campaign's Delivery cell ticks live off
 the existing 1s poll — the send-progress affordance moves from a caption under
 the pending box to the object it belongs to.
+
+### Campaign page — `/admin/communications/$campaignId`
+
+The app's deeper-nav pattern (`/admin/submissions/$id`,
+`/admin/portal-forms/$formId`) applied to campaigns:
+
+- Back link to Communications; header: subject snapshot as the title, meta
+  line (audience · template name or "Custom message" · sent ‹timestamp›).
+- Delivery roll-up chips under the header: sent / queued / failed, failed in
+  the destructive tone. These tick live while the queue drains.
+- Header action: **Use as new campaign** — opens the composer prefilled from
+  the snapshot (resend-to-failed without new server machinery).
+- Body: SpotlightLayout over the recipients — the list is a table (Recipient ·
+  Resolved subject · Delivery), and each *recipient* is the single element a
+  spotlight is for.
+
+### Recipient spotlight (on the campaign page)
+
+"What did this person actually get":
+
+- Header: SpeakerBadge + delivery status chip; actions link to the speaker's
+  profile and to the outbox entry (`/admin/emails?email=‹logId›`).
+- Delivery facts: status, sent-at, failure detail when failed.
+- Below, the exact artifact: their `resolvedSubject`/`resolvedBody` rendered
+  in the real outreach frame in a sandboxed iframe — per-recipient snapshots
+  already exist on `email_campaign_recipients`, so this is a pure render.
+
+Reads come from the existing `CommunicationCenter.campaigns` payload (find by
+id; the route loader ensures the same query) — no new server reads.
 
 ### Composer (dialog, decision-dialog anatomy)
 
@@ -124,8 +159,10 @@ ReminderSettings card, the expandable history rows, TemplateDialog, and the
    correct counts, tones, and click-throughs; zero states are affirmative.
 2. "New campaign" is the only composer entry; sending records a campaign and
    the Campaigns row shows live delivery until the queue drains.
-3. A campaign spotlight shows the rendered snapshot and per-recipient
-   delivery; "Use as new campaign" prefills the composer.
+3. Clicking a campaign navigates to its page: delivery chips, recipient
+   table, and a per-recipient spotlight showing that person's delivery facts
+   and their exact rendered email; "Use as new campaign" prefills the
+   composer.
 4. The reminder rule reads as a sentence, saves without a Save button, and
    "Run now" states its count; the due-soon card and the tab agree.
 5. Templates are created/edited in the spotlight editor with a live branded
