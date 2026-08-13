@@ -5,6 +5,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./demo": "./src/demo.ts",
     "./db/auth": "./src/db/auth.ts",
     "./db/schema": "./src/db/schema.ts",
     "./server/current-user": "./src/server/current-user.ts",
@@ -17,6 +18,7 @@
     "./server/schema/*": "./src/server/schema/*.ts",
     "./server/runtime": "./src/server/runtime.ts",
     "./server/db": "./src/server/db.ts",
+    "./seed": "./src/seed/seed.ts",
     "./server/events": "./src/server/events.ts",
     "./testing/api-e2e": "./src/testing/api-e2e.ts"
   },
@@ -25,6 +27,7 @@
     "db:generate": "drizzle-kit generate",
     "db:reset": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/reset.ts",
     "seed": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/index.ts",
+    "seed:reset-eval": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/reset-eval.ts",
     "cfp:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-cfp.ts",
     "review-desk:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-review-desk.ts",
     "mail:verify": "node --env-file=../../apps/web/.dev.vars --import tsx src/seed/verify-mail.ts",

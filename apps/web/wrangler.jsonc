@@ -8,11 +8,11 @@
   "routes": [{ "pattern": "app.opensesh.io", "custom_domain": true }],
   "vars": {
     "APP_ORIGIN": "https://app.opensesh.io",
-    "DEMO_MODE": "1",
-    "MAIL_PROVIDER": "demo",
-    "MAIL_FROM": "auth@opensesh.io",
+    "MAIL_PROVIDER": "cloudflare",
+    "MAIL_FROM": "auth@mail.opensesh.io",
   },
-  "triggers": { "crons": ["0 * * * *"] },
+  // */15 resets the demo sandbox; the hourly cron sends task reminders.
+  "triggers": { "crons": ["*/15 * * * *", "0 * * * *"] },
   "send_email": [{ "name": "EMAIL" }],
   "r2_buckets": [
     {

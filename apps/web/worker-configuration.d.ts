@@ -5,9 +5,8 @@ interface __BaseEnv_Env {
 	HYPERDRIVE: Hyperdrive;
 	EMAIL: SendEmail;
 	APP_ORIGIN: "https://app.opensesh.io";
-	DEMO_MODE: "1";
-	MAIL_PROVIDER: "demo";
-	MAIL_FROM: "auth@opensesh.io";
+	MAIL_PROVIDER: string;
+	MAIL_FROM: string;
 	BETTER_AUTH_SECRET: string;
 	DATABASE_URL: string;
 	ANTHROPIC_API_KEY?: string;
@@ -23,5 +22,5 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "APP_ORIGIN" | "DEMO_MODE" | "MAIL_PROVIDER" | "MAIL_FROM" | "BETTER_AUTH_SECRET" | "DATABASE_URL" | "ANTHROPIC_API_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "APP_ORIGIN" | "MAIL_PROVIDER" | "MAIL_FROM" | "BETTER_AUTH_SECRET" | "DATABASE_URL" | "ANTHROPIC_API_KEY">> {}
 }

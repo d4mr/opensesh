@@ -19,29 +19,7 @@ import { magicLink, mcp, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
-export interface CapturedMagicLink {
-  readonly token: string;
-  readonly url: string;
-}
-
-export interface CapturedInvitation {
-  readonly invitationId: string;
-  readonly url: string;
-}
-
-export const makeAuth = (
-  env: Cloudflare.Env,
-  origin: string,
-  capture?: (link: CapturedMagicLink) => void,
-  captureInvitation?: (invitation: CapturedInvitation) => void,
-) => buildAuth(env, origin, capture, captureInvitation);
-
-const buildAuth = (
-  env: Cloudflare.Env,
-  origin: string,
-  capture?: (link: CapturedMagicLink) => void,
-  captureInvitation?: (invitation: CapturedInvitation) => void,
-) => {
+export const makeAuth = (env: Cloudflare.Env, origin: string) => {
   const connectionString = env.HYPERDRIVE.connectionString;
   const database = makeDatabase(connectionString);
   const mailLive = mailLayerFromEnv(env);
@@ -89,14 +67,15 @@ const buildAuth = (
       magicLink({
         disableSignUp: false,
         storeToken: "hashed",
-        sendMagicLink: async ({ email, token, url }) => {
-          capture?.({ token, url });
-          const result = await run(
-            sendMagicLink({ eventSlug: "ai-engineer-nyc-2026", email, url }),
-            mailLive,
-          );
+        sendMagicLink: async ({ email, url }) => {
+          const result = await run(sendMagicLink({ email, url }), mailLive);
           if (!result.ok) {
             return await Promise.reject(new Error(result.error.message));
+          }
+          if (result.data.status === "failed") {
+            return await Promise.reject(
+              new Error(result.data.error ?? "Could not send the sign-in email"),
+            );
           }
         },
       }),
@@ -111,9 +90,9 @@ const buildAuth = (
         },
         sendInvitationEmail: async (data) => {
           const url = `${origin}/accept-invitation/${data.id}`;
-          captureInvitation?.({ invitationId: data.id, url });
           const result = await run(
             sendOrganizationInvitation({
+              organizationId: data.organization.id,
               organizationName: data.organization.name,
               inviterName: data.inviter.user.name,
               email: data.email,

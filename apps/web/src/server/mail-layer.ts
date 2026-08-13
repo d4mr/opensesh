@@ -111,7 +111,10 @@ export const ResendLive = (env: MailEnv) =>
 export const DemoLive = (env: MailEnv) =>
   makeMailLive(connectionString(env), true, demoTransport, "cloudflare");
 
+// "demo" is the local-dev transport: everything is logged, nothing leaves the
+// machine. Prod uses a real provider; per-recipient and per-workspace
+// delivery policy lives inside the mail layer itself.
 export const mailLayerFromEnv = (env: MailEnv) => {
-  if (env.DEMO_MODE === "1" || env.MAIL_PROVIDER === "demo") return DemoLive(env);
+  if (env.MAIL_PROVIDER === "demo") return DemoLive(env);
   return env.MAIL_PROVIDER === "resend" ? ResendLive(env) : CloudflareMailLive(env);
 };

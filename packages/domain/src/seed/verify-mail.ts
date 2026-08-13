@@ -102,6 +102,9 @@ const verify = Effect.gen(function* () {
   };
 });
 
+// The demo workspace is log-only: even with a transport that would blow up,
+// a demo-org decision must complete and its email must be recorded as "demo"
+// with no error — proof the transport is never invoked for the sandbox.
 const verifyFailure = Effect.gen(function* () {
   const reviewDesk = yield* ReviewDesk;
   const mail = yield* Mail;
@@ -121,26 +124,27 @@ const verifyFailure = Effect.gen(function* () {
     { concurrency: 5 },
   );
   const emails = yield* admin.list(eventId);
-  const failed = emails.find((email) => email.id === deliveries[0]?.id);
+  const logged = emails.find((email) => email.id === deliveries[0]?.id);
   if (
     decision.result.submissions[0]?.status !== "accepted" ||
-    failed?.status !== "failed" ||
-    failed.error?.includes("Intentional provider failure") !== true
+    logged?.status !== "demo" ||
+    logged.error !== null
   ) {
     return yield* Effect.fail(
-      new InvalidInput({ message: "Decision did not survive the intentional mail failure" }),
+      new InvalidInput({ message: "Demo-org decision email reached the transport" }),
     );
   }
-  return failed.id;
+  return logged.id;
 });
 
+// Re-sending the same logged email is idempotent and still never delivers.
 const verifyRetry = (emailId: string) =>
   Effect.gen(function* () {
     const mail = yield* Mail;
     const retried = yield* mail.sendQueued(emailId);
     if (retried.status !== "demo") {
       return yield* Effect.fail(
-        new InvalidInput({ message: "Failed email retry did not recover" }),
+        new InvalidInput({ message: "Demo-org email resend was not log-only" }),
       );
     }
     return retried;
@@ -185,7 +189,9 @@ if (connectionString === undefined) {
         console.error(retried.error.message);
         process.exitCode = 1;
       } else {
-        console.log("Failure isolation passed: decision accepted, send failed, retry recovered.");
+        console.log(
+          "Sandbox isolation passed: decision accepted, transport never invoked, resend log-only.",
+        );
       }
     }
     console.table(result.data.checks);

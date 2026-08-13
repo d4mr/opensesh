@@ -60,22 +60,17 @@ export const confirmation = (input: {
   };
 };
 
-export const magicLink = (input: {
-  readonly eventName: string;
-  readonly url: string;
-  readonly logoUrl?: string | null;
-}): RenderedEmail => {
-  const subject = `Sign in to ${input.eventName}`;
-  return {
-    subject,
-    text: `Use this secure link to sign in to ${input.eventName}: ${input.url}`,
-    html: layout(
-      input.eventName,
-      input.logoUrl,
-      `${paragraph(`Use this secure link to sign in to ${input.eventName}.`)}<p style="margin:0">${link(`Sign in to ${input.eventName}`, input.url)}</p>`,
-    ),
-  };
-};
+// App-branded, not event-branded: sign-in belongs to the account, and the
+// same link works for every event the user can reach.
+export const magicLink = (input: { readonly url: string }): RenderedEmail => ({
+  subject: "Sign in to opensesh",
+  text: `Use this secure link to sign in to opensesh: ${input.url}`,
+  html: layout(
+    "opensesh",
+    undefined,
+    `${paragraph("Use this secure link to sign in to opensesh.")}<p style="margin:0">${link("Sign in to opensesh", input.url)}</p>`,
+  ),
+});
 
 export const organizationInvitation = (input: {
   readonly organizationName: string;

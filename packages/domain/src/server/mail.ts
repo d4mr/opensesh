@@ -1,13 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { contacts, emailLog, events } from "../db/schema";
+import { DEMO_ORG_ID, deliverableRecipient } from "../demo";
+import { emailLog, events } from "../db/schema";
 import { Db, makeDbLive } from "./db";
 import { type DbError, MailError, type NotFound } from "./errors";
 import { magicLink, organizationInvitation } from "./mail/templates";
 import { decodeFound, query } from "./repos/shared";
-import { Event } from "./schema/core";
-import { EmailLogEntry, EmailType } from "./schema/portal";
+import { EmailLogEntry } from "./schema/portal";
 
 export const MailAttachment = Schema.Struct({
   filename: Schema.String,
@@ -26,13 +26,13 @@ export const OutboundMail = Schema.Struct({
 export type OutboundMail = typeof OutboundMail.Type;
 
 export const MagicLinkMail = Schema.Struct({
-  eventSlug: Schema.String,
   email: Schema.String,
   url: Schema.String,
 });
 export type MagicLinkMail = typeof MagicLinkMail.Type;
 
 export const OrganizationInvitationMail = Schema.Struct({
+  organizationId: Schema.String,
   organizationName: Schema.String,
   inviterName: Schema.String,
   email: Schema.String,
@@ -54,13 +54,10 @@ export interface MailDeliveryResult {
 }
 
 interface MailService {
-  readonly sendMagicLink: (
-    input: MagicLinkMail,
-  ) => Effect.Effect<MailDeliveryResult, DbError | NotFound>;
+  readonly sendMagicLink: (input: MagicLinkMail) => Effect.Effect<MailDeliveryResult>;
   readonly sendOrganizationInvitation: (
     input: OrganizationInvitationMail,
   ) => Effect.Effect<void, MailError>;
-  readonly sendDecision: (mail: OutboundMail) => Effect.Effect<void, MailError>;
   readonly sendLogged: (
     logId: string,
     mail: OutboundMail,
@@ -96,20 +93,35 @@ const makeMailLayer = (
             .execute(),
         ).pipe(Effect.asVoid);
 
+      // Whether a logged email belongs to the demo workspace. The demo org is
+      // a public sandbox with fictional contacts, so its outbound mail is
+      // recorded but never delivered.
+      const demoOrgLog = (logId: string) =>
+        query(database, "Could not resolve email workspace", (db) =>
+          db
+            .select({ organizationId: events.organizationId })
+            .from(emailLog)
+            .innerJoin(events, eq(emailLog.eventId, events.id))
+            .where(eq(emailLog.id, logId))
+            .limit(1)
+            .execute(),
+        ).pipe(Effect.map((rows) => rows[0]?.organizationId === DEMO_ORG_ID));
+
       const sendLogged = (logId: string, mail: OutboundMail) =>
         Effect.gen(function* () {
+          const logOnly = demoMode || !deliverableRecipient(mail.to) || (yield* demoOrgLog(logId));
           yield* updateLog(
             logId,
             {
               status: "queued",
-              provider: demoMode ? "demo" : provider,
+              provider: logOnly ? "demo" : provider,
               providerId: null,
               error: null,
               sentAt: null,
             },
             "Could not queue email",
           );
-          if (demoMode) {
+          if (logOnly) {
             yield* updateLog(
               logId,
               { status: "demo", provider: "demo", sentAt: new Date() },
@@ -169,84 +181,47 @@ const makeMailLayer = (
 
       return {
         sendOrganizationInvitation: (input) => {
+          if (
+            demoMode ||
+            input.organizationId === DEMO_ORG_ID ||
+            !deliverableRecipient(input.email)
+          ) {
+            return Effect.void;
+          }
           const rendered = organizationInvitation(input);
-          return demoMode
-            ? Effect.void
-            : deliver({
-                to: input.email,
-                subject: rendered.subject,
-                text: rendered.text,
-                html: rendered.html,
-              }).pipe(Effect.asVoid);
+          return deliver({
+            to: input.email,
+            subject: rendered.subject,
+            text: rendered.text,
+            html: rendered.html,
+          }).pipe(Effect.asVoid);
         },
-        sendDecision: (mail) =>
-          demoMode ? Effect.succeed(undefined) : deliver(mail).pipe(Effect.asVoid),
         sendLogged,
         sendQueued,
-        sendMagicLink: (input) =>
-          Effect.gen(function* () {
-            const eventRows = yield* query(database, "Could not load email event", (db) =>
-              db.select().from(events).where(eq(events.slug, input.eventSlug)).limit(1).execute(),
-            );
-            const event = yield* decodeFound(Event, "Event", eventRows[0]);
-            const contactRows = yield* query(database, "Could not match email contact", (db) =>
-              db
-                .select({ id: contacts.id })
-                .from(contacts)
-                .where(and(eq(contacts.eventId, event.id), eq(contacts.email, input.email)))
-                .limit(1)
-                .execute(),
-            );
-            const rendered = magicLink({
-              eventName: event.name,
-              logoUrl: event.logoUrl,
-              url: input.url,
-            });
-            const rows = yield* query(database, "Could not record magic link email", (db) =>
-              db
-                .insert(emailLog)
-                .values({
-                  eventId: event.id,
-                  contactId: contactRows[0]?.id ?? null,
-                  submissionId: null,
-                  type: "magic_link" satisfies typeof EmailType.Type,
-                  recipient: input.email,
-                  subject: rendered.subject,
-                  body: rendered.text,
-                  htmlBody: rendered.html,
-                  icsAttached: false,
-                  icsContent: null,
-                  icsSequence: null,
-                  status: "queued",
-                  provider: null,
-                  providerId: null,
-                  error: null,
-                  sentAt: null,
-                })
-                .returning({ id: emailLog.id })
-                .execute(),
-            );
-            const row = rows[0];
-            if (row === undefined) {
-              return yield* Effect.fail(
-                new MailError({ message: "Could not record magic link email", cause: rows }),
-              );
-            }
-            return yield* sendLogged(row.id, {
-              to: input.email,
-              subject: rendered.subject,
-              text: rendered.text,
-              html: rendered.html,
-            });
+        // Auth-plane mail: the sign-in link is a bearer credential, so it is
+        // never written to the event email log the admin viewer can read —
+        // delivery to the recipient's inbox is the only copy.
+        sendMagicLink: (input) => {
+          if (demoMode || !deliverableRecipient(input.email)) {
+            return Effect.succeed({ id: "magic-link", status: "demo", error: null } as const);
+          }
+          const rendered = magicLink({ url: input.url });
+          return deliver({
+            to: input.email,
+            subject: rendered.subject,
+            text: rendered.text,
+            html: rendered.html,
           }).pipe(
+            Effect.map(() => ({ id: "magic-link", status: "sent", error: null }) as const),
             Effect.catchTag("MailError", (error) =>
               Effect.succeed({
-                id: "unlogged",
+                id: "magic-link",
                 status: "failed",
                 error: failureMessage(error),
               } as const),
             ),
-          ),
+          );
+        },
       };
     }),
   );
