@@ -223,7 +223,9 @@ function EmailViewerData({
           description="Compose a speaker campaign when your recipients are ready."
           action={
             <Button asChild size="sm" className="pressable">
-              <Link to="/admin/communications">Open communications</Link>
+              <Link to="/admin/communications" search={{ tab: "campaigns", spotlight: undefined }}>
+                Open communications
+              </Link>
             </Button>
           }
         />

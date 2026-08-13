@@ -174,7 +174,11 @@ export function AdminShell({
     if (section === "widgets")
       return navigate({ to: "/admin/widgets", search: { widget: undefined } });
     if (section === "emails") return navigate({ to: "/admin/emails" });
-    if (section === "communications") return navigate({ to: "/admin/communications" });
+    if (section === "communications")
+      return navigate({
+        to: "/admin/communications",
+        search: { tab: "campaigns", spotlight: undefined },
+      });
     if (section === "files")
       return navigate({
         to: "/admin/files",

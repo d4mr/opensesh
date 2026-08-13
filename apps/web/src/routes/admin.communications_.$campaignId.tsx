@@ -1,18 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { resolveActiveEvent } from "@/lib/active-event";
-import { CommunicationsPage } from "@/components/admin/communications-page";
+import { CampaignPage } from "@/components/admin/campaign-page";
 import { communicationCenterQuery } from "@/lib/communication-queries";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
 
-export type CommunicationsTab = "campaigns" | "reminders" | "templates";
-
-export const Route = createFileRoute("/admin/communications")({
+export const Route = createFileRoute("/admin/communications_/$campaignId")({
   validateSearch: (search: Record<string, unknown>) => ({
-    tab:
-      search.tab === "reminders" || search.tab === "templates"
-        ? search.tab
-        : ("campaigns" as CommunicationsTab),
     spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
   }),
   loader: async ({ context }) => {
@@ -23,21 +17,19 @@ export const Route = createFileRoute("/admin/communications")({
     if (eventId !== undefined)
       await context.queryClient.ensureQueryData(communicationCenterQuery(eventId));
   },
-  component: CommunicationsRoute,
+  component: CampaignRoute,
 });
 
-function CommunicationsRoute() {
-  const { tab, spotlight } = Route.useSearch();
+function CampaignRoute() {
+  const { campaignId } = Route.useParams();
+  const { spotlight } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   return (
-    <CommunicationsPage
-      tab={tab}
-      onTabChange={(nextTab) =>
-        void navigate({ search: { tab: nextTab, spotlight: undefined }, replace: true })
-      }
+    <CampaignPage
+      campaignId={campaignId}
       spotlightId={spotlight}
       onSpotlightChange={(id, options) =>
-        void navigate({ search: { tab, spotlight: id }, replace: options.replace })
+        void navigate({ search: { spotlight: id }, replace: options.replace })
       }
     />
   );

@@ -70,7 +70,11 @@ function NavItemLink({
     );
   if (item.section === "communications")
     return (
-      <Link to="/admin/communications" {...props}>
+      <Link
+        to="/admin/communications"
+        search={{ tab: "campaigns", spotlight: undefined }}
+        {...props}
+      >
         {content}
       </Link>
     );

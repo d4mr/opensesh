@@ -62,6 +62,14 @@
   --chart-3: var(--status-maybe);
   --chart-4: var(--status-pending);
   --chart-5: var(--status-declined);
+  /* Derived tints for chips — resolved per element, so the dark theme's
+     status colors flow through without redefining these. */
+  --status-pending-muted: color-mix(in oklab, var(--status-pending) 12%, transparent);
+  --status-pending-border: color-mix(in oklab, var(--status-pending) 32%, transparent);
+  --status-accepted-muted: color-mix(in oklab, var(--status-accepted) 12%, transparent);
+  --status-accepted-border: color-mix(in oklab, var(--status-accepted) 32%, transparent);
+  --status-declined-muted: color-mix(in oklab, var(--status-declined) 12%, transparent);
+  --status-declined-border: color-mix(in oklab, var(--status-declined) 32%, transparent);
 }
 .dark {
   --background: #131714;

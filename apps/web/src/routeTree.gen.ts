@@ -41,6 +41,8 @@ import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
+import { Route as AdminCommunicationsCampaignIdRouteImport } from './routes/admin.communications_.$campaignId'
+import { Route as AdminCommunicationsNewRouteImport } from './routes/admin.communications_.new'
 import { Route as AdminEvaluationRoundIdRouteImport } from './routes/admin.evaluation_.$roundId'
 import { Route as AdminFormsFormIdRouteImport } from './routes/admin.forms_.$formId'
 import { Route as AdminPortalFormsFormIdRouteImport } from './routes/admin.portal-forms.$formId'
@@ -226,6 +228,17 @@ const SubmitSplatRoute = SubmitSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => SubmitRoute,
 } as any)
+const AdminCommunicationsCampaignIdRoute =
+  AdminCommunicationsCampaignIdRouteImport.update({
+    id: '/communications_/$campaignId',
+    path: '/communications/$campaignId',
+    getParentRoute: () => AdminRoute,
+  } as any)
+const AdminCommunicationsNewRoute = AdminCommunicationsNewRouteImport.update({
+  id: '/communications_/new',
+  path: '/communications/new',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminEvaluationRoundIdRoute = AdminEvaluationRoundIdRouteImport.update({
   id: '/evaluation_/$roundId',
   path: '/evaluation/$roundId',
@@ -367,6 +380,8 @@ export interface FileRoutesByFullPath {
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/admin/communications/$campaignId': typeof AdminCommunicationsCampaignIdRoute
+  '/admin/communications/new': typeof AdminCommunicationsNewRoute
   '/admin/evaluation/$roundId': typeof AdminEvaluationRoundIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
@@ -419,6 +434,8 @@ export interface FileRoutesByTo {
   '/submit/$': typeof SubmitSplatRoute
   '/admin': typeof AdminIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/admin/communications/$campaignId': typeof AdminCommunicationsCampaignIdRoute
+  '/admin/communications/new': typeof AdminCommunicationsNewRoute
   '/admin/evaluation/$roundId': typeof AdminEvaluationRoundIdRoute
   '/admin/forms/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
@@ -475,6 +492,8 @@ export interface FileRoutesById {
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/admin/communications_/$campaignId': typeof AdminCommunicationsCampaignIdRoute
+  '/admin/communications_/new': typeof AdminCommunicationsNewRoute
   '/admin/evaluation_/$roundId': typeof AdminEvaluationRoundIdRoute
   '/admin/forms_/$formId': typeof AdminFormsFormIdRoute
   '/admin/portal-forms/$formId': typeof AdminPortalFormsFormIdRoute
@@ -532,6 +551,8 @@ export interface FileRouteTypes {
     | '/submit/$'
     | '/admin/'
     | '/portal/'
+    | '/admin/communications/$campaignId'
+    | '/admin/communications/new'
     | '/admin/evaluation/$roundId'
     | '/admin/forms/$formId'
     | '/admin/portal-forms/$formId'
@@ -584,6 +605,8 @@ export interface FileRouteTypes {
     | '/submit/$'
     | '/admin'
     | '/portal'
+    | '/admin/communications/$campaignId'
+    | '/admin/communications/new'
     | '/admin/evaluation/$roundId'
     | '/admin/forms/$formId'
     | '/admin/portal-forms/$formId'
@@ -639,6 +662,8 @@ export interface FileRouteTypes {
     | '/submit/$'
     | '/admin/'
     | '/portal/'
+    | '/admin/communications_/$campaignId'
+    | '/admin/communications_/new'
     | '/admin/evaluation_/$roundId'
     | '/admin/forms_/$formId'
     | '/admin/portal-forms/$formId'
@@ -910,6 +935,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubmitSplatRouteImport
       parentRoute: typeof SubmitRoute
     }
+    '/admin/communications_/$campaignId': {
+      id: '/admin/communications_/$campaignId'
+      path: '/communications/$campaignId'
+      fullPath: '/admin/communications/$campaignId'
+      preLoaderRoute: typeof AdminCommunicationsCampaignIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/communications_/new': {
+      id: '/admin/communications_/new'
+      path: '/communications/new'
+      fullPath: '/admin/communications/new'
+      preLoaderRoute: typeof AdminCommunicationsNewRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/evaluation_/$roundId': {
       id: '/admin/evaluation_/$roundId'
       path: '/evaluation/$roundId'
@@ -1074,6 +1113,8 @@ interface AdminRouteChildren {
   AdminSubmissionsRoute: typeof AdminSubmissionsRoute
   AdminWidgetsRoute: typeof AdminWidgetsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminCommunicationsCampaignIdRoute: typeof AdminCommunicationsCampaignIdRoute
+  AdminCommunicationsNewRoute: typeof AdminCommunicationsNewRoute
   AdminEvaluationRoundIdRoute: typeof AdminEvaluationRoundIdRoute
   AdminFormsFormIdRoute: typeof AdminFormsFormIdRoute
   AdminPortalFormsFormIdRoute: typeof AdminPortalFormsFormIdRoute
@@ -1096,6 +1137,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSubmissionsRoute: AdminSubmissionsRoute,
   AdminWidgetsRoute: AdminWidgetsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminCommunicationsCampaignIdRoute: AdminCommunicationsCampaignIdRoute,
+  AdminCommunicationsNewRoute: AdminCommunicationsNewRoute,
   AdminEvaluationRoundIdRoute: AdminEvaluationRoundIdRoute,
   AdminFormsFormIdRoute: AdminFormsFormIdRoute,
   AdminPortalFormsFormIdRoute: AdminPortalFormsFormIdRoute,

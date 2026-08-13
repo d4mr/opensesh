@@ -1,33 +1,44 @@
-import type {
-  AudienceSegment,
-  CampaignRecipientHistory,
-  CommunicationCenter,
-  EmailTemplate,
-} from "@opensesh/domain";
-import { audienceMemberIds, campaignMergeTokens, resolveMergeFields } from "@opensesh/domain";
+import type { CommunicationCenter } from "@opensesh/domain";
+import { campaignMergeTokens, reminderAlreadyRanInWindow } from "@opensesh/domain";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import {
-  ChevronDownIcon,
+  CheckCircle2Icon,
+  CircleDashedIcon,
   Clock3Icon,
+  FileTextIcon,
+  LoaderCircleIcon,
   MailIcon,
-  PencilIcon,
   PlusIcon,
   SendIcon,
   Trash2Icon,
-  UsersIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
-import { SpeakerPickerDialog } from "@/components/admin/speaker-picker-dialog";
+import {
+  CampaignEmailPreview,
+  DeliveryCountChip,
+  SectionLabel,
+  campaignAudienceLabel,
+  deliveryRollup,
+} from "@/components/admin/communications-shared";
 import { useAdminEvent } from "@/components/app/admin-event-context";
-import { SpeakerBadge } from "@/components/app/speaker-badge";
+import { SaveStatus } from "@/components/app/save-status";
+import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { Timestamp } from "@/components/app/timestamp";
 import { Badge } from "@/components/ui/badge";
-import { RichText } from "@/components/forms/rich-text";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -39,13 +50,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaginationFooter, usePagination } from "@/components/ui/pagination";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -56,731 +60,486 @@ import {
   TableRow,
   TableShell,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useAutosave } from "@/hooks/use-autosave";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { communicationCenterQuery } from "@/lib/communication-queries";
+import { cn } from "@/lib/utils";
+import type { CommunicationsTab } from "@/routes/admin.communications";
 import {
   deleteEmailTemplate,
   runTaskReminderRule,
   saveEmailTemplate,
   saveTaskReminderRule,
-  sendSpeakerCampaign,
 } from "@/server-fns/speaker-comms";
 
-export function CommunicationsPage() {
+const NEW_TEMPLATE_ID = "new";
+
+interface PageProps {
+  readonly tab: CommunicationsTab;
+  readonly onTabChange: (tab: CommunicationsTab) => void;
+  readonly spotlightId: string | undefined;
+  readonly onSpotlightChange: (
+    id: string | undefined,
+    options: { readonly replace: boolean; readonly keyboard: boolean },
+  ) => void;
+}
+
+export function CommunicationsPage(props: PageProps) {
   const context = useAdminEvent();
   if (context === null) return null;
-  return <CommunicationsData eventId={context.event.id} timezone={context.event.timezone} />;
+  return (
+    <CommunicationsData eventId={context.event.id} timezone={context.event.timezone} {...props} />
+  );
 }
 
 function CommunicationsData({
   eventId,
   timezone,
-}: {
-  readonly eventId: string;
-  readonly timezone: string;
-}) {
+  ...props
+}: PageProps & { readonly eventId: string; readonly timezone: string }) {
   const result = useSuspenseQuery(communicationCenterQuery(eventId));
   if (!result.data.ok) return <p className="p-6 text-sm">{result.data.error.message}</p>;
-  return <Communications eventId={eventId} timezone={timezone} data={result.data.data} />;
+  return (
+    <Communications eventId={eventId} timezone={timezone} data={result.data.data} {...props} />
+  );
 }
-
-type CenterData = CommunicationCenter;
 
 function Communications({
   eventId,
   timezone,
   data,
-}: {
+  tab,
+  onTabChange,
+  spotlightId,
+  onSpotlightChange,
+}: PageProps & {
   readonly eventId: string;
   readonly timezone: string;
-  readonly data: CenterData;
+  readonly data: CommunicationCenter;
 }) {
-  const queryClient = useQueryClient();
-  const [segment, setSegment] = useState<AudienceSegment>("all_speakers");
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const [templateId, setTemplateId] = useState<string | null>(data.templates[0]?.id ?? null);
-  const initialTemplate = data.templates.find((template) => template.id === templateId);
-  const [subject, setSubject] = useState(initialTemplate?.subjectTemplate ?? "");
-  const [body, setBody] = useState(initialTemplate?.bodyTemplate ?? "");
-  const [previewId, setPreviewId] = useState(data.speakers[0]?.id ?? "");
-  const [templateOpen, setTemplateOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate>();
-  const [expandedCampaign, setExpandedCampaign] = useState<string>();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [sendProgress, setSendProgress] = useState<{
-    readonly sent: number;
-    readonly total: number;
-  }>();
-  const refresh = () => invalidateAfterMutation(queryClient, eventId);
-  const allContacts = useMemo(
-    () => [
-      ...data.speakers,
-      ...data.submitters.map((contact) => ({
-        ...contact,
-        title: null,
-        company: null,
-        pipeline: "added" as const,
-        talkTitle: "",
-      })),
-    ],
-    [data.speakers, data.submitters],
-  );
-  const recipientIds = useMemo(
-    () => new Set(audienceMemberIds(data, segment, selectedIds)),
-    [data, segment, selectedIds],
-  );
-  const recipients = useMemo(
-    () => allContacts.filter((contact) => recipientIds.has(contact.id)),
-    [allContacts, recipientIds],
-  );
-  const preview = allContacts.find((contact) => contact.id === previewId) ?? recipients[0];
-  const fields =
-    preview === undefined
-      ? { speaker_name: "", talk_title: "", event_name: data.eventName, portal_url: "/portal" }
-      : {
-          speaker_name: `${preview.firstName} ${preview.lastName}`,
-          talk_title: preview.talkTitle,
-          event_name: data.eventName,
-          portal_url: "/portal",
-        };
-  const pendingMail = data.pending.queued + data.pending.sending;
-  useEffect(() => {
-    if (sendProgress === undefined) return;
-    const sent = Math.max(0, sendProgress.total - Math.min(sendProgress.total, pendingMail));
-    if (pendingMail === 0) setSendProgress(undefined);
-    else if (sent !== sendProgress.sent) setSendProgress({ sent, total: sendProgress.total });
-  }, [pendingMail, sendProgress]);
-  const send = useMutation({
-    mutationFn: () =>
-      sendSpeakerCampaign({
-        data: {
-          eventId,
-          templateId,
-          subject,
-          body,
-          recipientFilter: { segment },
-          segment,
-          contactIds: recipients.map((recipient) => recipient.id),
-        },
-      }),
-    onSuccess: async (result) => {
-      if (!result.ok) {
-        toast.error(result.error.message);
-        return;
-      }
-      toast.success(
-        `Queued ${result.data.queued} campaign email${result.data.queued === 1 ? "" : "s"}`,
-      );
-      await refresh();
-      setSendProgress({ sent: 0, total: result.data.queued });
-    },
-  });
-  if (allContacts.length === 0) {
-    return (
-      <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-5 overflow-hidden p-4 text-sm lg:p-6">
-        <div className="shrink-0">
-          <h1 className="text-lg font-semibold tracking-tight">Communications</h1>
-          <p className="text-xs text-muted-foreground">
-            Compose resolved speaker campaigns and automate due-task reminders.
-          </p>
-        </div>
-        <AdminEmptyState
-          icon={UsersIcon}
-          title="Add contacts before sending a campaign"
-          description="Campaigns become available when an audience segment has eligible recipients."
-          action={
-            <Button asChild size="sm" className="pressable">
-              <Link to="/admin/speakers" search={{ spotlight: undefined }}>
-                Add speakers
-              </Link>
-            </Button>
-          }
-        />
-      </main>
-    );
-  }
+  const navigate = useNavigate();
+  // The spotlight only ever holds a template (campaign detail is a page, not
+  // a panel), so an open spotlight pins the Templates tab regardless of the
+  // URL's tab value.
+  const activeTab = spotlightId === undefined ? tab : "templates";
+  const campaignPages = usePagination(data.campaigns);
   return (
-    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col gap-5 overflow-hidden p-4 text-sm lg:p-6">
-      <div className="flex shrink-0 items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Communications</h1>
-          <p className="text-xs text-muted-foreground">
-            Compose resolved speaker campaigns and automate due-task reminders.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setEditingTemplate(undefined);
-            setTemplateOpen(true);
-          }}
-        >
-          <PlusIcon /> New template
-        </Button>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
-        <section className="grid shrink-0 gap-2 rounded-lg border bg-muted/20 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-medium">Pending communications</h2>
-            <Button asChild size="xs" variant="outline">
-              <Link to="/admin/emails" search={{ email: undefined }}>
-                Open outbox
-              </Link>
-            </Button>
-          </div>
-          {data.pending.acceptedNotInformed +
-            data.pending.declinedNotInformed +
-            data.pending.awaitingConfirmation ===
-          0 ? (
-            <p className="text-xs text-muted-foreground">Nothing pending.</p>
-          ) : (
-            <div className="divide-y rounded-md border bg-background">
-              <Link
-                to="/admin/submissions"
-                search={{ status: "to_inform", spotlight: undefined }}
-                className="pressable-row flex items-center px-2.5 py-2 text-xs hover:bg-muted/50"
-              >
-                <span>Accepted — not informed</span>
-                <span className="ml-auto font-medium tabular-nums">
-                  {data.pending.acceptedNotInformed}
-                </span>
-              </Link>
-              <Link
-                to="/admin/submissions"
-                search={{ status: "to_inform", spotlight: undefined }}
-                className="pressable-row flex items-center px-2.5 py-2 text-xs hover:bg-muted/50"
-              >
-                <span>Declined — not informed</span>
-                <span className="ml-auto font-medium tabular-nums">
-                  {data.pending.declinedNotInformed}
-                </span>
-              </Link>
-              <Link
-                to="/admin/communications"
-                hash="awaiting-confirmation"
-                onClick={() => setSegment("awaiting_confirmation")}
-                className="pressable-row flex items-center px-2.5 py-2 text-xs hover:bg-muted/50"
-              >
-                <span>Awaiting confirmation</span>
-                <span className="ml-auto font-medium tabular-nums">
-                  {data.pending.awaitingConfirmation}
-                </span>
-              </Link>
-            </div>
-          )}
-          {data.pending.queued + data.pending.sending > 0 ? (
-            <p className="text-[11px] text-muted-foreground tabular-nums" aria-live="polite">
-              {sendProgress === undefined
-                ? `Sending · ${data.pending.sending} active · ${data.pending.queued} queued`
-                : `Sending ${sendProgress.sent}/${sendProgress.total}…`}
-            </p>
-          ) : null}
-        </section>
-        <section id="awaiting-confirmation" className="grid shrink-0 gap-3 rounded-lg border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="mr-auto text-sm font-medium">Campaign composer</h2>
-            <Badge variant="secondary" className="tabular-nums">
-              {recipients.length} recipients
-            </Badge>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.8fr)]">
-            <div className="grid gap-3">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                <Select
-                  value={segment}
-                  onValueChange={(value) => {
-                    if (
-                      value === "all_speakers" ||
-                      value === "confirmed" ||
-                      value === "awaiting_confirmation" ||
-                      value === "incomplete_tasks" ||
-                      value === "selected" ||
-                      value === "awaiting_decision" ||
-                      value === "declined"
-                    )
-                      setSegment(value);
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all_speakers">
-                      All speakers ({data.speakers.length})
-                    </SelectItem>
-                    <SelectItem value="confirmed">
-                      Confirmed ({audienceMemberIds(data, "confirmed").length})
-                    </SelectItem>
-                    <SelectItem value="awaiting_confirmation">
-                      Awaiting confirmation (
-                      {audienceMemberIds(data, "awaiting_confirmation").length})
-                    </SelectItem>
-                    <SelectItem value="incomplete_tasks">
-                      Incomplete tasks ({audienceMemberIds(data, "incomplete_tasks").length})
-                    </SelectItem>
-                    <SelectItem value="awaiting_decision">
-                      Submitters awaiting decision (
-                      {audienceMemberIds(data, "awaiting_decision").length})
-                    </SelectItem>
-                    <SelectItem value="declined">
-                      Declined submitters ({audienceMemberIds(data, "declined").length})
-                    </SelectItem>
-                    <SelectItem value="selected">Selected speakers ({selectedIds.size})</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={templateId ?? "custom"}
-                  onValueChange={(value) => {
-                    if (value === "custom") {
-                      setTemplateId(null);
-                      return;
-                    }
-                    const template = data.templates.find((item) => item.id === value);
-                    setTemplateId(value);
-                    if (template !== undefined) {
-                      setSubject(template.subjectTemplate);
-                      setBody(template.bodyTemplate);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="custom">Custom message</SelectItem>
-                    {data.templates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {segment !== "selected" ? null : (
-                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
-                  {recipients.length === 0 ? (
-                    <span className="px-1.5 text-xs text-muted-foreground">
-                      No speakers selected yet.
-                    </span>
-                  ) : (
-                    <>
-                      {recipients.slice(0, 8).map((contact) => (
-                        <SpeakerBadge
-                          key={contact.id}
-                          person={{
-                            id: contact.id,
-                            name: `${contact.firstName} ${contact.lastName}`,
-                            image: contact.headshotUrl,
-                          }}
-                        />
-                      ))}
-                      {recipients.length > 8 ? (
-                        <span className="px-1 text-xs text-muted-foreground tabular-nums">
-                          +{recipients.length - 8} more
-                        </span>
-                      ) : null}
-                    </>
-                  )}
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    className="pressable ml-auto"
-                    onClick={() => setPickerOpen(true)}
-                  >
-                    <UsersIcon />
-                    {recipients.length === 0 ? "Choose speakers" : "Edit selection"}
-                  </Button>
-                </div>
-              )}
-              <div className="grid gap-1.5">
-                <Label>Subject</Label>
-                <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
-              </div>
-              <div className="grid gap-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <Label>Message</Label>
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {campaignMergeTokens.map((token) => (
-                      <Button
-                        key={token}
-                        type="button"
-                        size="xs"
-                        variant="outline"
-                        onClick={() => setBody((current) => `${current}{${token}}`)}
-                      >{`{${token}}`}</Button>
-                    ))}
-                  </div>
-                </div>
-                <Textarea
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
-                  className="min-h-32"
-                />
+    <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
+      <SpotlightLayout
+        spotlightId={spotlightId}
+        orderedIds={[
+          ...data.templates.map((template) => template.id),
+          ...(spotlightId === NEW_TEMPLATE_ID ? [NEW_TEMPLATE_ID] : []),
+        ]}
+        onSpotlightChange={onSpotlightChange}
+        list={({ compact, scrollRef, openSpotlight, rowRef, rowClassName }) => (
+          <div
+            ref={scrollRef}
+            className="@container flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-6"
+          >
+            <div className="flex shrink-0 items-start justify-between gap-3">
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight">Communications</h1>
                 <p className="text-xs text-muted-foreground">
-                  Markdown supported — the message is sent in the event's email frame.
+                  Campaigns, automated reminders, and reusable templates.
                 </p>
               </div>
+              <Button size="sm" className="pressable" asChild>
+                <Link
+                  to="/admin/communications/new"
+                  search={{ audience: undefined, from: undefined }}
+                >
+                  <PlusIcon /> New campaign
+                </Link>
+              </Button>
             </div>
-            <div className="grid content-start gap-2 rounded-lg border bg-muted/20 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Resolved preview
-                </p>
-                <Select value={preview?.id ?? ""} onValueChange={setPreviewId}>
-                  <SelectTrigger size="sm" className="w-44">
-                    <SelectValue placeholder="Recipient" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recipients.map((contact) => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {contact.firstName} {contact.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <p className="font-medium">{resolveMergeFields(subject, fields)}</p>
-              <RichText
-                freeform
-                markdown={resolveMergeFields(body, fields)}
-                className="text-xs leading-5 text-muted-foreground"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end border-t pt-3">
-            <Button
-              disabled={
-                send.isPending ||
-                recipients.length === 0 ||
-                subject.trim() === "" ||
-                body.trim() === ""
-              }
-              onClick={() => send.mutate()}
+
+            <StatCards data={data} />
+
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                if (value === "campaigns" || value === "reminders" || value === "templates")
+                  onTabChange(value);
+              }}
+              className="flex min-h-0 flex-1 flex-col"
             >
-              <SendIcon /> {send.isPending ? "Queuing…" : `Send to ${recipients.length}`}
-            </Button>
-          </div>
-        </section>
+              <TabsList variant="line">
+                <TabsTrigger value="campaigns">Campaigns ({data.campaigns.length})</TabsTrigger>
+                <TabsTrigger value="reminders">Reminders</TabsTrigger>
+                <TabsTrigger value="templates">Templates ({data.templates.length})</TabsTrigger>
+              </TabsList>
 
-        <TemplateList
-          eventId={eventId}
-          templates={data.templates}
-          edit={(template) => {
-            setEditingTemplate(template);
-            setTemplateOpen(true);
-          }}
-          refresh={refresh}
-        />
-        <ReminderSettings
-          eventId={eventId}
-          timezone={timezone}
-          rules={data.reminderRules}
-          refresh={refresh}
-        />
-
-        <section className="grid gap-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">Campaign history</h2>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {data.campaigns.length} campaigns
-            </span>
-          </div>
-          <div className="min-w-0 divide-y rounded-lg border">
-            {data.campaigns.length === 0 ? (
-              <p className="px-3 py-8 text-center text-xs text-muted-foreground">
-                Send a campaign to create history.
-              </p>
-            ) : (
-              data.campaigns.map((entry) => (
-                <div key={entry.campaign.id}>
-                  <button
-                    type="button"
-                    className="pressable-row flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
-                    onClick={() =>
-                      setExpandedCampaign((current) =>
-                        current === entry.campaign.id ? undefined : entry.campaign.id,
-                      )
+              <TabsContent value="campaigns" className="min-h-0 pt-3">
+                {data.campaigns.length === 0 ? (
+                  <AdminEmptyState
+                    icon={MailIcon}
+                    title="Send your first campaign"
+                    description="A campaign records exactly what each recipient received and how delivery went."
+                    action={
+                      <Button size="sm" className="pressable" asChild>
+                        <Link
+                          to="/admin/communications/new"
+                          search={{ audience: undefined, from: undefined }}
+                        >
+                          <PlusIcon /> New campaign
+                        </Link>
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <TableShell
+                    footer={
+                      <PaginationFooter
+                        page={campaignPages.page}
+                        pageSize={campaignPages.pageSize}
+                        total={data.campaigns.length}
+                        onPageChange={campaignPages.setPage}
+                      />
                     }
                   >
-                    <MailIcon className="size-4 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">
-                        {entry.campaign.subjectSnapshot}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {entry.templateName ?? "Custom message"}
-                      </span>
-                    </span>
-                    <Badge variant="secondary" className="tabular-nums">
-                      {entry.recipients.length} recipients
-                    </Badge>
-                    {entry.campaign.sentAt === null ? (
-                      <span className="text-xs text-muted-foreground">Draft</span>
-                    ) : (
-                      <Timestamp
-                        value={entry.campaign.sentAt}
-                        timezone={timezone}
-                        className="text-xs text-muted-foreground"
-                      />
-                    )}
-                    <ChevronDownIcon
-                      className={`size-4 ${expandedCampaign === entry.campaign.id ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                  {expandedCampaign !== entry.campaign.id ? null : (
-                    <CampaignRecipients recipients={entry.recipients} />
-                  )}
-                </div>
-              ))
-            )}
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Subject</TableHead>
+                          {compact ? null : <TableHead>Audience</TableHead>}
+                          <TableHead className="text-right">Recipients</TableHead>
+                          <TableHead>Delivery</TableHead>
+                          <TableHead className="text-right">Sent</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {campaignPages.pageItems.map((entry) => {
+                          const rollup = deliveryRollup(entry.recipients);
+                          return (
+                            <TableRow
+                              key={entry.campaign.id}
+                              className="h-9 cursor-pointer"
+                              onClick={() =>
+                                void navigate({
+                                  to: "/admin/communications/$campaignId",
+                                  params: { campaignId: entry.campaign.id },
+                                  search: { spotlight: undefined },
+                                })
+                              }
+                            >
+                              <TableCell className="max-w-64">
+                                <p className="truncate font-medium">
+                                  {entry.campaign.subjectSnapshot}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {entry.templateName ?? "Custom message"}
+                                </p>
+                              </TableCell>
+                              {compact ? null : (
+                                <TableCell className="text-muted-foreground">
+                                  {campaignAudienceLabel(entry.campaign)}
+                                </TableCell>
+                              )}
+                              <TableCell className="text-right tabular-nums">
+                                {entry.recipients.length}
+                              </TableCell>
+                              <TableCell>
+                                <span className="flex items-center gap-1.5">
+                                  {rollup.sent > 0 ? (
+                                    <DeliveryCountChip bucket="sent" count={rollup.sent} />
+                                  ) : null}
+                                  {rollup.queued > 0 ? (
+                                    <DeliveryCountChip bucket="queued" count={rollup.queued} />
+                                  ) : null}
+                                  {rollup.failed > 0 ? (
+                                    <DeliveryCountChip bucket="failed" count={rollup.failed} />
+                                  ) : null}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {entry.campaign.sentAt === null ? (
+                                  <span className="text-xs text-[var(--status-pending)]">
+                                    Sending…
+                                  </span>
+                                ) : (
+                                  <Timestamp
+                                    value={entry.campaign.sentAt}
+                                    timezone={timezone}
+                                    className="text-xs text-muted-foreground"
+                                  />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableShell>
+                )}
+              </TabsContent>
+
+              <TabsContent value="reminders" className="min-h-0 pt-3">
+                <ReminderCard
+                  eventId={eventId}
+                  timezone={timezone}
+                  rule={data.reminderRules[0]}
+                  dueSoonTasks={data.pending.dueSoonTasks}
+                />
+              </TabsContent>
+
+              <TabsContent value="templates" className="min-h-0 pt-3">
+                {data.templates.length === 0 && spotlightId !== NEW_TEMPLATE_ID ? (
+                  <AdminEmptyState
+                    icon={FileTextIcon}
+                    title="Create a reusable template"
+                    description="Templates prefill the campaign composer with a subject and message."
+                    action={
+                      <Button
+                        size="sm"
+                        className="pressable"
+                        onClick={() => openSpotlight(NEW_TEMPLATE_ID)}
+                      >
+                        <PlusIcon /> New template
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <div className="grid max-w-4xl gap-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Templates prefill the composer — sending always snapshots the final text.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="pressable"
+                        onClick={() => openSpotlight(NEW_TEMPLATE_ID)}
+                      >
+                        <PlusIcon /> New template
+                      </Button>
+                    </div>
+                    <div className="divide-y overflow-hidden rounded-lg border">
+                      {data.templates.map((template) => (
+                        <button
+                          key={template.id}
+                          ref={rowRef(template.id)}
+                          type="button"
+                          className={cn(
+                            "pressable-row flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/50",
+                            rowClassName(template.id),
+                          )}
+                          onClick={() => openSpotlight(template.id)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{template.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {template.subjectTemplate}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            Updated{" "}
+                            <Timestamp
+                              value={template.updatedAt}
+                              timezone={timezone}
+                              className="tabular-nums"
+                            />
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
-        </section>
-      </div>
-      {templateOpen ? (
-        <TemplateDialog
-          eventId={eventId}
-          template={editingTemplate}
-          open
-          onOpenChange={setTemplateOpen}
-          refresh={refresh}
-        />
-      ) : null}
-      <SpeakerPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        contacts={data.speakers}
-        value={selectedIds}
-        onChange={setSelectedIds}
-        title="Select recipients"
-        description="Search and filter the speaker directory, then pick who receives this campaign."
+        )}
+        panel={
+          // Keyed so the form re-seeds per template — a shared instance would
+          // keep the previous template's fields alive.
+          <TemplateSpotlight
+            key={spotlightId}
+            eventId={eventId}
+            data={data}
+            templateId={spotlightId === NEW_TEMPLATE_ID ? null : (spotlightId ?? null)}
+            onCreated={(id) => onSpotlightChange(id, { replace: true, keyboard: false })}
+            onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+          />
+        }
       />
     </main>
   );
 }
 
-function CampaignRecipients({
-  recipients,
+function StatCard({
+  label,
+  value,
+  badge,
+  detail,
 }: {
-  readonly recipients: ReadonlyArray<CampaignRecipientHistory>;
+  readonly label: string;
+  readonly value: string;
+  readonly badge: ReactNode;
+  readonly detail: string;
 }) {
-  const pages = usePagination(recipients);
   return (
-    <div className="border-t bg-muted/20 p-2">
-      <TableShell
-        className="max-h-80 bg-background"
-        footer={
-          <PaginationFooter
-            page={pages.page}
-            pageSize={pages.pageSize}
-            total={recipients.length}
-            onPageChange={pages.setPage}
-          />
-        }
+    <Card className="h-full gap-2 bg-gradient-to-t from-primary/5 to-card py-4 shadow-xs transition-colors group-hover/stat:border-foreground/20">
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+        <CardTitle className="text-2xl font-semibold tabular-nums">{value}</CardTitle>
+        <CardAction>{badge}</CardAction>
+      </CardHeader>
+      <CardFooter className="text-xs text-muted-foreground">{detail}</CardFooter>
+    </Card>
+  );
+}
+
+// The four communication verbs as overview cards: inform decisions, confirm
+// speakers, chase tasks, watch delivery. Every card is a click-through to the
+// surface where the verb happens.
+function StatCards({ data }: { readonly data: CommunicationCenter }) {
+  const pending = data.pending;
+  const decisions = pending.acceptedNotInformed + pending.declinedNotInformed;
+  const decisionParts = [
+    ...(pending.acceptedNotInformed > 0
+      ? [`${pending.acceptedNotInformed} acceptance${pending.acceptedNotInformed === 1 ? "" : "s"}`]
+      : []),
+    ...(pending.declinedNotInformed > 0
+      ? [`${pending.declinedNotInformed} decline${pending.declinedNotInformed === 1 ? "" : "s"}`]
+      : []),
+  ];
+  const windowDays = data.reminderRules[0]?.daysBeforeDue ?? 7;
+  const outboxActive = pending.queued + pending.sending;
+  return (
+    <div className="grid shrink-0 grid-cols-1 gap-3 @xl:grid-cols-2 @4xl:grid-cols-4">
+      <Link
+        to="/admin/submissions"
+        search={{ status: "to_inform", spotlight: undefined }}
+        className="group/stat block"
       >
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Recipient</TableHead>
-              <TableHead>Resolved subject</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pages.pageItems.map((recipient) => (
-              <TableRow key={recipient.id}>
-                <TableCell>
-                  <p>{recipient.contactName}</p>
-                  <p className="text-xs text-muted-foreground">{recipient.email}</p>
-                </TableCell>
-                <TableCell>{recipient.resolvedSubject}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="capitalize">
-                    {recipient.emailStatus ?? recipient.deliveryStatus}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableShell>
+        <StatCard
+          label="Decisions to send"
+          value={String(decisions)}
+          badge={
+            decisions > 0 ? (
+              <Badge variant="outline" className="gap-1">
+                <CircleDashedIcon className="text-status-pending" /> Action needed
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <CheckCircle2Icon className="text-status-accepted" /> Done
+              </Badge>
+            )
+          }
+          detail={decisions > 0 ? decisionParts.join(" · ") : "Every decision delivered"}
+        />
+      </Link>
+      <Link
+        to="/admin/communications/new"
+        search={{ audience: "awaiting_confirmation", from: undefined }}
+        className="group/stat block"
+      >
+        <StatCard
+          label="Awaiting confirmation"
+          value={String(pending.awaitingConfirmation)}
+          badge={
+            pending.awaitingConfirmation > 0 ? (
+              <Badge variant="outline" className="gap-1">
+                <CircleDashedIcon className="text-status-pending" /> Waiting
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <CheckCircle2Icon className="text-status-accepted" /> Confirmed
+              </Badge>
+            )
+          }
+          detail={
+            pending.awaitingConfirmation > 0
+              ? "Nudge them with a campaign"
+              : "Every informed speaker confirmed"
+          }
+        />
+      </Link>
+      <Link
+        to="/admin/communications"
+        search={{ tab: "reminders", spotlight: undefined }}
+        className="group/stat block"
+      >
+        <StatCard
+          label="Tasks due soon"
+          value={String(pending.dueSoonTasks)}
+          badge={
+            pending.dueSoonTasks > 0 ? (
+              <Badge variant="outline" className="gap-1">
+                <Clock3Icon className="text-status-pending" /> Due soon
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <CheckCircle2Icon className="text-status-accepted" /> Clear
+              </Badge>
+            )
+          }
+          detail={
+            pending.dueSoonTasks > 0
+              ? `Todo tasks due within ${windowDays} day${windowDays === 1 ? "" : "s"}`
+              : "Nothing due in the window"
+          }
+        />
+      </Link>
+      <Link to="/admin/emails" search={{ email: undefined }} className="group/stat block">
+        <StatCard
+          label="Outbox"
+          value={String(outboxActive > 0 ? outboxActive : pending.sentTotal)}
+          badge={
+            pending.failed > 0 ? (
+              <Badge variant="destructive" className="tabular-nums">
+                {pending.failed} failed
+              </Badge>
+            ) : outboxActive > 0 ? (
+              <Badge variant="outline" className="gap-1">
+                <LoaderCircleIcon className="animate-spin text-status-pending" /> Sending
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1 text-muted-foreground">
+                <CheckCircle2Icon className="text-status-accepted" /> Delivered
+              </Badge>
+            )
+          }
+          detail={
+            outboxActive > 0
+              ? `${pending.sending} sending · ${pending.queued} queued`
+              : pending.failed > 0
+                ? `${pending.failed} failed · ${pending.sentTotal} delivered`
+                : pending.sentTotal > 0
+                  ? `All delivered · ${pending.sentTotal} sent`
+                  : "Nothing sent yet"
+          }
+        />
+      </Link>
     </div>
   );
 }
 
-function TemplateList({
-  eventId,
-  templates,
-  edit,
-  refresh,
-}: {
-  readonly eventId: string;
-  readonly templates: ReadonlyArray<EmailTemplate>;
-  readonly edit: (template: EmailTemplate) => void;
-  readonly refresh: () => Promise<unknown>;
-}) {
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteEmailTemplate({ data: { eventId, id } }),
-    onSuccess: async (result) => {
-      if (!result.ok) toast.error(result.error.message);
-      else {
-        toast.success("Template deleted");
-        await refresh();
-      }
-    },
-  });
-  return (
-    <section className="grid gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Templates</h2>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {templates.length} templates
-        </span>
-      </div>
-      <div className="min-w-0 divide-y rounded-lg border">
-        {templates.map((template) => (
-          <div key={template.id} className="flex items-center gap-2 px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="font-medium">{template.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{template.subjectTemplate}</p>
-            </div>
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              aria-label={`Edit ${template.name}`}
-              onClick={() => edit(template)}
-            >
-              <PencilIcon />
-            </Button>
-            <Button
-              size="icon-xs"
-              variant="ghost"
-              aria-label={`Delete ${template.name}`}
-              onClick={() => remove.mutate(template.id)}
-            >
-              <Trash2Icon />
-            </Button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function TemplateDialog({
-  eventId,
-  template,
-  open,
-  onOpenChange,
-  refresh,
-}: {
-  readonly eventId: string;
-  readonly template: EmailTemplate | undefined;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly refresh: () => Promise<unknown>;
-}) {
-  const [name, setName] = useState(template?.name ?? "");
-  const [subject, setSubject] = useState(template?.subjectTemplate ?? "");
-  const [body, setBody] = useState(template?.bodyTemplate ?? "");
-  const mutation = useMutation({
-    mutationFn: () =>
-      saveEmailTemplate({
-        data: {
-          eventId,
-          id: template?.id ?? null,
-          name,
-          subjectTemplate: subject,
-          bodyTemplate: body,
-        },
-      }),
-    onSuccess: async (result) => {
-      if (!result.ok) toast.error(result.error.message);
-      else {
-        toast.success("Template saved");
-        await refresh();
-        onOpenChange(false);
-      }
-    },
-  });
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>
-            {template === undefined ? "New email template" : "Edit email template"}
-          </DialogTitle>
-          <DialogDescription>
-            Supported tokens: {campaignMergeTokens.map((token) => `{${token}}`).join(", ")}.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label>Name</Label>
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Subject</Label>
-            <Input value={subject} onChange={(event) => setSubject(event.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Message</Label>
-            <Textarea
-              className="min-h-32"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={
-              mutation.isPending ||
-              name.trim() === "" ||
-              subject.trim() === "" ||
-              body.trim() === ""
-            }
-            onClick={() => mutation.mutate()}
-          >
-            Save template
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ReminderSettings({
+function ReminderCard({
   eventId,
   timezone,
-  rules,
-  refresh,
+  rule,
+  dueSoonTasks,
 }: {
   readonly eventId: string;
   readonly timezone: string;
-  readonly rules: CenterData["reminderRules"];
-  readonly refresh: () => Promise<unknown>;
+  readonly rule: CommunicationCenter["reminderRules"][number] | undefined;
+  readonly dueSoonTasks: number;
 }) {
-  const rule = rules[0];
-  const [days, setDays] = useState(rule?.daysBeforeDue ?? 3);
+  const queryClient = useQueryClient();
   const [enabled, setEnabled] = useState(rule?.enabled ?? false);
+  const [days, setDays] = useState(rule?.daysBeforeDue ?? 7);
+  const alreadyRan = reminderAlreadyRanInWindow(rule?.lastRunAt ?? null, new Date());
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (next: { readonly days: number; readonly enabled: boolean }) =>
       saveTaskReminderRule({
-        data: { eventId, id: rule?.id ?? null, daysBeforeDue: days, enabled },
+        data: { eventId, id: rule?.id ?? null, daysBeforeDue: next.days, enabled: next.enabled },
       }),
     onSuccess: async (result) => {
       if (!result.ok) toast.error(result.error.message);
-      else {
-        toast.success("Reminder rule saved");
-        await refresh();
-      }
+      else await invalidateAfterMutation(queryClient, eventId);
     },
   });
   const run = useMutation({
@@ -800,53 +559,299 @@ function ReminderSettings({
           `Queued ${result.data.queued} task reminder${result.data.queued === 1 ? "" : "s"}`,
         );
       }
-      await refresh();
+      await invalidateAfterMutation(queryClient, eventId);
     },
   });
   return (
-    <section className="grid gap-3 rounded-lg border p-3">
-      <div className="flex items-center gap-2">
-        <Clock3Icon className="size-4 text-muted-foreground" />
-        <div className="mr-auto">
-          <h2 className="text-sm font-medium">Task reminder rule</h2>
-          <p className="text-xs text-muted-foreground">
-            Incomplete and unwaived assignments due within the delivery window.
+    <section className="max-w-3xl overflow-hidden rounded-lg border">
+      <div className="flex items-start gap-3 p-4">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-muted/40">
+          <Clock3Icon className="size-4 text-muted-foreground" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <label
+            htmlFor="reminder-days"
+            className="flex flex-wrap items-center gap-x-1.5 gap-y-2 font-medium"
+          >
+            Email every speaker with an unwaived task due within
+            <Input
+              id="reminder-days"
+              type="number"
+              min={0}
+              value={days}
+              onChange={(event) => setDays(Math.max(0, Number(event.target.value)))}
+              onBlur={() => save.mutate({ days, enabled })}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+              className="h-7 w-14 px-2 text-center tabular-nums"
+            />
+            {days === 1 ? "day." : "days."}
+          </label>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {rule?.lastRunAt === null || rule?.lastRunAt === undefined ? (
+              "Never run"
+            ) : (
+              <>
+                Last ran{" "}
+                <Timestamp value={rule.lastRunAt} timezone={timezone} className="tabular-nums" />
+              </>
+            )}
+            {" · "}
+            <span className="tabular-nums">{dueSoonTasks}</span> due in the window right now
           </p>
         </div>
-        {rule?.lastRunAt === null || rule?.lastRunAt === undefined ? (
-          <span className="text-xs text-muted-foreground">Never run</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            Last run{" "}
-            <Timestamp value={rule.lastRunAt} timezone={timezone} className="tabular-nums" />
-          </span>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-3 border-t pt-3">
-        <label className="flex items-center gap-2">
-          <Switch checked={enabled} onCheckedChange={setEnabled} /> Enabled
-        </label>
-        <Label htmlFor="reminder-days">Days before due</Label>
-        <Input
-          id="reminder-days"
-          className="h-8 w-20"
-          type="number"
-          min={0}
-          value={days}
-          onChange={(event) => setDays(Number(event.target.value))}
+        <Switch
+          checked={enabled}
+          aria-label="Task reminders enabled"
+          onCheckedChange={(checked) => {
+            setEnabled(checked === true);
+            save.mutate({ days, enabled: checked === true });
+          }}
         />
-        <Button size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
-          Save rule
-        </Button>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-muted/20 px-4 py-2.5">
+        <p className="text-xs text-muted-foreground">
+          One-off nudges live on the{" "}
+          <Link
+            to="/admin/$section"
+            params={{ section: "tasks" }}
+            search={{ spotlight: undefined, fileRequest: undefined }}
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            Tasks board
+          </Link>{" "}
+          and{" "}
+          <Link
+            to="/admin/$section"
+            params={{ section: "file-requests" }}
+            search={{ spotlight: undefined, fileRequest: undefined }}
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            Deliverables
+          </Link>
+          .
+        </p>
         <Button
           size="sm"
-          className="ml-auto"
-          disabled={run.isPending || !enabled}
+          className="pressable"
+          disabled={run.isPending || !enabled || dueSoonTasks === 0 || alreadyRan}
           onClick={() => run.mutate()}
         >
-          <SendIcon /> {run.isPending ? "Running…" : "Run now"}
+          <SendIcon />
+          {run.isPending
+            ? "Sending…"
+            : alreadyRan
+              ? "Already ran today"
+              : `Send ${dueSoonTasks} reminder${dueSoonTasks === 1 ? "" : "s"} now`}
         </Button>
       </div>
     </section>
+  );
+}
+
+function TemplateSpotlight({
+  eventId,
+  data,
+  templateId,
+  onCreated,
+  onClose,
+}: {
+  readonly eventId: string;
+  readonly data: CommunicationCenter;
+  readonly templateId: string | null;
+  readonly onCreated: (id: string) => void;
+  readonly onClose: () => void;
+}) {
+  const creating = templateId === null;
+  const existing = data.templates.find((template) => template.id === templateId);
+  const queryClient = useQueryClient();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deletedRef = useRef(false);
+  const [form, setForm] = useState({
+    name: existing?.name ?? "",
+    subject: existing?.subjectTemplate ?? "",
+    body: existing?.bodyTemplate ?? "",
+  });
+  const formRef = useRef(form);
+  formRef.current = form;
+  const payloadData = (current: typeof form) => ({
+    eventId,
+    id: templateId,
+    name: current.name,
+    subjectTemplate: current.subject,
+    bodyTemplate: current.body,
+  });
+  // Editing autosaves like the task editor; creation stays one explicit act.
+  const autosave = useAutosave({
+    buildPayload: () => payloadData(formRef.current),
+    save: async (payload) => {
+      if (deletedRef.current) return { ok: true };
+      if (payload.name.trim().length === 0)
+        return { ok: false, message: "A template needs a name" };
+      if (payload.subjectTemplate.trim().length === 0)
+        return { ok: false, message: "A template needs a subject" };
+      if (payload.bodyTemplate.trim().length === 0)
+        return { ok: false, message: "A template needs a message" };
+      const result = await saveEmailTemplate({ data: payload });
+      if (!result.ok) return { ok: false, message: result.error.message };
+      await invalidateAfterMutation(queryClient, eventId);
+      return { ok: true };
+    },
+    enabled: !creating,
+  });
+  useEffect(() => autosave.markDirty(), [autosave.markDirty, form]);
+  // Closing the spotlight (Escape, j/k, row click) unmounts the panel — flush
+  // pending edits instead of dropping them.
+  useEffect(() => () => autosave.persist(), [autosave.persist]);
+  const create = useMutation({
+    mutationFn: () => saveEmailTemplate({ data: payloadData(form) }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success("Template created");
+      await invalidateAfterMutation(queryClient, eventId);
+      if (result.data !== undefined) onCreated(result.data.id);
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => deleteEmailTemplate({ data: { eventId, id: templateId ?? "" } }),
+    onSuccess: async (result) => {
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      deletedRef.current = true;
+      toast.success("Template deleted");
+      await invalidateAfterMutation(queryClient, eventId);
+      onClose();
+    },
+  });
+  const incomplete =
+    form.name.trim() === "" || form.subject.trim() === "" || form.body.trim() === "";
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <SpotlightPanelHeader
+        identity={
+          <span className="truncate text-sm font-medium">
+            {form.name.trim() || (creating ? "New template" : "Untitled template")}
+          </span>
+        }
+        actions={
+          creating ? (
+            <Button
+              type="button"
+              size="xs"
+              className="pressable"
+              disabled={create.isPending || incomplete}
+              onClick={() => create.mutate()}
+            >
+              {create.isPending ? "Creating…" : "Create template"}
+            </Button>
+          ) : (
+            <>
+              <SaveStatus state={autosave.state} retry={autosave.persist} />
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                className="pressable"
+                aria-label="Delete template"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2Icon />
+              </Button>
+            </>
+          )
+        }
+        onClose={onClose}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto grid max-w-3xl gap-6 p-4 pb-16 lg:p-6 lg:pb-16">
+          <section className="grid gap-3">
+            <SectionLabel>Template</SectionLabel>
+            <div className="grid gap-1.5">
+              <Label htmlFor="template-name">Name</Label>
+              <Input
+                id="template-name"
+                autoFocus={creating}
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="template-subject">Subject</Label>
+              <Input
+                id="template-subject"
+                value={form.subject}
+                onChange={(event) => setForm({ ...form, subject: event.target.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="template-body">Message</Label>
+                <div className="flex flex-wrap justify-end gap-1">
+                  {campaignMergeTokens.map((token) => (
+                    <Button
+                      key={token}
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      onClick={() =>
+                        setForm((current) => ({ ...current, body: `${current.body}{${token}}` }))
+                      }
+                    >{`{${token}}`}</Button>
+                  ))}
+                </div>
+              </div>
+              <Textarea
+                id="template-body"
+                className="min-h-32"
+                value={form.body}
+                onChange={(event) => setForm({ ...form, body: event.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Markdown supported — the message is sent in the event's email frame.
+              </p>
+            </div>
+          </section>
+          <section className="grid gap-3">
+            <SectionLabel>Preview</SectionLabel>
+            <div className="overflow-hidden rounded-lg border">
+              <CampaignEmailPreview
+                subject={form.subject.trim() === "" ? "Subject" : form.subject}
+                body={form.body}
+                className="h-[420px]"
+              />
+            </div>
+          </section>
+        </div>
+      </div>
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete this template?</DialogTitle>
+            <DialogDescription>
+              "{existing?.name}" disappears from the template list. Campaigns already sent keep
+              their snapshots.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              {remove.isPending ? "Deleting…" : "Delete template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

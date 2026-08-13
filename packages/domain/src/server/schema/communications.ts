@@ -1,5 +1,7 @@
+import { outreach } from "@opensesh/email";
 import { Schema } from "effect";
 
+import { freeformToHtml } from "../../rich-text";
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
 
 import { DietaryRequirement, SpeakerPipeline, SubmissionStatus, TshirtSize } from "./submissions";
@@ -114,6 +116,9 @@ export const CommunicationCenter = Schema.Struct({
     awaitingConfirmation: Schema.Number,
     queued: Schema.Number,
     sending: Schema.Number,
+    failed: Schema.Number,
+    sentTotal: Schema.Number,
+    dueSoonTasks: Schema.Number,
   }),
   templates: Schema.Array(EmailTemplate),
   campaigns: Schema.Array(CampaignHistory),
@@ -185,6 +190,22 @@ export const resolveMergeFields = (template: string, fields: Readonly<Record<str
     (resolved, [name, value]) => resolved.replaceAll(`{${name}}`, value),
     template,
   );
+
+// The exact frame campaigns ship in — the composer and campaign pages preview
+// through the same render the send path uses, so what you see is what sends.
+export const renderCampaignEmail = (input: {
+  readonly eventName: string;
+  readonly logoUrl: string | null;
+  readonly subject: string;
+  readonly body: string;
+}) =>
+  outreach({
+    eventName: input.eventName,
+    logoUrl: input.logoUrl,
+    subject: input.subject,
+    bodyHtml: freeformToHtml(input.body),
+    bodyText: input.body,
+  });
 
 export const campaignMergeTokens = [
   "speaker_name",

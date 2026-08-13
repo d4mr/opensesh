@@ -538,6 +538,22 @@ export const SpeakerCommsLive = Layer.effect(
               }).length,
               queued: mailRows.filter((row) => row.status === "queued").length,
               sending: mailRows.filter((row) => row.status === "sending").length,
+              failed: mailRows.filter((row) => row.status === "failed").length,
+              // Demo-mode deliveries count as sent — the outbox card should
+              // read calm in the sandbox, not permanently in-flight.
+              sentTotal: mailRows.filter((row) => row.status === "sent" || row.status === "demo")
+                .length,
+              dueSoonTasks: reminderAssignmentsWithinWindow(
+                assignmentRows.map((row) => ({
+                  assignmentId: row.assignment.id,
+                  contactId: row.assignment.contactId ?? "",
+                  status: row.assignment.status,
+                  dueDate: row.template.dueDate,
+                  taskTitle: row.template.title,
+                })),
+                new Date(),
+                ruleRows[0]?.daysBeforeDue ?? 7,
+              ).length,
             },
             templates: templateRows,
             campaigns,
