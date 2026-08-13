@@ -119,7 +119,9 @@ function TableShell({
       <div
         ref={scrollRef}
         className={cn(
-          "min-h-0 flex-1 overflow-auto",
+          // overscroll-none kills the macOS rubber-band at the table's edges;
+          // an app table is chrome, not a page, so it should stop dead.
+          "min-h-0 flex-1 overflow-auto overscroll-none",
           "[&_[data-slot=table-container]]:overflow-x-visible",
           "[&_[data-slot=table-header]]:sticky [&_[data-slot=table-header]]:top-0 [&_[data-slot=table-header]]:z-10 [&_[data-slot=table-header]]:bg-background",
           // Collapsed tr borders don't travel with a sticky thead; draw the
