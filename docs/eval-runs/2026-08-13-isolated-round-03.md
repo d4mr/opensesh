@@ -59,7 +59,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Complete | `068`–`080`; blind queue, exact stored reviews, weighted 3.33/5.00, sorts, 2/2, export |
 | SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Complete | `081`–`092`; isolated Priya confirmed, fixture CSV imported, three tasks assigned to isolated Priya/Marcus, invite logged |
 | SPK-S2 | Speaker completes onboarding in the portal | Complete | `093`–`101`; scoped portal, accepted session, persisted portal bio/headshot, tasks 2/3 complete |
-| SPK-S3 | Organizer tracks progress and sends bulk communications | Pending | — |
+| SPK-S3 | Organizer tracks progress and sends bulk communications | Complete | `102`–`109`; synced portal profile/file/tasks, 5-recipient resolved campaign, persisted travel notes |
 | CNT-S1 | Organizer sets up content collection | Pending | — |
 | CNT-S2 | Speaker uploads and versions a deliverable | Pending | — |
 | CNT-S3 | Organizer tracks, reviews, approves, and exports | Pending | — |
@@ -195,6 +195,19 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `093-spk-s2-portal-home-scoped.png` through `101-spk-s2-two-complete-after-reload.png`. Every file was written and size-verified in this run.
 
+### SPK-S3 — Organizer tracks progress and sends bulk communications
+
+- Signed back in as Jordan through the same production demo magic-link path; the fixture password also did not authenticate this magic-link-created organizer account.
+- Opened the isolated Priya record. It showed `SBEK-PORTAL-BIO-01`, Headshot Present, pending profile review, the newly uploaded `headshot.png`, 569 B, Priya Raman, date, and a Download control. The file control was clicked; the page remained healthy and no console error or error navigation occurred, although the browser's download-event observer did not receive an event within five seconds.
+- The same spotlight showed exact mixed task state without opening task detail: Confirm participation Done, Complete bio and profile Done, and Sign speaker release form Open. The assignments board showed list-level aggregate progress for both isolated identities: Priya 1 outstanding / 2 done; Marcus 3 outstanding / 0 done.
+- The task board offers `Has outstanding` and task-name filtering but no Complete-only status filter. The required mixed state is visible directly, but separate complete/incomplete filtered screenshots are not possible.
+- Created template `Round 03 speaker welcome` with subject `Welcome to DevFlow Conf 2027 speakers` and tokenized body `Hi {speaker_name}, welcome to {event_name}. Your session is {talk_title}. Open your portal: {portal_url}`. Captured the tokenized template and per-recipient preview. Priya's name, event, and portal resolved, but `{talk_title}` resolved to an empty string despite her linked accepted session.
+- Kept the explicit All speakers audience, which comprised all five current directory contacts including the fixture-created duplicates. Sent the campaign; the product confirmed `Sent 5 campaign emails`. Campaign History persisted one campaign with the exact subject/template, five recipients, and timestamp; Priya's speaker email list also showed the welcome message.
+- Added `Arrival May 11, aisle seat; dietary: Vegetarian` through the Travel and logistics field, saved, reloaded, and verified the exact value in Contact and logistics.
+- Bonus observations: no per-assignment deadline-extension control was visible; the general task surface exposed Open/Done/Waive but no contract/COI task type. The dedicated deliverable types are evaluated later in content management.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `102-spk-s3-organizer-profile-sync-file.png` through `109-spk-s3-travel-notes-persisted.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -214,6 +227,9 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 15. **Task creation immediately renders a stale template count and empty state.** After each successful save, the toast reported assignment to two speakers but the Templates tab retained its previous count and rows until a full reload. The first task therefore appeared as `Templates (0)` with `Create your first speaker task`; the second remained invisible at `Templates (1)`. Persistence was correct after reload, but the false empty state invites duplicate task creation.
 16. **Task assignment defaults to every contact, including CSV-created duplicates.** New tasks initially selected all five directory contacts. Meeting the explicit two-speaker fixture required opening the assignment picker, clearing all, and selecting the two contacts by their full isolated emails. This control is functional and precise, but the default becomes risky after import because duplicate names are visually indistinguishable outside the email-bearing picker.
 17. **A speaker account created through the CFP magic-link path does not accept the fixture password later.** The password form returned `Invalid email or password` for the exact Round 03 email and published fixture password. Portal access remained testable because `Email me a magic link` exposed a demo verification link in production. This is acceptable for the rubric's magic-link path, but an evaluator that only attempts the documented password can incorrectly conclude the portal is unreachable.
+18. **The communications `{talk_title}` token resolves blank for a speaker with a linked accepted session.** Priya's per-recipient preview resolved her name, event, and portal path, but rendered `Your session is .` even though `SESS-1` is linked in both her organizer record and My Sessions. This makes an advertised merge field unsafe for real campaigns.
+19. **Profile approval state becomes internally contradictory after an organizer logistics edit.** Priya's portal update produced two same-time pending-review versions and an Awaiting your review comparison. Saving unrelated travel notes then added an approved organizer version and changed Profile approval to Approved, while the Awaiting your review block and Approve/Reject controls remained visible. The organizer cannot tell whether the portal change is still pending or was implicitly approved.
+20. **Task progress lacks a complete-only filter.** The assignment board's default `Has outstanding` filter and task-name selector are useful, but there is no inverse or explicit status filter for completed assignments. Mixed totals are visible at list level, so core progress tracking passes; the requested complete-only slice cannot be produced.
 
 ## Score
 
