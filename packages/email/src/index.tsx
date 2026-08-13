@@ -10,6 +10,7 @@ import Decision, { decisionIntroduction, type DecisionProps } from "../emails/de
 import DeliverableReminder, { type DeliverableReminderProps } from "../emails/deliverable-reminder";
 import MagicLink from "../emails/magic-link";
 import OrganizationInvitation, { roleLabel } from "../emails/organization-invitation";
+import Outreach, { type OutreachProps } from "../emails/outreach";
 import Reinstated, { reinstatementIntroduction, type ReinstatedProps } from "../emails/reinstated";
 import TaskReminder, { type TaskReminderProps } from "../emails/task-reminder";
 
@@ -49,6 +50,23 @@ export const organizationInvitation = (input: {
   subject: `Join ${input.organizationName} on opensesh`,
   text: `${input.inviterName} invited you to join ${input.organizationName} as ${roleLabel(input.role)}. Accept the invitation: ${input.url}`,
   html: html(<OrganizationInvitation {...input} />),
+});
+
+// General outreach from the communications surface: subject doubles as the
+// headline, the body is organizer-authored freeform markdown rendered by the
+// caller, and `bodyText` (the author's raw text) is the plain-text part.
+export const outreach = (
+  input: Omit<OutreachProps, "heading"> & {
+    readonly subject: string;
+    readonly bodyText: string;
+  },
+): RenderedEmail => ({
+  subject: input.subject,
+  text:
+    input.cta === undefined
+      ? input.bodyText
+      : `${input.bodyText}\n\n${input.cta.label}: ${input.cta.url}`,
+  html: html(<Outreach {...input} heading={input.subject} />),
 });
 
 const decision = (input: DecisionProps): RenderedEmail => {

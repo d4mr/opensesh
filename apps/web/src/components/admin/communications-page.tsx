@@ -27,6 +27,7 @@ import { useAdminEvent } from "@/components/app/admin-event-context";
 import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { Timestamp } from "@/components/app/timestamp";
 import { Badge } from "@/components/ui/badge";
+import { RichText } from "@/components/forms/rich-text";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -351,6 +352,9 @@ function Communications({
                   onChange={(event) => setBody(event.target.value)}
                   className="min-h-32"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Markdown supported — the message is sent in the event's email frame.
+                </p>
               </div>
             </div>
             <div className="grid content-start gap-2 rounded-lg border bg-muted/20 p-3">
@@ -372,9 +376,11 @@ function Communications({
                 </Select>
               </div>
               <p className="font-medium">{resolveMergeFields(subject, fields)}</p>
-              <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                {resolveMergeFields(body, fields)}
-              </p>
+              <RichText
+                freeform
+                markdown={resolveMergeFields(body, fields)}
+                className="text-xs leading-5 text-muted-foreground"
+              />
             </div>
           </div>
           <div className="flex justify-end border-t pt-3">

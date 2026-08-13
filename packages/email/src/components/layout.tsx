@@ -115,6 +115,20 @@ export function DetailCard({
   );
 }
 
+/**
+ * Organizer-authored markdown, pre-rendered to HTML by the caller through
+ * domain's hardened renderer — safe to inline unescaped.
+ */
+export function Freeform({ html }: { readonly html: string }) {
+  return (
+    <div
+      className="freeform"
+      style={{ fontSize: "14px", lineHeight: "24px", color: palette.body }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
 export function EmailLayout({
   brandName,
   logoUrl = null,
@@ -135,7 +149,23 @@ export function EmailLayout({
 }) {
   return (
     <Html lang="en">
-      <Head />
+      <Head>
+        {/* Typography for organizer-authored markdown fragments (.freeform).
+            Inline styles can't reach rendered child tags; Gmail and every
+            major client honor head styles, and clients that strip them still
+            show readable default margins. */}
+        <style>{`
+          .freeform p { margin: 0 0 16px; }
+          .freeform p:last-child { margin-bottom: 0; }
+          .freeform ul, .freeform ol { margin: 0 0 16px; padding-left: 20px; }
+          .freeform li { margin: 0 0 6px; }
+          .freeform a { color: ${palette.brand}; }
+          .freeform h1, .freeform h2, .freeform h3, .freeform h4 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; color: ${palette.ink}; }
+          .freeform blockquote { margin: 0 0 16px; padding: 2px 0 2px 12px; border-left: 2px solid ${palette.divider}; color: ${palette.muted}; }
+          .freeform code { font-size: 13px; background: ${palette.fill}; padding: 1px 4px; border-radius: 4px; }
+          .freeform hr { margin: 20px 0; border: none; border-top: 1px solid ${palette.divider}; }
+        `}</style>
+      </Head>
       <Preview>{preview}</Preview>
       <Body style={{ margin: "0", backgroundColor: "#ffffff", fontFamily }}>
         <Container style={{ maxWidth: "480px", margin: "0 auto", padding: "48px 24px 40px" }}>
@@ -181,7 +211,9 @@ export function EmailLayout({
               color: palette.muted,
             }}
           >
-            {brandName === "opensesh" ? "opensesh" : `opensesh — ${brandName}`}
+            {/* Provenance, not platform branding: the sender's name leads,
+                opensesh is a quiet "sent via" credit on their mail. */}
+            {brandName === "opensesh" ? "opensesh" : `${brandName} · sent via opensesh`}
           </Text>
         </Container>
       </Body>

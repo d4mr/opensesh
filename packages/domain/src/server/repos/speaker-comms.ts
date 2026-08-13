@@ -1,6 +1,8 @@
+import { outreach } from "@opensesh/email";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { freeformToHtml } from "../../rich-text";
 import {
   contactEditHistory,
   contacts,
@@ -490,7 +492,15 @@ export const SpeakerCommsLive = Layer.effect(
                 continue;
               }
               const subject = `Your speaker portal for ${event[0]?.name ?? "this event"}`;
-              const body = `Hi ${contact.firstName},\n\nWelcome to ${event[0]?.name ?? "the event"}. Complete your speaker profile and tasks here: ${portalOrigin}${portalPath}`;
+              const bodyText = `Hi ${contact.firstName},\n\nWelcome to ${event[0]?.name ?? "the event"}. Your speaker portal has your profile, tasks, and session details in one place.`;
+              const rendered = outreach({
+                eventName: event[0]?.name ?? "this event",
+                logoUrl: event[0]?.logoUrl ?? null,
+                subject,
+                bodyHtml: freeformToHtml(bodyText),
+                bodyText,
+                cta: { label: "Open your portal", url: `${portalOrigin}${portalPath}` },
+              });
               const [logged] = await transaction
                 .insert(emailLog)
                 .values({
@@ -500,8 +510,8 @@ export const SpeakerCommsLive = Layer.effect(
                   type: "custom",
                   recipient: contact.email,
                   subject,
-                  body,
-                  htmlBody: body.replaceAll("\n", "<br>"),
+                  body: rendered.text,
+                  htmlBody: rendered.html,
                   status: "queued",
                   provider: null,
                   providerId: null,
@@ -630,6 +640,15 @@ export const SpeakerCommsLive = Layer.effect(
               .execute();
             const logIds: Array<string> = [];
             for (const recipient of resolved) {
+              // The composer body is freeform markdown; the event-branded
+              // outreach frame carries it, with the subject as the headline.
+              const rendered = outreach({
+                eventName: event.name,
+                logoUrl: event.logoUrl,
+                subject: recipient.resolvedSubject,
+                bodyHtml: freeformToHtml(recipient.resolvedBody),
+                bodyText: recipient.resolvedBody,
+              });
               const [logged] = await transaction
                 .insert(emailLog)
                 .values({
@@ -640,7 +659,7 @@ export const SpeakerCommsLive = Layer.effect(
                   recipient: recipient.recipientEmail,
                   subject: recipient.resolvedSubject,
                   body: recipient.resolvedBody,
-                  htmlBody: recipient.resolvedBody.replaceAll("\n", "<br>"),
+                  htmlBody: rendered.html,
                   status: "queued",
                   provider: null,
                   providerId: null,
@@ -790,7 +809,16 @@ export const SpeakerCommsLive = Layer.effect(
               const contact = contactRows.find((row) => row.id === contactId);
               if (contact === undefined) continue;
               const portalUrl = `${portalOrigin}/portal/tasks`;
-              const body = `Hi ${contact.firstName},\n\nThe following speaker tasks are due soon:\n${assignments.map((assignment) => `- ${assignment.taskTitle}`).join("\n")}\n\nComplete them here: ${portalUrl}`;
+              const subject = `Tasks due soon for ${event[0]?.name ?? "your event"}`;
+              const bodyText = `Hi ${contact.firstName},\n\nThe following speaker tasks are due soon:\n\n${assignments.map((assignment) => `- ${assignment.taskTitle}`).join("\n")}`;
+              const rendered = outreach({
+                eventName: event[0]?.name ?? "your event",
+                logoUrl: event[0]?.logoUrl ?? null,
+                subject,
+                bodyHtml: freeformToHtml(bodyText),
+                bodyText,
+                cta: { label: "Complete your tasks", url: portalUrl },
+              });
               const [logged] = await transaction
                 .insert(emailLog)
                 .values({
@@ -799,9 +827,9 @@ export const SpeakerCommsLive = Layer.effect(
                   submissionId: null,
                   type: "task_reminder",
                   recipient: contact.email,
-                  subject: `Tasks due soon for ${event[0]?.name ?? "your event"}`,
-                  body,
-                  htmlBody: body.replaceAll("\n", "<br>"),
+                  subject,
+                  body: rendered.text,
+                  htmlBody: rendered.html,
                   status: "queued",
                   provider: null,
                   providerId: null,

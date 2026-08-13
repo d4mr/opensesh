@@ -2,7 +2,7 @@
 // @jsxImportSource react
 import { Text } from "react-email";
 
-import { Cta, EmailLayout, paragraph } from "../src/components/layout";
+import { Cta, EmailLayout, Freeform, paragraph } from "../src/components/layout";
 
 export interface ConfirmationProps {
   readonly eventName: string;
@@ -38,10 +38,7 @@ export default function Confirmation({
           its status from the speaker portal.
         </Text>
       ) : (
-        <div
-          style={{ fontSize: "14px", lineHeight: "24px", color: "#3d463f" }}
-          dangerouslySetInnerHTML={{ __html: customBodyHtml }}
-        />
+        <Freeform html={customBodyHtml} />
       )}
       <Cta href={portalUrl}>View submission</Cta>
     </EmailLayout>
