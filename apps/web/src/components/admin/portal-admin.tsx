@@ -645,6 +645,9 @@ function AdminTasks({
               onAssign={(templateId) =>
                 assign.mutate({ taskTemplateId: templateId, contactId: spotlightRow.contact.id })
               }
+              onOpenTemplate={(templateId) =>
+                onSpotlightChange(templateId, { replace: false, keyboard: false })
+              }
               onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
             />
           )
@@ -671,6 +674,7 @@ function TaskSpeakerPeek({
   onWaive,
   assignPending,
   onAssign,
+  onOpenTemplate,
   onClose,
 }: {
   readonly data: AdminData;
@@ -688,6 +692,7 @@ function TaskSpeakerPeek({
   readonly onWaive: (assignmentId: string) => void;
   readonly assignPending: boolean;
   readonly onAssign: (taskTemplateId: string) => void;
+  readonly onOpenTemplate: (taskTemplateId: string) => void;
   readonly onClose: () => void;
 }) {
   const unassigned = data.templates.filter(
@@ -752,9 +757,16 @@ function TaskSpeakerPeek({
                   ? null
                   : `Due ${formatDateTime(new Date(item.template.dueDate).toISOString(), timezone)}`;
               return (
-                <div key={item.assignment.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                <div
+                  key={item.assignment.id}
+                  className="flex items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted/50"
+                >
                   <meta.icon className={cn("size-3.5 shrink-0", meta.className)} />
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 cursor-pointer text-left focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                    onClick={() => onOpenTemplate(item.template.id)}
+                  >
                     <p className="truncate text-sm font-medium">{item.template.title}</p>
                     {item.submission === null && due === null ? null : (
                       <p className="truncate text-xs text-muted-foreground">
@@ -765,7 +777,7 @@ function TaskSpeakerPeek({
                         {due}
                       </p>
                     )}
-                  </div>
+                  </button>
                   {item.assignment.status === "todo" ? (
                     <Button
                       type="button"

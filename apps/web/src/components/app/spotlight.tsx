@@ -60,6 +60,27 @@ export function SpotlightLayout({
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
   }, []);
 
+  // Bringing the spotlit row into view needs a settled layout (the pane can
+  // still be mid-layout during route transitions) and a mounted row (keyboard
+  // nav can cross a pagination boundary, where the row only renders on the
+  // next commit). Defer a frame; if the row isn't mounted yet, rowRef finishes
+  // the job when it appears.
+  const pendingScrollRow = useRef<string | undefined>(undefined);
+  const ensureRowVisible = useCallback(
+    (id: string) => {
+      pendingScrollRow.current = id;
+      requestAnimationFrame(() => {
+        if (pendingScrollRow.current !== id) return;
+        const node = rowRefs.current.get(id);
+        if (node === undefined) return;
+        pendingScrollRow.current = undefined;
+        node.scrollIntoView({ block: "nearest" });
+        rememberScroll();
+      });
+    },
+    [rememberScroll],
+  );
+
   const markKeyboardAction = useCallback((duration = 240) => {
     setKeyboardAction(true);
     if (keyboardTimer.current !== null) clearTimeout(keyboardTimer.current);
@@ -86,19 +107,20 @@ export function SpotlightLayout({
 
     if (firstLayout.current) {
       firstLayout.current = false;
-      if (spotlightId !== undefined && inView) {
-        rowRefs.current.get(spotlightId)?.scrollIntoView({ block: "nearest" });
-      }
+      if (spotlightId !== undefined && inView) ensureRowVisible(spotlightId);
     } else {
       if (scroller !== null) scroller.scrollTop = savedScrollTop.current;
       if (previous !== undefined && spotlightId === undefined) {
+        pendingScrollRow.current = undefined;
         rowRefs.current.get(previous)?.scrollIntoView({ block: "nearest" });
         highlightRows([previous]);
+      } else if (spotlightId !== undefined && spotlightId !== previous) {
+        ensureRowVisible(spotlightId);
       }
     }
 
     previousId.current = spotlightId;
-  }, [highlightRows, inView, spotlightId]);
+  }, [ensureRowVisible, highlightRows, inView, spotlightId]);
 
   useLayoutEffect(() => {
     if (externalHighlightedIds?.size !== 1) return;
@@ -145,12 +167,11 @@ export function SpotlightLayout({
       if (nextId === undefined) return;
       event.preventDefault();
       changeSpotlight(nextId, { replace: true, keyboard: true });
-      rowRefs.current.get(nextId)?.scrollIntoView({ block: "nearest" });
-      rememberScroll();
+      ensureRowVisible(nextId);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [changeSpotlight, orderedIds, rememberScroll, spotlightId]);
+  }, [changeSpotlight, ensureRowVisible, orderedIds, spotlightId]);
 
   useEffect(
     () => () => {
@@ -162,9 +183,16 @@ export function SpotlightLayout({
   const rowRef = useCallback(
     (id: string) => (node: HTMLElement | null) => {
       if (node === null) rowRefs.current.delete(id);
-      else rowRefs.current.set(id, node);
+      else {
+        rowRefs.current.set(id, node);
+        if (pendingScrollRow.current === id) {
+          pendingScrollRow.current = undefined;
+          node.scrollIntoView({ block: "nearest" });
+          rememberScroll();
+        }
+      }
     },
-    [],
+    [rememberScroll],
   );
 
   const rowClassName = useCallback(

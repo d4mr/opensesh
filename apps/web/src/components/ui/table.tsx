@@ -128,6 +128,9 @@ function TableShell({
           // hairline as an inset shadow on the cells instead.
           "[&_[data-slot=table-header]_tr]:border-b-0",
           "[&_[data-slot=table-header]_th]:shadow-[inset_0_-1px_0_0_var(--border)]",
+          // scrollIntoView must clear the sticky header — without the margin,
+          // scrolling a row to the top edge parks it underneath the thead.
+          "[&_tbody_tr]:scroll-mt-10",
           // Overlay scrollbars float above content; give the last column a
           // wider gutter so right-aligned values stay readable while scrolling.
           "[&_[data-slot=table]_td:last-child]:pr-4 [&_[data-slot=table]_th:last-child]:pr-4",
