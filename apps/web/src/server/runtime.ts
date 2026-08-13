@@ -1,4 +1,5 @@
 import { DbError, NeedsFirstEvent } from "@opensesh/domain";
+import { DEMO_EVENT_SLUG, DEMO_PERSONA_EMAILS } from "@opensesh/domain/demo";
 import {
   type SessionIdentity,
   type CurrentUser,
@@ -21,14 +22,7 @@ import { ConfigProvider, Effect, Layer, ManagedRuntime } from "effect";
 import { makeAuth } from "@/lib/auth";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
-const DEMO_EVENT_SLUG = "ai-engineer-nyc-2026";
-const demoEmails = new Set([
-  "demo@opensesh.io",
-  "reviewer@opensesh.io",
-  "maya.chen@retrievallabs.ai",
-  "lina.haddad@checkpoint.health",
-  "jamal.reed@agentdesk.co",
-]);
+const demoEmails = new Set<string>(DEMO_PERSONA_EMAILS);
 const preferredEventSlugForSession = (session: SessionIdentity) =>
   demoEmails.has(session.email) ? DEMO_EVENT_SLUG : undefined;
 
@@ -130,6 +124,23 @@ export const runServer = async <A, E extends AppError>(
       : requireCurrentUser(options.require).pipe(Effect.andThen(program));
 
   return withStatus(await runtime.runPromise(toServerResult(secured)));
+};
+
+// The 15-minute sandbox reset: reseed the demo workspace and delete the R2
+// objects its wiped uploads referenced. Seed-owned assets survive (the seed
+// module filters them), and identity rows stay so live demo sessions persist.
+export const runDemoReset = async (env: Cloudflare.Env) => {
+  const { resetDemoOrg } = await import("@opensesh/domain/seed");
+  const database = makeDatabase(env.HYPERDRIVE.connectionString);
+  try {
+    const storageKeys = await resetDemoOrg(database);
+    if (storageKeys.length > 0) {
+      await env.FILES.delete([...storageKeys]);
+    }
+    return { orphanedObjects: storageKeys.length };
+  } finally {
+    await database.$client.end();
+  }
 };
 
 export const runScheduledTaskReminders = async (env: Cloudflare.Env, now: Date) => {

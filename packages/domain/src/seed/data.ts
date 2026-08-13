@@ -33,7 +33,7 @@ export const seedData = {
   users: [
     {
       id: "usr_dana",
-      email: "demo@opensesh.io",
+      email: "dana@demo.opensesh.io",
       name: "Dana Organizer",
       emailVerified: true,
       image: null,
@@ -42,7 +42,7 @@ export const seedData = {
     },
     {
       id: "usr_rey",
-      email: "reviewer@opensesh.io",
+      email: "rey@demo.opensesh.io",
       name: "Rey Reviewer",
       emailVerified: true,
       image: null,
@@ -51,7 +51,7 @@ export const seedData = {
     },
     {
       id: "usr_maya",
-      email: "maya.chen@retrievallabs.ai",
+      email: "maya@demo.opensesh.io",
       name: "Maya Chen",
       emailVerified: true,
       image: null,
@@ -60,7 +60,7 @@ export const seedData = {
     },
     {
       id: "usr_lina",
-      email: "lina.haddad@checkpoint.health",
+      email: "lina@demo.opensesh.io",
       name: "Lina Haddad",
       emailVerified: true,
       image: null,
@@ -69,7 +69,7 @@ export const seedData = {
     },
     {
       id: "usr_jamal",
-      email: "jamal.reed@agentdesk.co",
+      email: "jamal@demo.opensesh.io",
       name: "Jamal Reed",
       emailVerified: true,
       image: null,
@@ -534,7 +534,7 @@ export const seedData = {
     {
       id: "con_01",
       eventId: "evt_aie_nyc_2026",
-      email: "maya.chen@retrievallabs.ai",
+      email: "maya@demo.opensesh.io",
       firstName: "Maya",
       lastName: "Chen",
       title: "Staff ML Engineer",
@@ -544,7 +544,7 @@ export const seedData = {
       pronouns: "she/her",
       gender: null,
       bio: "Maya builds retrieval systems that serve hundreds of millions of queries at Retrieval Labs. Her recent work focuses on measuring answerability before an LLM is allowed to synthesize a response.",
-      headshotUrl: "https://i.pravatar.cc/300?u=maya.chen@retrievallabs.ai",
+      headshotUrl: "https://i.pravatar.cc/300?u=maya@demo.opensesh.io",
       phone: null,
       linkedinUrl: "https://linkedin.com/in/mayachen",
       twitterUrl: null,
@@ -810,7 +810,7 @@ export const seedData = {
     {
       id: "con_13",
       eventId: "evt_aie_nyc_2026",
-      email: "lina.haddad@checkpoint.health",
+      email: "lina@demo.opensesh.io",
       firstName: "Lina",
       lastName: "Haddad",
       title: "Director of AI",
@@ -820,7 +820,7 @@ export const seedData = {
       pronouns: "she/her",
       gender: null,
       bio: "Lina deploys clinical documentation models with evidence trails and human review. She works closely with clinicians to define what a safe abstention looks like in practice.",
-      headshotUrl: "https://i.pravatar.cc/300?u=lina.haddad@checkpoint.health",
+      headshotUrl: "https://i.pravatar.cc/300?u=lina@demo.opensesh.io",
       phone: null,
       linkedinUrl: "https://linkedin.com/in/linahaddad",
       twitterUrl: null,
@@ -948,7 +948,7 @@ export const seedData = {
     {
       id: "con_19",
       eventId: "evt_aie_nyc_2026",
-      email: "jamal.reed@agentdesk.co",
+      email: "jamal@demo.opensesh.io",
       firstName: "Jamal",
       lastName: "Reed",
       title: "Product Engineer",
@@ -3977,7 +3977,7 @@ export const seedData = {
       contactId: "con_01",
       submissionId: "sub_01",
       type: "confirmation",
-      recipient: "maya.chen@retrievallabs.ai",
+      recipient: "maya@demo.opensesh.io",
       subject: "We received “RAG is dead, long live retrieval”",
       body: "Thanks, Maya. Your submission SESS-1 is in the review queue.",
       htmlBody: "<p>Thanks, Maya. Your submission SESS-1 is in the review queue.</p>",
@@ -4019,7 +4019,7 @@ export const seedData = {
       contactId: "con_13",
       submissionId: "sub_16",
       type: "accepted",
-      recipient: "lina.haddad@checkpoint.health",
+      recipient: "lina@demo.opensesh.io",
       subject: "You're speaking at AI.Engineer Sandbox NYC",
       body: "We are delighted to accept “Abstention is a feature.” Your onboarding tasks are ready in the speaker portal.",
       htmlBody:

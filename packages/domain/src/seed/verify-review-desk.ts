@@ -11,7 +11,7 @@ const feedback = "Strong architecture and unusually concrete production lessons.
 
 const rey: SessionIdentity = {
   userId: "usr_rey",
-  email: "reviewer@opensesh.io",
+  email: "rey@demo.opensesh.io",
   name: "Rey Reviewer",
   activeOrganizationId: "org_ai_engineer",
 };

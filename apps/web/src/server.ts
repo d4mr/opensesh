@@ -1,6 +1,6 @@
 import handler from "@tanstack/react-start/server-entry";
 
-import { runScheduledTaskReminders } from "@/server/runtime";
+import { runDemoReset, runScheduledTaskReminders } from "@/server/runtime";
 
 // Documents must revalidate on every load: without this, browsers
 // heuristically cache the HTML shell and keep referencing deleted asset
@@ -21,6 +21,11 @@ export default {
     return response;
   },
   async scheduled(controller, env) {
+    if (controller.cron === "*/15 * * * *") {
+      const result = await runDemoReset(env);
+      console.log(JSON.stringify({ event: "demo_reset_completed", ...result }));
+      return;
+    }
     const result = await runScheduledTaskReminders(env, new Date(controller.scheduledTime));
     console.log(JSON.stringify({ event: "task_reminders_completed", ...result }));
   },

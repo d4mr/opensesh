@@ -67,26 +67,26 @@ const expectedTables: ReadonlyArray<{
   readonly table: PgTable;
   readonly expected: number;
 }> = [
-  { name: "organizations", table: organizations, expected: 1 },
-  { name: "organization_members", table: organizationMembers, expected: 4 },
-  { name: "events", table: events, expected: 2 },
+  { name: "organizations", table: organizations, expected: 2 },
+  { name: "organization_members", table: organizationMembers, expected: 3 },
+  { name: "events", table: events, expected: 1 },
   { name: "agenda_drafts", table: agendaDrafts, expected: 0 },
-  { name: "users", table: users, expected: 9 },
-  { name: "accounts", table: accounts, expected: 9 },
-  { name: "event_members", table: eventMembers, expected: 5 },
-  { name: "reviewer_tracks", table: reviewerTracks, expected: 4 },
-  { name: "tracks", table: tracks, expected: 7 },
+  { name: "users", table: users, expected: 10 },
+  { name: "accounts", table: accounts, expected: 10 },
+  { name: "event_members", table: eventMembers, expected: 1 },
+  { name: "reviewer_tracks", table: reviewerTracks, expected: 2 },
+  { name: "tracks", table: tracks, expected: 4 },
   { name: "tags", table: tags, expected: 8 },
-  { name: "formats", table: formats, expected: 10 },
-  { name: "levels", table: levels, expected: 6 },
-  { name: "rooms", table: rooms, expected: 8 },
-  { name: "forms", table: forms, expected: 2 },
-  { name: "form_fields", table: formFields, expected: 21 },
-  { name: "contacts", table: contacts, expected: 28 },
-  { name: "submissions", table: submissions, expected: 36 },
-  { name: "submission_tracks", table: submissionTracks, expected: 36 },
+  { name: "formats", table: formats, expected: 5 },
+  { name: "levels", table: levels, expected: 3 },
+  { name: "rooms", table: rooms, expected: 4 },
+  { name: "forms", table: forms, expected: 1 },
+  { name: "form_fields", table: formFields, expected: 11 },
+  { name: "contacts", table: contacts, expected: 26 },
+  { name: "submissions", table: submissions, expected: 32 },
+  { name: "submission_tracks", table: submissionTracks, expected: 32 },
   { name: "submission_tags", table: submissionTags, expected: 64 },
-  { name: "submission_participants", table: submissionParticipants, expected: 44 },
+  { name: "submission_participants", table: submissionParticipants, expected: 39 },
   { name: "reviews", table: reviews, expected: 6 },
   { name: "portal_forms", table: portalForms, expected: 2 },
   { name: "portal_form_responses", table: portalFormResponses, expected: 4 },
@@ -110,18 +110,18 @@ const expectedTables: ReadonlyArray<{
   { name: "email_log", table: emailLog, expected: 5 },
   // 8 decisions + 8 schedule placements + Mateo's cancellation of SESS-17.
   { name: "submission_activity", table: submissionActivity, expected: 17 },
-  { name: "review_rounds", table: reviewRounds, expected: 2 },
-  { name: "review_criteria", table: reviewCriteria, expected: 6 },
-  { name: "review_round_members", table: reviewRoundMembers, expected: 3 },
+  { name: "review_rounds", table: reviewRounds, expected: 0 },
+  { name: "review_criteria", table: reviewCriteria, expected: 0 },
+  { name: "review_round_members", table: reviewRoundMembers, expected: 0 },
   { name: "review_assignments", table: reviewAssignments, expected: 0 },
   { name: "review_answers", table: reviewAnswers, expected: 0 },
   { name: "ai_review_results", table: aiReviewResults, expected: 0 },
-  { name: "email_templates", table: emailTemplates, expected: 1 },
+  { name: "email_templates", table: emailTemplates, expected: 0 },
   { name: "email_campaigns", table: emailCampaigns, expected: 0 },
   { name: "email_campaign_recipients", table: emailCampaignRecipients, expected: 0 },
-  { name: "reminder_rules", table: reminderRules, expected: 1 },
-  { name: "organization_contacts", table: organizationContacts, expected: 28 },
-  { name: "organization_contact_events", table: organizationContactEvents, expected: 28 },
+  { name: "reminder_rules", table: reminderRules, expected: 0 },
+  { name: "organization_contacts", table: organizationContacts, expected: 26 },
+  { name: "organization_contact_events", table: organizationContactEvents, expected: 26 },
   { name: "organization_contact_notes", table: organizationContactNotes, expected: 0 },
   { name: "organization_tags", table: organizationTags, expected: 3 },
   { name: "organization_contact_tags", table: organizationContactTags, expected: 6 },
@@ -136,7 +136,7 @@ const expectedStatuses = {
   declined: 2,
   draft: 2,
   maybe: 4,
-  pending: 15,
+  pending: 11,
   withdrawn: 1,
 } as const;
 
@@ -149,8 +149,7 @@ export const verifySeed = async (database: Database) => {
     memberships,
     personas,
     devflow,
-    devflowLibrary,
-    rounds,
+    evalEventCount,
     deliverables,
     resourceRows,
   ] = await Promise.all([
@@ -203,22 +202,12 @@ export const verifySeed = async (database: Database) => {
           "priya.speaker@sbek-test.example.com",
           "marcus.speaker@sbek-test.example.com",
           "sam.reviewer@sbek-test.example.com",
+          "alex.attendee@sbek-test.example.com",
         ]),
       )
       .orderBy(asc(users.email)),
     database.select().from(events).where(eq(events.slug, "devflow-conf-2027")).limit(1),
-    Promise.all([
-      database.$count(tracks, eq(tracks.eventId, "evt_devflow_2027")),
-      database.$count(formats, eq(formats.eventId, "evt_devflow_2027")),
-      database.$count(rooms, eq(rooms.eventId, "evt_devflow_2027")),
-      database.$count(submissions, eq(submissions.eventId, "evt_devflow_2027")),
-    ]),
-    database
-      .select({ round: reviewRounds, criterion: reviewCriteria })
-      .from(reviewRounds)
-      .leftJoin(reviewCriteria, eq(reviewCriteria.roundId, reviewRounds.id))
-      .where(eq(reviewRounds.eventId, "evt_devflow_2027"))
-      .orderBy(asc(reviewRounds.position), asc(reviewCriteria.position)),
+    database.$count(events, eq(events.organizationId, "org_devflow")),
     database
       .select({
         requirementId: sessionFileRequirementAssignments.requirementId,
@@ -236,33 +225,24 @@ export const verifySeed = async (database: Database) => {
   console.table(summary);
 
   const statusMatches = statusRows.every(({ status, total }) => expectedStatuses[status] === total);
+  // Demo workspace: Dana owns it, Rey is a member. Eval workspace: Jordan
+  // owns it and nobody else is provisioned — the evaluator invites the rest.
   const expectedMemberships = new Map([
-    ["demo@opensesh.io", "owner"],
-    ["jordan.organizer@sbek-test.example.com", "member"],
-    ["reviewer@opensesh.io", "member"],
-    ["sam.reviewer@sbek-test.example.com", "member"],
+    ["dana@demo.opensesh.io", ["ai-engineer", "owner"]],
+    ["rey@demo.opensesh.io", ["ai-engineer", "member"]],
+    ["jordan.organizer@sbek-test.example.com", ["devflow", "owner"]],
   ]);
   const membershipsMatch =
     memberships.length === expectedMemberships.size &&
-    memberships.every(
-      (membership) =>
-        membership.organization === "ai-engineer" &&
-        expectedMemberships.get(membership.email) === membership.role,
-    );
-  const devflowEvent = devflow[0];
+    memberships.every((membership) => {
+      const expected = expectedMemberships.get(membership.email);
+      return expected?.[0] === membership.organization && expected[1] === membership.role;
+    });
   const personasMatch =
-    personas.length === 4 && personas.every((persona) => persona.providerId === "credential");
-  const devflowMatches =
-    devflowEvent?.name === "DevFlow Conf 2027" &&
-    devflowEvent.tagline === "The developer workflow conference" &&
-    devflowEvent.location === "Moscone West, San Francisco, CA" &&
-    devflowEvent.timezone === "America/Los_Angeles" &&
-    devflowLibrary.join(",") === "3,5,4,4";
-  const roundsMatch =
-    new Set(rounds.map((row) => row.round.id)).size === 2 &&
-    rounds.every((row) => row.round.reviewsPerSubmission === 2) &&
-    rounds.filter((row) => row.round.id === "rnd_devflow_initial").length === 4 &&
-    rounds.filter((row) => row.round.id === "rnd_devflow_final").length === 2;
+    personas.length === 5 && personas.every((persona) => persona.providerId === "credential");
+  // Prerequisites only: the eval workspace starts with no events at all, and
+  // the evaluator's fixture event does not pre-exist anywhere.
+  const evalPrerequisitesMatch = devflow.length === 0 && evalEventCount === 0;
   const deliverablesMatch =
     deliverables.length === 3 &&
     deliverables.some(
@@ -296,8 +276,7 @@ export const verifySeed = async (database: Database) => {
     conflicts.length !== 1 ||
     !membershipsMatch ||
     !personasMatch ||
-    !devflowMatches ||
-    !roundsMatch ||
+    !evalPrerequisitesMatch ||
     !deliverablesMatch ||
     !resourcesMatch
   ) {
@@ -307,7 +286,7 @@ export const verifySeed = async (database: Database) => {
   }
 
   process.stdout.write(
-    "Seed verification passed: DevFlow fixtures, personas, resources, review rounds, CRM, status mix, one conflict, and org memberships.\n",
+    "Seed verification passed: demo fixtures, eval prerequisites (accounts only, no events), personas, resources, CRM, status mix, one conflict, and org memberships.\n",
   );
   return true;
 };
