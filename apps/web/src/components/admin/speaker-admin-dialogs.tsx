@@ -176,120 +176,139 @@ export function SpeakerFormDialog({
     setForm((current) => ({ ...current, [key]: value }));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{speaker === undefined ? "Add speaker" : "Edit speaker"}</DialogTitle>
+      <DialogContent className="flex max-h-[min(52rem,calc(100svh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="m-0 shrink-0 gap-1 border-b px-5 py-4 pr-12">
+          <DialogTitle className="text-base">
+            {speaker === undefined
+              ? "Add speaker"
+              : `Edit ${speaker.contact.firstName} ${speaker.contact.lastName}`}
+          </DialogTitle>
           <DialogDescription>
-            Profile, onboarding details, headshot, and travel logistics for this event.
+            The profile, headshot, and links shown on public pages, plus event-day logistics.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                label="First name"
-                value={form.firstName}
-                set={(value) => update("firstName", value)}
-              />
-              <Field
-                label="Last name"
-                value={form.lastName}
-                set={(value) => update("lastName", value)}
-              />
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid content-start gap-6">
+              <section className="grid gap-3">
+                <SectionLabel>Identity</SectionLabel>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    label="First name"
+                    value={form.firstName}
+                    set={(value) => update("firstName", value)}
+                  />
+                  <Field
+                    label="Last name"
+                    value={form.lastName}
+                    set={(value) => update("lastName", value)}
+                  />
+                </div>
+                <Field
+                  label="Email"
+                  type="email"
+                  value={form.email}
+                  set={(value) => update("email", value)}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Title" value={form.title} set={(value) => update("title", value)} />
+                  <Field
+                    label="Company"
+                    value={form.company}
+                    set={(value) => update("company", value)}
+                  />
+                </div>
+              </section>
+              <section className="grid gap-3">
+                <SectionLabel>Biography</SectionLabel>
+                <RichTextEditor
+                  value={form.bio}
+                  onChange={(value) => update("bio", value.slice(0, 5000))}
+                />
+              </section>
             </div>
-            <Field
-              label="Email"
-              type="email"
-              value={form.email}
-              set={(value) => update("email", value)}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Title" value={form.title} set={(value) => update("title", value)} />
-              <Field
-                label="Company"
-                value={form.company}
-                set={(value) => update("company", value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Biography</Label>
-              <RichTextEditor
-                value={form.bio}
-                onChange={(value) => update("bio", value.slice(0, 5000))}
-              />
-            </div>
-          </div>
-          <div className="grid content-start gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <SelectField
-                label="Dietary"
-                value={form.dietaryRequirements}
-                options={[
-                  ["none", "None"],
-                  ["vegetarian", "Vegetarian"],
-                  ["vegan", "Vegan"],
-                  ["gluten_free", "Gluten-free"],
-                  ["other", "Other"],
-                ]}
-                set={(value) => update("dietaryRequirements", dietaryValue(value))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <SelectField
-                label="T-shirt size"
-                value={form.tshirtSize}
-                options={[
-                  ["none", "Not set"],
-                  ...["XS", "S", "M", "L", "XL", "XXL"].map((size) => [size, size] as const),
-                ]}
-                set={(value) => update("tshirtSize", tshirtValue(value))}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="speaker-headshot">Headshot</Label>
-              <ImageUploadField
-                id="speaker-headshot"
-                label="Upload speaker headshot"
-                accept="image/*"
-                hint="Any image · 2 MB max"
-                value={headshot}
-                onChange={setHeadshot}
-                currentUrl={speaker?.contact.headshotUrl ?? null}
-                fallbackIcon={<UserRoundIcon className="size-4 text-muted-foreground" />}
-              />
-            </div>
-            <Field
-              label="X / Twitter"
-              value={form.twitterUrl}
-              set={(value) => update("twitterUrl", value)}
-            />
-            <Field
-              label="LinkedIn"
-              value={form.linkedinUrl}
-              set={(value) => update("linkedinUrl", value)}
-            />
-            <Field
-              label="Website"
-              value={form.websiteUrl}
-              set={(value) => update("websiteUrl", value)}
-            />
-            <div className="grid gap-1.5">
-              <Label htmlFor="speaker-logistics">Travel and logistics</Label>
-              <Textarea
-                id="speaker-logistics"
-                value={form.travelLogistics}
-                onChange={(event) => update("travelLogistics", event.target.value)}
-                placeholder="Arrival, seat preference, hotel, dietary notes…"
-                className="min-h-24"
-              />
+            <div className="grid content-start gap-6">
+              <section className="grid gap-3">
+                <SectionLabel>Headshot</SectionLabel>
+                <ImageUploadField
+                  id="speaker-headshot"
+                  label="Upload speaker headshot"
+                  accept="image/*"
+                  hint="Any image · 2 MB max"
+                  value={headshot}
+                  onChange={setHeadshot}
+                  currentUrl={speaker?.contact.headshotUrl ?? null}
+                  fallbackIcon={<UserRoundIcon className="size-4 text-muted-foreground" />}
+                />
+              </section>
+              <section className="grid gap-3">
+                <SectionLabel>Links</SectionLabel>
+                <Field
+                  label="X / Twitter"
+                  placeholder="https://x.com/…"
+                  value={form.twitterUrl}
+                  set={(value) => update("twitterUrl", value)}
+                />
+                <Field
+                  label="LinkedIn"
+                  placeholder="https://linkedin.com/in/…"
+                  value={form.linkedinUrl}
+                  set={(value) => update("linkedinUrl", value)}
+                />
+                <Field
+                  label="Website"
+                  placeholder="https://…"
+                  value={form.websiteUrl}
+                  set={(value) => update("websiteUrl", value)}
+                />
+              </section>
+              <section className="grid gap-3">
+                <SectionLabel>Event logistics</SectionLabel>
+                <div className="grid grid-cols-2 gap-3">
+                  <SelectField
+                    label="Dietary"
+                    value={form.dietaryRequirements}
+                    options={[
+                      ["none", "None"],
+                      ["vegetarian", "Vegetarian"],
+                      ["vegan", "Vegan"],
+                      ["gluten_free", "Gluten-free"],
+                      ["other", "Other"],
+                    ]}
+                    set={(value) => update("dietaryRequirements", dietaryValue(value))}
+                  />
+                  <SelectField
+                    label="T-shirt size"
+                    value={form.tshirtSize}
+                    options={[
+                      ["none", "Not set"],
+                      ...["XS", "S", "M", "L", "XL", "XXL"].map((size) => [size, size] as const),
+                    ]}
+                    set={(value) => update("tshirtSize", tshirtValue(value))}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="speaker-logistics" className="text-xs">
+                    Travel notes
+                  </Label>
+                  <Textarea
+                    id="speaker-logistics"
+                    value={form.travelLogistics}
+                    onChange={(event) => update("travelLogistics", event.target.value)}
+                    placeholder="Arrival, seat preference, hotel, dietary notes…"
+                    className="min-h-24"
+                  />
+                </div>
+              </section>
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="m-0 shrink-0 border-t bg-background px-5 py-3">
+          <Button size="sm" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
+            size="sm"
             disabled={
               mutation.isPending ||
               form.firstName.trim() === "" ||
@@ -306,22 +325,40 @@ export function SpeakerFormDialog({
   );
 }
 
+function SectionLabel({ children }: { readonly children: string }) {
+  return (
+    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
 function Field({
   label,
   type = "text",
+  placeholder,
   value,
   set,
 }: {
   readonly label: string;
   readonly type?: string;
+  readonly placeholder?: string;
   readonly value: string;
   readonly set: (value: string) => void;
 }) {
   const id = `speaker-${label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`;
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} type={type} value={value} onChange={(event) => set(event.target.value)} />
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => set(event.target.value)}
+      />
     </div>
   );
 }
@@ -339,7 +376,7 @@ function SelectField({
 }) {
   return (
     <div className="grid gap-1.5">
-      <Label>{label}</Label>
+      <Label className="text-xs">{label}</Label>
       <Select value={value} onValueChange={set}>
         <SelectTrigger className="w-full">
           <SelectValue />

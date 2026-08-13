@@ -359,7 +359,10 @@ export const SpeakerCommsLive = Layer.effect(
                   // no submitter and can never be informed, so they must not
                   // sit in the pending counts forever.
                   .where(
-                    and(eq(submissions.eventId, eventId), isNotNull(submissions.submitterContactId)),
+                    and(
+                      eq(submissions.eventId, eventId),
+                      isNotNull(submissions.submitterContactId),
+                    ),
                   )
                   .execute(),
               ),

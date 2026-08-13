@@ -193,6 +193,7 @@ export const SpeakerDirectoryRow = Schema.Struct({
       title: Schema.String,
       startsAt: NullableDate,
       cancelledAt: NullableDate,
+      decisionSent: Schema.Boolean,
     }),
   ),
   otherSubmissions: Schema.Array(
@@ -201,6 +202,7 @@ export const SpeakerDirectoryRow = Schema.Struct({
       code: Schema.String,
       title: Schema.String,
       status: SubmissionStatus,
+      decisionSent: Schema.Boolean,
     }),
   ),
   tasks: Schema.Array(

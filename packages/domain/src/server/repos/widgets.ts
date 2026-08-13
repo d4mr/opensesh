@@ -601,6 +601,9 @@ export const WidgetsLive = Layer.effect(
                 title: submission.title,
                 startsAt: submission.startsAt,
                 cancelledAt: submission.cancelledAt,
+                // Same rule as the Sessions list: manual sessions have no
+                // submitter to inform, so they count as sent.
+                decisionSent: submission.sourceFormId === null || submission.notifiedAt !== null,
               })),
             otherSubmissions: linked
               .filter((submission) => submission.status !== "accepted")
@@ -609,6 +612,7 @@ export const WidgetsLive = Layer.effect(
                 code: submission.code,
                 title: submission.title,
                 status: submission.status,
+                decisionSent: submission.sourceFormId === null || submission.notifiedAt !== null,
               })),
             tasks: assignmentRows
               .filter(

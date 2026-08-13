@@ -11,6 +11,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeftIcon,
   CheckCircle2Icon,
+  CircleDashedIcon,
   CircleIcon,
   ExternalLinkIcon,
   MailIcon,
@@ -178,10 +179,7 @@ export function SubmissionDetail({
             <>
               {submission.status === "accepted" ? (
                 <Button size="xs" variant="outline" className="pressable" asChild>
-                  <Link
-                    to="/admin/sessions"
-                    search={{ state: "all", spotlight: submission.id }}
-                  >
+                  <Link to="/admin/sessions" search={{ state: "all", spotlight: submission.id }}>
                     Session
                   </Link>
                 </Button>
@@ -273,6 +271,15 @@ export function SubmissionDetail({
                   <CheckCircle2Icon className="text-status-accepted" /> Notified
                 </Badge>
               )}
+              {(submission.status === "accepted" || submission.status === "declined") &&
+              submission.notifiedAt === null &&
+              submission.submitter !== null ? (
+                <Badge variant="outline" className="gap-1 rounded-md text-muted-foreground" asChild>
+                  <Link to="/admin/submissions" search={{ status: "to_inform", spotlight: id }}>
+                    <CircleDashedIcon className="text-status-pending" /> Decision not sent
+                  </Link>
+                </Badge>
+              ) : null}
             </div>
             <h1 className={cn("mt-1 font-semibold", variant === "page" ? "text-xl" : "text-base")}>
               {submission.title}

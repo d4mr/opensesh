@@ -21,11 +21,9 @@ import { RichText } from "@/components/forms/rich-text";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { ChangeDiff } from "@/components/app/change-diff";
-import { SpeakerBadge } from "@/components/app/speaker-badge";
 import { StatusBadge } from "@/components/app/status-badge";
 import { SpotlightLayout, SpotlightPanelHeader } from "@/components/app/spotlight";
 import { Timestamp } from "@/components/app/timestamp";
-import { TaskTemplateDialog } from "@/components/admin/portal-admin";
 import {
   CsvImportDialog,
   PipelineBadge,
@@ -48,14 +46,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   Table,
   TableBody,
   TableCell,
@@ -68,7 +58,6 @@ import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { describeChangedFields, profileDiffRows } from "@/lib/content-diff";
 import { dataUrlForVersion, downloadVersion, fileAsBase64 } from "@/lib/files";
-import { adminPortalQuery } from "@/lib/portal-queries";
 import { cn } from "@/lib/utils";
 import { speakerDirectoryQuery } from "@/lib/widget-queries";
 import {
@@ -140,6 +129,14 @@ function ReadinessLine({
 
 function SectionLabel({ children }: { readonly children: string }) {
   return <h3 className="text-xs font-medium text-muted-foreground">{children}</h3>;
+}
+
+function DecisionNotSentChip() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-[color:var(--status-pending-border)] bg-[var(--status-pending-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--status-pending)]">
+      <CircleDashedIcon className="size-3" /> Decision not sent
+    </span>
+  );
 }
 
 function SessionReadinessBadge({
@@ -254,13 +251,10 @@ function Directory({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string>();
   const [waivedIds, setWaivedIds] = useState<ReadonlySet<string>>(new Set());
-  const [peekTaskId, setPeekTaskId] = useState<string>();
-  const [editingTaskTemplateId, setEditingTaskTemplateId] = useState<string>();
   const [profileDecisions, setProfileDecisions] = useState<
     ReadonlyMap<string, "approve" | "reject">
   >(new Map());
   const queryClient = useQueryClient();
-  const portal = useQuery(adminPortalQuery(eventId));
   // Deliberately unscoped: speaker edits write to shared org contacts, which
   // other events' rosters read — every event subtree must go stale.
   const refresh = () => invalidateAfterMutation(queryClient);
@@ -362,9 +356,6 @@ function Directory({
     [rows, search, statusFilter, taskFilter],
   );
   const selected = rows.find((row) => row.contact.id === spotlightId);
-  const portalData = portal.data?.ok ? portal.data.data : undefined;
-  const peekTask = selected?.tasks.find((task) => task.id === peekTaskId);
-  const peekAssignment = portalData?.assignments.find((row) => row.assignment.id === peekTaskId);
   const pages = usePagination(filtered, {
     resetKey: `${search}:${statusFilter}:${taskFilter}`,
     spotlightId,
@@ -921,6 +912,9 @@ function Directory({
                             <span className="min-w-0 flex-1 truncate text-muted-foreground">
                               {session.title}
                             </span>
+                            {session.decisionSent || session.cancelledAt !== null ? null : (
+                              <DecisionNotSentChip />
+                            )}
                             <SessionReadinessBadge session={session} />
                           </Link>
                         ))
@@ -944,6 +938,9 @@ function Directory({
                             <span className="min-w-0 flex-1 truncate text-muted-foreground">
                               {submission.title}
                             </span>
+                            {submission.status === "declined" && !submission.decisionSent ? (
+                              <DecisionNotSentChip />
+                            ) : null}
                             <StatusBadge status={submission.status} />
                           </Link>
                         ))}
@@ -952,7 +949,7 @@ function Directory({
                   )}
                   <section>
                     <SectionLabel>Tasks</SectionLabel>
-                    <div className="mt-1.5 max-w-xl divide-y overflow-hidden rounded-lg border">
+                    <div className="mt-1.5 divide-y overflow-hidden rounded-lg border">
                       {selected.tasks.length === 0 ? (
                         <p className="flex h-8 items-center px-3 text-muted-foreground">
                           No tasks assigned.
@@ -965,10 +962,11 @@ function Directory({
                               key={task.id}
                               className="flex min-w-0 items-center gap-1 px-2 transition-colors hover:bg-muted/50"
                             >
-                              <button
-                                type="button"
+                              <Link
+                                to="/admin/$section"
+                                params={{ section: "tasks" }}
+                                search={{ spotlight: selected.contact.id, fileRequest: undefined }}
                                 className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 px-1 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
-                                onClick={() => setPeekTaskId(task.id)}
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   <span className="font-medium">{task.title}</span>
@@ -989,7 +987,7 @@ function Directory({
                                 >
                                   {taskStatusLabels[status]}
                                 </Badge>
-                              </button>
+                              </Link>
                               {status === "todo" ? (
                                 <Button
                                   type="button"
@@ -1099,129 +1097,6 @@ function Directory({
           )
         }
       />
-      <Sheet
-        open={peekTaskId !== undefined}
-        onOpenChange={(open) => {
-          if (!open) setPeekTaskId(undefined);
-        }}
-      >
-        <SheetContent className="gap-0 sm:max-w-md">
-          <SheetHeader className="border-b px-4 py-3">
-            <div className="flex items-center gap-2 pr-8">
-              <SheetTitle className="truncate text-sm">
-                {peekAssignment?.template.title ?? peekTask?.title ?? "Task"}
-              </SheetTitle>
-              {peekTask === undefined ? null : (
-                <Badge
-                  variant={
-                    (waivedIds.has(peekTask.id) ? "waived" : peekTask.status) === "todo"
-                      ? "outline"
-                      : "secondary"
-                  }
-                  className="h-5 shrink-0 rounded-sm px-1.5 text-[10px] font-normal"
-                >
-                  {taskStatusLabels[waivedIds.has(peekTask.id) ? "waived" : peekTask.status]}
-                </Badge>
-              )}
-            </div>
-            <SheetDescription className="text-xs">
-              {peekTask?.dueDate === null || peekTask?.dueDate === undefined
-                ? "No due date"
-                : `Due ${new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    timeZone: timezone,
-                  }).format(peekTask.dueDate)}`}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto p-4 text-sm [&>section]:min-w-0">
-            <section>
-              <SectionLabel>Instructions</SectionLabel>
-              <RichText
-                markdown={peekAssignment?.template.instructions}
-                className="mt-1 text-xs text-muted-foreground"
-                fallback={<p className="mt-1 text-xs text-muted-foreground">No instructions.</p>}
-              />
-            </section>
-            {selected === undefined ? null : (
-              <section>
-                <SectionLabel>Speaker</SectionLabel>
-                <div className="mt-1">
-                  <SpeakerBadge
-                    person={{
-                      id: selected.contact.id,
-                      name: `${selected.contact.firstName} ${selected.contact.lastName}`,
-                      image: selected.contact.headshotUrl,
-                      title: selected.contact.title,
-                      company: selected.contact.company,
-                      bio: selected.contact.bio,
-                      status: selected.contact.pipeline,
-                      sessionsCount: selected.sessions.length,
-                    }}
-                  />
-                </div>
-              </section>
-            )}
-            {peekAssignment?.submission === null ||
-            peekAssignment?.submission === undefined ? null : (
-              <section>
-                <SectionLabel>Session</SectionLabel>
-                <Link
-                  to="/admin/sessions"
-                  search={{ state: "all", spotlight: peekAssignment.submission.id }}
-                  className="pressable mt-1 flex min-w-0 items-center gap-2 rounded-sm py-1 text-xs hover:text-foreground"
-                >
-                  <span className="font-mono tabular-nums">{peekAssignment.submission.code}</span>
-                  <span className="truncate text-muted-foreground">
-                    {peekAssignment.submission.title}
-                  </span>
-                </Link>
-              </section>
-            )}
-          </div>
-          <SheetFooter className="flex-row justify-end border-t p-3">
-            {peekTask !== undefined &&
-            (waivedIds.has(peekTask.id) ? "waived" : peekTask.status) === "todo" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={waive.isPending}
-                onClick={() => waive.mutate(peekTask.id)}
-              >
-                Mark waived
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              size="sm"
-              disabled={peekAssignment === undefined}
-              onClick={() => {
-                if (peekAssignment === undefined) return;
-                setEditingTaskTemplateId(peekAssignment.template.id);
-                setPeekTaskId(undefined);
-              }}
-            >
-              Edit task
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-      {portalData === undefined || editingTaskTemplateId === undefined ? null : (
-        <TaskTemplateDialog
-          key={editingTaskTemplateId}
-          eventId={eventId}
-          timezone={timezone}
-          data={portalData}
-          templateId={editingTaskTemplateId}
-          initialLink={undefined}
-          open
-          onOpenChange={(open) => {
-            if (!open) setEditingTaskTemplateId(undefined);
-          }}
-        />
-      )}
       {importOpen ? (
         <CsvImportDialog eventId={eventId} speakers={rows} open onOpenChange={setImportOpen} />
       ) : null}

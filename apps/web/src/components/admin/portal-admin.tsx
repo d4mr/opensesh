@@ -18,11 +18,13 @@ import {
   PencilIcon,
   SendIcon,
 } from "lucide-react";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { RichText } from "@/components/forms/rich-text";
+import { SaveStatus } from "@/components/app/save-status";
 import { StatusBadge } from "@/components/app/status-badge";
+import { useAutosave } from "@/hooks/use-autosave";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { SessionContentEditor } from "@/components/admin/session-content-editor";
 import { ChangeDiff } from "@/components/app/change-diff";
@@ -117,6 +119,18 @@ const personFor = (data: AdminData, contact: AdminData["participants"][number]["
       .map((row) => row.submission.id),
   ).size,
 });
+
+// Shares the tasks page's spotlight namespace with contact ids — template ids
+// and contact ids never collide, and "new" spotlights a blank task editor.
+const NEW_TASK_ID = "new";
+
+function TaskSectionLabel({ children }: { readonly children: string }) {
+  return (
+    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </p>
+  );
+}
 
 const portalFields = (form: AdminData["forms"][number] | undefined) =>
   form?.sections.flatMap((section) => section.fields) ?? [];
@@ -224,13 +238,16 @@ function AdminTasks({
   ) => void;
 }) {
   const queryClient = useQueryClient();
-  const [drawer, setDrawer] = useState(fileRequestId !== undefined);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [outstandingOnly, setOutstandingOnly] = useState(true);
   const [taskTemplateId, setTaskTemplateId] = useState("any");
-  // A spotlighted speaker lives on the assignments tab; opening one (incl.
-  // from a URL) lands there, and leaving the tab closes the spotlight.
-  const [tab, setTab] = useState(spotlightId === undefined ? "templates" : "assignments");
+  // The spotlight id namespace spans both tabs: a template id (or "new")
+  // spotlights the task editor on Templates, a contact id spotlights the
+  // speaker on the assignments board. Leaving a tab closes its spotlight.
+  const isTemplateSpotlight =
+    spotlightId === NEW_TASK_ID || data.templates.some((row) => row.template.id === spotlightId);
+  const [tab, setTab] = useState(
+    spotlightId === undefined || isTemplateSpotlight ? "templates" : "assignments",
+  );
   const [reminded, setReminded] = useState<ReadonlySet<string>>(new Set());
   const [selectedSpeakerIds, setSelectedSpeakerIds] = useState<ReadonlySet<string>>(new Set());
   const refresh = () => invalidateAfterMutation(queryClient, eventId);
@@ -325,14 +342,10 @@ function AdminTasks({
     );
   const speakerPages = usePagination(speakers, {
     resetKey: `${String(outstandingOnly)}:${taskTemplateId}`,
-    spotlightId,
+    spotlightId: isTemplateSpotlight ? undefined : spotlightId,
     getId: (row) => row.contact.id,
   });
   const spotlightRow = speakers.find((row) => row.contact.id === spotlightId);
-  const open = (id: string | null) => {
-    setEditingId(id);
-    setDrawer(true);
-  };
   const outstandingIds = speakers
     .filter((speaker) => speaker.outstanding > 0)
     .map((speaker) => speaker.contact.id);
@@ -344,7 +357,14 @@ function AdminTasks({
     <main className="flex h-[calc(100svh-var(--header-height)-1rem)] min-h-0 flex-col overflow-hidden text-sm">
       <SpotlightLayout
         spotlightId={spotlightId}
-        orderedIds={speakers.map((row) => row.contact.id)}
+        orderedIds={
+          isTemplateSpotlight
+            ? [
+                ...data.templates.map((row) => row.template.id),
+                ...(spotlightId === NEW_TASK_ID ? [NEW_TASK_ID] : []),
+              ]
+            : speakers.map((row) => row.contact.id)
+        }
         onSpotlightChange={onSpotlightChange}
         clearFilters={() => {
           setOutstandingOnly(false);
@@ -359,15 +379,23 @@ function AdminTasks({
                   Templates and real-time speaker readiness.
                 </p>
               </div>
-              <Button size="sm" onClick={() => open(null)}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setTab("templates");
+                  openSpotlight(NEW_TASK_ID);
+                }}
+              >
                 <PlusIcon /> Add task
               </Button>
             </div>
             <Tabs
-              value={spotlightId === undefined ? tab : "assignments"}
+              value={
+                spotlightId === undefined ? tab : isTemplateSpotlight ? "templates" : "assignments"
+              }
               onValueChange={(value) => {
                 setTab(value);
-                if (value === "templates" && spotlightId !== undefined)
+                if (spotlightId !== undefined)
                   onSpotlightChange(undefined, { replace: true, keyboard: false });
               }}
               className="flex min-h-0 flex-1 flex-col"
@@ -383,7 +411,11 @@ function AdminTasks({
                     title="Create your first speaker task"
                     description="Define one reusable onboarding step, then assign it to speakers."
                     action={
-                      <Button size="sm" className="pressable" onClick={() => open(null)}>
+                      <Button
+                        size="sm"
+                        className="pressable"
+                        onClick={() => openSpotlight(NEW_TASK_ID)}
+                      >
                         <PlusIcon /> Add task
                       </Button>
                     }
@@ -393,13 +425,17 @@ function AdminTasks({
                     {templateRows.map((row) => (
                       <button
                         key={row.template.id}
+                        ref={rowRef(row.template.id)}
                         type="button"
-                        className="pressable-row flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50"
-                        onClick={() => open(row.template.id)}
+                        className={cn(
+                          "pressable-row flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50",
+                          rowClassName(row.template.id),
+                        )}
+                        onClick={() => openSpotlight(row.template.id)}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold">{row.template.title}</span>
+                            <span className="truncate font-semibold">{row.template.title}</span>
                             <Badge variant="outline" className="capitalize">
                               {row.template.scope}
                             </Badge>
@@ -411,7 +447,7 @@ function AdminTasks({
                             {row.form?.name ?? row.fileRequest?.title ?? "Manual completion"}
                           </p>
                         </div>
-                        <span className="text-xs tabular-nums text-muted-foreground">
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                           {row.done.length}/{row.assigned.length} done
                         </span>
                       </button>
@@ -420,9 +456,9 @@ function AdminTasks({
                 )}
               </TabsContent>
               <TabsContent value="assignments" className="flex min-h-0 flex-1 flex-col pt-3">
-                <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+                <div className="mb-3 flex shrink-0 items-center justify-between gap-3 overflow-x-auto">
                   <div className="flex items-center gap-2">
-                    <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                    <label className="flex w-fit shrink-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs whitespace-nowrap">
                       <Checkbox
                         checked={outstandingOnly}
                         onCheckedChange={(checked) => setOutstandingOnly(checked === true)}
@@ -430,7 +466,10 @@ function AdminTasks({
                       <FilterIcon className="size-3.5" /> Has outstanding
                     </label>
                     <Select value={taskTemplateId} onValueChange={setTaskTemplateId}>
-                      <SelectTrigger size="sm" className="w-44 text-xs">
+                      <SelectTrigger
+                        size="sm"
+                        className={cn("shrink-0 text-xs", compact ? "w-36" : "w-44")}
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -442,7 +481,7 @@ function AdminTasks({
                         ))}
                       </SelectContent>
                     </Select>
-                    <label className="flex w-fit items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs">
+                    <label className="flex w-fit shrink-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs whitespace-nowrap">
                       <Checkbox
                         checked={
                           allOutstandingSelected
@@ -463,6 +502,7 @@ function AdminTasks({
                   <Button
                     size="sm"
                     variant="outline"
+                    className="shrink-0 whitespace-nowrap"
                     disabled={remind.isPending || selectedReminderIds.length === 0}
                     onClick={() => {
                       remind.mutate({ contactIds: selectedReminderIds, ids: selectedReminderIds });
@@ -471,7 +511,9 @@ function AdminTasks({
                     <SendIcon />
                     {remind.isPending
                       ? "Sending…"
-                      : `Send ${selectedReminderIds.length} reminder${selectedReminderIds.length === 1 ? "" : "s"}`}
+                      : compact
+                        ? `Send ${selectedReminderIds.length}`
+                        : `Send ${selectedReminderIds.length} reminder${selectedReminderIds.length === 1 ? "" : "s"}`}
                   </Button>
                 </div>
                 <TableShell
@@ -571,7 +613,20 @@ function AdminTasks({
           </div>
         )}
         panel={
-          spotlightRow === undefined ? null : (
+          isTemplateSpotlight ? (
+            // Keyed so the form re-seeds from scratch per template — a shared
+            // instance would keep the previous task's fields alive.
+            <TaskTemplateSpotlight
+              key={spotlightId}
+              eventId={eventId}
+              timezone={timezone}
+              data={data}
+              templateId={spotlightId === NEW_TASK_ID ? null : (spotlightId ?? null)}
+              initialLink={fileRequestId === undefined ? undefined : `file:${fileRequestId}`}
+              onCreated={(id) => onSpotlightChange(id, { replace: true, keyboard: false })}
+              onClose={() => onSpotlightChange(undefined, { replace: true, keyboard: false })}
+            />
+          ) : spotlightRow === undefined ? null : (
             <TaskSpeakerPeek
               data={data}
               timezone={timezone}
@@ -595,19 +650,6 @@ function AdminTasks({
           )
         }
       />
-      {/* Mounted on demand so the form re-seeds from scratch each open — the
-          always-mounted variant kept the previous task's fields alive. */}
-      {drawer ? (
-        <TaskTemplateDialog
-          eventId={eventId}
-          timezone={timezone}
-          data={data}
-          templateId={editingId}
-          initialLink={fileRequestId === undefined ? undefined : `file:${fileRequestId}`}
-          open
-          onOpenChange={setDrawer}
-        />
-      ) : null}
     </main>
   );
 }
@@ -785,23 +827,24 @@ function TaskSpeakerPeek({
   );
 }
 
-export function TaskTemplateDialog({
+function TaskTemplateSpotlight({
   eventId,
   timezone,
   data,
   templateId,
   initialLink,
-  open,
-  onOpenChange,
+  onCreated,
+  onClose,
 }: {
   readonly eventId: string;
   readonly timezone: string;
   readonly data: AdminData;
   readonly templateId: string | null;
   readonly initialLink: string | undefined;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
+  readonly onCreated: (id: string) => void;
+  readonly onClose: () => void;
 }) {
+  const creating = templateId === null;
   const existing = data.templates.find((row) => row.template.id === templateId)?.template;
   const speakers = data.contacts;
   const assignedContactIds = new Set(
@@ -833,205 +876,252 @@ export function TaskTemplateDialog({
         : dateKeyInTimezone(existing.dueDate, timezone),
     contactIds: initialContactIds,
   });
+  const assigned = data.assignments.filter((item) => item.assignment.taskTemplateId === templateId);
+  const done = assigned.filter((item) => item.assignment.status !== "todo");
   const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: () =>
-      saveAdminTaskTemplate({
-        data: {
-          eventId,
-          id: templateId,
-          title: form.title,
-          instructions: form.instructions,
-          scope: form.scope === "submission" ? "submission" : "contact",
-          completion:
-            form.link === "file:new"
-              ? { kind: "file:new" as const }
-              : form.link.startsWith("form:")
-                ? { kind: "form" as const, portalFormId: form.link.slice(5) }
-                : form.link.startsWith("file:")
-                  ? { kind: "file" as const, fileRequestId: form.link.slice(5) }
-                  : { kind: "manual" as const },
-          autoAssignOnAccept:
-            form.scope === "contact" && form.contactIds.size < speakers.length ? false : form.auto,
-          dueDate:
-            form.dueDate.length === 0 ? null : zonedDateTimeIso(form.dueDate, 12 * 60, timezone),
-          contactIds: form.scope === "contact" ? [...form.contactIds] : [],
-        },
-      }),
+  const payloadData = (current: typeof form) => ({
+    eventId,
+    id: templateId,
+    title: current.title,
+    instructions: current.instructions,
+    scope: current.scope === "submission" ? ("submission" as const) : ("contact" as const),
+    completion:
+      current.link === "file:new"
+        ? { kind: "file:new" as const }
+        : current.link.startsWith("form:")
+          ? { kind: "form" as const, portalFormId: current.link.slice(5) }
+          : current.link.startsWith("file:")
+            ? { kind: "file" as const, fileRequestId: current.link.slice(5) }
+            : { kind: "manual" as const },
+    autoAssignOnAccept:
+      current.scope === "contact" && current.contactIds.size < speakers.length
+        ? false
+        : current.auto,
+    dueDate:
+      current.dueDate.length === 0 ? null : zonedDateTimeIso(current.dueDate, 12 * 60, timezone),
+    contactIds: current.scope === "contact" ? [...current.contactIds] : [],
+  });
+  const formRef = useRef(form);
+  formRef.current = form;
+  // Editing autosaves like the resource editor; creation stays one explicit
+  // act (the template — and its assignment fan-out — shouldn't exist until
+  // the organizer says so).
+  const autosave = useAutosave({
+    buildPayload: () => payloadData(formRef.current),
+    save: async (payload) => {
+      if (payload.title.trim().length === 0) return { ok: false, message: "A task needs a title" };
+      const result = await saveAdminTaskTemplate({ data: payload });
+      if (!result.ok) return { ok: false, message: result.error.message };
+      await invalidateAfterMutation(queryClient, eventId);
+      return { ok: true };
+    },
+    enabled: !creating,
+  });
+  useEffect(() => autosave.markDirty(), [autosave.markDirty, form]);
+  // Closing the spotlight (Escape, j/k, row click) unmounts the panel — flush
+  // pending edits instead of dropping them.
+  useEffect(() => () => autosave.persist(), [autosave.persist]);
+  const create = useMutation({
+    mutationFn: () => saveAdminTaskTemplate({ data: payloadData(form) }),
     onSuccess: async (result) => {
       if (!result.ok) {
         toast.error(result.error.message);
         return;
       }
-      const assigned = form.scope === "contact" ? form.contactIds.size : 0;
+      const assignedCount = form.scope === "contact" ? form.contactIds.size : 0;
       toast.success(
-        templateId !== null
-          ? "Task saved"
-          : `${form.link === "file:new" ? "Task and file request created" : "Task created"}${
-              assigned === 0 ? "" : ` — assigned to ${assigned} speaker${assigned === 1 ? "" : "s"}`
-            }`,
+        `${form.link === "file:new" ? "Task and file request created" : "Task created"}${
+          assignedCount === 0
+            ? ""
+            : ` — assigned to ${assignedCount} speaker${assignedCount === 1 ? "" : "s"}`
+        }`,
       );
-      onOpenChange(false);
       await invalidateAfterMutation(queryClient, eventId);
+      if (result.data !== undefined) onCreated(result.data.id);
     },
   });
+  const specificSpeakers = form.scope === "contact" && form.contactIds.size < speakers.length;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{existing === undefined ? "Create task" : "Edit task"}</DialogTitle>
-          <DialogDescription>Configure completion and automatic assignment.</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label>Title</Label>
-            <Input
-              value={form.title}
-              onChange={(event) => setForm({ ...form, title: event.target.value })}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Instructions</Label>
-            <RichTextEditor
-              value={form.instructions}
-              onChange={(instructions) => setForm({ ...form, instructions })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <SpotlightPanelHeader
+        identity={
+          <span className="truncate text-sm font-medium">
+            {form.title.trim() || (creating ? "New task" : "Untitled task")}
+          </span>
+        }
+        status={
+          creating ? undefined : (
+            <span className="shrink-0 rounded-sm border px-1 py-px text-[10px] font-normal text-muted-foreground tabular-nums">
+              {done.length}/{assigned.length} done
+            </span>
+          )
+        }
+        actions={
+          creating ? (
+            <Button
+              type="button"
+              size="xs"
+              className="pressable"
+              disabled={create.isPending || form.title.trim().length === 0}
+              onClick={() => create.mutate()}
+            >
+              {create.isPending ? "Creating…" : "Create task"}
+            </Button>
+          ) : (
+            <SaveStatus state={autosave.state} retry={autosave.persist} />
+          )
+        }
+        onClose={onClose}
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* The panel's width follows the spotlight split, not the viewport,
+            so field rows respond to the container, never a media query. */}
+        <div className="@container mx-auto grid max-w-3xl gap-6 p-4 pb-16 lg:p-6 lg:pb-16">
+          <section className="grid gap-3">
+            <TaskSectionLabel>Task</TaskSectionLabel>
             <div className="grid gap-1.5">
-              <Label>Scope</Label>
-              <Select
-                value={form.scope}
-                onValueChange={(scope) =>
-                  setForm({ ...form, scope: scope === "submission" ? "submission" : "contact" })
-                }
-              >
+              <Label htmlFor="task-title">Title</Label>
+              <Input
+                id="task-title"
+                autoFocus={creating}
+                value={form.title}
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Instructions</Label>
+              <RichTextEditor
+                value={form.instructions}
+                onChange={(instructions) => setForm({ ...form, instructions })}
+              />
+            </div>
+          </section>
+          <section className="grid gap-3">
+            <TaskSectionLabel>Completion</TaskSectionLabel>
+            <div className="grid gap-3 @2xl:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label>Scope</Label>
+                <Select
+                  value={form.scope}
+                  onValueChange={(scope) =>
+                    setForm({ ...form, scope: scope === "submission" ? "submission" : "contact" })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contact">Contact</SelectItem>
+                    <SelectItem value="submission">Submission</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Due date</Label>
+                <DatePicker
+                  value={form.dueDate}
+                  onChange={(dueDate) => setForm({ ...form, dueDate })}
+                />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Completed by</Label>
+              <Select value={form.link} onValueChange={(link) => setForm({ ...form, link })}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="contact">Contact</SelectItem>
-                  <SelectItem value="submission">Submission</SelectItem>
+                  <SelectItem value="manual">Manual check-off</SelectItem>
+                  {data.forms.map((item) => (
+                    <SelectItem key={item.id} value={`form:${item.id}`}>
+                      Form · {item.name}
+                    </SelectItem>
+                  ))}
+                  {data.fileRequests.map((item) => (
+                    <SelectItem key={item.id} value={`file:${item.id}`}>
+                      File · {item.title}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="file:new">File · New request</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-1.5">
-              <Label>Due date</Label>
-              <DatePicker
-                value={form.dueDate}
-                onChange={(dueDate) => setForm({ ...form, dueDate })}
-              />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Completion</Label>
-            <Select value={form.link} onValueChange={(link) => setForm({ ...form, link })}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="manual">Manual check-off</SelectItem>
-                {data.forms.map((item) => (
-                  <SelectItem key={item.id} value={`form:${item.id}`}>
-                    Form · {item.name}
-                  </SelectItem>
-                ))}
-                {data.fileRequests.map((item) => (
-                  <SelectItem key={item.id} value={`file:${item.id}`}>
-                    File · {item.title}
-                  </SelectItem>
-                ))}
-                <SelectItem value="file:new">File · New request</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {form.scope !== "contact" ? null : (
-            <div className="grid gap-1.5">
-              <Label>Assign speakers</Label>
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                className="pressable-row flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
-              >
-                {form.contactIds.size === 0 ? (
-                  <span className="text-muted-foreground">No speakers selected</span>
-                ) : (
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="flex shrink-0 -space-x-1.5">
-                      {speakers
-                        .filter((speaker) => form.contactIds.has(speaker.id))
-                        .slice(0, 5)
-                        .map((speaker) => (
-                          <Avatar key={speaker.id} className="size-5 ring-2 ring-background">
-                            {speaker.headshotUrl === null ? null : (
-                              <AvatarImage src={speaker.headshotUrl} alt="" />
-                            )}
-                            <AvatarFallback className="text-[9px]">
-                              {`${speaker.firstName[0] ?? ""}${speaker.lastName[0] ?? ""}`}
-                            </AvatarFallback>
-                          </Avatar>
-                        ))}
+          </section>
+          <section className="grid gap-3">
+            <TaskSectionLabel>Assignment</TaskSectionLabel>
+            {form.scope !== "contact" ? null : (
+              <div className="grid gap-1.5">
+                <Label>Assign speakers</Label>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="pressable-row flex h-9 w-full min-w-0 items-center justify-between gap-3 rounded-md border px-3 text-sm transition-colors hover:bg-muted/50"
+                >
+                  {form.contactIds.size === 0 ? (
+                    <span className="text-muted-foreground">No speakers selected</span>
+                  ) : (
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex shrink-0 -space-x-1.5">
+                        {speakers
+                          .filter((speaker) => form.contactIds.has(speaker.id))
+                          .slice(0, 5)
+                          .map((speaker) => (
+                            <Avatar key={speaker.id} className="size-5 ring-2 ring-background">
+                              {speaker.headshotUrl === null ? null : (
+                                <AvatarImage src={speaker.headshotUrl} alt="" />
+                              )}
+                              <AvatarFallback className="text-[9px]">
+                                {`${speaker.firstName[0] ?? ""}${speaker.lastName[0] ?? ""}`}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                      </span>
+                      <span className="truncate">
+                        {form.contactIds.size === speakers.length
+                          ? `All ${speakers.length} speakers`
+                          : `${form.contactIds.size} of ${speakers.length} speakers`}
+                      </span>
                     </span>
-                    <span className="truncate">
-                      {form.contactIds.size === speakers.length
-                        ? `All ${speakers.length} speakers`
-                        : `${form.contactIds.size} of ${speakers.length} speakers`}
-                    </span>
+                  )}
+                  <span className="shrink-0 text-xs text-muted-foreground">Edit</span>
+                </button>
+                <SpeakerPickerDialog
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  contacts={speakers}
+                  value={form.contactIds}
+                  onChange={(contactIds) => {
+                    const next = new Set(contactIds);
+                    setForm({
+                      ...form,
+                      contactIds: next,
+                      auto: next.size < speakers.length ? false : form.auto,
+                    });
+                  }}
+                  title="Assign speakers"
+                  description="Everyone selected is assigned this task."
+                />
+              </div>
+            )}
+            <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+              <span>
+                <span className="block">Auto-assign on accept</span>
+                {specificSpeakers ? (
+                  <span className="block text-xs text-muted-foreground">
+                    Off while assigning specific speakers
                   </span>
-                )}
-                <span className="shrink-0 text-xs text-muted-foreground">Edit</span>
-              </button>
-              <SpeakerPickerDialog
-                open={pickerOpen}
-                onOpenChange={setPickerOpen}
-                contacts={speakers}
-                value={form.contactIds}
-                onChange={(contactIds) => {
-                  const next = new Set(contactIds);
-                  setForm({
-                    ...form,
-                    contactIds: next,
-                    auto: next.size < speakers.length ? false : form.auto,
-                  });
-                }}
-                title="Assign speakers"
-                description="Everyone selected is assigned this task."
+                ) : null}
+              </span>
+              <Switch
+                checked={specificSpeakers ? false : form.auto}
+                disabled={specificSpeakers}
+                onCheckedChange={(auto) => setForm({ ...form, auto })}
               />
-            </div>
-          )}
-          <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
-            <span>
-              <span className="block">Auto-assign on accept</span>
-              {form.scope === "contact" && form.contactIds.size < speakers.length ? (
-                <span className="block text-xs text-muted-foreground">
-                  Off while assigning specific speakers
-                </span>
-              ) : null}
-            </span>
-            <Switch
-              checked={
-                form.scope === "contact" && form.contactIds.size < speakers.length
-                  ? false
-                  : form.auto
-              }
-              disabled={form.scope === "contact" && form.contactIds.size < speakers.length}
-              onCheckedChange={(auto) => setForm({ ...form, auto })}
-            />
-          </label>
+            </label>
+          </section>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            disabled={form.title.trim().length === 0 || mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            Save task
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
@@ -1248,7 +1338,6 @@ function DeliverablesAdmin({
   readonly data: AdminData;
 }) {
   const [requestOpen, setRequestOpen] = useState(false);
-  const [newRequestTaskOpen, setNewRequestTaskOpen] = useState(false);
   const [requirementOpen, setRequirementOpen] = useState(false);
   const [requirementForm, setRequirementForm] = useState(emptyRequirementForm);
   const [requestForm, setRequestForm] = useState<RequestForm>(emptyRequestForm);
@@ -1383,13 +1472,14 @@ function DeliverablesAdmin({
               <Button size="sm" className="pressable" onClick={() => openRequirement()}>
                 <PlusIcon /> Add requirement
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="pressable"
-                onClick={() => setNewRequestTaskOpen(true)}
-              >
-                <PlusIcon /> Add request
+              <Button size="sm" variant="outline" className="pressable" asChild>
+                <Link
+                  to="/admin/$section"
+                  params={{ section: "tasks" }}
+                  search={{ fileRequest: NEW_TASK_ID, spotlight: NEW_TASK_ID }}
+                >
+                  <PlusIcon /> Add request
+                </Link>
               </Button>
             </div>
           }
@@ -1508,13 +1598,14 @@ function DeliverablesAdmin({
                   Ask specific people for a file, delivered as a task.
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="pressable"
-                onClick={() => setNewRequestTaskOpen(true)}
-              >
-                <PlusIcon /> Add request
+              <Button size="sm" variant="outline" className="pressable" asChild>
+                <Link
+                  to="/admin/$section"
+                  params={{ section: "tasks" }}
+                  search={{ fileRequest: NEW_TASK_ID, spotlight: NEW_TASK_ID }}
+                >
+                  <PlusIcon /> Add request
+                </Link>
               </Button>
             </div>
             <div className="overflow-hidden rounded-lg border">
@@ -1560,7 +1651,7 @@ function DeliverablesAdmin({
                             <Link
                               to="/admin/$section"
                               params={{ section: "tasks" }}
-                              search={{ fileRequest: request.id, spotlight: undefined }}
+                              search={{ fileRequest: request.id, spotlight: NEW_TASK_ID }}
                             >
                               Create task
                             </Link>
@@ -1775,20 +1866,6 @@ function DeliverablesAdmin({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {newRequestTaskOpen ? (
-        <TaskTemplateDialog
-          eventId={eventId}
-          timezone={timezone}
-          data={data}
-          templateId={null}
-          initialLink="file:new"
-          open
-          onOpenChange={(open) => {
-            if (!open) setNewRequestTaskOpen(false);
-          }}
-        />
-      ) : null}
     </main>
   );
 }
