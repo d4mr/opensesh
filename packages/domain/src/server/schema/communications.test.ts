@@ -118,6 +118,11 @@ describe("communication audience segments", () => {
       submitter("maybe", "maybe", null),
       submitter("declined", "declined", new Date("2027-04-01T00:00:00.000Z")),
       submitter("uninformed-decline", "declined", null),
+      // Submitterhood is a submission fact: current speakers stay in the pool
+      // when they also submitted ("awaiting" has a second talk pending,
+      // "confirmed" had another submission declined and informed).
+      submitter("awaiting", "pending", null),
+      submitter("confirmed", "declined", new Date("2027-04-01T00:00:00.000Z")),
     ],
   };
 
@@ -130,9 +135,30 @@ describe("communication audience segments", () => {
     expect(audienceMemberIds(center, "confirmed")).toEqual(["confirmed", "incomplete"]);
     expect(audienceMemberIds(center, "awaiting_confirmation")).toEqual(["awaiting"]);
     expect(audienceMemberIds(center, "incomplete_tasks")).toEqual(["incomplete"]);
-    expect(audienceMemberIds(center, "awaiting_decision")).toEqual(["pending", "maybe"]);
+    expect(audienceMemberIds(center, "all_submitters")).toEqual([
+      "pending",
+      "maybe",
+      "declined",
+      "uninformed-decline",
+      "awaiting",
+      "confirmed",
+    ]);
+    // A pending submission keeps you in awaiting_decision even while you
+    // speak; declined consolation never reaches a current speaker.
+    expect(audienceMemberIds(center, "awaiting_decision")).toEqual([
+      "pending",
+      "maybe",
+      "awaiting",
+    ]);
     expect(audienceMemberIds(center, "declined")).toEqual(["declined"]);
-    expect(audienceMemberIds(center, "selected", new Set(["awaiting"]))).toEqual(["awaiting"]);
+    // Each hand-picked segment resolves against its own pool: "maybe" is not
+    // a speaker, and a speaker who submitted is selectable as a submitter.
+    expect(audienceMemberIds(center, "selected", new Set(["maybe", "awaiting"]))).toEqual([
+      "awaiting",
+    ]);
+    expect(
+      audienceMemberIds(center, "selected_submitters", new Set(["maybe", "awaiting"])),
+    ).toEqual(["maybe", "awaiting"]);
   });
 });
 

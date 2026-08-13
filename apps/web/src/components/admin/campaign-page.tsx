@@ -260,7 +260,7 @@ function RecipientSpotlight({
         <span className="truncate">{recipient.email}</span>
       </div>
       {recipientDelivery(recipient) === "failed" ? (
-        <div className="shrink-0 border-b bg-[var(--status-declined-muted)] px-3 py-2 text-xs text-[var(--status-declined)]">
+        <div className="shrink-0 border-b px-3 py-2 text-xs font-medium text-[var(--status-declined)]">
           Delivery failed — the outbox entry has the provider error.
         </div>
       ) : null}

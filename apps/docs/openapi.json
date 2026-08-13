@@ -3,7 +3,7 @@
   "info": {
     "title": "opensesh API",
     "version": "1.0.0",
-    "description": "The complete opensesh surface over REST: events, call for papers, submissions, evaluation, agenda, speakers, CRM, widgets, mail, and integrations. Authenticate with an organization API key (`Authorization: Bearer osk_…`) created in Organization settings → API keys. Success responses return the resource directly; every error is `{ \"error\": { \"code\", \"message\" } }` with a matching HTTP status."
+    "description": "The complete opensesh surface over REST: events, call for papers, submissions, evaluation, agenda, speakers, CRM, widgets, mail, and integrations. Authenticate with an organization API key (`Authorization: Bearer osk_…`) created in Organization settings → API keys. Success responses return the resource directly; every error is `{ \"error\": { \"code\", \"message\" } }` with a matching HTTP status.\n\nA submission is a CFP entry moving through review; accepting it makes it a session — the same record seen through the program lens, so sessions and submissions share one id space. A session's `id` is its submission's id and works in either family of endpoints, including everywhere a `submissionId` is asked for. Manually created sessions are submissions born accepted, with no CFP history behind them."
   },
   "servers": [
     {
@@ -35,7 +35,7 @@
     },
     {
       "name": "Submissions",
-      "description": "The review desk: list, inspect, and decide CFP submissions."
+      "description": "The review desk: list, inspect, and decide CFP submissions. An accepted submission becomes a session — the same record, the same id — under the Sessions endpoints."
     },
     {
       "name": "Speakers",
@@ -43,7 +43,7 @@
     },
     {
       "name": "Sessions",
-      "description": "The program lens over accepted submissions: readiness, cancellation with a recorded cause, reinstatement, and manual sessions."
+      "description": "The program lens over accepted submissions: readiness, cancellation with a recorded cause, reinstatement, and manual sessions. A session shares its submission's id, so ids from either family work in the other."
     },
     {
       "name": "Mail",
@@ -52,6 +52,10 @@
     {
       "name": "Reviews",
       "description": "Review rounds, reviewer assignment, reminders, and AI reviews."
+    },
+    {
+      "name": "Reviewer",
+      "description": "The signed-in reviewer's own queue: assignments, answers, recusals, and quick scores. Requires a user session with reviewer membership — organization API keys act as admins and use the Reviews endpoints instead."
     },
     {
       "name": "Resources",
@@ -1062,6 +1066,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -1429,6 +1434,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -1870,6 +1876,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -2205,6 +2212,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -2555,6 +2563,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -2571,6 +2580,7 @@
             "name": "itemId",
             "in": "path",
             "required": true,
+            "description": "The item's id.",
             "schema": {
               "type": "string"
             }
@@ -2698,6 +2708,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -2769,9 +2780,6 @@
                           "title": {
                             "type": "string"
                           },
-                          "description": {
-                            "type": "string"
-                          },
                           "format": {
                             "anyOf": [
                               {
@@ -2802,6 +2810,29 @@
                             "anyOf": [
                               {
                                 "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "submitter": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": ["id", "name", "email"],
+                                "additionalProperties": false
                               },
                               {
                                 "type": "null"
@@ -2912,12 +2943,6 @@
                           },
                           "reviewCount": {
                             "type": "number"
-                          },
-                          "reviewComments": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
                           }
                         },
                         "required": [
@@ -2928,18 +2953,17 @@
                           "cancelledAt",
                           "cancelledBy",
                           "title",
-                          "description",
                           "format",
                           "source",
                           "submittedAt",
                           "createdAt",
                           "notifiedAt",
+                          "submitter",
                           "tracks",
                           "tags",
                           "speakers",
                           "rating",
-                          "reviewCount",
-                          "reviewComments"
+                          "reviewCount"
                         ],
                         "additionalProperties": false
                       }
@@ -2984,9 +3008,22 @@
                         "required": ["id", "name"],
                         "additionalProperties": false
                       }
+                    },
+                    "mailStatus": {
+                      "type": "object",
+                      "properties": {
+                        "queued": {
+                          "type": "number"
+                        },
+                        "sending": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["queued", "sending"],
+                      "additionalProperties": false
                     }
                   },
-                  "required": ["submissions", "tracks", "formats", "tags"],
+                  "required": ["submissions", "tracks", "formats", "tags", "mailStatus"],
                   "additionalProperties": false
                 }
               }
@@ -3110,6 +3147,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -3118,6 +3156,7 @@
             "name": "submissionId",
             "in": "path",
             "required": true,
+            "description": "The submission's id (sessions share their submission's id).",
             "schema": {
               "type": "string"
             }
@@ -3171,9 +3210,6 @@
                         "title": {
                           "type": "string"
                         },
-                        "description": {
-                          "type": "string"
-                        },
                         "format": {
                           "anyOf": [
                             {
@@ -3204,6 +3240,29 @@
                           "anyOf": [
                             {
                               "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "submitter": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "email": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["id", "name", "email"],
+                              "additionalProperties": false
                             },
                             {
                               "type": "null"
@@ -3315,6 +3374,9 @@
                         "reviewCount": {
                           "type": "number"
                         },
+                        "description": {
+                          "type": "string"
+                        },
                         "reviewComments": {
                           "type": "array",
                           "items": {
@@ -3330,17 +3392,18 @@
                         "cancelledAt",
                         "cancelledBy",
                         "title",
-                        "description",
                         "format",
                         "source",
                         "submittedAt",
                         "createdAt",
                         "notifiedAt",
+                        "submitter",
                         "tracks",
                         "tags",
                         "speakers",
                         "rating",
                         "reviewCount",
+                        "description",
                         "reviewComments"
                       ],
                       "additionalProperties": false
@@ -3861,6 +3924,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -3869,6 +3933,7 @@
             "name": "submissionId",
             "in": "path",
             "required": true,
+            "description": "The submission's id (sessions share their submission's id).",
             "schema": {
               "type": "string"
             }
@@ -4025,13 +4090,14 @@
       "post": {
         "operationId": "decideSubmissions",
         "summary": "Accept or decline submissions",
-        "description": "Applies the decision to every submission id, snapshots accepted content for the program, and sends decision emails. Set confirmRedecide to change already-decided submissions.",
+        "description": "Applies the decision to every submission id and snapshots accepted content for the program. Set confirmRedecide to change an informed final decision.",
         "tags": ["Submissions"],
         "parameters": [
           {
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -4054,9 +4120,6 @@
                     "type": "string",
                     "enum": ["accept", "decline"]
                   },
-                  "feedback": {
-                    "type": "string"
-                  },
                   "confirmRedecide": {
                     "type": "boolean"
                   },
@@ -4064,7 +4127,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["submissionIds", "decision", "feedback"],
+                "required": ["submissionIds", "decision"],
                 "additionalProperties": false
               }
             }
@@ -4098,7 +4161,14 @@
                             ]
                           },
                           "notifiedAt": {
-                            "type": "string"
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": ["id", "status", "notifiedAt"],
@@ -4107,12 +4177,174 @@
                     },
                     "createdTasks": {
                       "type": "number"
-                    },
-                    "createdEmails": {
+                    }
+                  },
+                  "required": ["submissions", "createdTasks"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key's organization cannot access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eventId}/submissions/inform": {
+      "post": {
+        "operationId": "informSubmissions",
+        "summary": "Queue decision emails",
+        "description": "Queues one decision email to each uninformed submission's submitter.",
+        "tags": ["Submissions"],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "The event's id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "submissionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "feedback": {
+                    "type": "string"
+                  }
+                },
+                "required": ["submissionIds"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "queued": {
                       "type": "number"
                     }
                   },
-                  "required": ["submissions", "createdTasks", "createdEmails"],
+                  "required": ["queued"],
                   "additionalProperties": false
                 }
               }
@@ -4235,6 +4467,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -4243,6 +4476,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -4279,7 +4513,7 @@
                     },
                     "participation": {
                       "type": "string",
-                      "enum": ["speaker", "organizer"]
+                      "enum": ["submitter", "speaker", "organizer"]
                     },
                     "title": {
                       "anyOf": [
@@ -4456,10 +4690,6 @@
                     "profileReviewStatus": {
                       "type": "string",
                       "enum": ["approved", "pending_review", "rejected"]
-                    },
-                    "workflowStatus": {
-                      "type": "string",
-                      "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
                     }
                   },
                   "required": [
@@ -4490,8 +4720,7 @@
                     "confirmedAt",
                     "custom",
                     "approvedProfile",
-                    "profileReviewStatus",
-                    "workflowStatus"
+                    "profileReviewStatus"
                   ],
                   "additionalProperties": false
                 }
@@ -4616,6 +4845,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -4671,6 +4901,9 @@
                           "source": {
                             "type": "string",
                             "enum": ["cfp", "manual"]
+                          },
+                          "decisionSent": {
+                            "type": "boolean"
                           },
                           "tracks": {
                             "type": "array",
@@ -4846,6 +5079,7 @@
                           "description",
                           "format",
                           "source",
+                          "decisionSent",
                           "tracks",
                           "speakers",
                           "startsAt",
@@ -5007,13 +5241,14 @@
       "post": {
         "operationId": "createSession",
         "summary": "Create a session directly",
-        "description": "Creates an accepted session without a CFP submission — the manual-add path. Speakers must already be event contacts. Manual sessions have no submission to decline; delete them if added by mistake, or cancel them to notify speakers.",
+        "description": "Creates an accepted session without a CFP submission — the manual-add path. Speakers must already be event contacts. Manual sessions have no submission to decline; delete them if added by mistake, or cancel them to notify speakers. Returns the underlying submission record (a session is its submission); its id works across Session, Submission, and Agenda endpoints.",
         "tags": ["Sessions"],
         "parameters": [
           {
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -5411,6 +5646,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -5419,6 +5655,7 @@
             "name": "submissionId",
             "in": "path",
             "required": true,
+            "description": "The session's id, which is its submission's id — one record, one id.",
             "schema": {
               "type": "string"
             }
@@ -5597,6 +5834,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -5605,6 +5843,7 @@
             "name": "submissionId",
             "in": "path",
             "required": true,
+            "description": "The session's id, which is its submission's id — one record, one id.",
             "schema": {
               "type": "string"
             }
@@ -5774,6 +6013,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -5782,6 +6022,7 @@
             "name": "submissionId",
             "in": "path",
             "required": true,
+            "description": "The session's id, which is its submission's id — one record, one id.",
             "schema": {
               "type": "string"
             }
@@ -5909,6 +6150,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -5917,6 +6159,7 @@
             "name": "submissionId",
             "in": "path",
             "required": true,
+            "description": "The session's id, which is its submission's id — one record, one id.",
             "schema": {
               "type": "string"
             }
@@ -6098,13 +6341,14 @@
       "get": {
         "operationId": "listSpeakers",
         "summary": "List event speakers",
-        "description": "The speaker directory: profile readiness, workflow status, task progress, and sessions per speaker.",
+        "description": "The speaker directory: derived pipeline, profile readiness, task progress, and sessions per speaker.",
         "tags": ["Speakers"],
         "parameters": [
           {
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -6245,9 +6489,9 @@
                                   }
                                 ]
                               },
-                              "workflowStatus": {
+                              "pipeline": {
                                 "type": "string",
-                                "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
+                                "enum": ["withdrawn", "ready", "onboarding", "invited", "added"]
                               },
                               "custom": {
                                 "type": "object"
@@ -6270,7 +6514,7 @@
                               "twitterUrl",
                               "facebookUrl",
                               "websiteUrl",
-                              "workflowStatus",
+                              "pipeline",
                               "custom"
                             ],
                             "additionalProperties": false
@@ -6288,9 +6532,72 @@
                                 },
                                 "title": {
                                   "type": "string"
+                                },
+                                "startsAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "cancelledAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "decisionSent": {
+                                  "type": "boolean"
                                 }
                               },
-                              "required": ["id", "code", "title"],
+                              "required": [
+                                "id",
+                                "code",
+                                "title",
+                                "startsAt",
+                                "cancelledAt",
+                                "decisionSent"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherSubmissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "pending",
+                                    "maybe",
+                                    "accepted",
+                                    "declined",
+                                    "withdrawn"
+                                  ]
+                                },
+                                "decisionSent": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": ["id", "code", "title", "status", "decisionSent"],
                               "additionalProperties": false
                             }
                           },
@@ -6404,12 +6711,13 @@
                                     "reinstated",
                                     "task_reminder",
                                     "calendar_invite",
+                                    "portal_invitation",
                                     "custom"
                                   ]
                                 },
                                 "status": {
                                   "type": "string",
-                                  "enum": ["queued", "demo", "sent", "failed"]
+                                  "enum": ["queued", "sending", "demo", "sent", "failed"]
                                 },
                                 "sentAt": {
                                   "anyOf": [
@@ -6484,6 +6792,7 @@
                         "required": [
                           "contact",
                           "sessions",
+                          "otherSubmissions",
                           "tasks",
                           "files",
                           "emails",
@@ -6618,6 +6927,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -6733,10 +7043,6 @@
                         "type": "null"
                       }
                     ]
-                  },
-                  "workflowStatus": {
-                    "type": "string",
-                    "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
                   }
                 },
                 "required": [
@@ -6752,8 +7058,7 @@
                   "websiteUrl",
                   "dietaryRequirements",
                   "tshirtSize",
-                  "travelLogistics",
-                  "workflowStatus"
+                  "travelLogistics"
                 ],
                 "additionalProperties": false
               }
@@ -6791,7 +7096,7 @@
                     },
                     "participation": {
                       "type": "string",
-                      "enum": ["speaker", "organizer"]
+                      "enum": ["submitter", "speaker", "organizer"]
                     },
                     "title": {
                       "anyOf": [
@@ -6968,10 +7273,6 @@
                     "profileReviewStatus": {
                       "type": "string",
                       "enum": ["approved", "pending_review", "rejected"]
-                    },
-                    "workflowStatus": {
-                      "type": "string",
-                      "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
                     }
                   },
                   "required": [
@@ -7002,406 +7303,7 @@
                     "confirmedAt",
                     "custom",
                     "approvedProfile",
-                    "profileReviewStatus",
-                    "workflowStatus"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "description": "Stable machine-readable error code"
-                        },
-                        "message": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "description": "Stable machine-readable error code"
-                        },
-                        "message": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The key's organization cannot access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "description": "Stable machine-readable error code"
-                        },
-                        "message": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "object",
-                      "properties": {
-                        "code": {
-                          "type": "string",
-                          "description": "Stable machine-readable error code"
-                        },
-                        "message": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["code", "message"]
-                    }
-                  },
-                  "required": ["error"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/events/{eventId}/speakers/{contactId}/workflow": {
-      "patch": {
-        "operationId": "setSpeakerWorkflow",
-        "summary": "Set a speaker's workflow status",
-        "tags": ["Speakers"],
-        "parameters": [
-          {
-            "name": "eventId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "contactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
-                  }
-                },
-                "required": ["status"],
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "createdAt": {
-                      "type": "string"
-                    },
-                    "updatedAt": {
-                      "type": "string"
-                    },
-                    "eventId": {
-                      "type": "string"
-                    },
-                    "email": {
-                      "type": "string"
-                    },
-                    "firstName": {
-                      "type": "string"
-                    },
-                    "lastName": {
-                      "type": "string"
-                    },
-                    "participation": {
-                      "type": "string",
-                      "enum": ["speaker", "organizer"]
-                    },
-                    "title": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "company": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "salutation": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "honorific": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "pronouns": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "gender": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "bio": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "maxLength": 5000
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "headshotUrl": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "headshotKey": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "dietaryRequirements": {
-                      "type": "string",
-                      "enum": ["none", "vegetarian", "vegan", "gluten_free", "other"]
-                    },
-                    "tshirtSize": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": ["XS", "S", "M", "L", "XL", "XXL"]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "phone": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "linkedinUrl": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "twitterUrl": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "facebookUrl": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "websiteUrl": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "confirmedAt": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "custom": {
-                      "type": "object"
-                    },
-                    "approvedProfile": {
-                      "type": "object"
-                    },
-                    "profileReviewStatus": {
-                      "type": "string",
-                      "enum": ["approved", "pending_review", "rejected"]
-                    },
-                    "workflowStatus": {
-                      "type": "string",
-                      "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "createdAt",
-                    "updatedAt",
-                    "eventId",
-                    "email",
-                    "firstName",
-                    "lastName",
-                    "participation",
-                    "title",
-                    "company",
-                    "salutation",
-                    "honorific",
-                    "pronouns",
-                    "gender",
-                    "bio",
-                    "headshotUrl",
-                    "headshotKey",
-                    "dietaryRequirements",
-                    "tshirtSize",
-                    "phone",
-                    "linkedinUrl",
-                    "twitterUrl",
-                    "facebookUrl",
-                    "websiteUrl",
-                    "confirmedAt",
-                    "custom",
-                    "approvedProfile",
-                    "profileReviewStatus",
-                    "workflowStatus"
+                    "profileReviewStatus"
                   ],
                   "additionalProperties": false
                 }
@@ -7526,6 +7428,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -7881,13 +7784,14 @@
       "post": {
         "operationId": "inviteSpeakerPortals",
         "summary": "Invite speakers to their portal",
-        "description": "Queues and sends portal invitation emails for the given event contacts.",
+        "description": "Queues portal invitation emails for the given event contacts.",
         "tags": ["Speakers"],
         "parameters": [
           {
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -7959,11 +7863,11 @@
                         "additionalProperties": false
                       }
                     },
-                    "sent": {
+                    "queued": {
                       "type": "number"
                     }
                   },
-                  "required": ["invitations", "sent"],
+                  "required": ["invitations", "queued"],
                   "additionalProperties": false
                 }
               }
@@ -8087,6 +7991,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -8106,7 +8011,7 @@
                     "eventSlug": {
                       "type": "string"
                     },
-                    "contacts": {
+                    "speakers": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -8153,9 +8058,22 @@
                               }
                             ]
                           },
-                          "workflowStatus": {
+                          "pipeline": {
                             "type": "string",
-                            "enum": ["invited", "onboarding", "confirmed", "ready", "declined"]
+                            "enum": ["withdrawn", "ready", "onboarding", "invited", "added"]
+                          },
+                          "confirmedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "decisionInformed": {
+                            "type": "boolean"
                           },
                           "taskTotal": {
                             "type": "number"
@@ -8178,7 +8096,9 @@
                           "headshotUrl",
                           "title",
                           "company",
-                          "workflowStatus",
+                          "pipeline",
+                          "confirmedAt",
+                          "decisionInformed",
                           "taskTotal",
                           "taskDone",
                           "taskIncomplete",
@@ -8186,6 +8106,116 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "submitters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "firstName": {
+                            "type": "string"
+                          },
+                          "lastName": {
+                            "type": "string"
+                          },
+                          "headshotUrl": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "submissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "pending",
+                                    "maybe",
+                                    "accepted",
+                                    "declined",
+                                    "withdrawn"
+                                  ]
+                                },
+                                "notifiedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": ["status", "notifiedAt"],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "email",
+                          "firstName",
+                          "lastName",
+                          "headshotUrl",
+                          "submissions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "pending": {
+                      "type": "object",
+                      "properties": {
+                        "acceptedNotInformed": {
+                          "type": "number"
+                        },
+                        "declinedNotInformed": {
+                          "type": "number"
+                        },
+                        "awaitingConfirmation": {
+                          "type": "number"
+                        },
+                        "queued": {
+                          "type": "number"
+                        },
+                        "sending": {
+                          "type": "number"
+                        },
+                        "failed": {
+                          "type": "number"
+                        },
+                        "sentTotal": {
+                          "type": "number"
+                        },
+                        "dueSoonTasks": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "acceptedNotInformed",
+                        "declinedNotInformed",
+                        "awaitingConfirmation",
+                        "queued",
+                        "sending",
+                        "failed",
+                        "sentTotal",
+                        "dueSoonTasks"
+                      ],
+                      "additionalProperties": false
                     },
                     "templates": {
                       "type": "array",
@@ -8374,7 +8404,7 @@
                                   "anyOf": [
                                     {
                                       "type": "string",
-                                      "enum": ["queued", "demo", "sent", "failed"]
+                                      "enum": ["queued", "sending", "demo", "sent", "failed"]
                                     },
                                     {
                                       "type": "null"
@@ -8460,7 +8490,9 @@
                   "required": [
                     "eventName",
                     "eventSlug",
-                    "contacts",
+                    "speakers",
+                    "submitters",
+                    "pending",
                     "templates",
                     "campaigns",
                     "reminderRules"
@@ -8581,13 +8613,14 @@
       "post": {
         "operationId": "sendCampaign",
         "summary": "Send a speaker campaign",
-        "description": "Sends a templated or free-form email to the given event contacts and records the campaign.",
+        "description": "Queues a templated or free-form email to eligible contacts in the chosen audience and records the campaign.",
         "tags": ["Mail"],
         "parameters": [
           {
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -8621,9 +8654,23 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "segment": {
+                    "type": "string",
+                    "enum": [
+                      "all_speakers",
+                      "confirmed",
+                      "awaiting_confirmation",
+                      "incomplete_tasks",
+                      "selected",
+                      "all_submitters",
+                      "awaiting_decision",
+                      "declined",
+                      "selected_submitters"
+                    ]
                   }
                 },
-                "required": ["templateId", "subject", "body", "contactIds"],
+                "required": ["templateId", "subject", "body", "contactIds", "segment"],
                 "additionalProperties": false
               }
             }
@@ -8637,99 +8684,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "campaign": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "createdAt": {
-                          "type": "string"
-                        },
-                        "updatedAt": {
-                          "type": "string"
-                        },
-                        "eventId": {
-                          "type": "string"
-                        },
-                        "templateId": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "subjectSnapshot": {
-                          "type": "string"
-                        },
-                        "bodySnapshot": {
-                          "type": "string"
-                        },
-                        "recipientFilter": {
-                          "type": "object"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": ["draft", "sending", "sent"]
-                        },
-                        "createdByUserId": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "createdByApiKeyId": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "sentAt": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "createdAt",
-                        "updatedAt",
-                        "eventId",
-                        "templateId",
-                        "subjectSnapshot",
-                        "bodySnapshot",
-                        "recipientFilter",
-                        "status",
-                        "createdByUserId",
-                        "createdByApiKeyId",
-                        "sentAt"
-                      ],
-                      "additionalProperties": false
+                    "campaignId": {
+                      "type": "string"
                     },
-                    "sent": {
-                      "type": "number"
-                    },
-                    "failed": {
+                    "queued": {
                       "type": "number"
                     }
                   },
-                  "required": ["campaign", "sent", "failed"],
+                  "required": ["campaignId", "queued"],
                   "additionalProperties": false
                 }
               }
@@ -8853,6 +8815,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -8888,6 +8851,25 @@
                           }
                         },
                         "required": ["id", "name", "color"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "eventReviewers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "eventMemberId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["eventMemberId", "name", "email"],
                         "additionalProperties": false
                       }
                     },
@@ -9763,7 +9745,7 @@
                       }
                     }
                   },
-                  "required": ["eventId", "aiConfigured", "tracks", "rounds"],
+                  "required": ["eventId", "aiConfigured", "tracks", "eventReviewers", "rounds"],
                   "additionalProperties": false
                 }
               }
@@ -9887,6 +9869,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -10053,6 +10036,25 @@
                               }
                             },
                             "required": ["id", "name", "color"],
+                            "additionalProperties": false
+                          }
+                        },
+                        "eventReviewers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "eventMemberId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "email": {
+                                "type": "string"
+                              }
+                            },
+                            "required": ["eventMemberId", "name", "email"],
                             "additionalProperties": false
                           }
                         },
@@ -10933,7 +10935,7 @@
                           }
                         }
                       },
-                      "required": ["eventId", "aiConfigured", "tracks", "rounds"],
+                      "required": ["eventId", "aiConfigured", "tracks", "eventReviewers", "rounds"],
                       "additionalProperties": false
                     }
                   },
@@ -11061,6 +11063,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -11069,6 +11072,7 @@
             "name": "roundId",
             "in": "path",
             "required": true,
+            "description": "The review round's id.",
             "schema": {
               "type": "string"
             }
@@ -11081,6 +11085,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "name": {
+                    "type": "string"
+                  },
                   "email": {
                     "type": "string"
                   },
@@ -11098,7 +11105,7 @@
                     "type": "string"
                   }
                 },
-                "required": ["email", "assignmentCap", "accessPath"],
+                "required": ["name", "email", "assignmentCap", "accessPath"],
                 "additionalProperties": false
               }
             }
@@ -11313,6 +11320,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -11321,6 +11329,7 @@
             "name": "roundId",
             "in": "path",
             "required": true,
+            "description": "The review round's id.",
             "schema": {
               "type": "string"
             }
@@ -11488,6 +11497,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -11496,6 +11506,7 @@
             "name": "roundId",
             "in": "path",
             "required": true,
+            "description": "The review round's id.",
             "schema": {
               "type": "string"
             }
@@ -11719,6 +11730,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -11869,6 +11881,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -11877,6 +11890,7 @@
             "name": "eventMemberId",
             "in": "path",
             "required": true,
+            "description": "The event member's id.",
             "schema": {
               "type": "string"
             }
@@ -12043,6 +12057,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -12051,6 +12066,7 @@
             "name": "roundId",
             "in": "path",
             "required": true,
+            "description": "The review round's id.",
             "schema": {
               "type": "string"
             }
@@ -12059,6 +12075,7 @@
             "name": "assignmentId",
             "in": "path",
             "required": true,
+            "description": "The review assignment's id.",
             "schema": {
               "type": "string"
             }
@@ -12185,6 +12202,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -12193,6 +12211,7 @@
             "name": "roundId",
             "in": "path",
             "required": true,
+            "description": "The review round's id.",
             "schema": {
               "type": "string"
             }
@@ -12360,6 +12379,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -12368,6 +12388,7 @@
             "name": "roundId",
             "in": "path",
             "required": true,
+            "description": "The review round's id.",
             "schema": {
               "type": "string"
             }
@@ -12614,6 +12635,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -12856,6 +12878,1268 @@
         }
       }
     },
+    "/events/{eventId}/my-reviews": {
+      "get": {
+        "operationId": "getMyReviews",
+        "summary": "Get my review queue",
+        "description": "The signed-in reviewer's workspace: every round they belong to, its criteria, their assigned submissions, and the answers they have saved so far. Blind rounds arrive pre-redacted — titles and descriptions are scrubbed of speaker identities and the participants list is empty. Requires a user session with reviewer membership; admins (and organization API keys, which act as admins) use the Reviews endpoints instead.",
+        "tags": ["Reviewer"],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "The event's id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eventId": {
+                      "type": "string"
+                    },
+                    "eventMemberId": {
+                      "type": "string"
+                    },
+                    "rounds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "round": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              },
+                              "eventId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "opensAt": {
+                                "type": "string"
+                              },
+                              "closesAt": {
+                                "type": "string"
+                              },
+                              "blind": {
+                                "type": "boolean"
+                              },
+                              "reviewsPerSubmission": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              },
+                              "position": {
+                                "type": "number"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": ["draft", "open", "closed"]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "createdAt",
+                              "updatedAt",
+                              "eventId",
+                              "name",
+                              "opensAt",
+                              "closesAt",
+                              "blind",
+                              "reviewsPerSubmission",
+                              "position",
+                              "status"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "criteria": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string"
+                                },
+                                "updatedAt": {
+                                  "type": "string"
+                                },
+                                "roundId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string",
+                                  "enum": ["numeric", "dropdown", "text"]
+                                },
+                                "min": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "max": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "options": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": {
+                                  "type": "boolean"
+                                },
+                                "weight": {
+                                  "type": "number"
+                                },
+                                "position": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "createdAt",
+                                "updatedAt",
+                                "roundId",
+                                "label",
+                                "type",
+                                "min",
+                                "max",
+                                "options",
+                                "required",
+                                "weight",
+                                "position"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "assignment": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "createdAt": {
+                                      "type": "string"
+                                    },
+                                    "updatedAt": {
+                                      "type": "string"
+                                    },
+                                    "roundId": {
+                                      "type": "string"
+                                    },
+                                    "submissionId": {
+                                      "type": "string"
+                                    },
+                                    "eventMemberId": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string",
+                                      "enum": ["pending", "completed", "recused"]
+                                    },
+                                    "assignedAt": {
+                                      "type": "string"
+                                    },
+                                    "completedAt": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "recusedAt": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "recusalReason": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "createdAt",
+                                    "updatedAt",
+                                    "roundId",
+                                    "submissionId",
+                                    "eventMemberId",
+                                    "status",
+                                    "assignedAt",
+                                    "completedAt",
+                                    "recusedAt",
+                                    "recusalReason"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "code": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "draft",
+                                    "pending",
+                                    "maybe",
+                                    "accepted",
+                                    "declined",
+                                    "withdrawn"
+                                  ]
+                                },
+                                "trackNames": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "participants": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "role": {
+                                        "type": "string"
+                                      },
+                                      "contactId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "headshotUrl": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": ["name", "role", "contactId", "headshotUrl"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "answers": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "createdAt": {
+                                        "type": "string"
+                                      },
+                                      "updatedAt": {
+                                        "type": "string"
+                                      },
+                                      "assignmentId": {
+                                        "type": "string"
+                                      },
+                                      "criterionId": {
+                                        "type": "string"
+                                      },
+                                      "numericValue": {
+                                        "anyOf": [
+                                          {
+                                            "type": "number"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "textValue": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "optionValue": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "createdAt",
+                                      "updatedAt",
+                                      "assignmentId",
+                                      "criterionId",
+                                      "numericValue",
+                                      "textValue",
+                                      "optionValue"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "assignment",
+                                "code",
+                                "title",
+                                "description",
+                                "status",
+                                "trackNames",
+                                "participants",
+                                "answers"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "pending": {
+                            "type": "number"
+                          },
+                          "completed": {
+                            "type": "number"
+                          },
+                          "recused": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "round",
+                          "criteria",
+                          "items",
+                          "pending",
+                          "completed",
+                          "recused"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["eventId", "eventMemberId", "rounds"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key's organization cannot access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eventId}/review-assignments/{assignmentId}/answers": {
+      "post": {
+        "operationId": "submitReviewAnswers",
+        "summary": "Submit my answers for an assignment",
+        "description": "Saves the reviewer's answers for one assigned submission and marks the assignment completed. Fails if the assignment belongs to another reviewer, the round is outside its open window, the assignment was recused, or a required criterion is missing an answer.",
+        "tags": ["Reviewer"],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "The event's id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "description": "The review assignment's id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "criterionId": {
+                          "type": "string"
+                        },
+                        "numericValue": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "textValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "optionValue": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": ["criterionId", "numericValue", "textValue", "optionValue"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["answers"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "roundId": {
+                      "type": "string"
+                    },
+                    "submissionId": {
+                      "type": "string"
+                    },
+                    "eventMemberId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "completed", "recused"]
+                    },
+                    "assignedAt": {
+                      "type": "string"
+                    },
+                    "completedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "recusedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "recusalReason": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "createdAt",
+                    "updatedAt",
+                    "roundId",
+                    "submissionId",
+                    "eventMemberId",
+                    "status",
+                    "assignedAt",
+                    "completedAt",
+                    "recusedAt",
+                    "recusalReason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key's organization cannot access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eventId}/review-assignments/{assignmentId}/recuse": {
+      "post": {
+        "operationId": "recuseReview",
+        "summary": "Recuse myself from an assignment",
+        "description": "Declares a conflict of interest on one assigned submission, with a reason. The assignment is excluded from the reviewer's pending queue and cannot be answered afterwards.",
+        "tags": ["Reviewer"],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "The event's id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "description": "The review assignment's id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["reason"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "roundId": {
+                      "type": "string"
+                    },
+                    "submissionId": {
+                      "type": "string"
+                    },
+                    "eventMemberId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "completed", "recused"]
+                    },
+                    "assignedAt": {
+                      "type": "string"
+                    },
+                    "completedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "recusedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "recusalReason": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "createdAt",
+                    "updatedAt",
+                    "roundId",
+                    "submissionId",
+                    "eventMemberId",
+                    "status",
+                    "assignedAt",
+                    "completedAt",
+                    "recusedAt",
+                    "recusalReason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key's organization cannot access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eventId}/submissions/{submissionId}/review": {
+      "put": {
+        "operationId": "saveMyReview",
+        "summary": "Save my score for a submission",
+        "description": "Upserts the caller's quick review (decision, score, comment) on a pending submission. Non-admin reviewers may only score submissions inside their assigned tracks; admins score anything in the event.",
+        "tags": ["Reviewer"],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "The event's id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "description": "The submission's id (sessions share their submission's id).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": ["approve", "maybe", "deny"]
+                  },
+                  "score": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "comment": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": ["decision", "score", "comment"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "reviewerId": {
+                      "type": "string"
+                    },
+                    "reviewerName": {
+                      "type": "string"
+                    },
+                    "reviewerImage": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "decision": {
+                      "type": "string",
+                      "enum": ["approve", "maybe", "deny"]
+                    },
+                    "score": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "comment": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "reviewerId",
+                    "reviewerName",
+                    "reviewerImage",
+                    "decision",
+                    "score",
+                    "comment",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key's organization cannot access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "description": "Stable machine-readable error code"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"]
+                    }
+                  },
+                  "required": ["error"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/events/{eventId}/resources": {
       "get": {
         "operationId": "listResources",
@@ -12867,6 +14151,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -13140,6 +14425,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -13496,6 +14782,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -13504,6 +14791,7 @@
             "name": "resourceId",
             "in": "path",
             "required": true,
+            "description": "The resource page's id.",
             "schema": {
               "type": "string"
             }
@@ -13857,6 +15145,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -13865,6 +15154,7 @@
             "name": "resourceId",
             "in": "path",
             "required": true,
+            "description": "The resource page's id.",
             "schema": {
               "type": "string"
             }
@@ -13991,6 +15281,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -14138,6 +15429,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -14351,9 +15643,12 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "aiConfigured": {
+                      "type": "boolean"
                     }
                   },
-                  "required": ["event", "rooms", "tracks", "sessions"],
+                  "required": ["event", "rooms", "tracks", "sessions", "aiConfigured"],
                   "additionalProperties": false
                 }
               }
@@ -14477,6 +15772,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -14490,7 +15786,8 @@
                 "type": "object",
                 "properties": {
                   "submissionId": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The session to place — a session's id is its submission's id."
                   },
                   "roomId": {
                     "anyOf": [
@@ -14737,9 +16034,12 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "aiConfigured": {
+                      "type": "boolean"
                     }
                   },
-                  "required": ["event", "rooms", "tracks", "sessions"],
+                  "required": ["event", "rooms", "tracks", "sessions", "aiConfigured"],
                   "additionalProperties": false
                 }
               }
@@ -14862,6 +16162,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -15075,9 +16376,12 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "aiConfigured": {
+                      "type": "boolean"
                     }
                   },
-                  "required": ["event", "rooms", "tracks", "sessions"],
+                  "required": ["event", "rooms", "tracks", "sessions", "aiConfigured"],
                   "additionalProperties": false
                 }
               }
@@ -15200,6 +16504,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -15413,9 +16718,12 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "aiConfigured": {
+                      "type": "boolean"
                     }
                   },
-                  "required": ["event", "rooms", "tracks", "sessions"],
+                  "required": ["event", "rooms", "tracks", "sessions", "aiConfigured"],
                   "additionalProperties": false
                 }
               }
@@ -15538,6 +16846,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -15597,6 +16906,12 @@
                               ]
                             },
                             "minItems": 1
+                          },
+                          "dayStartMinutes": {
+                            "type": "number"
+                          },
+                          "dayEndMinutes": {
+                            "type": "number"
                           },
                           "respectExistingPlacements": {
                             "type": "boolean"
@@ -15818,6 +17133,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -15933,6 +17249,12 @@
                             ]
                           },
                           "minItems": 1
+                        },
+                        "dayStartMinutes": {
+                          "type": "number"
+                        },
+                        "dayEndMinutes": {
+                          "type": "number"
                         },
                         "respectExistingPlacements": {
                           "type": "boolean"
@@ -16148,6 +17470,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -16156,6 +17479,7 @@
             "name": "draftId",
             "in": "path",
             "required": true,
+            "description": "The agenda draft's id.",
             "schema": {
               "type": "string"
             }
@@ -16231,6 +17555,12 @@
                             ]
                           },
                           "minItems": 1
+                        },
+                        "dayStartMinutes": {
+                          "type": "number"
+                        },
+                        "dayEndMinutes": {
+                          "type": "number"
                         },
                         "respectExistingPlacements": {
                           "type": "boolean"
@@ -16447,6 +17777,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -16455,6 +17786,7 @@
             "name": "draftId",
             "in": "path",
             "required": true,
+            "description": "The agenda draft's id.",
             "schema": {
               "type": "string"
             }
@@ -16691,9 +18023,12 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "aiConfigured": {
+                          "type": "boolean"
                         }
                       },
-                      "required": ["event", "rooms", "tracks", "sessions"],
+                      "required": ["event", "rooms", "tracks", "sessions", "aiConfigured"],
                       "additionalProperties": false
                     },
                     "draft": {
@@ -16743,6 +18078,12 @@
                                 ]
                               },
                               "minItems": 1
+                            },
+                            "dayStartMinutes": {
+                              "type": "number"
+                            },
+                            "dayEndMinutes": {
+                              "type": "number"
                             },
                             "respectExistingPlacements": {
                               "type": "boolean"
@@ -17663,6 +19004,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -18225,6 +19567,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -18808,6 +20151,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -18977,6 +20321,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -18985,6 +20330,7 @@
             "name": "tagId",
             "in": "path",
             "required": true,
+            "description": "The tag's id.",
             "schema": {
               "type": "string"
             }
@@ -19111,6 +20457,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -19305,6 +20652,7 @@
             "name": "contactId",
             "in": "path",
             "required": true,
+            "description": "The contact's id.",
             "schema": {
               "type": "string"
             }
@@ -20474,6 +21822,7 @@
             "name": "stageId",
             "in": "path",
             "required": true,
+            "description": "The pipeline stage's id.",
             "schema": {
               "type": "string"
             }
@@ -20801,6 +22150,7 @@
             "name": "cardId",
             "in": "path",
             "required": true,
+            "description": "The pipeline card's id.",
             "schema": {
               "type": "string"
             }
@@ -21319,6 +22669,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -21780,6 +23131,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -22037,6 +23389,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -22315,6 +23668,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -22323,6 +23677,7 @@
             "name": "widgetId",
             "in": "path",
             "required": true,
+            "description": "The widget's id.",
             "schema": {
               "type": "string"
             }
@@ -22692,6 +24047,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -22750,6 +24106,7 @@
                           "reinstated",
                           "task_reminder",
                           "calendar_invite",
+                          "portal_invitation",
                           "custom"
                         ]
                       },
@@ -22790,7 +24147,7 @@
                       },
                       "status": {
                         "type": "string",
-                        "enum": ["queued", "demo", "sent", "failed"]
+                        "enum": ["queued", "sending", "demo", "sent", "failed"]
                       },
                       "provider": {
                         "anyOf": [
@@ -22978,6 +24335,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -23223,6 +24581,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }
@@ -23410,6 +24769,7 @@
             "name": "eventId",
             "in": "path",
             "required": true,
+            "description": "The event's id.",
             "schema": {
               "type": "string"
             }

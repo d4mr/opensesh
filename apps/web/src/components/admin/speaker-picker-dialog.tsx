@@ -32,9 +32,10 @@ import {
   TableShell,
 } from "@/components/ui/table";
 
-// Structural contact shape so any speaker source (communications recipients,
-// raw event contacts) can feed the same picker. Task counts and talk titles
-// enrich the table when the caller has them.
+// Structural contact shape so any contact source (speakers, submitters,
+// communications recipients) can feed the same picker. Pipeline, task counts,
+// and talk titles enrich the table when the caller has them — the workflow
+// filter and column only render when a pipeline is present.
 export type SpeakerPickerContact = {
   readonly id: string;
   readonly firstName: string;
@@ -42,12 +43,12 @@ export type SpeakerPickerContact = {
   readonly email: string;
   readonly headshotUrl: string | null;
   readonly company: string | null;
-  readonly pipeline: SpeakerPipeline;
+  readonly pipeline?: SpeakerPipeline;
   readonly talkTitle?: string;
   readonly taskIncomplete?: number;
 };
 
-// Full-table speaker selection, Linear style: search, workflow filter, and
+// Full-table contact selection, Linear style: search, workflow filter, and
 // row-fill selection over the whole directory instead of a cramped inline
 // list. Selection is applied live; Done just closes.
 export function SpeakerPickerDialog({
@@ -58,6 +59,8 @@ export function SpeakerPickerDialog({
   onChange,
   title = "Select speakers",
   description = "Search and filter the directory, then pick recipients.",
+  noun = "speakers",
+  contactLabel = "Speaker",
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
@@ -66,6 +69,8 @@ export function SpeakerPickerDialog({
   readonly onChange: (value: ReadonlySet<string>) => void;
   readonly title?: string;
   readonly description?: string;
+  readonly noun?: string;
+  readonly contactLabel?: string;
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | SpeakerPipeline>("all");
@@ -83,6 +88,7 @@ export function SpeakerPickerDialog({
     });
   }, [contacts, search, status]);
   const showTasks = contacts.some((contact) => contact.taskIncomplete !== undefined);
+  const showPipeline = contacts.some((contact) => contact.pipeline !== undefined);
   const allVisibleSelected = filtered.length > 0 && filtered.every((row) => value.has(row.id));
   const someVisibleSelected = filtered.some((row) => value.has(row.id));
   const toggle = (id: string) => {
@@ -105,29 +111,31 @@ export function SpeakerPickerDialog({
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search speakers…"
+              placeholder={`Search ${noun}…`}
               className="h-8 pl-8"
             />
           </div>
-          <Select
-            value={status}
-            onValueChange={(next) => {
-              if (next === "all" || next in pipelineLabels)
-                setStatus(next as "all" | SpeakerPipeline);
-            }}
-          >
-            <SelectTrigger size="sm" aria-label="Filter by workflow status">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              {Object.entries(pipelineLabels).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {showPipeline ? (
+            <Select
+              value={status}
+              onValueChange={(next) => {
+                if (next === "all" || next in pipelineLabels)
+                  setStatus(next as "all" | SpeakerPipeline);
+              }}
+            >
+              <SelectTrigger size="sm" aria-label="Filter by workflow status">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {Object.entries(pipelineLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <span className="ml-auto text-xs text-muted-foreground tabular-nums">
             {value.size} of {contacts.length} selected
           </span>
@@ -138,7 +146,7 @@ export function SpeakerPickerDialog({
               <TableRow className="h-8 hover:bg-transparent">
                 <TableHead className="h-8 w-9">
                   <Checkbox
-                    aria-label="Select all visible speakers"
+                    aria-label={`Select all visible ${noun}`}
                     checked={
                       allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false
                     }
@@ -152,8 +160,8 @@ export function SpeakerPickerDialog({
                     }}
                   />
                 </TableHead>
-                <TableHead className="h-8 text-xs">Speaker</TableHead>
-                <TableHead className="h-8 text-xs">Workflow</TableHead>
+                <TableHead className="h-8 text-xs">{contactLabel}</TableHead>
+                {showPipeline ? <TableHead className="h-8 text-xs">Workflow</TableHead> : null}
                 {showTasks ? (
                   <TableHead className="h-8 text-xs text-right">Open tasks</TableHead>
                 ) : null}
@@ -163,10 +171,10 @@ export function SpeakerPickerDialog({
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={showTasks ? 4 : 3}
+                    colSpan={2 + (showPipeline ? 1 : 0) + (showTasks ? 1 : 0)}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    No speakers match these filters.
+                    No {noun} match these filters.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -199,9 +207,13 @@ export function SpeakerPickerDialog({
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="h-9 py-1.5">
-                      <PipelineBadge status={contact.pipeline} />
-                    </TableCell>
+                    {showPipeline ? (
+                      <TableCell className="h-9 py-1.5">
+                        {contact.pipeline === undefined ? null : (
+                          <PipelineBadge status={contact.pipeline} />
+                        )}
+                      </TableCell>
+                    ) : null}
                     {showTasks ? (
                       <TableCell className="h-9 py-1.5 text-right text-xs text-muted-foreground tabular-nums">
                         {(contact.taskIncomplete ?? 0) === 0 ? "—" : contact.taskIncomplete}

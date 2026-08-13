@@ -129,9 +129,9 @@ function SectionLabel({ children }: { readonly children: string }) {
 
 function DecisionNotSentChip() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-[color:var(--status-pending-border)] bg-[var(--status-pending-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--status-pending)]">
-      <CircleDashedIcon className="size-3" /> Decision not sent
-    </span>
+    <Badge variant="outline" className="shrink-0 gap-1 rounded-md text-muted-foreground">
+      <CircleDashedIcon className="text-status-pending" /> Decision not sent
+    </Badge>
   );
 }
 
@@ -142,22 +142,22 @@ function SessionReadinessBadge({
 }) {
   if (session.cancelledAt !== null) {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-        <CircleSlashIcon className="size-3" /> Cancelled
-      </span>
+      <Badge variant="outline" className="shrink-0 gap-1 rounded-md text-muted-foreground">
+        <CircleSlashIcon /> Cancelled
+      </Badge>
     );
   }
   if (session.startsAt === null) {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-[color:var(--status-pending-border)] bg-[var(--status-pending-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--status-pending)]">
-        <CircleDashedIcon className="size-3" /> Unscheduled
-      </span>
+      <Badge variant="outline" className="shrink-0 gap-1 rounded-md text-muted-foreground">
+        <CircleDashedIcon className="text-status-pending" /> Unscheduled
+      </Badge>
     );
   }
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-[color:var(--status-accepted-border)] bg-[var(--status-accepted-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--status-accepted)]">
-      <CheckIcon className="size-3" /> Scheduled
-    </span>
+    <Badge variant="outline" className="shrink-0 gap-1 rounded-md text-muted-foreground">
+      <CheckIcon className="text-status-accepted" /> Scheduled
+    </Badge>
   );
 }
 

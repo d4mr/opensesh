@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 type Status = SubmissionStatus | FormStatus;
 
-const statusClassName: Readonly<Record<Status, string>> = {
+export const statusClassName: Readonly<Record<Status, string>> = {
   draft: "bg-[var(--status-draft)] text-[var(--status-draft-foreground)]",
   pending: "bg-[var(--status-pending)] text-[var(--status-pending-foreground)]",
   maybe: "bg-[var(--status-maybe)] text-[var(--status-maybe-foreground)]",

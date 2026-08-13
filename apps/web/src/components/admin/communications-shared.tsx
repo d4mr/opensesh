@@ -2,6 +2,7 @@ import type { AudienceSegment, CampaignRecipientHistory, EmailCampaign } from "@
 import { renderCampaignEmail } from "@opensesh/domain";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { statusClassName, statusIcon } from "@/components/app/status-badge";
 import { cn } from "@/lib/utils";
 
 export const audienceLabels: Readonly<Record<AudienceSegment, string>> = {
@@ -10,8 +11,10 @@ export const audienceLabels: Readonly<Record<AudienceSegment, string>> = {
   awaiting_confirmation: "Awaiting confirmation",
   incomplete_tasks: "Incomplete tasks",
   selected: "Selected speakers",
+  all_submitters: "All submitters",
   awaiting_decision: "Submitters awaiting decision",
   declined: "Declined submitters",
+  selected_submitters: "Selected submitters",
 };
 
 export const campaignAudienceLabel = (campaign: EmailCampaign) => {
@@ -39,12 +42,12 @@ export const deliveryRollup = (recipients: ReadonlyArray<CampaignRecipientHistor
   return counts;
 };
 
-const deliveryChipClasses: Readonly<Record<DeliveryBucket, string>> = {
-  sent: "border-[color:var(--status-accepted-border)] bg-[var(--status-accepted-muted)] text-[var(--status-accepted)]",
-  queued:
-    "border-[color:var(--status-pending-border)] bg-[var(--status-pending-muted)] text-[var(--status-pending)]",
-  failed:
-    "border-[color:var(--status-declined-border)] bg-[var(--status-declined-muted)] text-[var(--status-declined)]",
+// Delivery renders in the app's one status-badge language (solid status fill,
+// icon, capitalized word) — buckets borrow the submission-status palette.
+const deliveryStatus: Readonly<Record<DeliveryBucket, "accepted" | "pending" | "declined">> = {
+  sent: "accepted",
+  queued: "pending",
+  failed: "declined",
 };
 
 export function DeliveryChip({
@@ -55,15 +58,17 @@ export function DeliveryChip({
   readonly className?: string;
 }) {
   const bucket = recipientDelivery(recipient);
-  const label = recipient.emailStatus ?? (bucket === "queued" ? "queued" : bucket);
+  const Icon = statusIcon[deliveryStatus[bucket]];
+  const label = recipient.emailStatus ?? bucket;
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium capitalize",
-        deliveryChipClasses[bucket],
+        "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium capitalize",
+        statusClassName[deliveryStatus[bucket]],
         className,
       )}
     >
+      <Icon className="size-3" />
       {label}
     </span>
   );
@@ -79,14 +84,16 @@ export function DeliveryCountChip({
   readonly count: number;
   readonly className?: string;
 }) {
+  const Icon = statusIcon[deliveryStatus[bucket]];
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
-        deliveryChipClasses[bucket],
+        "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium tabular-nums",
+        statusClassName[deliveryStatus[bucket]],
         className,
       )}
     >
+      <Icon className="size-3" />
       {count} {bucket}
     </span>
   );

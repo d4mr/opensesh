@@ -295,14 +295,16 @@ export const SpeakerCommsLive = Layer.effect(
                   )
                   .execute(),
               ),
+              // Submitterhood is a submission fact, not provenance: anyone who
+              // submitted belongs here, including contacts who since became
+              // speakers. Segments that must not reach speakers (declined
+              // consolation) exclude them explicitly in audienceMemberIds.
               query(database, "Could not load communication submitters", (db) =>
                 db
                   .select({ contact: contacts, submission: submissions })
                   .from(contacts)
                   .innerJoin(submissions, eq(submissions.submitterContactId, contacts.id))
-                  .where(
-                    and(eq(contacts.eventId, eventId), eq(contacts.participation, "submitter")),
-                  )
+                  .where(eq(contacts.eventId, eventId))
                   .orderBy(
                     asc(contacts.lastName),
                     asc(contacts.firstName),
@@ -505,21 +507,19 @@ export const SpeakerCommsLive = Layer.effect(
             }),
             submitters: Array.from(
               new Map(submitterRows.map((row) => [row.contact.id, row.contact])).values(),
-            )
-              .filter((contact) => !uniqueSpeakers.some((speaker) => speaker.id === contact.id))
-              .map((contact) => ({
-                id: contact.id,
-                email: contact.email,
-                firstName: contact.firstName,
-                lastName: contact.lastName,
-                headshotUrl: contact.headshotUrl,
-                submissions: submitterRows
-                  .filter((row) => row.contact.id === contact.id)
-                  .map((row) => ({
-                    status: row.submission.status,
-                    notifiedAt: row.submission.notifiedAt,
-                  })),
-              })),
+            ).map((contact) => ({
+              id: contact.id,
+              email: contact.email,
+              firstName: contact.firstName,
+              lastName: contact.lastName,
+              headshotUrl: contact.headshotUrl,
+              submissions: submitterRows
+                .filter((row) => row.contact.id === contact.id)
+                .map((row) => ({
+                  status: row.submission.status,
+                  notifiedAt: row.submission.notifiedAt,
+                })),
+            })),
             pending: {
               acceptedNotInformed: decisionRows.filter(
                 (row) => row.status === "accepted" && row.notifiedAt === null,

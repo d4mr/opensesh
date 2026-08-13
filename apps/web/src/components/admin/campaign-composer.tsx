@@ -38,17 +38,23 @@ const segments: ReadonlyArray<AudienceSegment> = [
   "awaiting_confirmation",
   "incomplete_tasks",
   "selected",
+  "all_submitters",
   "awaiting_decision",
   "declined",
+  "selected_submitters",
 ];
 
 interface ComposerState {
   readonly segment: AudienceSegment;
   readonly selectedIds: ReadonlyArray<string>;
+  readonly selectedSubmitterIds: ReadonlyArray<string>;
   readonly templateId: string | null;
   readonly subject: string;
   readonly body: string;
 }
+
+const stringIds = (value: unknown): ReadonlyArray<string> =>
+  Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
 
 // No server-side drafts — sending stays one explicit act. The half-written
 // campaign survives navigation in localStorage instead, keyed per event.
@@ -61,9 +67,8 @@ const readDraft = (eventId: string): ComposerState | null => {
     const parsed = JSON.parse(raw) as Partial<ComposerState>;
     return {
       segment: segments.find((segment) => segment === parsed.segment) ?? "all_speakers",
-      selectedIds: Array.isArray(parsed.selectedIds)
-        ? parsed.selectedIds.filter((id): id is string => typeof id === "string")
-        : [],
+      selectedIds: stringIds(parsed.selectedIds),
+      selectedSubmitterIds: stringIds(parsed.selectedSubmitterIds),
       templateId: typeof parsed.templateId === "string" ? parsed.templateId : null,
       subject: typeof parsed.subject === "string" ? parsed.subject : "",
       body: typeof parsed.body === "string" ? parsed.body : "",
@@ -108,13 +113,14 @@ function Composer({
         segments.find((candidate) => candidate === source.campaign.recipientFilter.segment) ??
         "selected";
       const speakerIds = new Set(data.speakers.map((speaker) => speaker.id));
+      const submitterIds = new Set(data.submitters.map((submitter) => submitter.id));
+      const recipientIds = source.recipients.map((recipient) => recipient.contactId);
       return {
         segment,
-        selectedIds:
-          segment === "selected"
-            ? source.recipients
-                .map((recipient) => recipient.contactId)
-                .filter((id) => speakerIds.has(id))
+        selectedIds: segment === "selected" ? recipientIds.filter((id) => speakerIds.has(id)) : [],
+        selectedSubmitterIds:
+          segment === "selected_submitters"
+            ? recipientIds.filter((id) => submitterIds.has(id))
             : [],
         templateId: source.campaign.templateId,
         subject: source.campaign.subjectSnapshot,
@@ -124,6 +130,7 @@ function Composer({
     return {
       segment: presetAudience ?? "all_speakers",
       selectedIds: [],
+      selectedSubmitterIds: [],
       templateId: null,
       subject: "",
       body: "",
@@ -131,7 +138,7 @@ function Composer({
   }, [data.campaigns, data.speakers, fromCampaignId, presetAudience]);
   const [state, setState] = useState(initial);
   const [previewId, setPreviewId] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [picker, setPicker] = useState<"speakers" | "submitters" | null>(null);
   // Draft restore is a client-only act (localStorage), so it happens after
   // hydration — and only on a cold start, never over a deliberate prefill.
   // The write side lives in `update` (user edits only): an effect watching
@@ -148,23 +155,33 @@ function Composer({
   };
   const dirty = JSON.stringify(state) !== JSON.stringify(initial);
 
-  const allContacts = useMemo(
-    () => [
+  // Submitters can also be speakers (submitterhood is a submission fact) —
+  // the speaker entry wins so previews resolve talk titles.
+  const allContacts = useMemo(() => {
+    const speakerIds = new Set(data.speakers.map((speaker) => speaker.id));
+    return [
       ...data.speakers,
-      ...data.submitters.map((contact) => ({
-        ...contact,
-        title: null,
-        company: null,
-        pipeline: "added" as const,
-        talkTitle: "",
-      })),
-    ],
-    [data.speakers, data.submitters],
-  );
+      ...data.submitters
+        .filter((contact) => !speakerIds.has(contact.id))
+        .map((contact) => ({
+          ...contact,
+          title: null,
+          company: null,
+          pipeline: "added" as const,
+          talkTitle: "",
+        })),
+    ];
+  }, [data.speakers, data.submitters]);
   const selectedIds = useMemo(() => new Set(state.selectedIds), [state.selectedIds]);
+  const selectedSubmitterIds = useMemo(
+    () => new Set(state.selectedSubmitterIds),
+    [state.selectedSubmitterIds],
+  );
+  const activeSelection =
+    state.segment === "selected_submitters" ? selectedSubmitterIds : selectedIds;
   const recipientIds = useMemo(
-    () => new Set(audienceMemberIds(data, state.segment, selectedIds)),
-    [data, state.segment, selectedIds],
+    () => new Set(audienceMemberIds(data, state.segment, activeSelection)),
+    [data, state.segment, activeSelection],
   );
   const recipients = useMemo(
     () => allContacts.filter((contact) => recipientIds.has(contact.id)),
@@ -183,7 +200,11 @@ function Composer({
   const resolvedSubject = resolveMergeFields(state.subject, fields);
   const resolvedBody = resolveMergeFields(state.body, fields);
   const segmentCount = (segment: AudienceSegment) =>
-    segment === "selected" ? selectedIds.size : audienceMemberIds(data, segment).length;
+    segment === "selected"
+      ? selectedIds.size
+      : segment === "selected_submitters"
+        ? selectedSubmitterIds.size
+        : audienceMemberIds(data, segment).length;
 
   const send = useMutation({
     mutationFn: () =>
@@ -287,7 +308,14 @@ function Composer({
                 </SelectGroup>
                 <SelectGroup>
                   <SelectLabel>Submitters</SelectLabel>
-                  {(["awaiting_decision", "declined"] as const).map((segment) => (
+                  {(
+                    [
+                      "all_submitters",
+                      "awaiting_decision",
+                      "declined",
+                      "selected_submitters",
+                    ] as const
+                  ).map((segment) => (
                     <SelectItem key={segment} value={segment}>
                       {audienceLabels[segment]} ({segmentCount(segment)})
                     </SelectItem>
@@ -295,11 +323,11 @@ function Composer({
                 </SelectGroup>
               </SelectContent>
             </Select>
-            {state.segment !== "selected" ? null : (
+            {state.segment !== "selected" && state.segment !== "selected_submitters" ? null : (
               <div className="flex flex-wrap items-center gap-1.5 rounded-lg border p-1.5">
                 {recipients.length === 0 ? (
                   <span className="px-1.5 text-xs text-muted-foreground">
-                    No speakers selected yet.
+                    No {state.segment === "selected" ? "speakers" : "submitters"} selected yet.
                   </span>
                 ) : (
                   <>
@@ -325,10 +353,14 @@ function Composer({
                   size="xs"
                   variant="outline"
                   className="pressable ml-auto"
-                  onClick={() => setPickerOpen(true)}
+                  onClick={() =>
+                    setPicker(state.segment === "selected" ? "speakers" : "submitters")
+                  }
                 >
                   <UsersIcon />
-                  {recipients.length === 0 ? "Choose speakers" : "Edit selection"}
+                  {recipients.length === 0
+                    ? `Choose ${state.segment === "selected" ? "speakers" : "submitters"}`
+                    : "Edit selection"}
                 </Button>
               </div>
             )}
@@ -457,13 +489,31 @@ function Composer({
         </div>
       </footer>
       <SpeakerPickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
+        open={picker === "speakers"}
+        onOpenChange={(open) => setPicker(open ? "speakers" : null)}
         contacts={data.speakers}
         value={selectedIds}
         onChange={(next) => update({ ...state, selectedIds: [...next] })}
         title="Select recipients"
         description="Search and filter the speaker directory, then pick who receives this campaign."
+      />
+      <SpeakerPickerDialog
+        open={picker === "submitters"}
+        onOpenChange={(open) => setPicker(open ? "submitters" : null)}
+        contacts={data.submitters.map((submitter) => ({
+          id: submitter.id,
+          firstName: submitter.firstName,
+          lastName: submitter.lastName,
+          email: submitter.email,
+          headshotUrl: submitter.headshotUrl,
+          company: null,
+        }))}
+        value={selectedSubmitterIds}
+        onChange={(next) => update({ ...state, selectedSubmitterIds: [...next] })}
+        title="Select submitters"
+        description="Search everyone who submitted, then pick who receives this campaign."
+        noun="submitters"
+        contactLabel="Submitter"
       />
     </main>
   );

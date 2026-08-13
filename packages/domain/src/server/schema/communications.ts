@@ -132,8 +132,10 @@ export const AudienceSegment = Schema.Literals([
   "awaiting_confirmation",
   "incomplete_tasks",
   "selected",
+  "all_submitters",
   "awaiting_decision",
   "declined",
+  "selected_submitters",
 ]);
 export type AudienceSegment = typeof AudienceSegment.Type;
 
@@ -147,7 +149,13 @@ export const audienceMemberIds = (
       .filter((contact) => selectedIds.has(contact.id))
       .map((contact) => contact.id);
   }
+  if (segment === "selected_submitters") {
+    return center.submitters
+      .filter((contact) => selectedIds.has(contact.id))
+      .map((contact) => contact.id);
+  }
   if (segment === "all_speakers") return center.speakers.map((contact) => contact.id);
+  if (segment === "all_submitters") return center.submitters.map((contact) => contact.id);
   if (segment === "confirmed") {
     return center.speakers
       .filter((contact) => contact.confirmedAt !== null)
@@ -163,15 +171,25 @@ export const audienceMemberIds = (
       .filter((contact) => contact.taskIncomplete > 0)
       .map((contact) => contact.id);
   }
+  if (segment === "awaiting_decision") {
+    return center.submitters
+      .filter((contact) =>
+        contact.submissions.some(
+          (submission) => submission.status === "pending" || submission.status === "maybe",
+        ),
+      )
+      .map((contact) => contact.id);
+  }
+  // Declined is consolation mail: someone currently speaking never belongs in
+  // it, even when another of their submissions was declined and informed.
+  const speakerIds = new Set(center.speakers.map((contact) => contact.id));
   return center.submitters
-    .filter((contact) =>
-      segment === "awaiting_decision"
-        ? contact.submissions.some(
-            (submission) => submission.status === "pending" || submission.status === "maybe",
-          )
-        : contact.submissions.some(
-            (submission) => submission.status === "declined" && submission.notifiedAt !== null,
-          ),
+    .filter(
+      (contact) =>
+        !speakerIds.has(contact.id) &&
+        contact.submissions.some(
+          (submission) => submission.status === "declined" && submission.notifiedAt !== null,
+        ),
     )
     .map((contact) => contact.id);
 };

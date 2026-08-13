@@ -3,6 +3,7 @@ import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { InvalidInput } from "@opensesh/domain/server/errors";
 import { SpeakerComms, Widgets } from "@opensesh/domain/server/repos";
 import {
+  AudienceSegment,
   CommunicationCenter,
   PortalInvitationResult,
 } from "@opensesh/domain/server/schema/communications";
@@ -36,15 +37,7 @@ const CampaignBody = Schema.Struct({
   subject: Schema.String,
   body: Schema.String,
   contactIds: Schema.Array(Schema.String),
-  segment: Schema.Literals([
-    "all_speakers",
-    "confirmed",
-    "awaiting_confirmation",
-    "incomplete_tasks",
-    "selected",
-    "awaiting_decision",
-    "declined",
-  ]),
+  segment: AudienceSegment,
 });
 
 export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
