@@ -230,9 +230,12 @@ export function SubmissionDetail({
             <div className="border-b px-3 py-2">
               <p className="text-xs font-semibold">{decisionPreview.subject}</p>
             </div>
-            <div className="whitespace-pre-wrap px-3 py-3 text-xs leading-5">
-              {decisionPreview.text}
-            </div>
+            <iframe
+              title={`Preview of ${decisionPreview.subject}`}
+              sandbox=""
+              srcDoc={decisionPreview.html}
+              className="h-[380px] w-full bg-white"
+            />
           </section>
         )}
         <div className="mb-4 flex items-start justify-between gap-4">
