@@ -27,7 +27,6 @@ export const qk = {
     speakerPortal: ["viewer", "speaker-portal"] as const,
     portalResources: ["viewer", "portal-resources"] as const,
     onboarding: ["viewer", "onboarding"] as const,
-    demoMode: ["viewer", "demo-mode"] as const,
   },
 
   org: {

@@ -637,7 +637,7 @@ function AccountStep({
   readonly onResume: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const [sent, setSent] = useState<{ readonly email: string; readonly link?: string }>();
+  const [sent, setSent] = useState<{ readonly email: string }>();
   const [error, setError] = useState<string>();
   const form = useForm({
     defaultValues: { email: "" },
@@ -645,11 +645,7 @@ function AccountStep({
       setError(undefined);
       const result = await requestMagicLink({ data: { email: value.email, callbackUrl } });
       if (!result.ok) setError(result.error.message);
-      else
-        setSent({
-          email: value.email,
-          ...(result.data.demoLink === undefined ? {} : { link: result.data.demoLink }),
-        });
+      else setSent({ email: value.email });
     },
   });
   if (email !== null) {
@@ -740,11 +736,6 @@ function AccountStep({
         <p className="mt-1 text-sm text-muted-foreground">
           We sent a sign-in link to {sent.email}.
         </p>
-        {sent.link === undefined ? null : (
-          <Button className="pressable mt-5" asChild>
-            <a href={sent.link}>Open demo magic link</a>
-          </Button>
-        )}
       </div>
     );
   }

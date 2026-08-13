@@ -104,7 +104,7 @@ function InvitationDetails({
 }
 
 function InvitationSignIn({ invitationId }: { readonly invitationId: string }) {
-  const [sent, setSent] = useState<{ readonly email: string; readonly demoLink?: string }>();
+  const [sent, setSent] = useState<{ readonly email: string }>();
   const [error, setError] = useState<string>();
   const form = useForm({
     defaultValues: { email: "" },
@@ -116,10 +116,7 @@ function InvitationSignIn({ invitationId }: { readonly invitationId: string }) {
         setError(result.error.message);
         return;
       }
-      setSent({
-        email: value.email,
-        ...(result.data.demoLink === undefined ? {} : { demoLink: result.data.demoLink }),
-      });
+      setSent({ email: value.email });
     },
   });
   if (sent !== undefined) {
@@ -130,11 +127,6 @@ function InvitationSignIn({ invitationId }: { readonly invitationId: string }) {
         </span>
         <h1 className="mt-4 text-xl font-semibold tracking-tight">Check your email</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Sign in as {sent.email} to continue.</p>
-        {sent.demoLink === undefined ? null : (
-          <Button asChild className="pressable mt-5">
-            <a href={sent.demoLink}>Open demo magic link</a>
-          </Button>
-        )}
       </div>
     );
   }

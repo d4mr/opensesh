@@ -2,7 +2,6 @@ import type { QueryClient } from "@tanstack/react-query";
 import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
 import { ThemeProvider } from "next-themes";
 
-import { DemoRoleSwitcher } from "@/components/app/demo-role-switcher";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import appCss from "../styles.css?url";
@@ -61,7 +60,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               work on every surface, not just under the admin sidebar. */}
           <TooltipProvider>
             {children}
-            <DemoRoleSwitcher />
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>

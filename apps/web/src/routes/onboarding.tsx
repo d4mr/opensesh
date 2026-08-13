@@ -76,7 +76,6 @@ function Onboarding() {
   const [step, setStep] = useState(existingOrganization === undefined ? 0 : 1);
   const [organizationName, setOrganizationName] = useState(existingOrganization?.name ?? "");
   const [inviteRows, setInviteRows] = useState([crypto.randomUUID()]);
-  const [demoLinks, setDemoLinks] = useState<ReadonlyArray<string>>([]);
   const labels = ["Organization", "Invite team", "First event"];
 
   return (
@@ -129,7 +128,6 @@ function Onboarding() {
                         ? undefined
                         : () => setInviteRows((rows) => rows.filter((row) => row !== id))
                     }
-                    onDemoLink={(url) => setDemoLinks((links) => [...links, url])}
                   />
                 ))}
               </div>
@@ -162,19 +160,6 @@ function Onboarding() {
               <p className="mt-1.5 mb-6 text-sm text-muted-foreground">
                 Set the dates and timezone. You can add program details next.
               </p>
-              {demoLinks.length === 0 ? null : (
-                <p className="mb-5 text-xs text-muted-foreground">
-                  Demo invitation{demoLinks.length === 1 ? "" : "s"}:{" "}
-                  {demoLinks.map((url, index) => (
-                    <span key={url}>
-                      {index === 0 ? "" : " · "}
-                      <a className="font-medium text-foreground hover:underline" href={url}>
-                        Open invite {index + 1}
-                      </a>
-                    </span>
-                  ))}
-                </p>
-              )}
               <CreateEventForm
                 submitLabel="Finish setup"
                 onCreated={async () => window.location.assign("/admin")}
@@ -286,13 +271,7 @@ function OrganizationStep({ onCreated }: { readonly onCreated: (name: string) =>
   );
 }
 
-function InviteRow({
-  onRemove,
-  onDemoLink,
-}: {
-  readonly onRemove?: () => void;
-  readonly onDemoLink: (url: string) => void;
-}) {
+function InviteRow({ onRemove }: { readonly onRemove?: () => void }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string>();
   const form = useForm({
@@ -304,7 +283,6 @@ function InviteRow({
         setError(result.error.message);
         return;
       }
-      if (result.data.demoLink !== undefined) onDemoLink(result.data.demoLink);
       setSent(true);
     },
   });

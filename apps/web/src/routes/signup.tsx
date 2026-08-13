@@ -15,7 +15,7 @@ export const Route = createFileRoute("/signup")({ component: Signup });
 function Signup() {
   const [error, setError] = useState<string>();
   const [panelFailed, setPanelFailed] = useState(false);
-  const [sent, setSent] = useState<{ readonly email: string; readonly demoLink?: string }>();
+  const [sent, setSent] = useState<{ readonly email: string }>();
   const form = useForm({
     defaultValues: { name: "", email: "" },
     onSubmit: async ({ value }) => {
@@ -27,10 +27,7 @@ function Signup() {
         setError(result.error.message);
         return;
       }
-      setSent({
-        email: value.email,
-        ...(result.data.demoLink === undefined ? {} : { demoLink: result.data.demoLink }),
-      });
+      setSent({ email: value.email });
     },
   });
 
@@ -117,11 +114,6 @@ function Signup() {
                   <p className="mt-1.5 text-sm text-muted-foreground">
                     We sent a secure signup link to {sent.email}.
                   </p>
-                  {sent.demoLink === undefined ? null : (
-                    <Button asChild className="pressable mt-5">
-                      <a href={sent.demoLink}>Open demo magic link</a>
-                    </Button>
-                  )}
                 </div>
               )}
             </div>

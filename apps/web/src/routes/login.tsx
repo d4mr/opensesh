@@ -6,9 +6,9 @@ import { LoginForm } from "@/components/login-form";
 import { switchDemoPersona } from "@/server-fns/auth";
 
 const demoPersonaByRole: Record<string, DemoPersonaEmail> = {
-  organizer: "demo@opensesh.io",
-  reviewer: "reviewer@opensesh.io",
-  speaker: "maya.chen@retrievallabs.ai",
+  organizer: "dana@demo.opensesh.io",
+  reviewer: "rey@demo.opensesh.io",
+  speaker: "maya@demo.opensesh.io",
 };
 
 export const Route = createFileRoute("/login")({
@@ -37,7 +37,7 @@ function Login() {
   }, []);
 
   // Landing-page deep link (/login?demo=organizer): sign straight into the
-  // persona when demo mode is on; fall back to the normal form otherwise.
+  // demo-workspace persona; fall back to the normal form if that fails.
   useEffect(() => {
     if (demoEmail === undefined || attempted.current) {
       return;

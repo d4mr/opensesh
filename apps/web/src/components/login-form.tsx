@@ -34,7 +34,7 @@ export function LoginForm({
   const [error, setError] = useState<string>();
   const [magicSending, setMagicSending] = useState(false);
   const [panelFailed, setPanelFailed] = useState(false);
-  const [sent, setSent] = useState<{ readonly email: string; readonly demoLink?: string }>();
+  const [sent, setSent] = useState<{ readonly email: string }>();
   const form = useForm({
     defaultValues: { email: initialEmail, password: "" },
     onSubmit: async ({ value }) => {
@@ -85,10 +85,7 @@ export function LoginForm({
       setError(result.error.message);
       return;
     }
-    setSent({
-      email,
-      ...(result.data.demoLink === undefined ? {} : { demoLink: result.data.demoLink }),
-    });
+    setSent({ email });
   };
 
   return (
@@ -186,11 +183,6 @@ export function LoginForm({
                 <p className="mt-1 text-sm text-muted-foreground">
                   We sent a sign-in link to {sent.email}.
                 </p>
-                {sent.demoLink === undefined ? null : (
-                  <Button className="mt-5" asChild>
-                    <a href={sent.demoLink}>Open demo magic link</a>
-                  </Button>
-                )}
               </div>
             )}
           </form>

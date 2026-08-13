@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { DEMO_PERSONA_EMAILS } from "../../demo";
+
 export const MagicLinkRequest = Schema.Struct({
   email: Schema.String,
   name: Schema.optionalKey(Schema.String),
@@ -7,13 +9,7 @@ export const MagicLinkRequest = Schema.Struct({
 });
 export type MagicLinkRequest = typeof MagicLinkRequest.Type;
 
-export const DemoPersonaEmail = Schema.Literals([
-  "demo@opensesh.io",
-  "reviewer@opensesh.io",
-  "maya.chen@retrievallabs.ai",
-  "lina.haddad@checkpoint.health",
-  "jamal.reed@agentdesk.co",
-]);
+export const DemoPersonaEmail = Schema.Literals(DEMO_PERSONA_EMAILS);
 export type DemoPersonaEmail = typeof DemoPersonaEmail.Type;
 
 export const DemoPersonaRequest = Schema.Struct({ email: DemoPersonaEmail });

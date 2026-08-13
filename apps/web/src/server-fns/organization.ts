@@ -14,7 +14,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
-import { makeAuth, type CapturedInvitation } from "@/lib/auth";
+import { makeAuth } from "@/lib/auth";
 import { runServer } from "@/server/runtime";
 
 const authFailure = (message: string) => (cause: unknown) => new DbError({ message, cause });
@@ -127,10 +127,7 @@ export const inviteOrganizationMember = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { env } = await import("cloudflare:workers");
     const request = getRequest();
-    let captured: CapturedInvitation | undefined;
-    const auth = makeAuth(env, new URL(request.url).origin, undefined, (invitation) => {
-      captured = invitation;
-    });
+    const auth = makeAuth(env, new URL(request.url).origin);
     return runServer(
       Effect.gen(function* () {
         const user = yield* getCurrentUser;
@@ -146,10 +143,7 @@ export const inviteOrganizationMember = createServerFn({ method: "POST" })
             }),
           catch: () => new InvalidInput({ message: "Could not send this invitation" }),
         });
-        return {
-          invitation,
-          demoLink: env.DEMO_MODE === "1" ? captured?.url : undefined,
-        };
+        return { invitation };
       }),
       { require: "admin" },
     );
