@@ -117,6 +117,21 @@ const interleaveByTrack = (sessions: ReadonlyArray<AgendaSession>) => {
 const normalizedReason = (reason: string) =>
   reason.trim().replaceAll(/\s+/g, " ").slice(0, 180) || "Conflict-free placement.";
 
+// The preferred daily window narrows placements inside the app-wide
+// 8:00–19:00 canvas; absent keys mean the full canvas, and clamping means
+// malformed criteria can never widen it.
+export const dayWindow = (criteria: AgendaDraftCriteria) => {
+  const start = Math.min(
+    Math.max(criteria.dayStartMinutes ?? START_MINUTES, START_MINUTES),
+    END_MINUTES - SLOT_MINUTES,
+  );
+  const end = Math.max(
+    Math.min(criteria.dayEndMinutes ?? END_MINUTES, END_MINUTES),
+    start + SLOT_MINUTES,
+  );
+  return { start, end };
+};
+
 const keynoteRoom = (input: AgendaSolverInput) => {
   for (const rule of input.criteria.rules) {
     const match = /keynotes?.*?\bin\s+(.+?)(?:\s+(?:morning|afternoon|evening)\b|$)/i.exec(rule);
@@ -128,7 +143,7 @@ const keynoteRoom = (input: AgendaSolverInput) => {
   return undefined;
 };
 
-const workshopStart = (criteria: AgendaDraftCriteria) => {
+const workshopStart = (criteria: AgendaDraftCriteria, fallback: number) => {
   for (const rule of criteria.rules) {
     const match = /no workshops? before\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(rule);
     if (match === null) continue;
@@ -137,9 +152,9 @@ const workshopStart = (criteria: AgendaDraftCriteria) => {
     const period = match[3]?.toLowerCase();
     if (period === "pm" && hour < 12) hour += 12;
     if (period === "am" && hour === 12) hour = 0;
-    return hour * 60 + minute;
+    return Math.max(hour * 60 + minute, fallback);
   }
-  return START_MINUTES;
+  return fallback;
 };
 
 const hasRule = (criteria: AgendaDraftCriteria, pattern: RegExp) =>
@@ -173,6 +188,18 @@ const isCandidateLegal = (
     sessionDuration(session) * 60_000
   ) {
     return false;
+  }
+  if (!allowOutsideCriteria) {
+    const window = dayWindow(input.criteria);
+    const timezone = input.agenda.event.timezone;
+    const startParts = zonedParts(placement.startsAt, timezone);
+    const endParts = zonedParts(placement.endsAt, timezone);
+    if (
+      startParts.hour * 60 + startParts.minute < window.start ||
+      endParts.hour * 60 + endParts.minute > window.end
+    ) {
+      return false;
+    }
   }
   return detectAgendaConflicts([...occupied, scheduledSession(session, placement)]).length === 0;
 };
@@ -217,21 +244,22 @@ const findPlacement = (
       return left.position - right.position;
     });
   const rooms = preferredKeynoteRoom === undefined ? availableRooms : [preferredKeynoteRoom];
-  const earliest = isWorkshop ? workshopStart(input.criteria) : START_MINUTES;
+  const window = dayWindow(input.criteria);
+  const earliest = isWorkshop ? workshopStart(input.criteria, window.start) : window.start;
   const morning = isKeynote && hasRule(input.criteria, /keynotes?.*morning/i);
   const duration = sessionDuration(session);
   const reason = repaired
     ? "Repaired by validation gate: earliest conflict-free slot."
     : preferredKeynoteRoom !== undefined && morning
       ? `Keynote placed in ${preferredKeynoteRoom.name} in the morning.`
-      : isWorkshop && earliest > START_MINUTES
+      : isWorkshop && earliest > window.start
         ? `Workshop placed after ${Math.floor(earliest / 60)}:${String(earliest % 60).padStart(2, "0")}.`
         : "Earliest conflict-free slot, interleaved by track.";
 
   for (const day of orderedDays(input, session, occupied)) {
     const latestStart = morning
-      ? Math.min(12 * 60 - duration, END_MINUTES - duration)
-      : END_MINUTES - duration;
+      ? Math.min(12 * 60 - duration, window.end - duration)
+      : window.end - duration;
     for (let minutes = earliest; minutes <= latestStart; minutes += SLOT_MINUTES) {
       for (const room of rooms) {
         const startsAt = zonedDateTimeIso(day, minutes, input.agenda.event.timezone);

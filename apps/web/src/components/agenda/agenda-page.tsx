@@ -3,7 +3,6 @@ import {
   type AgendaAdminData,
   type AgendaConflict,
   type AgendaDraft,
-  type AgendaDraftActionRequest,
   type AgendaView,
   type GenerateAgendaDraftRequest,
   type ScheduleChange,
@@ -301,32 +300,16 @@ export function AgendaPage({
     toast.success("Agenda draft ready to compare");
   };
 
-  const draftAction = async (draft: AgendaDraft, action: AgendaDraftActionRequest["action"]) => {
+  const discardDraftRow = async (draft: AgendaDraft) => {
     const previous = queryClient.getQueryData<AgendaDraftsResult>(draftsQueryKey);
     const now = new Date().toISOString();
-    const optimisticId = `optimistic-${draft.id}`;
     setDrafts(
-      action === "discard"
-        ? draftRows.map((item) =>
-            item.id === draft.id ? { ...item, status: "discarded", updatedAt: now } : item,
-          )
-        : [
-            {
-              ...draft,
-              id: optimisticId,
-              name: `${draft.name} copy`,
-              status: "draft",
-              proposal: { placements: [] },
-              generatedAt: null,
-              committedAt: null,
-              createdAt: now,
-              updatedAt: now,
-            },
-            ...draftRows,
-          ],
+      draftRows.map((item) =>
+        item.id === draft.id ? { ...item, status: "discarded", updatedAt: now } : item,
+      ),
     );
     const result = await changeAgendaDraft({
-      data: { eventId, draftId: draft.id, action },
+      data: { eventId, draftId: draft.id, action: "discard" },
     });
     if (!result.ok) {
       queryClient.setQueryData(draftsQueryKey, previous);
@@ -335,12 +318,8 @@ export function AgendaPage({
     }
     const current = queryClient.getQueryData<AgendaDraftsResult>(draftsQueryKey);
     const rows = current?.ok === true ? current.data : draftRows;
-    setDrafts(
-      action === "duplicate"
-        ? rows.map((item) => (item.id === optimisticId ? result.data : item))
-        : rows.map((item) => (item.id === result.data.id ? result.data : item)),
-    );
-    toast.success(action === "duplicate" ? "Draft duplicated" : "Draft discarded");
+    setDrafts(rows.map((item) => (item.id === result.data.id ? result.data : item)));
+    toast.success("Draft discarded");
   };
 
   const discardComparedDraft = async () => {
@@ -593,7 +572,7 @@ export function AgendaPage({
           setDraftsOpen(false);
           navigate(view, selectedDay, nextDraftId);
         }}
-        action={(draft, action) => void draftAction(draft, action)}
+        discard={(draft) => void discardDraftRow(draft)}
       />
     </main>
   );

@@ -3,7 +3,11 @@ import { Clock, Config, Context, Effect, Layer, Option, Schema } from "effect";
 
 import { detectAgendaConflicts } from "../../agenda/conflicts";
 import { validateScheduleChange } from "../../agenda/schedule";
-import { solveAgendaDeterministically, validateAndRepairAgendaProposal } from "../../agenda/solver";
+import {
+  dayWindow,
+  solveAgendaDeterministically,
+  validateAndRepairAgendaProposal,
+} from "../../agenda/solver";
 import {
   agendaDrafts,
   contacts,
@@ -96,6 +100,9 @@ const AnthropicResponse = Schema.Struct({
   ),
 });
 
+const clockLabel = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
 const requestAnthropicProposal = (
   apiKey: string,
   input: GenerateAgendaDraftRequest,
@@ -117,13 +124,17 @@ const requestAnthropicProposal = (
             max_tokens: 8_192,
             temperature: 0.1,
             system:
-              "You schedule conference sessions. Return every session exactly once. Use only the supplied room ids and event days, preserve exact durations, use 15-minute starts between 08:00 and 19:00 local time, and never overlap a room or speaker. Reasons must be one concise line. Respect all criteria rules when possible.",
+              "You schedule conference sessions. Return every session exactly once. Use only the supplied room ids and event days, preserve exact durations, use 15-minute starts inside the supplied dailyWindow (local time), and never overlap a room or speaker. Reasons must be one concise line. Respect all criteria rules when possible.",
             messages: [
               {
                 role: "user",
                 content: JSON.stringify({
                   timezone: agenda.event.timezone,
                   days: input.criteria.days,
+                  dailyWindow: {
+                    firstSessionStart: clockLabel(dayWindow(input.criteria).start),
+                    lastSessionEnd: clockLabel(dayWindow(input.criteria).end),
+                  },
                   rules: input.criteria.rules,
                   respectExistingPlacements: input.criteria.respectExistingPlacements,
                   rooms: agenda.rooms

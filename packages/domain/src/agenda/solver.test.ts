@@ -77,9 +77,23 @@ const criteria = {
   days: ["2026-10-12", "2026-10-13", "2026-10-14"],
   roomIds: agenda.rooms.map((room) => room.id),
   includeStatuses: ["accepted"],
+  dayStartMinutes: 8 * 60,
+  dayEndMinutes: 19 * 60,
   respectExistingPlacements: false,
   rules: ["keynotes in Hall A morning", "spread each track across days"],
 } as const;
+
+const zonedMinutes = (value: string) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: agenda.event.timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((item) => item.type === type)?.value ?? Number.NaN);
+  return part("hour") * 60 + part("minute");
+};
 
 const proposalSessions = (proposal: AgendaDraftProposal) =>
   agenda.sessions.map((session) => {
@@ -118,6 +132,21 @@ describe("deterministic agenda solver", () => {
           hourCycle: "h23",
         }).format(new Date(placement?.startsAt ?? "")),
       ).toMatch(/^(08|09|10|11)$/);
+    }
+  });
+
+  it("keeps every placement inside the preferred daily window", () => {
+    const proposal = solveAgendaDeterministically({
+      agenda,
+      criteria: { ...criteria, dayStartMinutes: 10 * 60, dayEndMinutes: 17 * 60 },
+    });
+
+    expect(proposal).not.toBeNull();
+    if (proposal === null) return;
+    expect(proposal.placements).toHaveLength(agenda.sessions.length);
+    for (const placement of proposal.placements) {
+      expect(zonedMinutes(placement.startsAt)).toBeGreaterThanOrEqual(10 * 60);
+      expect(zonedMinutes(placement.endsAt)).toBeLessThanOrEqual(17 * 60);
     }
   });
 });

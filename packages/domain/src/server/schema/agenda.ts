@@ -124,6 +124,11 @@ export const AgendaDraftCriteria = Schema.Struct({
   days: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
   roomIds: Schema.Array(Schema.String).check(Schema.isMinLength(1)),
   includeStatuses: Schema.Array(SubmissionStatus).check(Schema.isMinLength(1)),
+  // Preferred daily window, minutes since midnight, bounded by the app-wide
+  // 8:00–19:00 scheduling canvas. optionalKey: stored criteria predate these
+  // keys; absent means the full canvas (solver dayWindow owns the default).
+  dayStartMinutes: Schema.optionalKey(Schema.Number),
+  dayEndMinutes: Schema.optionalKey(Schema.Number),
   respectExistingPlacements: Schema.Boolean,
   rules: Schema.Array(Schema.String.check(Schema.isMaxLength(200))).check(Schema.isMaxLength(12)),
 });

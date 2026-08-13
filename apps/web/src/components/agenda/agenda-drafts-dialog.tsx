@@ -2,7 +2,7 @@ import {
   GenerateAgendaDraftRequest,
   type AgendaAdminData,
   type AgendaDraft,
-  type AgendaDraftActionRequest,
+  type AgendaDraftCriteria,
   type GenerateAgendaDraftRequest as GenerateAgendaDraftRequestData,
 } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
@@ -40,8 +40,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { eventDateKeys, formatLongDay } from "./date-utils";
+
+const CANVAS_START = 8 * 60;
+const CANVAS_END = 19 * 60;
+const timeOptions = (from: number, to: number) =>
+  Array.from({ length: (to - from) / 30 + 1 }, (_, index) => from + index * 30);
+const minuteLabel = (minutes: number) => {
+  const hour = Math.floor(minutes / 60);
+  const display = hour % 12 === 0 ? 12 : hour % 12;
+  return `${display}:${String(minutes % 60).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+};
 
 const statusStyles = {
   draft: {
@@ -79,12 +97,16 @@ function DraftList({
   drafts,
   timezone,
   compare,
-  action,
+  continueSetup,
+  duplicate,
+  discard,
 }: {
   readonly drafts: ReadonlyArray<AgendaDraft>;
   readonly timezone: string;
   readonly compare: (draftId: string) => void;
-  readonly action: (draft: AgendaDraft, action: AgendaDraftActionRequest["action"]) => void;
+  readonly continueSetup: (draft: AgendaDraft) => void;
+  readonly duplicate: (draft: AgendaDraft) => void;
+  readonly discard: (draft: AgendaDraft) => void;
 }) {
   if (drafts.length === 0) {
     return (
@@ -108,9 +130,11 @@ function DraftList({
           <div key={draft.id} className="flex items-center transition-colors hover:bg-muted/50">
             <button
               type="button"
-              disabled={draft.status !== "generated"}
+              disabled={draft.status !== "generated" && draft.status !== "draft"}
               className="pressable-row min-w-0 flex-1 px-3 py-2.5 text-left disabled:cursor-default"
-              onClick={() => compare(draft.id)}
+              onClick={() =>
+                draft.status === "generated" ? compare(draft.id) : continueSetup(draft)
+              }
             >
               <div className="flex items-center gap-2">
                 <span className="truncate text-[13px] font-medium">{draft.name}</span>
@@ -118,11 +142,17 @@ function DraftList({
               </div>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 {draft.generatedAt === null ? (
-                  "Not generated"
+                  draft.status === "draft" ? (
+                    "Not generated — open to finish setup"
+                  ) : (
+                    "Not generated"
+                  )
                 ) : (
-                  <Timestamp value={draft.generatedAt} timezone={timezone} />
-                )}{" "}
-                · {draft.proposal.placements.length} placements
+                  <>
+                    <Timestamp value={draft.generatedAt} timezone={timezone} /> ·{" "}
+                    {draft.proposal.placements.length} placements
+                  </>
+                )}
               </p>
             </button>
             <DropdownMenu>
@@ -137,13 +167,13 @@ function DraftList({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => action(draft, "duplicate")}>
+                <DropdownMenuItem onSelect={() => duplicate(draft)}>
                   <CopyIcon /> Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant="destructive"
                   disabled={draft.status === "committed" || draft.status === "discarded"}
-                  onSelect={() => action(draft, "discard")}
+                  onSelect={() => discard(draft)}
                 >
                   <Trash2Icon /> Discard
                 </DropdownMenuItem>
@@ -158,10 +188,12 @@ function DraftList({
 
 function CriteriaForm({
   agenda,
+  seed,
   generate,
   cancel,
 }: {
   readonly agenda: AgendaAdminData;
+  readonly seed: { readonly name: string; readonly criteria: AgendaDraftCriteria } | undefined;
   readonly generate: (input: GenerateAgendaDraftRequestData) => Promise<void>;
   readonly cancel: () => void;
 }) {
@@ -169,14 +201,25 @@ function CriteriaForm({
   const days = eventDateKeys(agenda.event.startsAt, agenda.event.endsAt, agenda.event.timezone);
   const defaults: GenerateAgendaDraftRequestData = {
     eventId: agenda.event.id,
-    name: "",
-    criteria: {
-      days,
-      roomIds: agenda.rooms.map((room) => room.id),
-      includeStatuses: ["accepted"],
-      respectExistingPlacements: false,
-      rules: [],
-    },
+    name: seed?.name ?? "",
+    criteria:
+      seed === undefined
+        ? {
+            days,
+            roomIds: agenda.rooms.map((room) => room.id),
+            includeStatuses: ["accepted"],
+            dayStartMinutes: CANVAS_START,
+            dayEndMinutes: CANVAS_END,
+            respectExistingPlacements: false,
+            rules: [],
+          }
+        : {
+            ...seed.criteria,
+            days: seed.criteria.days.filter((day) => days.includes(day)),
+            roomIds: seed.criteria.roomIds.filter((id) =>
+              agenda.rooms.some((room) => room.id === id),
+            ),
+          },
   };
   const form = useForm({
     defaultValues: defaults,
@@ -213,101 +256,177 @@ function CriteriaForm({
           )}
         </form.Field>
 
-        <form.Field name="criteria.days">
-          {(field) => (
-            <fieldset>
-              <legend className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Days
-              </legend>
-              <div className="mt-1.5 grid gap-0.5 rounded-lg border p-1.5">
-                {days.map((day) => {
-                  const checked = field.state.value.includes(day);
-                  return (
-                    <label
-                      key={day}
-                      className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors ${checked ? "bg-muted" : "hover:bg-muted/60"}`}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(next) =>
-                          field.handleChange(
-                            next === true
-                              ? [...field.state.value, day]
-                              : field.state.value.filter((value) => value !== day),
-                          )
-                        }
-                      />
-                      {formatLongDay(day)}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          )}
-        </form.Field>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <form.Field name="criteria.days">
+            {(field) => (
+              <fieldset>
+                <legend className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Days
+                </legend>
+                <div className="mt-1.5 grid gap-0.5 rounded-lg border p-1.5">
+                  {days.map((day) => {
+                    const checked = field.state.value.includes(day);
+                    return (
+                      <label
+                        key={day}
+                        className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors ${checked ? "bg-muted" : "hover:bg-muted/60"}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(next) =>
+                            field.handleChange(
+                              next === true
+                                ? [...field.state.value, day]
+                                : field.state.value.filter((value) => value !== day),
+                            )
+                          }
+                        />
+                        {formatLongDay(day)}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+          </form.Field>
 
-        <form.Field name="criteria.roomIds">
-          {(field) => (
-            <fieldset>
-              <legend className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Rooms
-              </legend>
-              <div className="mt-1.5 grid gap-0.5 rounded-lg border p-1.5">
-                {agenda.rooms.map((room) => {
-                  const checked = field.state.value.includes(room.id);
-                  return (
-                    <label
-                      key={room.id}
-                      className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors ${checked ? "bg-muted" : "hover:bg-muted/60"}`}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(next) =>
-                          field.handleChange(
-                            next === true
-                              ? [...field.state.value, room.id]
-                              : field.state.value.filter((value) => value !== room.id),
-                          )
-                        }
-                      />
-                      {room.name}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          )}
-        </form.Field>
-
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Statuses
-          </p>
-          <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted p-2 text-xs">
-            <Checkbox checked disabled /> Accepted
-            <span className="ml-auto text-[11px] text-muted-foreground">Schedule eligible</span>
-          </div>
+          <form.Field name="criteria.roomIds">
+            {(field) => (
+              <fieldset>
+                <legend className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Rooms
+                </legend>
+                <div className="mt-1.5 grid gap-0.5 rounded-lg border p-1.5">
+                  {agenda.rooms.map((room) => {
+                    const checked = field.state.value.includes(room.id);
+                    return (
+                      <label
+                        key={room.id}
+                        className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors ${checked ? "bg-muted" : "hover:bg-muted/60"}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(next) =>
+                            field.handleChange(
+                              next === true
+                                ? [...field.state.value, room.id]
+                                : field.state.value.filter((value) => value !== room.id),
+                            )
+                          }
+                        />
+                        {room.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+          </form.Field>
         </div>
 
-        <form.Field name="criteria.respectExistingPlacements">
-          {(field) => (
-            <div className="flex items-center justify-between gap-4 border-t pt-4">
-              <div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <form.Field name="criteria.dayStartMinutes">
+            {(field) => (
+              <div className="space-y-1.5">
                 <Label htmlFor={field.name} className="text-xs">
-                  Respect existing placements
+                  First session starts
                 </Label>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Keep scheduled sessions where they are when legal.
-                </p>
+                <Select
+                  value={String(field.state.value ?? CANVAS_START)}
+                  onValueChange={(value) => {
+                    const minutes = Number(value);
+                    field.handleChange(minutes);
+                    if ((form.getFieldValue("criteria.dayEndMinutes") ?? CANVAS_END) <= minutes) {
+                      form.setFieldValue(
+                        "criteria.dayEndMinutes",
+                        Math.min(minutes + 60, CANVAS_END),
+                      );
+                    }
+                  }}
+                >
+                  <SelectTrigger id={field.name} size="sm" className="w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions(CANVAS_START, CANVAS_END - 60).map((minutes) => (
+                      <SelectItem key={minutes} value={String(minutes)}>
+                        {minuteLabel(minutes)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <Switch
-                id={field.name}
-                checked={field.state.value}
-                onCheckedChange={field.handleChange}
-              />
+            )}
+          </form.Field>
+
+          <form.Field name="criteria.dayEndMinutes">
+            {(field) => (
+              <div className="space-y-1.5">
+                <Label htmlFor={field.name} className="text-xs">
+                  Last session ends by
+                </Label>
+                <Select
+                  value={String(field.state.value ?? CANVAS_END)}
+                  onValueChange={(value) => {
+                    const minutes = Number(value);
+                    field.handleChange(minutes);
+                    if (
+                      (form.getFieldValue("criteria.dayStartMinutes") ?? CANVAS_START) >= minutes
+                    ) {
+                      form.setFieldValue(
+                        "criteria.dayStartMinutes",
+                        Math.max(minutes - 60, CANVAS_START),
+                      );
+                    }
+                  }}
+                >
+                  <SelectTrigger id={field.name} size="sm" className="w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeOptions(CANVAS_START + 60, CANVAS_END).map((minutes) => (
+                      <SelectItem key={minutes} value={String(minutes)}>
+                        {minuteLabel(minutes)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </form.Field>
+        </div>
+
+        <div className="grid items-start gap-5 sm:grid-cols-2">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Statuses
+            </p>
+            <div className="mt-1.5 flex items-center gap-2 rounded-lg border bg-muted p-2 text-xs">
+              <Checkbox checked disabled /> Accepted
+              <span className="ml-auto text-[11px] text-muted-foreground">Schedule eligible</span>
             </div>
-          )}
-        </form.Field>
+          </div>
+
+          <form.Field name="criteria.respectExistingPlacements">
+            {(field) => (
+              <div className="flex items-center justify-between gap-4 rounded-lg border p-2">
+                <div>
+                  <Label htmlFor={field.name} className="text-xs">
+                    Respect existing placements
+                  </Label>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Keep scheduled sessions where legal.
+                  </p>
+                </div>
+                <Switch
+                  id={field.name}
+                  checked={field.state.value}
+                  onCheckedChange={field.handleChange}
+                />
+              </div>
+            )}
+          </form.Field>
+        </div>
 
         <form.Field name="criteria.rules">
           {(field) => {
@@ -321,8 +440,13 @@ function CriteriaForm({
               <div className="space-y-1.5">
                 <Label htmlFor={field.name} className="text-xs">
                   Rules
+                  {agenda.aiConfigured ? null : (
+                    <span className="font-normal text-muted-foreground">— needs AI</span>
+                  )}
                 </Label>
-                <div className="rounded-lg border p-1.5">
+                <div
+                  className={cn("rounded-lg border p-1.5", !agenda.aiConfigured && "bg-muted/40")}
+                >
                   {field.state.value.length === 0 ? null : (
                     <div className="mb-1.5 flex flex-wrap gap-1">
                       {field.state.value.map((rule) => (
@@ -351,9 +475,14 @@ function CriteriaForm({
                   <div className="flex items-center gap-1">
                     <Input
                       id={field.name}
+                      disabled={!agenda.aiConfigured}
                       className="h-7 border-0 px-1 text-xs shadow-none focus-visible:ring-0"
                       value={ruleText}
-                      placeholder="keynotes in Hall A morning"
+                      placeholder={
+                        agenda.aiConfigured
+                          ? "keynotes in Hall A morning"
+                          : "Connect Anthropic to write rules"
+                      }
                       onChange={(event) => setRuleText(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key !== "Enter" && event.key !== ",") return;
@@ -367,6 +496,7 @@ function CriteriaForm({
                       size="icon-sm"
                       className="pressable"
                       aria-label="Add rule"
+                      disabled={!agenda.aiConfigured}
                       onClick={addRule}
                     >
                       <PlusIcon />
@@ -375,8 +505,8 @@ function CriteriaForm({
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   {agenda.aiConfigured
-                    ? "Free-form — Claude interprets these, and the solver still verifies every placement. Try “no workshops before 10am”."
-                    : "Matched with built-in heuristics — try “no workshops before 10am” or “spread each track across days”."}
+                    ? "Plain language, interpreted by Claude — the solver still verifies every placement. Try “no workshops before 10am”."
+                    : "Rules are interpreted by Claude, and no Anthropic API key is configured for this workspace. Set ANTHROPIC_API_KEY to enable them."}
                 </p>
               </div>
             );
@@ -423,6 +553,13 @@ function CriteriaForm({
   );
 }
 
+type DialogMode =
+  | { readonly kind: "list" }
+  | {
+      readonly kind: "new";
+      readonly seed?: { readonly name: string; readonly criteria: AgendaDraftCriteria };
+    };
+
 export function AgendaDraftsDialog({
   open,
   onOpenChange,
@@ -430,7 +567,7 @@ export function AgendaDraftsDialog({
   drafts,
   generate,
   compare,
-  action,
+  discard,
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
@@ -438,46 +575,67 @@ export function AgendaDraftsDialog({
   readonly drafts: ReadonlyArray<AgendaDraft>;
   readonly generate: (input: GenerateAgendaDraftRequestData) => Promise<void>;
   readonly compare: (draftId: string) => void;
-  readonly action: (draft: AgendaDraft, action: AgendaDraftActionRequest["action"]) => void;
+  readonly discard: (draft: AgendaDraft) => void;
 }) {
-  const [mode, setMode] = useState<"list" | "new">("list");
+  const [mode, setMode] = useState<DialogMode>({ kind: "list" });
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
-        if (!next) setMode("list");
+        if (!next) setMode({ kind: "list" });
       }}
     >
-      <DialogContent className="flex max-h-[85svh] flex-col gap-0 p-0 sm:max-w-md">
+      <DialogContent
+        className={cn(
+          "flex max-h-[85svh] flex-col gap-0 p-0",
+          mode.kind === "new" ? "sm:max-w-2xl" : "sm:max-w-md",
+        )}
+      >
         <DialogHeader className="m-0 border-b p-4 text-left">
           <div className="flex items-start justify-between gap-4 pr-7">
             <div>
-              <DialogTitle>{mode === "list" ? "Auto-schedule" : "New draft"}</DialogTitle>
+              <DialogTitle>
+                {mode.kind === "list" ? "Auto-schedule" : (mode.seed?.name ?? "New draft")}
+              </DialogTitle>
               <DialogDescription className="mt-0.5 text-xs">
-                {mode === "list"
+                {mode.kind === "list"
                   ? agenda.aiConfigured
                     ? "A greedy constraint solver places sessions conflict-free; Claude interprets your natural-language rules."
                     : "A greedy constraint solver places sessions into conflict-free slots."
                   : "Choose the scope and constraints for this proposal."}
               </DialogDescription>
             </div>
-            {mode === "list" ? (
-              <Button size="sm" className="pressable" onClick={() => setMode("new")}>
+            {mode.kind === "list" ? (
+              <Button size="sm" className="pressable" onClick={() => setMode({ kind: "new" })}>
                 <PlusIcon /> New draft
               </Button>
             ) : null}
           </div>
         </DialogHeader>
-        {mode === "list" ? (
+        {mode.kind === "list" ? (
           <DraftList
             drafts={drafts}
             timezone={agenda.event.timezone}
             compare={compare}
-            action={action}
+            continueSetup={(draft) =>
+              setMode({ kind: "new", seed: { name: draft.name, criteria: draft.criteria } })
+            }
+            duplicate={(draft) =>
+              setMode({
+                kind: "new",
+                seed: { name: `${draft.name} copy`, criteria: draft.criteria },
+              })
+            }
+            discard={discard}
           />
         ) : (
-          <CriteriaForm agenda={agenda} generate={generate} cancel={() => setMode("list")} />
+          <CriteriaForm
+            agenda={agenda}
+            seed={mode.seed}
+            generate={generate}
+            cancel={() => setMode({ kind: "list" })}
+          />
         )}
       </DialogContent>
     </Dialog>
