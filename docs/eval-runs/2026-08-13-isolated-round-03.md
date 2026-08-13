@@ -57,7 +57,7 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 | ABS-S1 | Speaker seeds submissions with a co-author | Complete | `053`–`057`; Marcus persisted as Co-presenter, three proposals visible |
 | ABS-S2 | Organizer configures rounds, pools, assignments, reminders | Complete | `058`–`067`; two independent rounds, exact 2 assignments, 2/0 baseline, reminder log |
 | ABS-S3 | Reviewer scores blind; organizer checks aggregates and export | Complete | `068`–`080`; blind queue, exact stored reviews, weighted 3.33/5.00, sorts, 2/2, export |
-| SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Pending | — |
+| SPK-S1 | Organizer builds the speaker roster and assigns onboarding tasks | Complete | `081`–`092`; isolated Priya confirmed, fixture CSV imported, three tasks assigned to isolated Priya/Marcus, invite logged |
 | SPK-S2 | Speaker completes onboarding in the portal | Pending | — |
 | SPK-S3 | Organizer tracks progress and sends bulk communications | Pending | — |
 | CNT-S1 | Organizer sets up content collection | Pending | — |
@@ -171,6 +171,18 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 - No console errors or warnings appeared during the scenario.
 - Evidence: `068-abs-s3-reviewer-queue.png` through `080-abs-s3-export-triggered.png`. Every file was written and size-verified in this run.
 
+### SPK-S1 — Organizer builds the speaker roster and assigns onboarding tasks
+
+- Opened the fresh event speaker directory before any CSV import. It contained exactly the two Round 03 people promoted through the accepted submission: Priya Raman and co-presenter Marcus Okafor. Priya was linked to `SESS-1`; both initially showed zero tasks.
+- Exercised manual add with Priya's complete fixture profile. Saving correctly refused the duplicate Round 03 email with `A speaker with this email already exists.` Edited the existing contact instead, setting Principal Engineer, Latticework Systems, the full fixture biography plus `SBEK-ORG-EDIT-01`, Confirmed, Vegetarian, M, Twitter, and LinkedIn. Reload verified every value, profile approval/history, Confirmed status, and the linked `SESS-1` session persisted.
+- Edited the existing Round 03 Marcus contact to Staff Developer Advocate, Cloudreach Labs, and his full fixture biography.
+- Uploaded the prescribed `speakers.csv` through the browser's real file-chooser interface. Header mapping correctly recognized name, email, title, company, and bio; all three rows parsed with zero errors. Because the CSV fixture uses `priya.speaker@sbek-test.example.com` and `marcus.speaker@sbek-test.example.com` rather than the required isolated Round 03 identities, it reported zero matches and created all three rows. The resulting five-person roster contained Dana Kowalski plus duplicate display names for Priya and Marcus with distinct emails.
+- Verified searching `Priya` reduces the roster to the two distinct Priya contacts, clearing restores all five, and the Confirmed status filter isolates only the Round 03 Priya contact.
+- Created the exact three prescribed general tasks and assigned each specifically to the two isolated Round 03 identities, not the CSV contacts: `Confirm participation` due Apr 1, 2027; `Complete bio and profile` due Apr 1, 2027; and `Sign speaker release form` due Apr 15, 2027. The assignments board showed exactly Priya and Marcus with three outstanding tasks each.
+- Sent Priya a portal invitation. The product confirmed `Sent 1 invitation`, displayed `/portal`, and Email Delivery recorded `Your speaker portal for DevFlow Conf 2027` to the isolated Priya email with Demo status.
+- No console errors or warnings appeared during the scenario.
+- Evidence: `081-spk-s1-initial-roster.png` through `092-spk-s1-invite-email-log.png`. Every file was written and size-verified in this run.
+
 ## Issues discovered
 
 1. **Timezone selection shifts previously chosen calendar dates during onboarding.** The event was initially set to May 12–14 while the default timezone was Asia/Calcutta. Changing the timezone to America/Los_Angeles displayed May 11–13 because the saved instants were preserved. The user-facing onboarding flow therefore requires choosing timezone before dates or correcting both dates. The settings page states that timezone changes preserve UTC instants, but the ordering makes this easy to miss.
@@ -186,6 +198,9 @@ No workaround is silent. If a scenario requires extra setup, an unexpected navig
 11. **AI first-pass is deployed but unusable without an Anthropic key.** The capability is discoverable only after opening a submission in Results, where it reports `Anthropic key not configured`. There is no score, written reasoning, run control, or override available in production, so the optional AI rubric cannot be exercised.
 12. **The identified reviewer view duplicates participant labels after a co-presenter edit.** The earlier non-blind Round 03 CFP review rendered `Priya Raman · Primary speaker` twice and `Marcus Okafor · Co-presenter` twice. The blind Initial Review correctly hid all identity, and organizer submission data itself contained each participant once, so this is a presentation duplication in the identified reviewer view.
 13. **Results initially labels the primary participant by email rather than name.** The Initial Review Results table and spotlight showed Priya as her email address while Marcus appeared by name. The linked full submission page correctly showed `Priya Raman`; the mismatch weakens organizer scanability and suggests incomplete contact-name normalization.
+14. **The prescribed speaker CSV cannot merge with an isolated eval identity.** The scenario fixture asks the evaluator to use Round-specific unique emails but `speakers.csv` hard-codes different `@sbek-test.example.com` addresses. The importer correctly matches by email, therefore reports zero matches and creates duplicate Priya/Marcus display names. This is a specification/fixture interaction rather than an importer defect, but it materially complicates later speaker selection and makes name-only rows ambiguous.
+15. **Task creation immediately renders a stale template count and empty state.** After each successful save, the toast reported assignment to two speakers but the Templates tab retained its previous count and rows until a full reload. The first task therefore appeared as `Templates (0)` with `Create your first speaker task`; the second remained invisible at `Templates (1)`. Persistence was correct after reload, but the false empty state invites duplicate task creation.
+16. **Task assignment defaults to every contact, including CSV-created duplicates.** New tasks initially selected all five directory contacts. Meeting the explicit two-speaker fixture required opening the assignment picker, clearing all, and selecting the two contacts by their full isolated emails. This control is functional and precise, but the default becomes risky after import because duplicate names are visually indistinguishable outside the email-bearing picker.
 
 ## Score
 
