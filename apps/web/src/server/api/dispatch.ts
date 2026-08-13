@@ -15,7 +15,12 @@ import { ConfigProvider, Effect, Layer, ManagedRuntime, Result, Schema } from "e
 
 import { mailLayerFromEnv } from "@/server/mail-layer";
 import { hashApiKey } from "./keys";
-import type { ApiEndpoint, ApiPrincipal, ApiRequestContext } from "./types";
+import {
+  actorForPrincipal,
+  type ApiEndpoint,
+  type ApiPrincipal,
+  type ApiRequestContext,
+} from "./types";
 
 // ---------------------------------------------------------------------------
 // Error envelope. Success responses return the resource JSON directly; every
@@ -52,7 +57,8 @@ const STATUS_BY_TAG: Record<string, number> = {
   NeedsOrganization: 428,
 };
 
-const errorCode = (tag: string) => tag.replaceAll(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+export const errorCode = (tag: string) =>
+  tag.replaceAll(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 
 export const jsonResponse = (body: unknown, status = 200, headers?: Record<string, string>) =>
   new Response(JSON.stringify(body, null, 2), {
@@ -124,6 +130,7 @@ const resolvePrincipal = async (
     .catch(() => undefined);
   return {
     principal: {
+      kind: "api_key",
       organizationId: key.organizationId,
       keyId: key.id,
       keyName: key.name,
@@ -219,6 +226,7 @@ export const dispatchApiRequest = async (
 
   const context: ApiRequestContext = {
     principal: resolved.principal,
+    actor: actorForPrincipal(resolved.principal),
     params,
     query: new URL(request.url).searchParams,
     body,

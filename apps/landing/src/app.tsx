@@ -9,6 +9,7 @@ import {
   Footer,
   LinearBand,
   Loop,
+  Mcp,
   OpenSource,
   Spotlight,
   Stats,
@@ -32,6 +33,7 @@ export function App() {
           <Spotlight />
           <LinearBand />
           <Confidence />
+          <Mcp />
           <Compare />
           <StripeBand />
           <OpenSource />

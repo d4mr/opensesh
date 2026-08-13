@@ -5,6 +5,7 @@ const links = [
   { label: "Product", href: "#product" },
   { label: "Spotlight", href: "#spotlight" },
   { label: "Workflow", href: "#workflow" },
+  { label: "MCP", href: "#mcp" },
   { label: "Compare", href: "#compare" },
   { label: "Open source", href: "#open-source" },
   { label: "Docs", href: DOCS_URL },

@@ -151,7 +151,9 @@ const flattenConstraintAllOf = (value: unknown): unknown => {
 const cleanup = (value: unknown): unknown =>
   flattenConstraintAllOf(collapseNonFiniteNumbers(value));
 
-const schemaToJson = (
+// Also consumed by the MCP tool generator, which builds each tool's input
+// schema from the same endpoint definitions as this document.
+export const schemaToJson = (
   schema: Schema.ConstraintDecoder<unknown>,
   operationId: string,
   componentSchemas: Record<string, unknown>,
@@ -175,19 +177,41 @@ const schemaToJson = (
   }
 };
 
-const pathParams = (path: string) =>
+export const pathParams = (path: string) =>
   Array.from(path.matchAll(/\{([^}]+)\}/g), (match) => match[1] ?? "");
+
+// Every path parameter carries a description: these defaults cover the shared
+// names, and an endpoint's `pathParams` overrides them where a name needs
+// route-specific framing ({submissionId} on Sessions routes).
+export const PATH_PARAM_DESCRIPTIONS: Record<string, string> = {
+  eventId: "The event's id.",
+  submissionId: "The submission's id (sessions share their submission's id).",
+  contactId: "The contact's id.",
+  roundId: "The review round's id.",
+  resourceId: "The resource page's id.",
+  draftId: "The agenda draft's id.",
+  widgetId: "The widget's id.",
+  tagId: "The tag's id.",
+  stageId: "The pipeline stage's id.",
+  itemId: "The item's id.",
+  cardId: "The pipeline card's id.",
+  eventMemberId: "The event member's id.",
+  assignmentId: "The review assignment's id.",
+};
 
 // Shown as the subtitle of each generated API reference page and carried in
 // the machine-readable document for API consumers.
 const TAG_DESCRIPTIONS: Record<string, string> = {
   Organization: "The workspace profile, members, and pending invitations.",
   Events: "Events and the shared event library: tracks, formats, rooms, tags, levels.",
-  Submissions: "The review desk: list, inspect, and decide CFP submissions.",
+  Submissions:
+    "The review desk: list, inspect, and decide CFP submissions. An accepted submission becomes a session — the same record, the same id — under the Sessions endpoints.",
   Sessions:
-    "The program lens over accepted submissions: readiness, cancellation with a recorded cause, reinstatement, and manual sessions.",
+    "The program lens over accepted submissions: readiness, cancellation with a recorded cause, reinstatement, and manual sessions. A session shares its submission's id, so ids from either family work in the other.",
   Speakers: "The event speaker directory, workflow status, imports, and portal invites.",
   Reviews: "Review rounds, reviewer assignment, reminders, and AI reviews.",
+  Reviewer:
+    "The signed-in reviewer's own queue: assignments, answers, recusals, and quick scores. Requires a user session with reviewer membership — organization API keys act as admins and use the Reviews endpoints instead.",
   Resources: "Organizer-authored pages and attachments published to speaker audiences.",
   Agenda: "The schedule, publishing, and AI-generated agenda drafts.",
   CRM: "Organization-level contacts: tags, notes, merge, and CSV import.",
@@ -222,12 +246,18 @@ export const buildOpenApiDocument = (endpoints: ReadonlyArray<ApiEndpoint>, orig
       ...(endpoint.description === undefined ? {} : { description: endpoint.description }),
       tags: [endpoint.tag],
       parameters: [
-        ...pathParams(endpoint.path).map((name) => ({
-          name,
-          in: "path",
-          required: true,
-          schema: { type: "string" },
-        })),
+        ...pathParams(endpoint.path).map((name) => {
+          const description =
+            endpoint.pathParams?.find((param) => param.name === name)?.description ??
+            PATH_PARAM_DESCRIPTIONS[name];
+          return {
+            name,
+            in: "path",
+            required: true,
+            ...(description === undefined ? {} : { description }),
+            schema: { type: "string" },
+          };
+        }),
         ...(endpoint.queryParams ?? []).map((param) => ({
           name: param.name,
           in: "query",
@@ -294,7 +324,7 @@ export const buildOpenApiDocument = (endpoints: ReadonlyArray<ApiEndpoint>, orig
       title: "opensesh API",
       version: "1.0.0",
       description:
-        'The complete opensesh surface over REST: events, call for papers, submissions, evaluation, agenda, speakers, CRM, widgets, mail, and integrations. Authenticate with an organization API key (`Authorization: Bearer osk_…`) created in Organization settings → API keys. Success responses return the resource directly; every error is `{ "error": { "code", "message" } }` with a matching HTTP status.',
+        'The complete opensesh surface over REST: events, call for papers, submissions, evaluation, agenda, speakers, CRM, widgets, mail, and integrations. Authenticate with an organization API key (`Authorization: Bearer osk_…`) created in Organization settings → API keys. Success responses return the resource directly; every error is `{ "error": { "code", "message" } }` with a matching HTTP status.\n\nA submission is a CFP entry moving through review; accepting it makes it a session — the same record seen through the program lens, so sessions and submissions share one id space. A session\'s `id` is its submission\'s id and works in either family of endpoints, including everywhere a `submissionId` is asked for. Manually created sessions are submissions born accepted, with no CFP history behind them.',
     },
     servers: [{ url: `${origin}/api/v1` }],
     security: [{ bearerAuth: [] }],

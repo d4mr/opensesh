@@ -17,6 +17,8 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SubmitRouteImport } from './routes/submit'
+import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
+import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known/oauth-protected-resource'
 import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminSectionRouteImport } from './routes/admin.$section'
@@ -31,9 +33,11 @@ import { Route as AdminSessionsRouteImport } from './routes/admin.sessions'
 import { Route as AdminSpeakersRouteImport } from './routes/admin.speakers'
 import { Route as AdminSubmissionsRouteImport } from './routes/admin.submissions'
 import { Route as AdminWidgetsRouteImport } from './routes/admin.widgets'
+import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ESplatRouteImport } from './routes/e.$'
 import { Route as EEventSlugRouteImport } from './routes/e.$eventSlug'
 import { Route as EmbedEmbedIdRouteImport } from './routes/embed.$embedId'
+import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalSectionRouteImport } from './routes/portal.$section'
 import { Route as SubmitSplatRouteImport } from './routes/submit.$'
@@ -99,6 +103,18 @@ const SubmitRoute = SubmitRouteImport.update({
   path: '/submit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownOauthAuthorizationServerRoute =
+  DotwellKnownOauthAuthorizationServerRouteImport.update({
+    id: '/.well-known/oauth-authorization-server',
+    path: '/.well-known/oauth-authorization-server',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownOauthProtectedResourceRoute =
+  DotwellKnownOauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AcceptInvitationInvitationIdRoute =
   AcceptInvitationInvitationIdRouteImport.update({
     id: '/accept-invitation/$invitationId',
@@ -170,6 +186,11 @@ const AdminWidgetsRoute = AdminWidgetsRouteImport.update({
   path: '/widgets',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ESplatRoute = ESplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -183,6 +204,11 @@ const EEventSlugRoute = EEventSlugRouteImport.update({
 const EmbedEmbedIdRoute = EmbedEmbedIdRouteImport.update({
   id: '/embed/$embedId',
   path: '/embed/$embedId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
@@ -317,6 +343,8 @@ export interface FileRoutesByFullPath {
   '/portal': typeof PortalRouteWithChildren
   '/signup': typeof SignupRoute
   '/submit': typeof SubmitRouteWithChildren
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/$section': typeof AdminSectionRoute
   '/admin/agenda': typeof AdminAgendaRoute
@@ -330,9 +358,11 @@ export interface FileRoutesByFullPath {
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/submissions': typeof AdminSubmissionsRoute
   '/admin/widgets': typeof AdminWidgetsRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/e/$': typeof ESplatRoute
   '/e/$eventSlug': typeof EEventSlugRouteWithChildren
   '/embed/$embedId': typeof EmbedEmbedIdRouteWithChildren
+  '/oauth/consent': typeof OauthConsentRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
@@ -366,6 +396,8 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/signup': typeof SignupRoute
   '/submit': typeof SubmitRouteWithChildren
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/$section': typeof AdminSectionRoute
   '/admin/agenda': typeof AdminAgendaRoute
@@ -379,8 +411,10 @@ export interface FileRoutesByTo {
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/submissions': typeof AdminSubmissionsRoute
   '/admin/widgets': typeof AdminWidgetsRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/e/$': typeof ESplatRoute
   '/embed/$embedId': typeof EmbedEmbedIdRouteWithChildren
+  '/oauth/consent': typeof OauthConsentRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin': typeof AdminIndexRoute
@@ -417,6 +451,8 @@ export interface FileRoutesById {
   '/portal': typeof PortalRouteWithChildren
   '/signup': typeof SignupRoute
   '/submit': typeof SubmitRouteWithChildren
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/admin/$section': typeof AdminSectionRoute
   '/admin/agenda': typeof AdminAgendaRoute
@@ -430,9 +466,11 @@ export interface FileRoutesById {
   '/admin/speakers': typeof AdminSpeakersRoute
   '/admin/submissions': typeof AdminSubmissionsRoute
   '/admin/widgets': typeof AdminWidgetsRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/e/$': typeof ESplatRoute
   '/e/$eventSlug': typeof EEventSlugRouteWithChildren
   '/embed/$embedId': typeof EmbedEmbedIdRouteWithChildren
+  '/oauth/consent': typeof OauthConsentRoute
   '/portal/$section': typeof PortalSectionRoute
   '/submit/$': typeof SubmitSplatRoute
   '/admin/': typeof AdminIndexRoute
@@ -470,6 +508,8 @@ export interface FileRouteTypes {
     | '/portal'
     | '/signup'
     | '/submit'
+    | '/.well-known/oauth-authorization-server'
+    | '/.well-known/oauth-protected-resource'
     | '/accept-invitation/$invitationId'
     | '/admin/$section'
     | '/admin/agenda'
@@ -483,9 +523,11 @@ export interface FileRouteTypes {
     | '/admin/speakers'
     | '/admin/submissions'
     | '/admin/widgets'
+    | '/api/mcp'
     | '/e/$'
     | '/e/$eventSlug'
     | '/embed/$embedId'
+    | '/oauth/consent'
     | '/portal/$section'
     | '/submit/$'
     | '/admin/'
@@ -519,6 +561,8 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/signup'
     | '/submit'
+    | '/.well-known/oauth-authorization-server'
+    | '/.well-known/oauth-protected-resource'
     | '/accept-invitation/$invitationId'
     | '/admin/$section'
     | '/admin/agenda'
@@ -532,8 +576,10 @@ export interface FileRouteTypes {
     | '/admin/speakers'
     | '/admin/submissions'
     | '/admin/widgets'
+    | '/api/mcp'
     | '/e/$'
     | '/embed/$embedId'
+    | '/oauth/consent'
     | '/portal/$section'
     | '/submit/$'
     | '/admin'
@@ -569,6 +615,8 @@ export interface FileRouteTypes {
     | '/portal'
     | '/signup'
     | '/submit'
+    | '/.well-known/oauth-authorization-server'
+    | '/.well-known/oauth-protected-resource'
     | '/accept-invitation/$invitationId'
     | '/admin/$section'
     | '/admin/agenda'
@@ -582,9 +630,11 @@ export interface FileRouteTypes {
     | '/admin/speakers'
     | '/admin/submissions'
     | '/admin/widgets'
+    | '/api/mcp'
     | '/e/$'
     | '/e/$eventSlug'
     | '/embed/$embedId'
+    | '/oauth/consent'
     | '/portal/$section'
     | '/submit/$'
     | '/admin/'
@@ -621,8 +671,12 @@ export interface RootRouteChildren {
   PortalRoute: typeof PortalRouteWithChildren
   SignupRoute: typeof SignupRoute
   SubmitRoute: typeof SubmitRouteWithChildren
+  DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
+  DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
+  ApiMcpRoute: typeof ApiMcpRoute
   EmbedEmbedIdRoute: typeof EmbedEmbedIdRouteWithChildren
+  OauthConsentRoute: typeof OauthConsentRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
@@ -686,6 +740,20 @@ declare module '@tanstack/react-router' {
       path: '/submit'
       fullPath: '/submit'
       preLoaderRoute: typeof SubmitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-authorization-server': {
+      id: '/.well-known/oauth-authorization-server'
+      path: '/.well-known/oauth-authorization-server'
+      fullPath: '/.well-known/oauth-authorization-server'
+      preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accept-invitation/$invitationId': {
@@ -786,6 +854,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWidgetsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/e/$': {
       id: '/e/$'
       path: '/$'
@@ -805,6 +880,13 @@ declare module '@tanstack/react-router' {
       path: '/embed/$embedId'
       fullPath: '/embed/$embedId'
       preLoaderRoute: typeof EmbedEmbedIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portal/': {
@@ -1109,8 +1191,14 @@ const rootRouteChildren: RootRouteChildren = {
   PortalRoute: PortalRouteWithChildren,
   SignupRoute: SignupRoute,
   SubmitRoute: SubmitRouteWithChildren,
+  DotwellKnownOauthAuthorizationServerRoute:
+    DotwellKnownOauthAuthorizationServerRoute,
+  DotwellKnownOauthProtectedResourceRoute:
+    DotwellKnownOauthProtectedResourceRoute,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
+  ApiMcpRoute: ApiMcpRoute,
   EmbedEmbedIdRoute: EmbedEmbedIdRouteWithChildren,
+  OauthConsentRoute: OauthConsentRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,

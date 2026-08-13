@@ -6,6 +6,7 @@ export * from "./schema/crm";
 export * from "./schema/communications";
 export * from "./schema/forms";
 export * from "./schema/identity";
+export * from "./schema/oauth";
 export * from "./schema/integrations";
 export * from "./schema/portal";
 export * from "./schema/reviews";

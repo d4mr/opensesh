@@ -17,6 +17,12 @@
   --color-fd-ring: oklch(0.78 0.115 162 / 0.35);
 }
 
+/* Card icon tiles: fumadocs ships shadow-md on the wrapper, which reads
+   heavy at 16px. Quiet it down to a hairline. */
+[data-card] > .shadow-md {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
 html {
   scrollbar-gutter: stable;
 }

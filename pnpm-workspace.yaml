@@ -29,3 +29,5 @@ peerDependencyRules:
 minimumReleaseAgeExclude:
   - '@cloudflare/workers-types@5.20260810.1'
   - '@cloudflare/nimbus-docs@0.10.0'
+patchedDependencies:
+  react-server-dom-webpack@19.2.8: patches/react-server-dom-webpack@19.2.8.patch

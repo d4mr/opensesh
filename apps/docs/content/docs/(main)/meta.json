@@ -3,5 +3,5 @@
   "description": "Guides and concepts",
   "icon": "BookOpen",
   "root": true,
-  "pages": ["index", "getting-started", "deployment", "---Guides---", "...guides"]
+  "pages": ["index", "getting-started", "deployment", "mcp", "---Guides---", "...guides"]
 }

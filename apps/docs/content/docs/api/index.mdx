@@ -3,7 +3,7 @@ title: "API overview"
 description: "Authenticate with an organization API key and drive the whole platform over REST."
 ---
 
-opensesh exposes a REST API for reading and managing program data programmatically — 64 operations covering the whole platform. Every operation is documented in the sidebar, and the same surface is described by the machine-readable [OpenAPI document](#openapi-spec) — ideal for wiring up an MCP server or generating a typed client.
+opensesh exposes a REST API for reading and managing program data programmatically — 80 operations covering the whole platform. Every operation is documented in the sidebar, and the same surface is described by the machine-readable [OpenAPI document](#openapi-spec) — ideal for generating a typed client. The same operations are also served as a first-party [MCP server](/mcp) that agents connect to with user-scoped OAuth instead of an org API key.
 
 ## Base URL
 
@@ -38,6 +38,10 @@ GET https://app.opensesh.io/api/v1/openapi.json
 ```
 
 The document is generated from the same endpoint definitions that validate live requests and type the handlers, so it always matches what the server actually does. Use it to generate clients or import the API into your tooling.
+
+## Sessions vs submissions
+
+A **submission** is a CFP entry moving through review; accepting it makes it a **session** — the same record seen through the program lens, so sessions and submissions share one id space. A session's `id` is its submission's id and works in either family of endpoints, including everywhere a `submissionId` is asked for. Manually created sessions are submissions born accepted, with no CFP history behind them.
 
 ## Conventions
 
