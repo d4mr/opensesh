@@ -1191,7 +1191,11 @@ export function SubmissionTablePage({
                 ]
                   .filter((part) => part !== null)
                   .join(" and ")}{" "}
-                will be emailed to their submitters and marked notified.
+                will be emailed to{" "}
+                {informAcceptances.length + informDeclines.length === 1
+                  ? "its submitter"
+                  : "their submitters"}{" "}
+                and marked notified.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
