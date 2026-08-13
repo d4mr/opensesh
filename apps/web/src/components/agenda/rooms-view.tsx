@@ -14,6 +14,7 @@ import {
 import {
   AlertTriangleIcon,
   GripVerticalIcon,
+  MinusIcon,
   PlusIcon,
   SearchIcon,
   Settings2Icon,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,22 +56,31 @@ import {
 } from "./date-utils";
 import { AgendaSpeakerNames, SessionPeek } from "./session-peek";
 
-const SLOT_HEIGHT = 36;
-
-// The grid's increment and open/close times are a per-user view preference —
-// the data-model floor stays validateScheduleChange's 5-minute mark. The grid
-// widens itself past the preference whenever a session sits outside it, so a
-// placement can never become invisible.
+// The grid's increment, open/close times, and zoom are per-user view
+// preferences — the data-model floor stays validateScheduleChange's 5-minute
+// mark. The increment only changes what drops snap to; zoom is a separate
+// pixels-per-minute scale so a finer increment never inflates the grid. The
+// grid widens itself past the preference whenever a session sits outside it,
+// so a placement can never become invisible.
 interface GridConfig {
   readonly start: number;
   readonly end: number;
   readonly slot: number;
+  readonly zoom: number;
 }
 const gridConfigKey = "agenda-grid-config";
-const defaultGridConfig: GridConfig = { start: 8 * 60, end: 19 * 60, slot: 15 };
+const MIN_ZOOM = 0.8;
+const MAX_ZOOM = 6;
+const defaultGridConfig: GridConfig = { start: 8 * 60, end: 19 * 60, slot: 15, zoom: 2.4 };
 const slotChoices = [5, 10, 15, 30];
 const timeRange = (from: number, to: number) =>
   Array.from({ length: (to - from) / 30 + 1 }, (_, index) => from + index * 30);
+const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+
+// Slot boundaries stay droppable at full granularity, but their lines thin
+// out to the coarsest rhythm that keeps at least ~12px between lines.
+const lineEvery = (slot: number, zoom: number) =>
+  [slot, 10, 15, 30, 60].find((step) => step >= slot && step * zoom >= 12) ?? 60;
 
 const loadGridConfig = (): GridConfig => {
   try {
@@ -88,7 +99,11 @@ const loadGridConfig = (): GridConfig => {
       typeof record.end === "number" && record.end <= 24 * 60 && record.end % 30 === 0
         ? record.end
         : defaultGridConfig.end;
-    return end > start ? { start, end, slot } : defaultGridConfig;
+    const zoom =
+      typeof record.zoom === "number" && Number.isFinite(record.zoom)
+        ? clampZoom(record.zoom)
+        : defaultGridConfig.zoom;
+    return end > start ? { start, end, slot, zoom } : defaultGridConfig;
   } catch {
     return defaultGridConfig;
   }
@@ -96,14 +111,31 @@ const loadGridConfig = (): GridConfig => {
 
 const slotId = (roomId: string, day: string, minutes: number) => `slot:${roomId}:${day}:${minutes}`;
 
-function DropSlot({ roomId, day, minutes }: { roomId: string; day: string; minutes: number }) {
+function DropSlot({
+  roomId,
+  day,
+  minutes,
+  height,
+  lined,
+}: {
+  roomId: string;
+  day: string;
+  minutes: number;
+  height: number;
+  lined: boolean;
+}) {
   const { isOver, setNodeRef } = useDroppable({ id: slotId(roomId, day, minutes) });
   return (
     <div
       ref={setNodeRef}
+      style={{ height }}
       className={cn(
-        "h-9 border-t border-border/70 transition-colors",
-        minutes % 60 === 0 ? "border-t-border" : "",
+        "border-t transition-colors",
+        minutes % 60 === 0
+          ? "border-t-border"
+          : lined
+            ? "border-t-border/70"
+            : "border-t-transparent",
         isOver ? "bg-primary/10" : "",
       )}
     />
@@ -155,8 +187,8 @@ function SessionBlock({
     session.startsAt === null ? grid.start : minutesFor(session.startsAt, timezone);
   const track = session.tracks[0];
   const style: CSSProperties = {
-    top: ((startMinutes - grid.start) / grid.slot) * SLOT_HEIGHT + 1,
-    height: Math.max((previewDuration / grid.slot) * SLOT_HEIGHT - 2, 34),
+    top: (startMinutes - grid.start) * grid.zoom + 1,
+    height: Math.max(previewDuration * grid.zoom - 2, 14),
     borderLeftColor: track?.color,
     transform:
       transform === null
@@ -227,7 +259,9 @@ function SessionBlock({
         }}
         onPointerMove={(event) => {
           if (resizeStart.current === null) return;
-          const deltaSlots = Math.round((event.clientY - resizeStart.current.y) / SLOT_HEIGHT);
+          const deltaSlots = Math.round(
+            (event.clientY - resizeStart.current.y) / (grid.slot * grid.zoom),
+          );
           const maxDuration = grid.end - startMinutes;
           setPreviewDuration(
             Math.max(
@@ -412,7 +446,12 @@ export function RoomsView({
     24 * 60,
     Math.ceil(Math.max(gridConfig.end, ...scheduledSpans.map((span) => span.end)) / 60) * 60,
   );
-  const grid: GridConfig = { start: gridStart, end: gridEnd, slot: gridConfig.slot };
+  const grid: GridConfig = {
+    start: gridStart,
+    end: gridEnd,
+    slot: gridConfig.slot,
+    zoom: gridConfig.zoom,
+  };
   const slots = useMemo(
     () =>
       Array.from(
@@ -421,6 +460,96 @@ export function RoomsView({
       ),
     [gridStart, gridEnd, gridConfig.slot],
   );
+  // Effective bounds are hour-floored above, so these land on whole hours.
+  const hourMarks = useMemo(
+    () =>
+      Array.from(
+        { length: Math.ceil((gridEnd - gridStart) / 60) },
+        (_, index) => gridStart + index * 60,
+      ),
+    [gridStart, gridEnd],
+  );
+  const slotHeight = gridConfig.slot * gridConfig.zoom;
+  const columnHeight = (gridEnd - gridStart) * gridConfig.zoom;
+  const linedStep = lineEvery(gridConfig.slot, gridConfig.zoom);
+  // Idle columns paint their lines as a single repeating gradient — droppable
+  // slot rows (hundreds of nodes re-registering with dnd-kit) mount only for
+  // the duration of a drag. This is what keeps pinch-zoom re-renders cheap.
+  const columnLines = `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${
+    60 * gridConfig.zoom
+  }px)${
+    linedStep < 60
+      ? `, repeating-linear-gradient(to bottom, color-mix(in srgb, var(--border) 70%, transparent) 0 1px, transparent 1px ${
+          linedStep * gridConfig.zoom
+        }px)`
+      : ""
+  }`;
+
+  // Cursor-anchored zoom: ⌘/Ctrl + scroll (trackpad pinches arrive as
+  // ctrl+wheel). A native non-passive listener is required — React delegates
+  // wheel passively, so preventDefault would be ignored. The time under the
+  // cursor stays put: we stash its minute + viewport offset, then restore
+  // scrollTop after the zoomed layout commits.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const zoomAnchor = useRef<{ readonly minutes: number; readonly offsetY: number } | null>(null);
+  const gridGeometry = useRef({ start: gridStart, zoom: gridConfig.zoom });
+  gridGeometry.current = { start: gridStart, zoom: gridConfig.zoom };
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (container === null) return;
+    const headerHeight = 40;
+    // Pinch events arrive faster than the grid can re-lay out; accumulate
+    // deltas and commit at most one zoom step per animation frame so the
+    // gesture tracks smoothly instead of stuttering behind a render queue.
+    let pendingDelta = 0;
+    let frame: number | null = null;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      pendingDelta += event.deltaY;
+      const { start, zoom } = gridGeometry.current;
+      const offsetY = event.clientY - container.getBoundingClientRect().top;
+      zoomAnchor.current = {
+        minutes: start + (container.scrollTop + offsetY - headerHeight) / zoom,
+        offsetY,
+      };
+      frame ??= requestAnimationFrame(() => {
+        frame = null;
+        const delta = pendingDelta;
+        pendingDelta = 0;
+        const currentZoom = gridGeometry.current.zoom;
+        const next = clampZoom(currentZoom * Math.exp(-delta * 0.005));
+        if (next === currentZoom) {
+          zoomAnchor.current = null;
+          return;
+        }
+        setGridConfig((current) => {
+          const value = { ...current, zoom: next };
+          localStorage.setItem(gridConfigKey, JSON.stringify(value));
+          return value;
+        });
+      });
+    };
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", onWheel);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  // Layout effect: the corrected scrollTop must land in the same frame as the
+  // zoomed layout, or the time under the cursor visibly jumps for a frame.
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    const anchor = zoomAnchor.current;
+    if (container === null || anchor === null) return;
+    zoomAnchor.current = null;
+    container.scrollTop =
+      (anchor.minutes - gridGeometry.current.start) * gridGeometry.current.zoom -
+      anchor.offsetY +
+      40;
+  }, [gridConfig.zoom]);
   const pool = useMemo(
     () =>
       agenda.sessions.filter(
@@ -573,6 +702,43 @@ export function RoomsView({
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex items-center justify-between gap-2 border-t pt-3">
+                      <span className="text-xs text-muted-foreground">Zoom</span>
+                      <span className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="pressable"
+                          aria-label="Zoom out"
+                          disabled={gridConfig.zoom <= MIN_ZOOM}
+                          onClick={() =>
+                            updateGridConfig({ zoom: clampZoom(gridConfig.zoom / 1.25) })
+                          }
+                        >
+                          <MinusIcon />
+                        </Button>
+                        <span className="w-10 text-center text-xs text-muted-foreground tabular-nums">
+                          {Math.round((gridConfig.zoom / defaultGridConfig.zoom) * 100)}%
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="pressable"
+                          aria-label="Zoom in"
+                          disabled={gridConfig.zoom >= MAX_ZOOM}
+                          onClick={() =>
+                            updateGridConfig({ zoom: clampZoom(gridConfig.zoom * 1.25) })
+                          }
+                        >
+                          <PlusIcon />
+                        </Button>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      ⌘/Ctrl + scroll zooms the grid at the cursor.
+                    </p>
                   </div>
                 </PopoverContent>
               </Popover>
@@ -580,7 +746,7 @@ export function RoomsView({
           </div>
           {/* The grid is the page's only scroll surface (both axes); isolate
               keeps its sticky/z layers from stacking above the app sidebar. */}
-          <div className="isolate min-h-0 flex-1 overflow-auto">
+          <div ref={scrollRef} className="scrollbar-slim isolate min-h-0 flex-1 overflow-auto">
             <div
               className="grid min-w-max"
               style={{
@@ -598,16 +764,14 @@ export function RoomsView({
               ))}
               <div className="sticky top-0 z-30 h-10 border-b border-l bg-background" />
 
-              <div className="relative bg-muted/20" style={{ height: slots.length * SLOT_HEIGHT }}>
-                {slots.map((minutes) => (
+              <div className="relative bg-muted/20" style={{ height: columnHeight }}>
+                {hourMarks.map((minutes) => (
                   <span
                     key={minutes}
                     className="absolute right-2 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums"
-                    style={{ top: ((minutes - gridStart) / gridConfig.slot) * SLOT_HEIGHT }}
+                    style={{ top: (minutes - gridStart) * gridConfig.zoom }}
                   >
-                    {minutes % 60 === 0
-                      ? formatTime(zonedDateTimeIso(day, minutes, timezone), timezone)
-                      : ""}
+                    {formatTime(zonedDateTimeIso(day, minutes, timezone), timezone)}
                   </span>
                 ))}
               </div>
@@ -615,11 +779,26 @@ export function RoomsView({
                 <div
                   key={room.id}
                   className="relative border-l bg-background"
-                  style={{ height: slots.length * SLOT_HEIGHT }}
+                  style={{ height: columnHeight }}
                 >
-                  {slots.map((minutes) => (
-                    <DropSlot key={minutes} roomId={room.id} day={day} minutes={minutes} />
-                  ))}
+                  {activeSession === null ? (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0"
+                      style={{ backgroundImage: columnLines }}
+                    />
+                  ) : (
+                    slots.map((minutes) => (
+                      <DropSlot
+                        key={minutes}
+                        roomId={room.id}
+                        day={day}
+                        minutes={minutes}
+                        height={slotHeight}
+                        lined={minutes % linedStep === 0}
+                      />
+                    ))
+                  )}
                   {scheduled
                     .filter((session) => session.roomId === room.id)
                     .map((session) => (
@@ -696,7 +875,7 @@ export function RoomsView({
               </SelectContent>
             </Select>
           </div>
-          <div className="min-h-0 flex-1 divide-y overflow-y-auto">
+          <div className="scrollbar-slim min-h-0 flex-1 divide-y overflow-y-auto">
             {pool.length === 0 ? (
               <p className="px-3 py-8 text-center text-xs text-muted-foreground">
                 No matching sessions.
