@@ -298,6 +298,7 @@ export const ReviewsLive = Layer.effect(
           submissionRows,
           trackRows,
           aiRows,
+          eventReviewerRows,
         ] = yield* Effect.all(
           [
             query(database, "Could not list review rounds", (db) =>
@@ -388,6 +389,18 @@ export const ReviewsLive = Layer.effect(
                 .innerJoin(reviewRounds, eq(reviewRounds.id, aiReviewResults.roundId))
                 .leftJoin(users, eq(users.id, aiReviewResults.overriddenByUserId))
                 .where(eq(reviewRounds.eventId, eventId))
+                .execute(),
+            ),
+            // The event's standing reviewer roster (event_members, not any
+            // round's pool) — so a new round can offer them one-click instead
+            // of making the organizer re-type people who already exist.
+            query(database, "Could not list event reviewers", (db) =>
+              db
+                .select({ eventMemberId: eventMembers.id, name: users.name, email: users.email })
+                .from(eventMembers)
+                .innerJoin(users, eq(users.id, eventMembers.userId))
+                .where(and(eq(eventMembers.eventId, eventId), eq(eventMembers.role, "reviewer")))
+                .orderBy(asc(users.name))
                 .execute(),
             ),
           ],
@@ -597,6 +610,7 @@ export const ReviewsLive = Layer.effect(
           eventId,
           aiConfigured,
           tracks: trackRows,
+          eventReviewers: eventReviewerRows,
           rounds: roundViews,
         });
       });

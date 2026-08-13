@@ -282,6 +282,10 @@ export const EvaluationAdminWorkspace = Schema.Struct({
   tracks: Schema.Array(
     Schema.Struct({ id: Schema.String, name: Schema.String, color: Schema.String }),
   ),
+  // The event's standing reviewer roster, independent of any round's pool.
+  eventReviewers: Schema.Array(
+    Schema.Struct({ eventMemberId: Schema.String, name: Schema.String, email: Schema.String }),
+  ),
   rounds: Schema.Array(ReviewRoundAdminView),
 });
 export type EvaluationAdminWorkspace = typeof EvaluationAdminWorkspace.Type;

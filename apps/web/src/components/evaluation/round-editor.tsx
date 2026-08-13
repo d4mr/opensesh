@@ -299,6 +299,7 @@ export function EvaluationRoundEditor({
             <ReviewersPane
               eventId={eventId}
               tracks={workspace.tracks}
+              eventReviewers={workspace.eventReviewers}
               view={view}
               refresh={refresh}
             />
@@ -701,11 +702,13 @@ function SetupPane({
 function ReviewersPane({
   eventId,
   tracks,
+  eventReviewers,
   view,
   refresh,
 }: {
   readonly eventId: string;
   readonly tracks: EvaluationAdminWorkspace["tracks"];
+  readonly eventReviewers: EvaluationAdminWorkspace["eventReviewers"];
   readonly view: ReviewRoundAdminView;
   readonly refresh: () => Promise<unknown>;
 }) {
@@ -719,15 +722,19 @@ function ReviewersPane({
     readonly path: string;
     readonly reused: boolean;
   }>();
-  const add = async () => {
+  // One flow for both entry points: the manual form and the one-click
+  // roster chips (existing event reviewers) — provisioning is idempotent.
+  const add = async (person?: { readonly name: string; readonly email: string }) => {
+    const reviewerName = person?.name ?? name;
+    const reviewerEmail = person?.email ?? email;
     setAdding(true);
-    const accessPath = `${window.location.origin}/login?email=${encodeURIComponent(email)}`;
+    const accessPath = `${window.location.origin}/login?email=${encodeURIComponent(reviewerEmail)}`;
     const result = await addReviewMember({
       data: {
         eventId,
         roundId: view.configuration.round.id,
-        name,
-        email,
+        name: reviewerName,
+        email: reviewerEmail,
         assignmentCap: cap.length === 0 ? null : Number(cap),
         accessPath,
       },
@@ -739,11 +746,17 @@ function ReviewersPane({
       path: result.data.accessPath,
       reused: result.data.alreadyInPool,
     });
-    setName("");
-    setEmail("");
+    if (person === undefined) {
+      setName("");
+      setEmail("");
+    }
     await refresh();
     toast.success(result.data.alreadyInPool ? "Reused reviewer in this round" : "Added 1 reviewer");
   };
+  const pooledMemberIds = new Set(view.reviewers.map((reviewer) => reviewer.member.eventMemberId));
+  const rosterSuggestions = eventReviewers.filter(
+    (reviewer) => !pooledMemberIds.has(reviewer.eventMemberId),
+  );
   return (
     <div className="mx-auto max-w-4xl p-4 lg:p-6">
       <div className="flex items-end justify-between">
@@ -754,6 +767,28 @@ function ReviewersPane({
           </p>
         </div>
       </div>
+      {rosterSuggestions.length === 0 ? null : (
+        <div className="mt-4">
+          <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+            Already reviewing this event
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {rosterSuggestions.map((reviewer) => (
+              <Button
+                key={reviewer.eventMemberId}
+                size="sm"
+                variant="outline"
+                className="pressable"
+                disabled={adding}
+                onClick={() => void add({ name: reviewer.name, email: reviewer.email })}
+              >
+                <UserPlusIcon />
+                {reviewer.name.trim().length === 0 ? reviewer.email : reviewer.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mt-4 grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_8rem_auto]">
         <div className="grid gap-1.5">
           <Label htmlFor="reviewer-name">Reviewer name</Label>
