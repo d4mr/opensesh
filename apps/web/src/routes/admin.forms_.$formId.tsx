@@ -17,7 +17,6 @@ import {
   ExternalLinkIcon,
   EyeIcon,
   ListChecksIcon,
-  LoaderCircleIcon,
   PanelTopIcon,
   Settings2Icon,
   SlidersHorizontalIcon,
@@ -30,6 +29,7 @@ import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { qk } from "@/lib/query-keys";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { EditorHeader } from "@/components/app/editor-header";
+import { SaveStatus } from "@/components/app/save-status";
 import { type EditorFormField, FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { FormPreviewSheet } from "@/components/forms/form-preview";
 import type { FormRendererLibrary } from "@/components/forms/form-renderer";
@@ -41,6 +41,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useAutosave } from "@/hooks/use-autosave";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { cn } from "@/lib/utils";
 import { getFormEditor, saveForm } from "@/server-fns/forms";
@@ -147,8 +148,6 @@ function FormEditor({
   const [fields, setFields] = useState<ReadonlyArray<EditorFormField>>(() =>
     editorFields(data.fields),
   );
-  const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving" | "error">("saved");
-  const [saveError, setSaveError] = useState<string>();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const publicPath = `/submit/${eventSlug}/${data.form.id}`;
@@ -204,88 +203,30 @@ function FormEditor({
       fields: fieldsRef.current,
     };
   };
-  const buildPayloadRef = useRef(buildPayload);
-  buildPayloadRef.current = buildPayload;
-  // Saves never block the UI: navigation switches steps instantly and the
-  // payload persists in the background. In-flight saves serialize — a change
-  // made mid-save queues one trailing save with the then-current values.
-  // Field ids are minted client-side, so responses need no state sync-back.
-  const lastSavedRef = useRef<string | null>(null);
-  if (lastSavedRef.current === null) lastSavedRef.current = JSON.stringify(buildPayload());
-  const inFlightRef = useRef(false);
-  const queuedRef = useRef(false);
-  const persist = async (): Promise<void> => {
-    if (inFlightRef.current) {
-      queuedRef.current = true;
-      return;
-    }
-    const payload = buildPayloadRef.current();
-    const json = JSON.stringify(payload);
-    if (json === lastSavedRef.current) {
-      setSaveState("saved");
-      return;
-    }
-    inFlightRef.current = true;
-    setSaveState("saving");
-    setSaveError(undefined);
-    const result = await saveForm({ data: payload });
-    inFlightRef.current = false;
-    if (!result.ok) {
-      setSaveState("error");
-      setSaveError(result.error.message);
-      toast.error(result.error.message);
-      return;
-    }
-    await invalidateAfterMutation(queryClient, data.form.eventId);
-    lastSavedRef.current = json;
-    if (queuedRef.current) {
-      queuedRef.current = false;
-      return persist();
-    }
-    setSaveState(
-      JSON.stringify(buildPayloadRef.current()) === lastSavedRef.current ? "saved" : "dirty",
-    );
-  };
-  const persistRef = useRef(persist);
-  persistRef.current = persist;
+  // The autosave contract (serialized background saves, dirty compare,
+  // beforeunload guard) lives in useAutosave. Field ids are minted
+  // client-side, so responses need no state sync-back.
+  const autosave = useAutosave({
+    buildPayload,
+    save: async (payload) => {
+      const result = await saveForm({ data: payload });
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return { ok: false, message: result.error.message };
+      }
+      await invalidateAfterMutation(queryClient, data.form.eventId);
+      return { ok: true };
+    },
+  });
   const changeStep = (next: number) => {
     setStep(next);
-    void persist();
+    autosave.persist();
   };
-  const markDirty = () => {
-    if (inFlightRef.current) return;
-    setSaveState((current) =>
-      JSON.stringify(buildPayloadRef.current()) === lastSavedRef.current
-        ? current === "saving"
-          ? current
-          : "saved"
-        : "dirty",
-    );
-  };
-  const markDirtyRef = useRef(markDirty);
-  markDirtyRef.current = markDirty;
   useEffect(() => {
-    const subscription = form.store.subscribe(() => markDirtyRef.current());
+    const subscription = form.store.subscribe(() => autosave.markDirty());
     return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => markDirtyRef.current(), [fields]);
-  // Trailing autosave: two quiet seconds after edits begin, persist.
-  useEffect(() => {
-    if (saveState !== "dirty") return;
-    const timer = window.setTimeout(() => void persistRef.current(), 2000);
-    return () => window.clearTimeout(timer);
-  }, [saveState]);
-  const saveStateRef = useRef(saveState);
-  saveStateRef.current = saveState;
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (saveStateRef.current === "saved") return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  }, [autosave.markDirty, form.store]);
+  useEffect(() => autosave.markDirty(), [autosave.markDirty, fields]);
   const copyLink = () => {
     void navigator.clipboard.writeText(`${window.location.origin}${publicPath}`);
     setCopied(true);
@@ -305,7 +246,7 @@ function FormEditor({
         }
         subtitle="Submission form"
       >
-        <SaveStatus state={saveState} retry={() => void persist()} />
+        <SaveStatus state={autosave.state} retry={autosave.persist} />
         <Button
           size="sm"
           variant="ghost"
@@ -351,9 +292,9 @@ function FormEditor({
             <h2 className="text-base font-semibold tracking-tight">{active?.title}</h2>
             <p className="mt-0.5 text-[13px] text-muted-foreground">{active?.description}</p>
           </header>
-          {saveError === undefined ? null : (
+          {autosave.error === undefined ? null : (
             <p role="alert" className="mb-4 text-[13px] text-destructive">
-              {saveError}
+              {autosave.error}
             </p>
           )}
           <div className="grid gap-5">
@@ -717,46 +658,6 @@ function FormEditor({
         )}
       </form.Subscribe>
     </main>
-  );
-}
-
-// Quiet sync indicator, Linear-style: a small fixed-width annotation that
-// never competes with the toolbar buttons. Failure is the only loud state.
-function SaveStatus({
-  state,
-  retry,
-}: {
-  readonly state: "saved" | "dirty" | "saving" | "error";
-  readonly retry: () => void;
-}) {
-  if (state === "error") {
-    return (
-      <button
-        type="button"
-        onClick={retry}
-        className="flex items-center gap-1 text-xs font-medium text-destructive"
-        role="status"
-        aria-live="polite"
-      >
-        Save failed — retry
-      </button>
-    );
-  }
-  return (
-    <span
-      className="mr-1 flex items-center gap-1.5 text-xs text-muted-foreground"
-      role="status"
-      aria-live="polite"
-    >
-      {state === "saving" ? (
-        <LoaderCircleIcon className="size-3 animate-spin" />
-      ) : state === "saved" ? (
-        <CheckIcon className="size-3" />
-      ) : (
-        <span className="size-1.5 rounded-full bg-muted-foreground/40" aria-hidden />
-      )}
-      {state === "saving" ? "Saving" : state === "saved" ? "Saved" : "Unsaved"}
-    </span>
   );
 }
 

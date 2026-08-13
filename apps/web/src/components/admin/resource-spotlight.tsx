@@ -10,11 +10,13 @@ import {
   Trash2Icon,
   UsersIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { SpeakerPickerDialog } from "@/components/admin/speaker-picker-dialog";
+import { SaveStatus } from "@/components/app/save-status";
 import { SpotlightPanelHeader } from "@/components/app/spotlight";
+import { useAutosave } from "@/hooks/use-autosave";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { PortalResourceItem } from "@/components/portal/portal-resource-item";
 import { Button } from "@/components/ui/button";
@@ -144,10 +146,13 @@ export function ResourceSpotlight({
   readonly onSaved: (id: string) => Promise<void>;
   readonly onDelete: (() => Promise<void>) | undefined;
 }) {
+  const editing = resource !== null;
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [previewOpen, setPreviewOpen] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef(file);
+  fileRef.current = file;
   const form = useForm({
     defaultValues: {
       title: resource?.title ?? "",
@@ -170,54 +175,101 @@ export function ResourceSpotlight({
         toast.error("Choose a file to upload");
         return;
       }
-      const keepExistingFile = value.attachmentKind === "file" && file === null;
-      const response = await saveResource({
-        data: {
-          eventId,
-          id: resource?.id ?? null,
-          title: value.title,
-          subtitle: value.subtitle,
-          body: value.body,
-          published: value.published,
-          audienceMode: value.audienceMode,
-          attachmentKind:
-            value.attachmentKind === "file" && file !== null ? null : value.attachmentKind,
-          linkUrl: value.attachmentKind === "link" ? value.linkUrl : null,
-          embedUrl: value.attachmentKind === "embed" ? value.embedUrl : null,
-          fileStorageKey: keepExistingFile ? (resource?.fileStorageKey ?? null) : null,
-          fileName: keepExistingFile ? (resource?.fileName ?? null) : null,
-          fileContentType: keepExistingFile ? (resource?.fileContentType ?? null) : null,
-          fileSize: keepExistingFile ? (resource?.fileSize ?? null) : null,
-          trackIds: [...value.trackIds],
-          contactIds: [...value.contactIds],
-        },
-      });
-      if (!response.ok) {
-        toast.error(response.error.message);
+      const result = await persistResource(value, file);
+      if (!result.ok) {
+        toast.error(result.message);
         return;
       }
-      if (file !== null) {
-        const upload = await uploadResourceFile({
-          data: {
-            eventId,
-            resourceId: response.data.id,
-            filename: file.name,
-            contentType: file.type || "application/octet-stream",
-            size: file.size,
-            base64: await fileBase64(file),
-          },
-        });
-        if (!upload.ok) {
-          toast.error(upload.error.message);
-          await onSaved(response.data.id);
-          return;
-        }
-        setFile(null);
-      }
-      toast.success(resource === null ? "Resource created" : "Resource saved");
-      await onSaved(response.data.id);
+      toast.success("Resource created");
+      await onSaved(result.id);
     },
   });
+  type ResourceFormValues = typeof form.state.values;
+  const savePayloadData = (value: ResourceFormValues, currentFile: File | null) => {
+    // A "file" attachment with nothing attached yet (no upload chosen, no
+    // stored file) is a half-state — persist it as "no attachment" until the
+    // upload exists, so background saves never manufacture a broken record.
+    const deferredFileKind =
+      value.attachmentKind === "file" &&
+      currentFile === null &&
+      (resource?.fileStorageKey ?? null) === null;
+    const keepExistingFile =
+      value.attachmentKind === "file" && currentFile === null && !deferredFileKind;
+    return {
+      eventId,
+      id: resource?.id ?? null,
+      title: value.title,
+      subtitle: value.subtitle,
+      body: value.body,
+      published: value.published,
+      audienceMode: value.audienceMode,
+      attachmentKind: deferredFileKind
+        ? null
+        : value.attachmentKind === "file" && currentFile !== null
+          ? null
+          : value.attachmentKind,
+      linkUrl: value.attachmentKind === "link" ? value.linkUrl : null,
+      embedUrl: value.attachmentKind === "embed" ? value.embedUrl : null,
+      fileStorageKey: keepExistingFile ? (resource?.fileStorageKey ?? null) : null,
+      fileName: keepExistingFile ? (resource?.fileName ?? null) : null,
+      fileContentType: keepExistingFile ? (resource?.fileContentType ?? null) : null,
+      fileSize: keepExistingFile ? (resource?.fileSize ?? null) : null,
+      trackIds: [...value.trackIds],
+      contactIds: [...value.contactIds],
+    };
+  };
+  const persistResource = async (
+    value: ResourceFormValues,
+    currentFile: File | null,
+  ): Promise<
+    { readonly ok: true; readonly id: string } | { readonly ok: false; readonly message: string }
+  > => {
+    const response = await saveResource({ data: savePayloadData(value, currentFile) });
+    if (!response.ok) return { ok: false, message: response.error.message };
+    if (currentFile !== null) {
+      const upload = await uploadResourceFile({
+        data: {
+          eventId,
+          resourceId: response.data.id,
+          filename: currentFile.name,
+          contentType: currentFile.type || "application/octet-stream",
+          size: currentFile.size,
+          base64: await fileBase64(currentFile),
+        },
+      });
+      if (!upload.ok) return { ok: false, message: upload.error.message };
+      setFile(null);
+    }
+    return { ok: true, id: response.data.id };
+  };
+  // Editing autosaves like every other editor in the app; creation stays one
+  // explicit act (the record shouldn't exist until the organizer says so).
+  // The dirty compare tracks the pending upload via a name/size marker that
+  // converges with the stored file once the upload lands.
+  const autosave = useAutosave({
+    buildPayload: () => ({
+      data: savePayloadData(form.state.values, fileRef.current),
+      marker:
+        fileRef.current === null
+          ? { name: resource?.fileName ?? null, size: resource?.fileSize ?? null }
+          : { name: fileRef.current.name, size: fileRef.current.size },
+    }),
+    save: async () => {
+      const result = await persistResource(form.state.values, fileRef.current);
+      if (!result.ok) return result;
+      await onSaved(result.id);
+      return { ok: true };
+    },
+    enabled: editing,
+  });
+  useEffect(() => {
+    const subscription = form.store.subscribe(() => autosave.markDirty());
+    return () => subscription.unsubscribe();
+  }, [autosave.markDirty, form.store]);
+  useEffect(() => autosave.markDirty(), [autosave.markDirty, file]);
+  // Closing the spotlight (Escape, j/k, row click) unmounts the panel — flush
+  // pending edits instead of dropping them.
+  useEffect(() => () => autosave.persist(), [autosave.persist]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -260,19 +312,23 @@ export function ResourceSpotlight({
                 <Trash2Icon />
               </Button>
             )}
-            <form.Subscribe selector={(state) => state.isSubmitting}>
-              {(submitting) => (
-                <Button
-                  type="button"
-                  size="xs"
-                  className="pressable"
-                  disabled={submitting}
-                  onClick={() => void form.handleSubmit()}
-                >
-                  <SaveIcon /> {submitting ? "Saving…" : "Save"}
-                </Button>
-              )}
-            </form.Subscribe>
+            {editing ? (
+              <SaveStatus state={autosave.state} retry={autosave.persist} />
+            ) : (
+              <form.Subscribe selector={(state) => state.isSubmitting}>
+                {(submitting) => (
+                  <Button
+                    type="button"
+                    size="xs"
+                    className="pressable"
+                    disabled={submitting}
+                    onClick={() => void form.handleSubmit()}
+                  >
+                    <SaveIcon /> {submitting ? "Creating…" : "Create"}
+                  </Button>
+                )}
+              </form.Subscribe>
+            )}
           </div>
         }
         onClose={onClose}
@@ -280,7 +336,10 @@ export function ResourceSpotlight({
 
       <Tabs
         value={mode}
-        onValueChange={(value) => setMode(value === "preview" ? "preview" : "edit")}
+        onValueChange={(value) => {
+          setMode(value === "preview" ? "preview" : "edit");
+          autosave.persist();
+        }}
         className="min-h-0 flex-1 gap-0"
       >
         <div className="flex h-10 shrink-0 items-end border-b px-3">
@@ -295,10 +354,12 @@ export function ResourceSpotlight({
         </div>
 
         <TabsContent value="edit" className="mt-0 min-h-0 overflow-y-auto">
-          <div className="mx-auto grid max-w-3xl gap-6 p-4 pb-16 lg:p-6 lg:pb-16">
+          {/* The panel's width follows the spotlight split, not the viewport,
+              so field rows respond to the container, never a media query. */}
+          <div className="@container mx-auto grid max-w-3xl gap-6 p-4 pb-16 lg:p-6 lg:pb-16">
             <section className="grid gap-3">
               <SectionLabel>Content</SectionLabel>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 @2xl:grid-cols-2">
                 <form.Field name="title">
                   {(field) => (
                     <div className="grid gap-1.5">
@@ -364,7 +425,7 @@ export function ResourceSpotlight({
                     {field.state.value === "tracks" ? (
                       <form.Field name="trackIds">
                         {(trackField) => (
-                          <div className="grid gap-0.5 rounded-md border p-1.5 sm:grid-cols-2">
+                          <div className="grid gap-0.5 rounded-md border p-1.5 @2xl:grid-cols-2">
                             {tracks.map((track) => {
                               const selected = trackField.state.value.has(track.id);
                               return (
