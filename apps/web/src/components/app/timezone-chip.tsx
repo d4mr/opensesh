@@ -12,7 +12,7 @@ export function TimezoneChip({ timezone }: { readonly timezone: string }) {
           {timezoneAbbreviation(timezone)}
         </span>
       </TooltipTrigger>
-      <TooltipContent>
+      <TooltipContent className="max-w-72">
         Times are in the event timezone, {timezone}. Change it in Event Settings.
       </TooltipContent>
     </Tooltip>
