@@ -2,7 +2,7 @@ import type { AcceleventsOutcome, Event, EventType } from "@opensesh/domain";
 import { useForm } from "@tanstack/react-form";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, CopyIcon, ImageUpIcon, XIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { qk } from "@/lib/query-keys";
 import { EventIcon } from "@/components/app/event-icon";
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { DateTimePicker } from "@/components/forms/datetime-picker";
+import { ImageUploadField } from "@/components/forms/image-upload";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { TimezoneCombobox } from "@/components/forms/timezone-combobox";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,6 @@ function EventSettings() {
 function EventSettingsForm({ event }: { readonly event: Event }) {
   const queryClient = useQueryClient();
   const [icon, setIcon] = useState<File | null>(null);
-  const [dragging, setDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(event.logoUrl);
 
   useEffect(() => {
@@ -77,19 +77,6 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [event.logoUrl, icon]);
-
-  const chooseIcon = (file: File | undefined) => {
-    if (file === undefined) return;
-    if (!["image/png", "image/jpeg", "image/svg+xml"].includes(file.type)) {
-      toast.error("Use a PNG, JPG, or SVG event icon");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Event icons must be 2 MB or smaller");
-      return;
-    }
-    setIcon(file);
-  };
 
   const form = useForm({
     defaultValues: {
@@ -325,8 +312,10 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
                   </Field>
                 )}
               </form.Field>
-              <form.Subscribe selector={(state) => state.values.timezone}>
-                {(timezone) => (
+              <form.Subscribe
+                selector={(state) => [state.values.timezone, state.values.startsAt] as const}
+              >
+                {([timezone, startsAt]) => (
                   <>
                     <form.Field name="startsAt">
                       {(field) => (
@@ -335,7 +324,17 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
                           <DateTimePicker
                             value={field.state.value}
                             timezone={timezone}
-                            onChange={field.handleChange}
+                            onChange={(next) => {
+                              field.handleChange(next);
+                              // Keep the range valid: a start moved past the
+                              // end drags the end along to one day later.
+                              if (new Date(form.getFieldValue("endsAt")) <= new Date(next)) {
+                                form.setFieldValue(
+                                  "endsAt",
+                                  new Date(new Date(next).getTime() + 86_400_000).toISOString(),
+                                );
+                              }
+                            }}
                           />
                         </Field>
                       )}
@@ -347,6 +346,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
                           <DateTimePicker
                             value={field.state.value}
                             timezone={timezone}
+                            minIso={startsAt}
                             onChange={field.handleChange}
                           />
                         </Field>
@@ -362,37 +362,14 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,1fr)]">
               <div className="grid content-start gap-4">
                 <Field>
-                  <FieldLabel>Event icon</FieldLabel>
-                  <label
-                    className={cn(
-                      "pressable flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed px-4 text-center transition-colors",
-                      dragging && "border-primary bg-primary/5",
-                    )}
-                    onDragEnter={(dragEvent) => {
-                      dragEvent.preventDefault();
-                      setDragging(true);
-                    }}
-                    onDragOver={(dragEvent) => dragEvent.preventDefault()}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={(dragEvent) => {
-                      dragEvent.preventDefault();
-                      setDragging(false);
-                      chooseIcon(dragEvent.dataTransfer.files[0]);
-                    }}
-                  >
-                    <ImageUpIcon className="mb-2 size-5 text-muted-foreground" />
-                    <span className="text-xs font-medium">Drop an icon or click to browse</span>
-                    <span className="mt-1 text-[11px] text-muted-foreground">
-                      PNG, JPG, or SVG · 2 MB max
-                    </span>
-                    <input
-                      type="file"
-                      className="sr-only"
-                      accept="image/png,image/jpeg,image/svg+xml"
-                      onChange={(inputEvent) => chooseIcon(inputEvent.target.files?.[0])}
-                    />
-                  </label>
-                  {icon === null ? null : <FieldDescription>{icon.name}</FieldDescription>}
+                  <FieldLabel htmlFor="event-icon">Event icon</FieldLabel>
+                  <ImageUploadField
+                    id="event-icon"
+                    label="Upload event icon"
+                    value={icon}
+                    onChange={setIcon}
+                    currentUrl={previewUrl}
+                  />
                 </Field>
                 <form.Field name="logoUrl">
                   {(field) => (

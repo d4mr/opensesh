@@ -125,7 +125,9 @@ export function TimeSelect({
       <SelectTrigger id={id} className={cn("min-w-32", className)}>
         <SelectValue />
       </SelectTrigger>
-      <SelectContent className="max-h-64">
+      {/* Popper positioning: item-aligned mode lets a 96-entry list sprawl
+          over the whole viewport instead of respecting a max height. */}
+      <SelectContent position="popper" className="max-h-64">
         {timeOptions.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -210,6 +212,7 @@ export function DateTimePicker({
   placeholder = "Choose date and time",
   id,
   disabled,
+  minIso,
   className,
 }: {
   readonly value: string;
@@ -218,6 +221,8 @@ export function DateTimePicker({
   readonly placeholder?: string;
   readonly id?: string;
   readonly disabled?: boolean;
+  /** Calendar days before this instant (in the event timezone) are disabled. */
+  readonly minIso?: string;
   readonly className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -273,23 +278,30 @@ export function DateTimePicker({
           selected={selected}
           month={month}
           onMonthChange={setMonth}
+          disabled={
+            minIso === undefined
+              ? undefined
+              : (date) =>
+                  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` <
+                  dateKeyInTimezone(minIso, timezone)
+          }
           onSelect={(date) => {
             if (date !== undefined) update(date, minutes);
           }}
         />
+        {/* No timezone chip here — the trigger already shows it, and the
+            extra chip made this row wider than the calendar, leaving dead
+            space beside the grid. */}
         <div className="flex h-12 items-center gap-2 border-t px-3">
-          <Clock3Icon className="size-3.5 text-muted-foreground" />
+          <Clock3Icon className="size-3.5 shrink-0 text-muted-foreground" />
           <TimeSelect
             value={minutes}
             onChange={(next) => {
               const date = selected ?? new Date();
               update(date, next);
             }}
-            className="h-8 min-w-32 flex-1"
+            className="h-8 w-full min-w-0 flex-1"
           />
-          <span className="rounded-sm border bg-muted/40 px-1.5 py-1 text-[10px] font-medium text-muted-foreground">
-            {timezoneAbbreviation(timezone, value || undefined)}
-          </span>
           <Button type="button" size="sm" onClick={() => setOpen(false)}>
             Done
           </Button>

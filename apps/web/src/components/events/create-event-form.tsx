@@ -16,7 +16,12 @@ import {
 } from "@/components/ui/select";
 import { createEvent } from "@/server-fns/admin";
 
-const tomorrow = () => new Date(Date.now() + 86_400_000);
+// On the hour so the quarter-hour time select has a matching option to show.
+const tomorrow = () => {
+  const date = new Date(Date.now() + 86_400_000);
+  date.setMinutes(0, 0, 0);
+  return date;
+};
 
 // The defaults below read the clock and the browser timezone, which SSR (UTC
 // workerd) and the client disagree on — a live hydration-mismatch source when
@@ -53,6 +58,10 @@ function CreateEventFormInner({
     },
     onSubmit: async ({ value }) => {
       setError(undefined);
+      if (new Date(value.endsAt) <= new Date(value.startsAt)) {
+        setError("Event end must be after the start.");
+        return;
+      }
       const result = await createEvent({ data: value });
       if (!result.ok) {
         setError(result.error.message);
@@ -109,8 +118,10 @@ function CreateEventFormInner({
             </Field>
           )}
         </form.Field>
-        <form.Subscribe selector={(state) => state.values.timezone}>
-          {(timezone) => (
+        <form.Subscribe
+          selector={(state) => [state.values.timezone, state.values.startsAt] as const}
+        >
+          {([timezone, startsAt]) => (
             <>
               <form.Field name="startsAt">
                 {(field) => (
@@ -119,7 +130,17 @@ function CreateEventFormInner({
                     <DateTimePicker
                       value={field.state.value}
                       timezone={timezone}
-                      onChange={field.handleChange}
+                      onChange={(next) => {
+                        field.handleChange(next);
+                        // Keep the range valid: a start moved past the end
+                        // drags the end along to one day later.
+                        if (new Date(form.getFieldValue("endsAt")) <= new Date(next)) {
+                          form.setFieldValue(
+                            "endsAt",
+                            new Date(new Date(next).getTime() + 86_400_000).toISOString(),
+                          );
+                        }
+                      }}
                     />
                   </Field>
                 )}
@@ -131,6 +152,7 @@ function CreateEventFormInner({
                     <DateTimePicker
                       value={field.state.value}
                       timezone={timezone}
+                      minIso={startsAt}
                       onChange={field.handleChange}
                     />
                   </Field>

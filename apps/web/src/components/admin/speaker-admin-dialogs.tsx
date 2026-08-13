@@ -6,10 +6,11 @@ import type {
   TshirtSize,
 } from "@opensesh/domain";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, CopyIcon, UploadIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, UploadIcon, UserRoundIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ImageUploadField } from "@/components/forms/image-upload";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,7 @@ export function SpeakerFormDialog({
     travelLogistics: typeof logistics === "string" ? logistics : "",
     workflowStatus: speaker?.contact.workflowStatus ?? "invited",
   }));
-  const [headshot, setHeadshot] = useState<File>();
+  const [headshot, setHeadshot] = useState<File | null>(null);
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: async () => {
@@ -155,7 +156,7 @@ export function SpeakerFormDialog({
           workflowStatus: form.workflowStatus,
         },
       });
-      if (!saved.ok || headshot === undefined) return saved;
+      if (!saved.ok || headshot === null) return saved;
       const uploaded = await uploadAdminSpeakerHeadshot({
         data: {
           eventId,
@@ -257,15 +258,19 @@ export function SpeakerFormDialog({
                 ]}
                 set={(value) => update("tshirtSize", tshirtValue(value))}
               />
-              <div className="grid gap-1.5">
-                <Label htmlFor="speaker-headshot">Headshot</Label>
-                <Input
-                  id="speaker-headshot"
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => setHeadshot(event.target.files?.[0])}
-                />
-              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="speaker-headshot">Headshot</Label>
+              <ImageUploadField
+                id="speaker-headshot"
+                label="Upload speaker headshot"
+                accept="image/*"
+                hint="Any image · 2 MB max"
+                value={headshot}
+                onChange={setHeadshot}
+                currentUrl={speaker?.contact.headshotUrl ?? null}
+                fallbackIcon={<UserRoundIcon className="size-4 text-muted-foreground" />}
+              />
             </div>
             <Field
               label="X / Twitter"

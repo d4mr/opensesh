@@ -6,6 +6,7 @@ import { useState } from "react";
 import { qk } from "@/lib/query-keys";
 import { BrandMark } from "@/components/app/brand-mark";
 import { CreateEventForm } from "@/components/events/create-event-form";
+import { ImageUploadField } from "@/components/forms/image-upload";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -173,7 +174,7 @@ function Onboarding() {
 }
 
 function OrganizationStep({ onCreated }: { readonly onCreated: (name: string) => void }) {
-  const [logo, setLogo] = useState<File>();
+  const [logo, setLogo] = useState<File | null>(null);
   const [error, setError] = useState<string>();
   const form = useForm({
     defaultValues: { name: "", slug: "" },
@@ -183,7 +184,7 @@ function OrganizationStep({ onCreated }: { readonly onCreated: (name: string) =>
         data: {
           name: value.name,
           slug: value.slug,
-          logoUpload: logo === undefined ? null : await fileUpload(logo),
+          logoUpload: logo === null ? null : await fileUpload(logo),
         },
       });
       if (!result.ok) {
@@ -246,13 +247,13 @@ function OrganizationStep({ onCreated }: { readonly onCreated: (name: string) =>
         </form.Field>
         <Field>
           <FieldLabel htmlFor="organization-logo">Logo · optional</FieldLabel>
-          <Input
+          <ImageUploadField
             id="organization-logo"
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml"
-            onChange={(event) => setLogo(event.target.files?.[0])}
+            label="Upload organization logo"
+            value={logo}
+            onChange={setLogo}
+            fallbackIcon={<Building2Icon className="size-4 text-muted-foreground" />}
           />
-          <FieldDescription>PNG, JPG, or SVG up to 2 MB.</FieldDescription>
         </Field>
       </div>
       {error === undefined ? null : (
@@ -322,7 +323,10 @@ function InviteRow({ onRemove }: { readonly onRemove?: () => void }) {
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  {/* Explicit children: the default SelectValue mirrors the
+                      item's two-line label + description, which can't fit in
+                      the trigger. */}
+                  <SelectValue>{field.state.value === "admin" ? "Admin" : "Member"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="member" textValue="Member">
