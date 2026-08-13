@@ -23,19 +23,22 @@ export default function TaskReminder({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading={`${tasks.length} outstanding ${tasks.length === 1 ? "task" : "tasks"}`}
       preview={`${tasks.length} outstanding ${tasks.length === 1 ? "task" : "tasks"} for ${eventName}`}
     >
       <Text style={paragraph}>Hi {speakerName},</Text>
-      <Text style={paragraph}>A quick reminder that these speaker tasks are outstanding:</Text>
-      <ul style={{ margin: "0 0 20px", paddingLeft: "20px" }}>
+      <Text style={paragraph}>
+        A quick reminder that these speaker tasks are still open for {eventName}:
+      </Text>
+      <ul style={{ margin: "0 0 8px", paddingLeft: "20px" }}>
         {tasks.map((task) => (
           <li
             key={task}
             style={{
-              margin: "0 0 6px",
+              margin: "0 0 8px",
               fontSize: "14px",
-              lineHeight: "1.5",
-              color: palette.ink,
+              lineHeight: "22px",
+              color: palette.body,
             }}
           >
             {task}
@@ -52,4 +55,5 @@ TaskReminder.PreviewProps = {
   speakerName: "Jamal",
   tasks: ["Upload your headshot", "Confirm your AV requirements", "Add your bio"],
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
 } satisfies TaskReminderProps;

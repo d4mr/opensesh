@@ -1,8 +1,8 @@
 // @jsxRuntime automatic
 // @jsxImportSource react
-import { Section, Text } from "react-email";
+import { Text } from "react-email";
 
-import { Cta, EmailLayout, palette, paragraph } from "../src/components/layout";
+import { Cta, DetailCard, EmailLayout, paragraph } from "../src/components/layout";
 
 export interface CalendarInviteProps {
   readonly eventName: string;
@@ -48,34 +48,15 @@ export default function CalendarInvite({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading="Your session is scheduled"
       preview={`Calendar invite: ${sessionTitle}`}
     >
       <Text style={paragraph}>Hi {speakerName},</Text>
-      <Text style={paragraph}>Your session is scheduled.</Text>
-      <Section
-        style={{
-          margin: "0 0 20px",
-          border: `1px solid ${palette.border}`,
-          borderRadius: "8px",
-          padding: "14px",
-        }}
-      >
-        <Text style={{ margin: "0", fontSize: "14px", fontWeight: 700, color: palette.ink }}>
-          {sessionTitle}
-        </Text>
-        <Text
-          style={{
-            margin: "8px 0 0",
-            fontSize: "14px",
-            lineHeight: "1.6",
-            color: palette.muted,
-          }}
-        >
-          {sessionTime({ startsAt, endsAt, timezone })}
-          <br />
-          {room}
-        </Text>
-      </Section>
+      <DetailCard title={sessionTitle}>
+        {sessionTime({ startsAt, endsAt, timezone })}
+        <br />
+        {room}
+      </DetailCard>
       <Text style={paragraph}>Add the attached invitation to your calendar.</Text>
       <Cta href={portalUrl}>View session details</Cta>
     </EmailLayout>
@@ -91,4 +72,5 @@ CalendarInvite.PreviewProps = {
   timezone: "America/New_York",
   room: "Main Stage",
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
 } satisfies CalendarInviteProps;

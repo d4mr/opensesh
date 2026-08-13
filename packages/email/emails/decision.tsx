@@ -43,6 +43,7 @@ export default function Decision({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading={accepted ? `You're speaking at ${eventName}` : "An update on your submission"}
       preview={
         accepted ? `You're speaking at ${eventName}` : `An update on your ${eventName} submission`
       }
@@ -59,7 +60,7 @@ export default function Decision({
           ? "Confirm participation"
           : "Open speaker portal"}
       </Cta>
-      <Text style={{ ...paragraph, margin: "0" }}>The OpenSesh program team</Text>
+      <Text style={{ ...paragraph, margin: "0" }}>The {eventName} program team</Text>
     </EmailLayout>
   );
 }
@@ -71,5 +72,6 @@ Decision.PreviewProps = {
   submissionTitle: "Evals in Production",
   feedback: "The panel loved the live-debugging section — consider leading with it.",
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
   confirmationRequested: true,
 } satisfies DecisionProps;

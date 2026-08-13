@@ -29,19 +29,20 @@ export default function Confirmation({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading="We received your submission"
       preview={`We received “${submissionTitle}”`}
     >
       {customBodyHtml === undefined ? (
         <Text style={paragraph}>
-          Thanks, {name}. Your submission “{submissionTitle}” is in the review queue.
+          Thanks, {name}. Your submission “{submissionTitle}” is in the review queue. You can follow
+          its status from the speaker portal.
         </Text>
       ) : (
         <div
-          style={{ fontSize: "14px", lineHeight: "1.6" }}
+          style={{ fontSize: "14px", lineHeight: "24px", color: "#3d463f" }}
           dangerouslySetInnerHTML={{ __html: customBodyHtml }}
         />
       )}
-      <Text style={paragraph}>You can review its status in the speaker portal.</Text>
       <Cta href={portalUrl}>View submission</Cta>
     </EmailLayout>
   );
@@ -52,4 +53,5 @@ Confirmation.PreviewProps = {
   name: "Maya",
   submissionTitle: "Evals in Production",
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
 } satisfies ConfirmationProps;

@@ -38,6 +38,7 @@ export default function Reinstated({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading="Your session is back on"
       preview={`Your ${eventName} session is back on`}
     >
       <Text style={paragraph}>Hi {speakerName},</Text>
@@ -48,7 +49,7 @@ export default function Reinstated({
         <NoteCard title="A note from the program team">{trimmedMessage}</NoteCard>
       )}
       <Cta href={portalUrl}>Open speaker portal</Cta>
-      <Text style={{ ...paragraph, margin: "0" }}>The OpenSesh program team</Text>
+      <Text style={{ ...paragraph, margin: "0" }}>The {eventName} program team</Text>
     </EmailLayout>
   );
 }
@@ -60,4 +61,5 @@ Reinstated.PreviewProps = {
   message: "The track opened back up — your original slot is yours again.",
   reinvited: true,
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
 } satisfies ReinstatedProps;

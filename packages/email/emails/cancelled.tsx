@@ -39,6 +39,7 @@ export default function Cancelled({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading="Your session has been cancelled"
       preview={`Your ${eventName} session has been cancelled`}
     >
       <Text style={paragraph}>Hi {speakerName},</Text>
@@ -49,7 +50,7 @@ export default function Cancelled({
         <NoteCard title="A note from the program team">{trimmedMessage}</NoteCard>
       )}
       <Cta href={portalUrl}>Open speaker portal</Cta>
-      <Text style={{ ...paragraph, margin: "0" }}>The OpenSesh program team</Text>
+      <Text style={{ ...paragraph, margin: "0" }}>The {eventName} program team</Text>
     </EmailLayout>
   );
 }
@@ -61,4 +62,5 @@ Cancelled.PreviewProps = {
   cause: "organizer",
   message: "A schedule conflict forced us to trim the track. We'd love to have you next year.",
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
 } satisfies CancelledProps;

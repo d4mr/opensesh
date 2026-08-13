@@ -15,7 +15,7 @@ export const seedData = {
       endsAt: new Date(1792011600000),
       theme:
         "The production AI engineering conference: practical systems, candid failure stories, and the people shipping them.",
-      logoUrl: "https://opensesh.io/demo/aie-logo.svg",
+      logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
       logoKey: null,
       backgroundUrl:
         "https://images.unsplash.com/photo-1522083165195-3424e" +

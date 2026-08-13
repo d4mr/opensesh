@@ -57,7 +57,7 @@ const decision = (input: DecisionProps): RenderedEmail => {
     subject: input.accepted
       ? `You're speaking at ${input.eventName}`
       : `An update on your ${input.eventName} submission`,
-    text: `Hi ${input.speakerName},\n\n${decisionIntroduction(input)}${feedback.length === 0 ? "" : `\n\nFeedback from the review team:\n${feedback}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe OpenSesh program team`,
+    text: `Hi ${input.speakerName},\n\n${decisionIntroduction(input)}${feedback.length === 0 ? "" : `\n\nFeedback from the review team:\n${feedback}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe ${input.eventName} program team`,
     html: html(<Decision {...input} />),
   };
 };
@@ -72,7 +72,7 @@ export const cancelled = (input: CancelledProps): RenderedEmail => {
   const message = input.message.trim();
   return {
     subject: `Your ${input.eventName} session has been cancelled`,
-    text: `Hi ${input.speakerName},\n\n${cancellationIntroduction(input)}${message.length === 0 ? "" : `\n\nA note from the program team:\n${message}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe OpenSesh program team`,
+    text: `Hi ${input.speakerName},\n\n${cancellationIntroduction(input)}${message.length === 0 ? "" : `\n\nA note from the program team:\n${message}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe ${input.eventName} program team`,
     html: html(<Cancelled {...input} />),
   };
 };
@@ -81,7 +81,7 @@ export const reinstated = (input: ReinstatedProps): RenderedEmail => {
   const message = input.message.trim();
   return {
     subject: `Your ${input.eventName} session is back on`,
-    text: `Hi ${input.speakerName},\n\n${reinstatementIntroduction(input)}${message.length === 0 ? "" : `\n\nA note from the program team:\n${message}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe OpenSesh program team`,
+    text: `Hi ${input.speakerName},\n\n${reinstatementIntroduction(input)}${message.length === 0 ? "" : `\n\nA note from the program team:\n${message}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe ${input.eventName} program team`,
     html: html(<Reinstated {...input} />),
   };
 };

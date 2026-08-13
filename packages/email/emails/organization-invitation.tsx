@@ -2,7 +2,7 @@
 // @jsxImportSource react
 import { Text } from "react-email";
 
-import { Cta, EmailLayout, paragraph } from "../src/components/layout";
+import { Cta, EmailLayout, palette, paragraph } from "../src/components/layout";
 
 export interface OrganizationInvitationProps {
   readonly organizationName: string;
@@ -19,12 +19,17 @@ export default function OrganizationInvitation({
   url,
 }: OrganizationInvitationProps & { readonly url: string }) {
   return (
-    <EmailLayout brandName={organizationName} preview={`Join ${organizationName} on opensesh`}>
+    <EmailLayout
+      brandName={organizationName}
+      heading={`Join ${organizationName} on opensesh`}
+      preview={`${inviterName} invited you to ${organizationName}`}
+    >
       <Text style={paragraph}>
-        {inviterName} invited you to join {organizationName} as {roleLabel(role)}.
+        {inviterName} invited you to join {organizationName} as {roleLabel(role)}. opensesh is where
+        the team plans events, reviews submissions, and runs the speaker program.
       </Text>
       <Cta href={url}>Accept invitation</Cta>
-      <Text style={{ ...paragraph, margin: "0", fontSize: "12px", color: "#68706a" }}>
+      <Text style={{ ...paragraph, margin: "0", fontSize: "13px", color: palette.muted }}>
         If you were not expecting this invitation, you can safely ignore it.
       </Text>
     </EmailLayout>

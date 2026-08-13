@@ -2,7 +2,7 @@
 // @jsxImportSource react
 import { Text } from "react-email";
 
-import { Cta, EmailLayout, paragraph } from "../src/components/layout";
+import { Cta, EmailLayout, palette, paragraph } from "../src/components/layout";
 
 export interface MagicLinkProps {
   readonly url: string;
@@ -12,10 +12,16 @@ export interface MagicLinkProps {
 // same link works for every event the user can reach.
 export default function MagicLink({ url }: MagicLinkProps) {
   return (
-    <EmailLayout brandName="opensesh" preview="Your secure sign-in link">
-      <Text style={paragraph}>Use this secure link to sign in to opensesh.</Text>
-      <Cta href={url}>Sign in to opensesh</Cta>
-      <Text style={{ ...paragraph, margin: "0", fontSize: "12px", color: "#68706a" }}>
+    <EmailLayout
+      brandName="opensesh"
+      heading="Sign in to opensesh"
+      preview="Your secure sign-in link"
+    >
+      <Text style={paragraph}>
+        Click the button below to securely sign in. This link can only be used once.
+      </Text>
+      <Cta href={url}>Sign in</Cta>
+      <Text style={{ ...paragraph, margin: "0", fontSize: "13px", color: palette.muted }}>
         If you did not request this email, you can safely ignore it.
       </Text>
     </EmailLayout>

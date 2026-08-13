@@ -2,7 +2,7 @@
 // @jsxImportSource react
 import { Text } from "react-email";
 
-import { Cta, EmailLayout, paragraph } from "../src/components/layout";
+import { Cta, DetailCard, EmailLayout, paragraph } from "../src/components/layout";
 
 export interface DeliverableReminderProps {
   readonly eventName: string;
@@ -27,15 +27,16 @@ export default function DeliverableReminder({
     <EmailLayout
       brandName={eventName}
       logoUrl={logoUrl}
+      heading={`${requirement} is still due`}
       preview={`Reminder: ${requirement} for ${sessionCode}`}
     >
       <Text style={paragraph}>Hi {speakerName},</Text>
       <Text style={paragraph}>
-        A quick reminder that {requirement} is still outstanding for {sessionCode}.
+        A quick reminder that {requirement} is still outstanding for your session.
       </Text>
-      <Text style={paragraph}>
-        {requirement} · {sessionCode} · {due}
-      </Text>
+      <DetailCard title={requirement}>
+        {sessionCode} · {due}
+      </DetailCard>
       <Cta href={portalUrl}>Upload your file</Cta>
     </EmailLayout>
   );
@@ -48,4 +49,5 @@ DeliverableReminder.PreviewProps = {
   sessionCode: "S-104",
   due: "Due Fri, Sep 18",
   portalUrl: "https://app.opensesh.io/portal",
+  logoUrl: "https://app.opensesh.io/demo/aie-logo.png",
 } satisfies DeliverableReminderProps;

@@ -1,17 +1,32 @@
 // @jsxRuntime automatic
 // @jsxImportSource react
-import { Body, Button, Container, Head, Hr, Html, Img, Preview, Section, Text } from "react-email";
+import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Hr,
+  Html,
+  Img,
+  Preview,
+  Section,
+  Text,
+} from "react-email";
 import type { CSSProperties, ReactNode } from "react";
 
 export const palette = {
-  page: "#f6f7f4",
-  card: "#ffffff",
-  border: "#dfe3dd",
-  divider: "#e5e7e2",
-  ink: "#1b211d",
-  muted: "#68706a",
+  ink: "#16211b",
+  body: "#3d463f",
+  muted: "#6b736c",
+  fill: "#f4f5f2",
+  divider: "#e7eae5",
   brand: "#176b4d",
 } as const;
+
+// Raster mark: Gmail strips SVG images, so account mail points at the
+// pre-rendered PNG of the brand mark.
+const OPENSESH_MARK = "https://app.opensesh.io/brand/email-logo.png";
 
 const fontFamily =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
@@ -19,8 +34,8 @@ const fontFamily =
 export const paragraph: CSSProperties = {
   margin: "0 0 16px",
   fontSize: "14px",
-  lineHeight: "1.6",
-  color: palette.ink,
+  lineHeight: "24px",
+  color: palette.body,
 };
 
 const button: CSSProperties = {
@@ -31,13 +46,13 @@ const button: CSSProperties = {
   fontSize: "13px",
   fontWeight: 600,
   lineHeight: "1",
-  padding: "11px 18px",
+  padding: "11px 16px",
   textDecoration: "none",
 };
 
 export function Cta({ href, children }: { readonly href: string; readonly children: ReactNode }) {
   return (
-    <Section style={{ margin: "4px 0 20px" }}>
+    <Section style={{ margin: "8px 0 24px" }}>
       <Button href={href} style={button}>
         {children}
       </Button>
@@ -45,11 +60,11 @@ export function Cta({ href, children }: { readonly href: string; readonly childr
   );
 }
 
-const note: CSSProperties = {
-  margin: "4px 0 20px",
-  border: `1px solid ${palette.border}`,
+const fill: CSSProperties = {
+  margin: "8px 0 24px",
+  backgroundColor: palette.fill,
   borderRadius: "8px",
-  padding: "14px",
+  padding: "16px",
 };
 
 export function NoteCard({
@@ -60,18 +75,39 @@ export function NoteCard({
   readonly children: ReactNode;
 }) {
   return (
-    <Section style={note}>
-      <Text style={{ margin: "0", fontSize: "13px", fontWeight: 700, color: palette.ink }}>
+    <Section style={fill}>
+      <Text style={{ margin: "0", fontSize: "13px", fontWeight: 600, color: palette.ink }}>
         {title}
       </Text>
       <Text
         style={{
-          margin: "8px 0 0",
+          margin: "6px 0 0",
           fontSize: "14px",
-          lineHeight: "1.6",
-          color: palette.ink,
+          lineHeight: "22px",
+          color: palette.body,
           whiteSpace: "pre-wrap",
         }}
+      >
+        {children}
+      </Text>
+    </Section>
+  );
+}
+
+export function DetailCard({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Section style={fill}>
+      <Text style={{ margin: "0", fontSize: "14px", fontWeight: 600, color: palette.ink }}>
+        {title}
+      </Text>
+      <Text
+        style={{ margin: "6px 0 0", fontSize: "14px", lineHeight: "22px", color: palette.muted }}
       >
         {children}
       </Text>
@@ -82,12 +118,18 @@ export function NoteCard({
 export function EmailLayout({
   brandName,
   logoUrl = null,
+  heading,
   preview,
   children,
 }: {
-  /** Event name for event mail, "opensesh" for account mail. */
+  /** Event name for event mail, organization name or "opensesh" for account mail. */
   readonly brandName: string;
+  /**
+   * Event comms carry the event's logo; account mail (sign-in, workspace
+   * invitations) omits it and gets the opensesh mark instead.
+   */
   readonly logoUrl?: string | null;
+  readonly heading: string;
   readonly preview: string;
   readonly children: ReactNode;
 }) {
@@ -95,60 +137,52 @@ export function EmailLayout({
     <Html lang="en">
       <Head />
       <Preview>{preview}</Preview>
-      <Body style={{ margin: "0", backgroundColor: palette.page, fontFamily }}>
-        <Container
-          style={{
-            maxWidth: "560px",
-            margin: "0 auto",
-            padding: "32px 16px",
-          }}
-        >
-          <Container
+      <Body style={{ margin: "0", backgroundColor: "#ffffff", fontFamily }}>
+        <Container style={{ maxWidth: "480px", margin: "0 auto", padding: "48px 24px 40px" }}>
+          <Img
+            src={logoUrl ?? OPENSESH_MARK}
+            alt={brandName}
+            width="40"
+            height="40"
             style={{
-              backgroundColor: palette.card,
-              border: `1px solid ${palette.border}`,
-              borderTop: `3px solid ${palette.brand}`,
-              borderRadius: "10px",
-              overflow: "hidden",
+              display: "block",
+              width: "40px",
+              height: "40px",
+              borderRadius: "8px",
+              objectFit: "cover",
+            }}
+          />
+          <Heading
+            as="h1"
+            style={{
+              margin: "28px 0 12px",
+              fontSize: "20px",
+              lineHeight: "28px",
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
+              color: palette.ink,
             }}
           >
-            <Section style={{ padding: "20px 24px 4px" }}>
-              {logoUrl === null ? null : (
-                <Img
-                  src={logoUrl}
-                  alt=""
-                  width="48"
-                  height="48"
-                  style={{
-                    display: "block",
-                    width: "48px",
-                    height: "48px",
-                    margin: "0 0 12px",
-                    borderRadius: "8px",
-                    objectFit: "cover",
-                  }}
-                />
-              )}
-              <Text
-                style={{
-                  margin: "0",
-                  fontSize: "16px",
-                  fontWeight: 700,
-                  letterSpacing: "-0.01em",
-                  color: palette.ink,
-                }}
-              >
-                {brandName}
-              </Text>
-            </Section>
-            <Section style={{ padding: "12px 24px 24px" }}>{children}</Section>
-            <Hr style={{ margin: "0", borderTop: `1px solid ${palette.divider}` }} />
-            <Section style={{ padding: "14px 24px" }}>
-              <Text style={{ margin: "0", fontSize: "12px", color: palette.muted }}>
-                opensesh — {brandName}
-              </Text>
-            </Section>
-          </Container>
+            {heading}
+          </Heading>
+          {children}
+          <Hr
+            style={{
+              margin: "32px 0 0",
+              border: "none",
+              borderTop: `1px solid ${palette.divider}`,
+            }}
+          />
+          <Text
+            style={{
+              margin: "16px 0 0",
+              fontSize: "12px",
+              lineHeight: "20px",
+              color: palette.muted,
+            }}
+          >
+            {brandName === "opensesh" ? "opensesh" : `opensesh — ${brandName}`}
+          </Text>
         </Container>
       </Body>
     </Html>
