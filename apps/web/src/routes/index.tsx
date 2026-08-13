@@ -15,7 +15,10 @@ export const Route = createFileRoute("/")({
       if (viewer.error.status === 428) {
         throw redirect({ to: "/onboarding", search: { new: undefined } });
       }
-      throw redirect({ to: "/login", search: { demo: undefined, email: undefined } });
+      throw redirect({
+        to: "/login",
+        search: { demo: undefined, email: undefined, error: undefined, redirect: undefined },
+      });
     }
     if (viewer.data.roles.admin || viewer.data.roles.reviewer || viewer.data.roles.member) {
       throw redirect({ to: "/admin" });

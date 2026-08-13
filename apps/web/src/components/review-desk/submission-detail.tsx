@@ -111,6 +111,7 @@ export function SubmissionDetail({
           speakerName: submission.submitter?.name.split(" ")[0] ?? "Submitter",
           submissionTitle: submission.title,
           feedback: informPreview?.note ?? "",
+          portalUrl: `${typeof window === "undefined" ? "https://app.opensesh.io" : window.location.origin}/portal`,
           confirmationRequested: context.event.speakerConfirmationEnabled,
         })
       : null;

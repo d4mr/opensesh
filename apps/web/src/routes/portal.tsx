@@ -22,12 +22,21 @@ const portalEventQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/portal")({
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
     // Cached so in-app navigation stays instant; full-page reloads on
     // login/logout/persona-switch reset the client and force a fresh check.
     const viewer = await context.queryClient.ensureQueryData(portalViewerQuery);
     if (!viewer.ok) {
-      throw redirect({ to: "/login", search: { demo: undefined, email: undefined } });
+      throw redirect({
+        to: "/login",
+        search: {
+          demo: undefined,
+          email: undefined,
+          error: undefined,
+          // Sign-in returns to the page the speaker was headed for.
+          redirect: location.href,
+        },
+      });
     }
     return { user: viewer.data };
   },

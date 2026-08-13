@@ -54,12 +54,14 @@ import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
 import { Route as EEventSlugIndexRouteImport } from './routes/e.$eventSlug.index'
 import { Route as EEventSlugAgendaRouteImport } from './routes/e.$eventSlug.agenda'
 import { Route as EEventSlugItineraryRouteImport } from './routes/e.$eventSlug.itinerary'
+import { Route as EEventSlugPortalRouteImport } from './routes/e.$eventSlug.portal'
 import { Route as EEventSlugSessionsRouteImport } from './routes/e.$eventSlug.sessions'
 import { Route as EEventSlugSpeakersRouteImport } from './routes/e.$eventSlug.speakers'
 import { Route as EmbedEmbedIdIcsRouteImport } from './routes/embed.$embedId.ics'
 import { Route as EmbedEmbedIdJsonRouteImport } from './routes/embed.$embedId.json'
 import { Route as EventAssetsEventIdIconRouteImport } from './routes/event-assets.$eventId.icon'
 import { Route as OrgAssetsOrgIdIconRouteImport } from './routes/org-assets.$orgId.icon'
+import { Route as PortalAccessTokenRouteImport } from './routes/portal_.access.$token'
 import { Route as SpeakerAssetsContactIdHeadshotRouteImport } from './routes/speaker-assets.$contactId.headshot'
 import { Route as SubmitEventSlugFormIdRouteImport } from './routes/submit.$eventSlug.$formId'
 import { Route as EEventSlugSessionsCodeRouteImport } from './routes/e.$eventSlug.sessions_.$code'
@@ -294,6 +296,11 @@ const EEventSlugItineraryRoute = EEventSlugItineraryRouteImport.update({
   path: '/itinerary',
   getParentRoute: () => EEventSlugRoute,
 } as any)
+const EEventSlugPortalRoute = EEventSlugPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => EEventSlugRoute,
+} as any)
 const EEventSlugSessionsRoute = EEventSlugSessionsRouteImport.update({
   id: '/sessions',
   path: '/sessions',
@@ -322,6 +329,11 @@ const EventAssetsEventIdIconRoute = EventAssetsEventIdIconRouteImport.update({
 const OrgAssetsOrgIdIconRoute = OrgAssetsOrgIdIconRouteImport.update({
   id: '/org-assets/$orgId/icon',
   path: '/org-assets/$orgId/icon',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAccessTokenRoute = PortalAccessTokenRouteImport.update({
+  id: '/portal_/access/$token',
+  path: '/portal/access/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SpeakerAssetsContactIdHeadshotRoute =
@@ -392,12 +404,14 @@ export interface FileRoutesByFullPath {
   '/api/v1/$': typeof ApiV1SplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
+  '/e/$eventSlug/portal': typeof EEventSlugPortalRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/embed/$embedId/ics': typeof EmbedEmbedIdIcsRoute
   '/embed/$embedId/json': typeof EmbedEmbedIdJsonRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
   '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
+  '/portal/access/$token': typeof PortalAccessTokenRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug/': typeof EEventSlugIndexRoute
@@ -446,12 +460,14 @@ export interface FileRoutesByTo {
   '/api/v1/$': typeof ApiV1SplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
+  '/e/$eventSlug/portal': typeof EEventSlugPortalRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/embed/$embedId/ics': typeof EmbedEmbedIdIcsRoute
   '/embed/$embedId/json': typeof EmbedEmbedIdJsonRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
   '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
+  '/portal/access/$token': typeof PortalAccessTokenRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug': typeof EEventSlugIndexRoute
@@ -504,12 +520,14 @@ export interface FileRoutesById {
   '/api/v1/$': typeof ApiV1SplatRoute
   '/e/$eventSlug/agenda': typeof EEventSlugAgendaRoute
   '/e/$eventSlug/itinerary': typeof EEventSlugItineraryRoute
+  '/e/$eventSlug/portal': typeof EEventSlugPortalRoute
   '/e/$eventSlug/sessions': typeof EEventSlugSessionsRoute
   '/e/$eventSlug/speakers': typeof EEventSlugSpeakersRoute
   '/embed/$embedId/ics': typeof EmbedEmbedIdIcsRoute
   '/embed/$embedId/json': typeof EmbedEmbedIdJsonRoute
   '/event-assets/$eventId/icon': typeof EventAssetsEventIdIconRoute
   '/org-assets/$orgId/icon': typeof OrgAssetsOrgIdIconRoute
+  '/portal_/access/$token': typeof PortalAccessTokenRoute
   '/speaker-assets/$contactId/headshot': typeof SpeakerAssetsContactIdHeadshotRoute
   '/submit/$eventSlug/$formId': typeof SubmitEventSlugFormIdRoute
   '/e/$eventSlug/': typeof EEventSlugIndexRoute
@@ -563,12 +581,14 @@ export interface FileRouteTypes {
     | '/api/v1/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
+    | '/e/$eventSlug/portal'
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/embed/$embedId/ics'
     | '/embed/$embedId/json'
     | '/event-assets/$eventId/icon'
     | '/org-assets/$orgId/icon'
+    | '/portal/access/$token'
     | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug/'
@@ -617,12 +637,14 @@ export interface FileRouteTypes {
     | '/api/v1/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
+    | '/e/$eventSlug/portal'
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/embed/$embedId/ics'
     | '/embed/$embedId/json'
     | '/event-assets/$eventId/icon'
     | '/org-assets/$orgId/icon'
+    | '/portal/access/$token'
     | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug'
@@ -674,12 +696,14 @@ export interface FileRouteTypes {
     | '/api/v1/$'
     | '/e/$eventSlug/agenda'
     | '/e/$eventSlug/itinerary'
+    | '/e/$eventSlug/portal'
     | '/e/$eventSlug/sessions'
     | '/e/$eventSlug/speakers'
     | '/embed/$embedId/ics'
     | '/embed/$embedId/json'
     | '/event-assets/$eventId/icon'
     | '/org-assets/$orgId/icon'
+    | '/portal_/access/$token'
     | '/speaker-assets/$contactId/headshot'
     | '/submit/$eventSlug/$formId'
     | '/e/$eventSlug/'
@@ -706,6 +730,7 @@ export interface RootRouteChildren {
   ApiV1SplatRoute: typeof ApiV1SplatRoute
   EventAssetsEventIdIconRoute: typeof EventAssetsEventIdIconRoute
   OrgAssetsOrgIdIconRoute: typeof OrgAssetsOrgIdIconRoute
+  PortalAccessTokenRoute: typeof PortalAccessTokenRoute
   SpeakerAssetsContactIdHeadshotRoute: typeof SpeakerAssetsContactIdHeadshotRoute
 }
 
@@ -1026,6 +1051,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EEventSlugItineraryRouteImport
       parentRoute: typeof EEventSlugRoute
     }
+    '/e/$eventSlug/portal': {
+      id: '/e/$eventSlug/portal'
+      path: '/portal'
+      fullPath: '/e/$eventSlug/portal'
+      preLoaderRoute: typeof EEventSlugPortalRouteImport
+      parentRoute: typeof EEventSlugRoute
+    }
     '/e/$eventSlug/sessions': {
       id: '/e/$eventSlug/sessions'
       path: '/sessions'
@@ -1066,6 +1098,13 @@ declare module '@tanstack/react-router' {
       path: '/org-assets/$orgId/icon'
       fullPath: '/org-assets/$orgId/icon'
       preLoaderRoute: typeof OrgAssetsOrgIdIconRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal_/access/$token': {
+      id: '/portal_/access/$token'
+      path: '/portal/access/$token'
+      fullPath: '/portal/access/$token'
+      preLoaderRoute: typeof PortalAccessTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/speaker-assets/$contactId/headshot': {
@@ -1152,6 +1191,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 interface EEventSlugRouteChildren {
   EEventSlugAgendaRoute: typeof EEventSlugAgendaRoute
   EEventSlugItineraryRoute: typeof EEventSlugItineraryRoute
+  EEventSlugPortalRoute: typeof EEventSlugPortalRoute
   EEventSlugSessionsRoute: typeof EEventSlugSessionsRoute
   EEventSlugSpeakersRoute: typeof EEventSlugSpeakersRoute
   EEventSlugIndexRoute: typeof EEventSlugIndexRoute
@@ -1162,6 +1202,7 @@ interface EEventSlugRouteChildren {
 const EEventSlugRouteChildren: EEventSlugRouteChildren = {
   EEventSlugAgendaRoute: EEventSlugAgendaRoute,
   EEventSlugItineraryRoute: EEventSlugItineraryRoute,
+  EEventSlugPortalRoute: EEventSlugPortalRoute,
   EEventSlugSessionsRoute: EEventSlugSessionsRoute,
   EEventSlugSpeakersRoute: EEventSlugSpeakersRoute,
   EEventSlugIndexRoute: EEventSlugIndexRoute,
@@ -1246,6 +1287,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1SplatRoute: ApiV1SplatRoute,
   EventAssetsEventIdIconRoute: EventAssetsEventIdIconRoute,
   OrgAssetsOrgIdIconRoute: OrgAssetsOrgIdIconRoute,
+  PortalAccessTokenRoute: PortalAccessTokenRoute,
   SpeakerAssetsContactIdHeadshotRoute: SpeakerAssetsContactIdHeadshotRoute,
 }
 export const routeTree = rootRouteImport

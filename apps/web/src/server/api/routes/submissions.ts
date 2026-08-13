@@ -139,6 +139,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           eventId: access.event.id,
           submissionIds: body.submissionIds,
           feedback: body.feedback ?? "",
+          portalOrigin: "https://app.opensesh.io",
           actor: context.actor,
         });
         const queue = yield* MailQueue;

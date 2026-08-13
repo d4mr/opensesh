@@ -14,6 +14,7 @@ import { requireEventAccess } from "@opensesh/domain/server/current-user";
 import { Forbidden, InvalidInput } from "@opensesh/domain/server/errors";
 import { Contacts, Events, Portal, ReviewDesk, Submissions } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
@@ -190,6 +191,7 @@ export const informSubmissions = createServerFn({ method: "POST" })
           eventId: data.eventId,
           submissionIds: data.submissionIds,
           feedback: data.feedback ?? "",
+          portalOrigin: new URL(getRequest().url).origin,
           actor: { kind: "user", userId: access.user.userId, name: access.user.name },
         });
         const queue = yield* MailQueue;

@@ -51,6 +51,7 @@ const verify = Effect.gen(function* () {
     eventId,
     submissionIds: [acceptTarget.submission.id],
     feedback,
+    portalOrigin: "https://app.opensesh.io",
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
 
@@ -132,6 +133,7 @@ const verify = Effect.gen(function* () {
     eventId,
     submissionIds: declineTargets.map((submission) => submission.id),
     feedback: "A thoughtful proposal, but the program is full in this track.",
+    portalOrigin: "https://app.opensesh.io",
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
   const declinedDetail = yield* reviewDesk.detail(eventId, declineTargets[0]?.id ?? "");

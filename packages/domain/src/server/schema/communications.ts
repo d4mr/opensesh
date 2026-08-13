@@ -244,15 +244,15 @@ export const buildCampaignRecipientRows = (input: {
   readonly subject: string;
   readonly body: string;
   readonly eventName: string;
-  readonly portalUrl: string;
-  readonly recipients: ReadonlyArray<CampaignRecipientSource>;
+  // Per recipient because each carries their own portal access token.
+  readonly recipients: ReadonlyArray<CampaignRecipientSource & { readonly portalUrl: string }>;
 }) =>
   input.recipients.map((recipient) => {
     const fields = {
       speaker_name: recipient.speakerName,
       talk_title: recipient.talkTitle,
       event_name: input.eventName,
-      portal_url: input.portalUrl,
+      portal_url: recipient.portalUrl,
     };
     return {
       campaignId: input.campaignId,

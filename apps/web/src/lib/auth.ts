@@ -17,6 +17,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { magicLink, mcp, organization } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import { portalAccess } from "@/lib/portal-access-plugin";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 
 export const makeAuth = (env: Cloudflare.Env, origin: string) => {
@@ -119,6 +120,7 @@ export const makeAuth = (env: Cloudflare.Env, origin: string) => {
         loginPage: "/login",
         oidcConfig: { loginPage: "/login", consentPage: "/oauth/consent" },
       }),
+      portalAccess(),
       tanstackStartCookies(),
     ],
   });

@@ -6,6 +6,7 @@ import { confirmation } from "@opensesh/email";
 import { markdownToHtml, plainTextFromRichText } from "../rich-text";
 import { Contacts } from "./repos/contacts";
 import { EmailLog } from "./repos/email-log";
+import { PortalAccess } from "./repos/portal-access";
 import { Events } from "./repos/events";
 import { ReadModels } from "./repos/read-models";
 import { Submissions } from "./repos/submissions";
@@ -354,10 +355,11 @@ const validateSubmit = Effect.fn("validateCfpSubmit")(function* (
 });
 
 export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (
-  input: CfpSubmitInput & { readonly portalUrl?: string },
+  input: CfpSubmitInput & { readonly portalOrigin?: string },
 ) {
   const contacts = yield* Contacts;
   const emailLog = yield* EmailLog;
+  const portalAccess = yield* PortalAccess;
   const submissions = yield* Submissions;
   const bundle = yield* loadCfpForm(input.eventSlug, input.formId);
   yield* validateSubmit(
@@ -372,7 +374,18 @@ export const submitCfpDraft = Effect.fn("submitCfpDraft")(function* (
   let confirmationLogId: string | null = null;
   if (bundle.form.confirmationEmailEnabled) {
     const name = submitter.firstName.length > 0 ? submitter.firstName : submitter.email;
-    const portalUrl = input.portalUrl ?? "https://opensesh.io/portal";
+    const portalUrl = yield* portalAccess.mint({
+      origin: input.portalOrigin ?? "https://app.opensesh.io",
+      to: "/portal",
+      grant: {
+        email: submitter.email,
+        name: `${submitter.firstName} ${submitter.lastName}`.trim(),
+        contactId: submitter.id,
+        eventId: bundle.event.id,
+        eventSlug: input.eventSlug,
+      },
+      now: new Date(),
+    });
     const customBody = bundle.form.confirmationEmailBody
       .replaceAll("{{name}}", name)
       .replaceAll("{{title}}", submission.title)

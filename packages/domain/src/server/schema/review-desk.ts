@@ -224,6 +224,9 @@ export interface DecisionEmailInput {
   readonly speakerName: string;
   readonly submissionTitle: string;
   readonly feedback: string;
+  // The full portal link for the CTA. The server passes a tokened access
+  // link (the email is the credential); previews pass a plain /portal URL.
+  readonly portalUrl: string;
   // True when the event asks speakers to confirm participation themselves —
   // the acceptance email then leads with the confirm CTA.
   readonly confirmationRequested?: boolean;
@@ -231,7 +234,7 @@ export interface DecisionEmailInput {
 
 export const renderDecisionEmail = (input: DecisionEmailInput) => {
   const render = input.decision === "accept" ? accepted : declined;
-  return render({ ...input, portalUrl: "https://opensesh.io/portal" });
+  return render(input);
 };
 
 export const DecisionResult = Schema.Struct({

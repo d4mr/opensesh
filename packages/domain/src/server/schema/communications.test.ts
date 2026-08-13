@@ -49,19 +49,20 @@ describe("campaign recipient snapshots", () => {
       subject: "Welcome {speaker_name} to {event_name}",
       body: "{talk_title} · {portal_url}",
       eventName: "DevFlow Conf 2027",
-      portalUrl: "https://example.com/portal",
       recipients: [
         {
           contactId: "priya",
           speakerName: "Priya Raman",
           talkTitle: "Taming 40-Minute CI",
           email: "priya@example.com",
+          portalUrl: "https://example.com/portal/access/priya-token?to=%2Fportal",
         },
         {
           contactId: "marcus",
           speakerName: "Marcus Okafor",
           talkTitle: "Agents in Production",
           email: "marcus@example.com",
+          portalUrl: "https://example.com/portal/access/marcus-token?to=%2Fportal",
         },
       ],
     });

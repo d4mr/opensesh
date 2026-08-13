@@ -22,6 +22,8 @@ export function LoginForm({
   className,
   initialEmail = "",
   resumeUrl,
+  redirectPath,
+  notice,
   ...props
 }: React.ComponentProps<"div"> & {
   readonly initialEmail?: string;
@@ -30,6 +32,12 @@ export function LoginForm({
   // because the server may answer the sign-in with a redirect of its own,
   // which an XHR cannot follow usefully.
   readonly resumeUrl?: string;
+  // In-app path to land on after sign-in (a portal deep link that bounced
+  // here unauthenticated). resumeUrl wins when both are present.
+  readonly redirectPath?: string;
+  // Context line shown instead of the default subtitle (e.g. an expired
+  // portal link explanation).
+  readonly notice?: string;
 }) {
   const [error, setError] = useState<string>();
   const [magicSending, setMagicSending] = useState(false);
@@ -59,13 +67,13 @@ export function LoginForm({
       const result = await authClient.signIn.email({
         email: value.email,
         password: value.password,
-        callbackURL: "/",
+        callbackURL: redirectPath ?? "/",
       });
       if (result.error !== null) {
         setError(result.error.message ?? "Could not sign in");
         return;
       }
-      window.location.assign("/");
+      window.location.assign(redirectPath ?? "/");
     },
   });
 
@@ -77,8 +85,9 @@ export function LoginForm({
     }
     setError(undefined);
     setMagicSending(true);
+    const callbackUrl = resumeUrl ?? redirectPath;
     const result = await requestMagicLink({
-      data: { email, ...(resumeUrl === undefined ? {} : { callbackUrl: resumeUrl }) },
+      data: { email, ...(callbackUrl === undefined ? {} : { callbackUrl }) },
     });
     setMagicSending(false);
     if (!result.ok) {
@@ -106,7 +115,7 @@ export function LoginForm({
                   <BrandMark className="mb-1" />
                   <h1 className="text-2xl font-bold">Welcome back</h1>
                   <p className="text-balance text-muted-foreground">
-                    Sign in to manage programs and speaker tasks.
+                    {notice ?? "Sign in to manage programs and speaker tasks."}
                   </p>
                 </div>
                 <form.Field name="email">

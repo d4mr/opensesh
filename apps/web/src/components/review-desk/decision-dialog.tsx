@@ -86,6 +86,7 @@ export function DecisionDialog({
     speakerName: first?.submitter?.name.split(" ")[0] ?? "Submitter",
     submissionTitle: first?.title ?? "Submission",
     feedback,
+    portalUrl: `${typeof window === "undefined" ? "https://app.opensesh.io" : window.location.origin}/portal`,
     confirmationRequested,
   });
   const replacingDecision = submissions.some(

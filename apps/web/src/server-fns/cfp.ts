@@ -75,7 +75,7 @@ export const submitPublicDraft = createServerFn({ method: "POST" })
         const submitted = yield* submitCfpDraft({
           ...data,
           email,
-          portalUrl: `${new URL(request.url).origin}/portal`,
+          portalOrigin: new URL(request.url).origin,
         });
         if (submitted.confirmationLogId !== null) {
           const mail = yield* Mail;

@@ -98,7 +98,12 @@ function Signup() {
                     Already have an account?{" "}
                     <Link
                       to="/login"
-                      search={{ demo: undefined, email: undefined }}
+                      search={{
+                        demo: undefined,
+                        email: undefined,
+                        error: undefined,
+                        redirect: undefined,
+                      }}
                       className="font-medium text-foreground hover:underline"
                     >
                       Sign in

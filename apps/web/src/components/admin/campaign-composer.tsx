@@ -188,14 +188,17 @@ function Composer({
     [allContacts, recipientIds],
   );
   const preview = allContacts.find((contact) => contact.id === previewId) ?? recipients[0];
+  // Mirror the server's resolution (`${portalOrigin}/portal`) so the preview
+  // shows the same absolute URL the sent email will carry.
+  const portalUrl = `${typeof window === "undefined" ? "https://app.opensesh.io" : window.location.origin}/portal`;
   const fields =
     preview === undefined
-      ? { speaker_name: "", talk_title: "", event_name: data.eventName, portal_url: "/portal" }
+      ? { speaker_name: "", talk_title: "", event_name: data.eventName, portal_url: portalUrl }
       : {
           speaker_name: `${preview.firstName} ${preview.lastName}`,
           talk_title: preview.talkTitle,
           event_name: data.eventName,
-          portal_url: "/portal",
+          portal_url: portalUrl,
         };
   const resolvedSubject = resolveMergeFields(state.subject, fields);
   const resolvedBody = resolveMergeFields(state.body, fields);

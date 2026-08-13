@@ -29,8 +29,10 @@ import {
   tracks,
   users,
 } from "../../db/schema";
+import { verifications } from "../../db/auth";
 import { Db, type Database } from "../db";
 import { AlreadyDecided, type DbError, Forbidden, InvalidInput, NotFound } from "../errors";
+import { mintPortalAccess } from "../portal-access";
 import {
   JsonObject,
   NullableDate,
@@ -547,6 +549,7 @@ interface ReviewDeskService {
     readonly eventId: string;
     readonly submissionIds: ReadonlyArray<string>;
     readonly feedback: string;
+    readonly portalOrigin: string;
     readonly actor: AuditActor;
   }) => Effect.Effect<
     { readonly result: typeof InformResult.Type; readonly logIds: ReadonlyArray<string> },
@@ -1424,9 +1427,11 @@ export const ReviewDeskLive = Layer.effect(
                 title: submissions.title,
                 submitterContactId: submissions.submitterContactId,
                 eventName: events.name,
+                eventSlug: events.slug,
                 speakerConfirmationEnabled: events.speakerConfirmationEnabled,
                 email: emailRecipient.email,
                 firstName: emailRecipient.firstName,
+                lastName: emailRecipient.lastName,
               })
               .from(submissions)
               .innerJoin(
@@ -1440,24 +1445,40 @@ export const ReviewDeskLive = Layer.effect(
             const validationError = informValidationError(rows);
             if (validationError !== null) return { kind: "invalid", message: validationError };
             const now = new Date();
-            const candidates = rows.flatMap((row) => {
+            const candidates = [];
+            const accessRows = [];
+            for (const row of rows) {
               if (
                 row.submitterContactId === null ||
                 row.email === null ||
                 row.firstName === null ||
                 (row.status !== "accepted" && row.status !== "declined")
               ) {
-                return [];
+                continue;
               }
+              const access = await mintPortalAccess({
+                origin: input.portalOrigin,
+                to: "/portal",
+                grant: {
+                  email: row.email,
+                  name: `${row.firstName} ${row.lastName ?? ""}`.trim(),
+                  contactId: row.submitterContactId,
+                  eventId: input.eventId,
+                  eventSlug: row.eventSlug,
+                },
+                now,
+              });
+              accessRows.push(access.verification);
               const rendered = renderDecisionEmail({
                 decision: row.status === "accepted" ? "accept" : "decline",
                 eventName: row.eventName,
                 speakerName: row.firstName,
                 submissionTitle: row.title,
                 feedback: input.feedback,
+                portalUrl: access.url,
                 confirmationRequested: row.speakerConfirmationEnabled,
               });
-              return [
+              candidates.push(
                 decisionEmailLogValue({
                   eventId: input.eventId,
                   submissionId: row.id,
@@ -1468,8 +1489,11 @@ export const ReviewDeskLive = Layer.effect(
                   text: rendered.text,
                   html: rendered.html,
                 }),
-              ];
-            });
+              );
+            }
+            if (accessRows.length > 0) {
+              await transaction.insert(verifications).values(accessRows).execute();
+            }
             const inserted = await transaction
               .insert(emailLog)
               .values(candidates)

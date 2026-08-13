@@ -18,6 +18,7 @@
     "./server/schema/*": "./src/server/schema/*.ts",
     "./server/runtime": "./src/server/runtime.ts",
     "./server/db": "./src/server/db.ts",
+    "./server/portal-access": "./src/server/portal-access.ts",
     "./seed": "./src/seed/seed.ts",
     "./server/events": "./src/server/events.ts",
     "./testing/api-e2e": "./src/testing/api-e2e.ts"

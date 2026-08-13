@@ -15,12 +15,19 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
     demo: typeof search.demo === "string" ? search.demo : undefined,
     email: typeof search.email === "string" ? search.email : undefined,
+    error: search.error === "portal-link" ? ("portal-link" as const) : undefined,
+    // In-app destination to resume after sign-in (a portal deep link that
+    // bounced here). Same-origin paths only.
+    redirect:
+      typeof search.redirect === "string" && search.redirect.startsWith("/")
+        ? search.redirect
+        : undefined,
   }),
   component: Login,
 });
 
 function Login() {
-  const { demo, email } = Route.useSearch();
+  const { demo, email, error, redirect } = Route.useSearch();
   const demoEmail = demo === undefined ? undefined : demoPersonaByRole[demo];
   const [demoFailed, setDemoFailed] = useState(false);
   const attempted = useRef(false);
@@ -65,7 +72,16 @@ function Login() {
   return (
     <LoginBackdrop>
       <div className="w-full max-w-sm md:max-w-4xl">
-        <LoginForm initialEmail={email} resumeUrl={resumeUrl} />
+        <LoginForm
+          initialEmail={email}
+          resumeUrl={resumeUrl}
+          redirectPath={redirect}
+          notice={
+            error === "portal-link"
+              ? "That portal link has expired. Enter your email and we'll send a fresh sign-in link."
+              : undefined
+          }
+        />
       </div>
     </LoginBackdrop>
   );

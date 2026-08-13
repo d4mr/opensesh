@@ -20,6 +20,7 @@ import { getRequest, setResponseStatus } from "@tanstack/react-start/server";
 import { ConfigProvider, Effect, Layer, ManagedRuntime } from "effect";
 
 import { makeAuth } from "@/lib/auth";
+import { portalEventSlugFromCookieHeader } from "@/lib/portal-event";
 import { mailLayerFromEnv } from "@/server/mail-layer";
 import {
   consumeMailBatch,
@@ -30,8 +31,13 @@ import {
 } from "@/server/mail-queue";
 
 const demoEmails = new Set<string>(DEMO_PERSONA_EMAILS);
-const preferredEventSlugForSession = (session: SessionIdentity) =>
-  demoEmails.has(session.email) ? DEMO_EVENT_SLUG : undefined;
+// Demo personas always land in the sandbox event; everyone else honors the
+// portal event cookie a tokened email link (or the branded event sign-in
+// page) pinned, so a contact known to several events opens the right one.
+const preferredEventSlugForRequest = (request: Request) => (session: SessionIdentity) =>
+  demoEmails.has(session.email)
+    ? DEMO_EVENT_SLUG
+    : (portalEventSlugFromCookieHeader(request.headers.get("cookie")) ?? undefined);
 
 const sessionIdentity = (headers: Headers, origin: string) =>
   Effect.gen(function* () {
@@ -74,7 +80,7 @@ const requestRuntime = async (): Promise<AppRuntime> => {
   const dbLive = Layer.succeed(Db, { database: makeDatabase(env.HYPERDRIVE.connectionString) });
   const services = Layer.mergeAll(
     makeRepositoriesLiveWith(dbLive),
-    makeCurrentUserLiveWith(dbLive, loadSession, preferredEventSlugForSession),
+    makeCurrentUserLiveWith(dbLive, loadSession, preferredEventSlugForRequest(request)),
     mailLayerFromEnv(env),
     makeMailQueueLive(env.MAIL_QUEUE),
     ConfigProvider.layer(
@@ -227,6 +233,20 @@ export const runMailSweep = async (env: Cloudflare.Env, now: Date) => {
   }
 };
 
+// The DbError message alone ("Could not claim queued email") names the query,
+// not the disease — flatten the cause chain so the queue consumer's logs show
+// the underlying driver error (connect timeout, auth, pool exhaustion, …).
+const failureDetail = (error: unknown): string => {
+  if (typeof error !== "object" || error === null) return String(error);
+  const parts: Array<string> = [];
+  if ("message" in error && typeof error.message === "string") parts.push(error.message);
+  if ("code" in error && (typeof error.code === "string" || typeof error.code === "number"))
+    parts.push(`code=${String(error.code)}`);
+  if ("cause" in error && error.cause !== undefined && error.cause !== null)
+    parts.push(`← ${failureDetail(error.cause)}`);
+  return parts.length === 0 ? JSON.stringify(error) : parts.join(" ");
+};
+
 export const runMailQueueBatch = async (
   env: Cloudflare.Env,
   batch: MessageBatch<MailQueueMessage>,
@@ -251,6 +271,14 @@ export const runMailQueueBatch = async (
         ),
       );
       if (outcome._tag === "Success") return outcome.success;
+      console.error(
+        JSON.stringify({
+          event: "mail_delivery_error",
+          logId,
+          attempts,
+          error: failureDetail(outcome.failure),
+        }),
+      );
       const released = await runtime.runPromise(
         Effect.result(
           Effect.gen(function* () {
@@ -264,7 +292,14 @@ export const runMailQueueBatch = async (
         ),
       );
       if (released._tag === "Failure") {
-        console.error(JSON.stringify({ event: "mail_release_failed", logId, attempts }));
+        console.error(
+          JSON.stringify({
+            event: "mail_release_failed",
+            logId,
+            attempts,
+            error: failureDetail(released.failure),
+          }),
+        );
       }
       return attempts > 5 ? { kind: "permanent" } : { kind: "transient" };
     });

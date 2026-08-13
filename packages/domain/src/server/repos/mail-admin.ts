@@ -13,9 +13,11 @@ import {
   taskAssignments,
   taskTemplates,
 } from "../../db/schema";
+import { verifications } from "../../db/auth";
 import { Db, type Database } from "../db";
 import type { DbError, NotFound } from "../errors";
 import { buildCalendarInvite } from "../mail/ics";
+import { mintPortalAccess } from "../portal-access";
 import { calendarInvite, deliverableReminder, taskReminder } from "@opensesh/email";
 import type { AdminEmail, CalendarInviteSummary } from "../schema/mail";
 import { EmailLogEntry } from "../schema/portal";
@@ -55,6 +57,7 @@ const calendarRows = (database: Database, eventId: string) =>
     db
       .select({
         eventName: events.name,
+        eventSlug: events.slug,
         logoUrl: events.logoUrl,
         timezone: events.timezone,
         submissionId: submissions.id,
@@ -68,6 +71,7 @@ const calendarRows = (database: Database, eventId: string) =>
         contactId: contacts.id,
         email: contacts.email,
         firstName: contacts.firstName,
+        lastName: contacts.lastName,
       })
       .from(submissions)
       .innerJoin(events, eq(events.id, submissions.eventId))
@@ -196,13 +200,32 @@ export const MailAdminLive = Layer.effect(
                 .execute(),
             );
           }
-          const queued = state.affected
-            .map((row) => {
+          return yield* query(database, "Could not queue calendar invitations", async (db) => {
+            const now = new Date();
+            const queued = [];
+            const accessRows = [];
+            for (const row of state.affected) {
               const startsAt = row.startsAt;
               const endsAt = row.endsAt;
               const sequence = dirtySubmissions.get(row.submissionId) ?? row.icsSequence;
-              if (startsAt === null || endsAt === null) return null;
+              if (startsAt === null || endsAt === null) continue;
+              // The ICS description keeps the plain portal URL — calendar
+              // entries outlive any access token; the branded sign-in page
+              // catches them.
               const portalUrl = `${portalOrigin}/portal/submissions`;
+              const access = await mintPortalAccess({
+                origin: portalOrigin,
+                to: "/portal/submissions",
+                grant: {
+                  email: row.email,
+                  name: `${row.firstName} ${row.lastName}`.trim(),
+                  contactId: row.contactId,
+                  eventId,
+                  eventSlug: row.eventSlug,
+                },
+                now,
+              });
+              accessRows.push(access.verification);
               const rendered = calendarInvite({
                 eventName: row.eventName,
                 logoUrl: row.logoUrl,
@@ -212,7 +235,7 @@ export const MailAdminLive = Layer.effect(
                 endsAt,
                 timezone: row.timezone,
                 room: row.room,
-                portalUrl,
+                portalUrl: access.url,
               });
               const ics = buildCalendarInvite({
                 id: row.submissionId,
@@ -225,7 +248,7 @@ export const MailAdminLive = Layer.effect(
                 portalUrl,
                 sequence,
               });
-              return {
+              queued.push({
                 eventId,
                 contactId: row.contactId,
                 submissionId: row.submissionId,
@@ -242,13 +265,12 @@ export const MailAdminLive = Layer.effect(
                 providerId: null,
                 error: null,
                 sentAt: null,
-              };
-            })
-            .filter((row) => row !== null);
-          if (queued.length === 0) return [];
-          return yield* query(database, "Could not queue calendar invitations", (db) =>
-            db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute(),
-          );
+              });
+            }
+            if (queued.length === 0) return [];
+            await db.insert(verifications).values(accessRows).execute();
+            return db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute();
+          });
         }),
       queueTaskReminders: (eventId, requestedContactId, portalOrigin) =>
         Effect.gen(function* () {
@@ -282,7 +304,9 @@ export const MailAdminLive = Layer.effect(
                     contactId: contacts.id,
                     email: contacts.email,
                     firstName: contacts.firstName,
+                    lastName: contacts.lastName,
                     eventName: events.name,
+                    eventSlug: events.slug,
                     timezone: events.timezone,
                     logoUrl: events.logoUrl,
                   })
@@ -320,40 +344,56 @@ export const MailAdminLive = Layer.effect(
               tasks.set(contactId, contactTasks);
             }
           }
-          const queued = Array.from(tasks, ([contactId, contactTasks]) => {
-            const person = people.get(contactId);
-            if (person === undefined) return null;
-            const portalUrl = `${portalOrigin}/portal/tasks`;
-            const rendered = taskReminder({
-              eventName: person.eventName,
-              logoUrl: person.logoUrl,
-              speakerName: person.firstName,
-              tasks: Array.from(contactTasks.values()),
-              portalUrl,
-            });
-            return {
-              eventId,
-              contactId,
-              submissionId: null,
-              type: "task_reminder" as const,
-              recipient: person.email,
-              subject: rendered.subject,
-              body: rendered.text,
-              htmlBody: rendered.html,
-              icsAttached: false,
-              icsContent: null,
-              icsSequence: null,
-              status: "queued" as const,
-              provider: null,
-              providerId: null,
-              error: null,
-              sentAt: null,
-            };
-          }).filter((row) => row !== null);
-          if (queued.length === 0) return [];
-          return yield* query(database, "Could not queue task reminders", (db) =>
-            db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute(),
-          );
+          return yield* query(database, "Could not queue task reminders", async (db) => {
+            const now = new Date();
+            const queued = [];
+            const accessRows = [];
+            for (const [contactId, contactTasks] of tasks) {
+              const person = people.get(contactId);
+              if (person === undefined) continue;
+              const access = await mintPortalAccess({
+                origin: portalOrigin,
+                to: "/portal/tasks",
+                grant: {
+                  email: person.email,
+                  name: `${person.firstName} ${person.lastName}`.trim(),
+                  contactId,
+                  eventId,
+                  eventSlug: person.eventSlug,
+                },
+                now,
+              });
+              accessRows.push(access.verification);
+              const rendered = taskReminder({
+                eventName: person.eventName,
+                logoUrl: person.logoUrl,
+                speakerName: person.firstName,
+                tasks: Array.from(contactTasks.values()),
+                portalUrl: access.url,
+              });
+              queued.push({
+                eventId,
+                contactId,
+                submissionId: null,
+                type: "task_reminder" as const,
+                recipient: person.email,
+                subject: rendered.subject,
+                body: rendered.text,
+                htmlBody: rendered.html,
+                icsAttached: false,
+                icsContent: null,
+                icsSequence: null,
+                status: "queued" as const,
+                provider: null,
+                providerId: null,
+                error: null,
+                sentAt: null,
+              });
+            }
+            if (queued.length === 0) return [];
+            await db.insert(verifications).values(accessRows).execute();
+            return db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute();
+          });
         }),
       queueDeliverableReminders: (eventId, requestedContactIds, requirementId, portalOrigin) =>
         Effect.gen(function* () {
@@ -371,7 +411,9 @@ export const MailAdminLive = Layer.effect(
                     contactId: contacts.id,
                     email: contacts.email,
                     firstName: contacts.firstName,
+                    lastName: contacts.lastName,
                     eventName: events.name,
+                    eventSlug: events.slug,
                     logoUrl: events.logoUrl,
                     timezone: events.timezone,
                   })
@@ -406,6 +448,7 @@ export const MailAdminLive = Layer.effect(
                     contactId: contacts.id,
                     email: contacts.email,
                     firstName: contacts.firstName,
+                    lastName: contacts.lastName,
                   })
                   .from(submissionParticipants)
                   .innerJoin(contacts, eq(contacts.id, submissionParticipants.contactId))
@@ -417,46 +460,62 @@ export const MailAdminLive = Layer.effect(
             { concurrency: "unbounded" },
           );
           const requested = new Set(requestedContactIds);
-          const queued = assignments.flatMap((assignment) => {
-            const recipients =
-              assignment.assignmentContactId === null
-                ? participants.filter(
-                    (participant) => participant.submissionId === assignment.submissionId,
-                  )
-                : assignment.contactId === null ||
-                    assignment.email === null ||
-                    assignment.firstName === null
-                  ? []
-                  : [
-                      {
-                        submissionId: assignment.submissionId,
-                        contactId: assignment.contactId,
-                        email: assignment.email,
-                        firstName: assignment.firstName,
-                      },
-                    ];
-            return recipients.flatMap((recipient) => {
-              if (!requested.has(recipient.contactId)) return [];
-              const due =
-                assignment.dueAt === null
-                  ? "No due date"
-                  : `Due ${new Intl.DateTimeFormat("en-US", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                      timeZone: assignment.timezone,
-                    }).format(assignment.dueAt)}`;
-              const portalUrl = `${portalOrigin}/portal/submissions?spotlight=${assignment.submissionId}`;
-              const rendered = deliverableReminder({
-                eventName: assignment.eventName,
-                logoUrl: assignment.logoUrl,
-                speakerName: recipient.firstName,
-                requirement: assignment.requirement,
-                sessionCode: assignment.submissionCode,
-                due,
-                portalUrl,
-              });
-              return [
-                {
+          return yield* query(database, "Could not queue deliverable reminders", async (db) => {
+            const now = new Date();
+            const queued = [];
+            const accessRows = [];
+            for (const assignment of assignments) {
+              const recipients =
+                assignment.assignmentContactId === null
+                  ? participants.filter(
+                      (participant) => participant.submissionId === assignment.submissionId,
+                    )
+                  : assignment.contactId === null ||
+                      assignment.email === null ||
+                      assignment.firstName === null
+                    ? []
+                    : [
+                        {
+                          submissionId: assignment.submissionId,
+                          contactId: assignment.contactId,
+                          email: assignment.email,
+                          firstName: assignment.firstName,
+                          lastName: assignment.lastName ?? "",
+                        },
+                      ];
+              for (const recipient of recipients) {
+                if (!requested.has(recipient.contactId)) continue;
+                const due =
+                  assignment.dueAt === null
+                    ? "No due date"
+                    : `Due ${new Intl.DateTimeFormat("en-US", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                        timeZone: assignment.timezone,
+                      }).format(assignment.dueAt)}`;
+                const access = await mintPortalAccess({
+                  origin: portalOrigin,
+                  to: `/portal/submissions?spotlight=${assignment.submissionId}`,
+                  grant: {
+                    email: recipient.email,
+                    name: `${recipient.firstName} ${recipient.lastName ?? ""}`.trim(),
+                    contactId: recipient.contactId,
+                    eventId,
+                    eventSlug: assignment.eventSlug,
+                  },
+                  now,
+                });
+                accessRows.push(access.verification);
+                const rendered = deliverableReminder({
+                  eventName: assignment.eventName,
+                  logoUrl: assignment.logoUrl,
+                  speakerName: recipient.firstName,
+                  requirement: assignment.requirement,
+                  sessionCode: assignment.submissionCode,
+                  due,
+                  portalUrl: access.url,
+                });
+                queued.push({
                   eventId,
                   contactId: recipient.contactId,
                   submissionId: assignment.submissionId,
@@ -473,14 +532,13 @@ export const MailAdminLive = Layer.effect(
                   providerId: null,
                   error: null,
                   sentAt: null,
-                },
-              ];
-            });
+                });
+              }
+            }
+            if (queued.length === 0) return [];
+            await db.insert(verifications).values(accessRows).execute();
+            return db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute();
           });
-          if (queued.length === 0) return [];
-          return yield* query(database, "Could not queue deliverable reminders", (db) =>
-            db.insert(emailLog).values(queued).returning({ logId: emailLog.id }).execute(),
-          );
         }),
     };
   }),

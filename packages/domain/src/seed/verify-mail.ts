@@ -121,6 +121,7 @@ const verifyFailure = Effect.gen(function* () {
     eventId,
     submissionIds: ["sub_02"],
     feedback: "Strong practical proposal.",
+    portalOrigin: "https://app.opensesh.io",
     actor: { kind: "user", userId: "usr_dana", name: "Seed verification" },
   });
   const deliveries = yield* Effect.forEach(informed.logIds, (logId) => mail.sendQueued(logId), {

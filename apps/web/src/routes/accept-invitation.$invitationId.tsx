@@ -48,7 +48,15 @@ function AcceptInvitation() {
             <h1 className="mt-4 text-xl font-semibold tracking-tight">Invitation unavailable</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">{invitation.data.error.message}</p>
             <Button asChild variant="outline" className="pressable mt-5">
-              <Link to="/login" search={{ demo: undefined, email: undefined }}>
+              <Link
+                to="/login"
+                search={{
+                  demo: undefined,
+                  email: undefined,
+                  error: undefined,
+                  redirect: undefined,
+                }}
+              >
                 Back to sign in
               </Link>
             </Button>

@@ -20,8 +20,10 @@ import {
   taskAssignments,
   taskTemplates,
 } from "../../db/schema";
+import { verifications } from "../../db/auth";
 import { Db } from "../db";
 import { type DbError, InvalidInput, type NotFound } from "../errors";
+import { mintPortalAccess } from "../portal-access";
 import type { AuditActor } from "../schema/common";
 import {
   buildCampaignRecipientRows,
@@ -615,13 +617,26 @@ export const SpeakerCommsLive = Layer.effect(
                 }
                 const subject = `Your speaker portal for ${event[0]?.name ?? "this event"}`;
                 const bodyText = `Hi ${contact.firstName},\n\nWelcome to ${event[0]?.name ?? "the event"}. Your speaker portal has your profile, tasks, and session details in one place.`;
+                const access = await mintPortalAccess({
+                  origin: portalOrigin,
+                  to: portalPath,
+                  grant: {
+                    email: contact.email,
+                    name: speakerName(contact),
+                    contactId: contact.id,
+                    eventId,
+                    eventSlug: event[0]?.slug ?? "",
+                  },
+                  now: new Date(),
+                });
+                await transaction.insert(verifications).values(access.verification).execute();
                 const rendered = outreach({
                   eventName: event[0]?.name ?? "this event",
                   logoUrl: event[0]?.logoUrl ?? null,
                   subject,
                   bodyHtml: freeformToHtml(bodyText),
                   bodyText,
-                  cta: { label: "Open your portal", url: `${portalOrigin}${portalPath}` },
+                  cta: { label: "Open your portal", url: access.url },
                 });
                 const [logged] = await transaction
                   .insert(emailLog)
@@ -744,22 +759,47 @@ export const SpeakerCommsLive = Layer.effect(
                 .returning()
                 .execute();
               if (campaign === undefined) return { kind: "notFound" as const };
-              const recipientSources = Array.from(
-                new Map(selected.map((row) => [row.contact.id, row.contact])).values(),
-              ).map((contact) => ({
-                contactId: contact.id,
-                speakerName: speakerName(contact),
-                talkTitle:
-                  selected.find((row) => row.contact.id === contact.id && row.submission !== null)
-                    ?.submission?.title ?? "",
-                email: contact.email,
-              }));
+              const now = new Date();
+              const recipientSources = await Promise.all(
+                Array.from(
+                  new Map(selected.map((row) => [row.contact.id, row.contact])).values(),
+                ).map(async (contact) => {
+                  const access = await mintPortalAccess({
+                    origin: input.portalOrigin,
+                    to: "/portal",
+                    grant: {
+                      email: contact.email,
+                      name: speakerName(contact),
+                      contactId: contact.id,
+                      eventId: input.eventId,
+                      eventSlug: event.slug,
+                    },
+                    now,
+                  });
+                  return {
+                    contactId: contact.id,
+                    speakerName: speakerName(contact),
+                    talkTitle:
+                      selected.find(
+                        (row) => row.contact.id === contact.id && row.submission !== null,
+                      )?.submission?.title ?? "",
+                    email: contact.email,
+                    portalUrl: access.url,
+                    verification: access.verification,
+                  };
+                }),
+              );
+              if (recipientSources.length > 0) {
+                await transaction
+                  .insert(verifications)
+                  .values(recipientSources.map((source) => source.verification))
+                  .execute();
+              }
               const resolved = buildCampaignRecipientRows({
                 campaignId: campaign.id,
                 subject: input.subject,
                 body: input.body,
                 eventName: event.name,
-                portalUrl: `${input.portalOrigin}/portal`,
                 recipients: recipientSources,
               });
               const recipientRows = await transaction
@@ -925,7 +965,20 @@ export const SpeakerCommsLive = Layer.effect(
             for (const [contactId, assignments] of grouped) {
               const contact = contactRows.find((row) => row.id === contactId);
               if (contact === undefined) continue;
-              const portalUrl = `${portalOrigin}/portal/tasks`;
+              const access = await mintPortalAccess({
+                origin: portalOrigin,
+                to: "/portal/tasks",
+                grant: {
+                  email: contact.email,
+                  name: speakerName(contact),
+                  contactId: contact.id,
+                  eventId,
+                  eventSlug: event[0]?.slug ?? "",
+                },
+                now,
+              });
+              await transaction.insert(verifications).values(access.verification).execute();
+              const portalUrl = access.url;
               const subject = `Tasks due soon for ${event[0]?.name ?? "your event"}`;
               const bodyText = `Hi ${contact.firstName},\n\nThe following speaker tasks are due soon:\n\n${assignments.map((assignment) => `- ${assignment.taskTitle}`).join("\n")}`;
               const rendered = outreach({
