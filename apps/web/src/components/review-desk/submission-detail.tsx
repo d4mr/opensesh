@@ -17,7 +17,7 @@ import {
   MailIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
@@ -92,7 +92,6 @@ export function SubmissionDetail({
   const data = detail.data.data;
   const submission = data.submission;
   const abstractAnswers = data.answers.filter((answer) => answer.section === "abstract");
-  const participantAnswers = data.answers.filter((answer) => answer.section === "participant");
   const contentSubmission =
     portal.data?.ok === true
       ? portal.data.data.submissions.find((item) => item.id === submission.id)
@@ -312,16 +311,24 @@ export function SubmissionDetail({
                 answers={abstractAnswers}
                 timezone={context.event.timezone}
               />
-              {participantAnswers.length === 0 ? null : (
-                <>
+              {data.participants.map((participant) => (
+                <Fragment key={participant.contactId}>
                   <Separator />
                   <AnswerSection
-                    title="Participant answers"
-                    answers={participantAnswers}
+                    title={participant.name}
+                    badge={
+                      <Badge
+                        variant="outline"
+                        className="rounded-md font-normal text-muted-foreground"
+                      >
+                        {participant.role}
+                      </Badge>
+                    }
+                    answers={participant.answers}
                     timezone={context.event.timezone}
                   />
-                </>
-              )}
+                </Fragment>
+              ))}
             </DetailSection>
 
             <DetailSection title="Submitter">
@@ -644,10 +651,12 @@ const displayAnswer = (
 
 function AnswerSection({
   title,
+  badge,
   answers,
   timezone,
 }: {
   readonly title: string;
+  readonly badge?: React.ReactNode;
   readonly timezone: string;
   readonly answers: ReadonlyArray<{
     readonly id: string;
@@ -658,9 +667,12 @@ function AnswerSection({
 }) {
   return (
     <section className="p-3">
-      <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h2>
+      <div className="mb-3 flex items-center gap-2">
+        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h2>
+        {badge}
+      </div>
       <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         {answers.map((answer) => (
           <div

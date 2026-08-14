@@ -817,17 +817,26 @@ export const ReviewDeskLive = Layer.effect(
                       })();
                 return values.length === 0 ? "Not provided" : values;
               };
+              const participantFields = new Map<string, RawDetailRow>();
               for (const row of rows) {
                 if (
                   row.fieldId === null ||
                   row.fieldSection === null ||
                   row.fieldLabel === null ||
                   row.fieldType === null ||
-                  row.fieldPosition === null ||
-                  answerMap.has(row.fieldId)
+                  row.fieldPosition === null
                 ) {
                   continue;
                 }
+                // Participant answers render one box per person below, never
+                // merged across participants into a single field value.
+                if (row.fieldSection === "participant") {
+                  if (!participantFields.has(row.fieldId)) {
+                    participantFields.set(row.fieldId, row);
+                  }
+                  continue;
+                }
+                if (answerMap.has(row.fieldId)) continue;
                 answerMap.set(row.fieldId, {
                   id: row.fieldId,
                   section: row.fieldSection,
@@ -837,6 +846,47 @@ export const ReviewDeskLive = Layer.effect(
                   value: answerValue(row),
                 });
               }
+              const participantAnswerValue = (
+                speaker: RawDetailRow,
+                field: RawDetailRow,
+              ): string | ReadonlyArray<string> => {
+                const mapped = field.fieldMapsTo;
+                if (mapped === "first_name") return speaker.contactFirstName ?? "Not provided";
+                if (mapped === "last_name") return speaker.contactLastName ?? "Not provided";
+                if (mapped === "email") return speaker.contactEmail ?? "Not provided";
+                if (mapped === "bio") return speaker.contactBio ?? "Not provided";
+                const values = answerStrings(speaker.contactCustom?.[field.fieldId ?? ""]);
+                return values.length === 0 ? "Not provided" : values;
+              };
+              const participants = Array.from(speakers.values())
+                .sort(
+                  (left, right) =>
+                    (left.participantPosition ?? 0) - (right.participantPosition ?? 0),
+                )
+                .flatMap((speaker) =>
+                  speaker.contactId === null
+                    ? []
+                    : [
+                        {
+                          contactId: speaker.contactId,
+                          name: `${speaker.contactFirstName ?? ""} ${speaker.contactLastName ?? ""}`.trim(),
+                          role: speaker.participantRole ?? "Speaker",
+                          answers: Array.from(participantFields.values())
+                            .sort(
+                              (left, right) =>
+                                (left.fieldPosition ?? 0) - (right.fieldPosition ?? 0),
+                            )
+                            .map((field) => ({
+                              id: `${field.fieldId ?? ""}:${speaker.contactId ?? ""}`,
+                              section: "participant" as const,
+                              label: field.fieldLabel ?? "",
+                              fieldType: field.fieldType ?? "text",
+                              position: field.fieldPosition ?? 0,
+                              value: participantAnswerValue(speaker, field),
+                            })),
+                        },
+                      ],
+                );
               // The real merged timeline — activity log, emails, edits,
               // files, tasks — not a reconstruction from row timestamps.
               const activity = yield* loadTimeline(database, eventId, submissionId);
@@ -846,6 +896,7 @@ export const ReviewDeskLive = Layer.effect(
                   reviewCount: item.reviewCount + roundReviews.length,
                 },
                 answers: Array.from(answerMap.values()),
+                participants,
                 reviews: Array.from(reviewMap.values()),
                 roundReviews,
                 activity,

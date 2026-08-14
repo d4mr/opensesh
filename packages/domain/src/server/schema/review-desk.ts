@@ -118,9 +118,21 @@ export const ReviewDeskEmail = Schema.Struct({
 });
 export type ReviewDeskEmail = typeof ReviewDeskEmail.Type;
 
+// One box per person: a participant's own answers to the form's participant
+// section, labeled with the role the form assigned ("Primary speaker",
+// "Co-presenter", …) — never merged across participants.
+export const ReviewDeskParticipantAnswers = Schema.Struct({
+  contactId: Schema.String,
+  name: Schema.String,
+  role: Schema.String,
+  answers: Schema.Array(ReviewDeskAnswer),
+});
+export type ReviewDeskParticipantAnswers = typeof ReviewDeskParticipantAnswers.Type;
+
 export const ReviewDeskDetail = Schema.Struct({
   submission: ReviewDeskDetailItem,
   answers: Schema.Array(ReviewDeskAnswer),
+  participants: Schema.Array(ReviewDeskParticipantAnswers),
   reviews: Schema.Array(ReviewDeskReview),
   roundReviews: Schema.Array(HumanReviewResult),
   activity: Schema.Array(TimelineEntry),
