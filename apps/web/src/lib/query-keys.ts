@@ -54,6 +54,8 @@ export const qk = {
   emails: (eventId: string) => [...event(eventId), "emails"] as const,
   communications: (eventId: string) => [...event(eventId), "communications"] as const,
   portalAdmin: (eventId: string) => [...event(eventId), "portal-admin"] as const,
+  portalPreviewContacts: (eventId: string) =>
+    [...event(eventId), "portal-preview-contacts"] as const,
   resources: (eventId: string) => [...event(eventId), "resources"] as const,
   speakers: (eventId: string) => [...event(eventId), "speakers"] as const,
   contactProfile: (eventId: string, contactId: string) =>

@@ -4,6 +4,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { EventIcon } from "@/components/app/event-icon";
+import { PortalPreviewPicker } from "@/components/app/portal-preview-picker";
 import { SyncIndicator } from "@/components/app/sync-indicator";
 import { UserMenu } from "@/components/app/user-menu";
 
@@ -112,10 +113,9 @@ export function PortalShell({
       {preview === undefined ? null : (
         <div className="flex h-9 items-center border-b bg-muted/40 px-4 text-xs text-muted-foreground">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
-            <span className="truncate">
-              Previewing as{" "}
-              <span className="font-medium text-foreground">{preview.contactName}</span> — speakers
-              see exactly this.
+            <span className="flex min-w-0 items-center gap-1 truncate">
+              Previewing as <PortalPreviewPicker eventId={event.id} current={preview} /> — this
+              person sees exactly this.
             </span>
             <Link to="/admin" className="pressable shrink-0 font-medium text-foreground">
               Back to admin

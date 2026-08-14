@@ -30,8 +30,10 @@ import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/curr
 import { Contacts, Events, Portal, Sessions } from "@opensesh/domain/server/repos";
 import { Mail } from "@opensesh/domain/server/mail";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
+import { previewContactIdFromCookieHeader } from "@/lib/portal-preview";
 import { runServer } from "@/server/runtime";
 
 const requireSpeaker = Effect.fn("requirePortalSpeaker")(function* () {
@@ -45,15 +47,39 @@ const requireSpeaker = Effect.fn("requirePortalSpeaker")(function* () {
 
 const requireAdminEvent = (eventId: string) => requireEventAccess(eventId, "admin");
 
-export const getSpeakerPortal = createServerFn({ method: "GET" }).handler(async () =>
-  runServer(
+export const getSpeakerPortal = createServerFn({ method: "GET" }).handler(async () => {
+  const previewContactId = previewContactIdFromCookieHeader(getRequest().headers.get("cookie"));
+  return runServer(
     Effect.gen(function* () {
       const user = yield* getCurrentUser;
       const portal = yield* Portal;
+      const staff = user.roles.admin || user.roles.reviewer || user.roles.member;
+      // Staff impersonation wins even for an admin who is also a speaker —
+      // the picker is how they get back to any view, their own included.
+      if (staff && user.eventSlug !== null && previewContactId !== null) {
+        const events = yield* Events;
+        const event = yield* events.getBySlug(user.eventSlug);
+        const contacts = yield* Contacts;
+        const requested = yield* contacts
+          .get(previewContactId)
+          .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)));
+        // A pinned contact from another event (or a reseeded one) simply
+        // falls through to the defaults below.
+        if (event.organizationId === user.orgId && requested?.eventId === event.id) {
+          const bootstrap = yield* portal.speakerBootstrap(requested.id);
+          return {
+            ...bootstrap,
+            preview: {
+              contactId: requested.id,
+              contactName: `${requested.firstName} ${requested.lastName}`,
+            },
+          };
+        }
+      }
       if (user.roles.contactId !== undefined) {
         return yield* portal.speakerBootstrap(user.roles.contactId);
       }
-      if (!user.roles.admin && !user.roles.reviewer && !user.roles.member) {
+      if (!staff) {
         return yield* Effect.fail(new Forbidden({ message: "You do not have a speaker portal" }));
       }
       if (user.eventSlug === null) {
@@ -85,8 +111,8 @@ export const getSpeakerPortal = createServerFn({ method: "GET" }).handler(async 
       };
     }),
     { require: "session" },
-  ),
-);
+  );
+});
 
 export const getPortalAdmin = createServerFn({ method: "GET" })
   .validator(Schema.toStandardSchemaV1(Schema.Struct({ eventId: Schema.String })))
@@ -114,7 +140,13 @@ export const searchEventContacts = createServerFn({ method: "GET" })
         yield* requireAdminEvent(data.eventId);
         const contacts = yield* Contacts;
         const query = data.query.trim().toLocaleLowerCase();
-        const rows = yield* contacts.listByEvent(data.eventId);
+        // Speakerhood is derived (accepted submission or explicitly added),
+        // not the raw participation column — badge accordingly.
+        const [rows, speakerRows] = yield* Effect.all(
+          [contacts.listAllByEvent(data.eventId), contacts.listByEvent(data.eventId)],
+          { concurrency: "unbounded" },
+        );
+        const speakerIds = new Set(speakerRows.map((contact) => contact.id));
         return rows
           .filter((contact) =>
             [contact.firstName, contact.lastName, contact.email, contact.title, contact.company]
@@ -123,7 +155,8 @@ export const searchEventContacts = createServerFn({ method: "GET" })
               .toLocaleLowerCase()
               .includes(query),
           )
-          .slice(0, 50);
+          .slice(0, 200)
+          .map((contact) => ({ ...contact, speaker: speakerIds.has(contact.id) }));
       }),
       { require: "staff" },
     ),

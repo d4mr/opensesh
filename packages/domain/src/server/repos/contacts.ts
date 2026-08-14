@@ -9,6 +9,8 @@ import { decode, decodeFound, decodeMany, query, speakerContact } from "./shared
 
 interface ContactsService {
   readonly listByEvent: (eventId: string) => Effect.Effect<ReadonlyArray<Contact>, DbError>;
+  /** Every contact of the event — submitters included, not just speakers. */
+  readonly listAllByEvent: (eventId: string) => Effect.Effect<ReadonlyArray<Contact>, DbError>;
   readonly findPreviewByEvent: (eventId: string) => Effect.Effect<Contact, DbError | NotFound>;
   readonly get: (id: string) => Effect.Effect<Contact, DbError | NotFound>;
   readonly findByEmail: (
@@ -33,6 +35,15 @@ export const ContactsLive = Layer.effect(
             .select()
             .from(contacts)
             .where(and(eq(contacts.eventId, eventId), speakerContact(db)))
+            .orderBy(asc(contacts.lastName), asc(contacts.firstName))
+            .execute(),
+        ).pipe(Effect.flatMap((rows) => decodeMany(Contact, "contact", rows))),
+      listAllByEvent: (eventId) =>
+        query(database, "Could not list contacts", (db) =>
+          db
+            .select()
+            .from(contacts)
+            .where(eq(contacts.eventId, eventId))
             .orderBy(asc(contacts.lastName), asc(contacts.firstName))
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeMany(Contact, "contact", rows))),
