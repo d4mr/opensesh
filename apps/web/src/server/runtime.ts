@@ -19,6 +19,7 @@ import { Mail } from "@opensesh/domain/server/mail";
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server";
 import { ConfigProvider, Effect, Layer, ManagedRuntime } from "effect";
 
+import { activeEventIdFromCookieHeader } from "@/lib/active-event";
 import { makeAuth } from "@/lib/auth";
 import { portalEventSlugFromCookieHeader } from "@/lib/portal-event";
 import { mailLayerFromEnv } from "@/server/mail-layer";
@@ -31,13 +32,18 @@ import {
 } from "@/server/mail-queue";
 
 const demoEmails = new Set<string>(DEMO_PERSONA_EMAILS);
-// Demo personas always land in the sandbox event; everyone else honors the
-// portal event cookie a tokened email link (or the branded event sign-in
-// page) pinned, so a contact known to several events opens the right one.
-const preferredEventSlugForRequest = (request: Request) => (session: SessionIdentity) =>
-  demoEmails.has(session.email)
-    ? DEMO_EVENT_SLUG
-    : (portalEventSlugFromCookieHeader(request.headers.get("cookie")) ?? undefined);
+// Demo personas always land in the sandbox event. Everyone else resolves
+// their event from the same cookies the UI persists: the admin shell's
+// selected event id (staff resolution) and the portal pin a tokened email
+// link or branded sign-in page set (contact resolution).
+const preferredEventForRequest = (request: Request) => (session: SessionIdentity) => {
+  if (demoEmails.has(session.email)) return { portalEventSlug: DEMO_EVENT_SLUG };
+  const cookies = request.headers.get("cookie");
+  return {
+    adminEventId: activeEventIdFromCookieHeader(cookies) ?? undefined,
+    portalEventSlug: portalEventSlugFromCookieHeader(cookies) ?? undefined,
+  };
+};
 
 const sessionIdentity = (headers: Headers, origin: string) =>
   Effect.gen(function* () {
@@ -80,7 +86,7 @@ const requestRuntime = async (): Promise<AppRuntime> => {
   const dbLive = Layer.succeed(Db, { database: makeDatabase(env.HYPERDRIVE.connectionString) });
   const services = Layer.mergeAll(
     makeRepositoriesLiveWith(dbLive),
-    makeCurrentUserLiveWith(dbLive, loadSession, preferredEventSlugForRequest(request)),
+    makeCurrentUserLiveWith(dbLive, loadSession, preferredEventForRequest(request)),
     mailLayerFromEnv(env),
     makeMailQueueLive(env.MAIL_QUEUE),
     ConfigProvider.layer(

@@ -54,9 +54,19 @@ export class CurrentUser extends Context.Service<CurrentUser, CurrentUserService
   "opensesh/CurrentUser",
 ) {}
 
+// Which event this request should resolve to, when the caller knows better
+// than the date heuristic. The admin shell persists its selected event id in
+// a cookie precisely so server and client agree; the portal pins a slug the
+// same way. Staff resolution prefers the admin selection, contact resolution
+// the portal pin — both fall through when the hint doesn't match.
+export interface PreferredEvent {
+  readonly adminEventId?: string;
+  readonly portalEventSlug?: string;
+}
+
 const makeCurrentUserLayer = (
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  preferredEventSlug: string | ((session: SessionIdentity) => string | undefined) | undefined,
+  preferredEvent: ((session: SessionIdentity) => PreferredEvent | undefined) | undefined,
 ) =>
   Layer.effect(
     CurrentUser,
@@ -117,14 +127,11 @@ const makeCurrentUserLayer = (
                 .orderBy(desc(contacts.createdAt))
                 .execute(),
             );
-            const preferredSlug =
-              typeof preferredEventSlug === "function"
-                ? preferredEventSlug(session)
-                : preferredEventSlug;
+            const portalSlug = preferredEvent?.(session)?.portalEventSlug;
             const selectedContact =
-              (preferredSlug === undefined
+              (portalSlug === undefined
                 ? undefined
-                : contactRows.find((row) => row.event.slug === preferredSlug)) ?? contactRows[0];
+                : contactRows.find((row) => row.event.slug === portalSlug)) ?? contactRows[0];
             if (selectedContact === undefined) {
               return yield* Effect.fail(
                 new NeedsOrganization({ message: "Create an organization to continue" }),
@@ -187,15 +194,15 @@ const makeCurrentUserLayer = (
                 .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime()),
             ),
           );
-          const preferredSlug =
-            typeof preferredEventSlug === "function"
-              ? preferredEventSlug(session)
-              : preferredEventSlug;
+          const preferred = preferredEvent?.(session);
           const now = new Date();
+          // The admin's selected event wins — the shell already persists it in
+          // a cookie so SSR and client agree; falling back to a date heuristic
+          // here previewed (and role-scoped) a different event than the one on
+          // screen whenever the organization has several.
           const event =
-            (preferredSlug === undefined
-              ? undefined
-              : organizationEvents.find((candidate) => candidate.slug === preferredSlug)) ??
+            organizationEvents.find((candidate) => candidate.id === preferred?.adminEventId) ??
+            organizationEvents.find((candidate) => candidate.slug === preferred?.portalEventSlug) ??
             organizationEvents.find((candidate) => candidate.startsAt >= now) ??
             organizationEvents.at(-1);
           const rows =
@@ -264,9 +271,9 @@ const makeCurrentUserLayer = (
 export const makeCurrentUserLive = (
   connectionString: string,
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  preferredEventSlug?: string | ((session: SessionIdentity) => string | undefined),
+  preferredEvent?: (session: SessionIdentity) => PreferredEvent | undefined,
 ) =>
-  makeCurrentUserLayer(loadSession, preferredEventSlug).pipe(
+  makeCurrentUserLayer(loadSession, preferredEvent).pipe(
     Layer.provide(makeDbLive(connectionString)),
   );
 
@@ -275,8 +282,8 @@ export const makeCurrentUserLive = (
 export const makeCurrentUserLiveWith = (
   dbLive: Layer.Layer<Db>,
   loadSession: Effect.Effect<SessionIdentity | null, DbError>,
-  preferredEventSlug?: string | ((session: SessionIdentity) => string | undefined),
-) => makeCurrentUserLayer(loadSession, preferredEventSlug).pipe(Layer.provide(dbLive));
+  preferredEvent?: (session: SessionIdentity) => PreferredEvent | undefined,
+) => makeCurrentUserLayer(loadSession, preferredEvent).pipe(Layer.provide(dbLive));
 
 export const getCurrentUser = Effect.gen(function* () {
   const service = yield* CurrentUser;
