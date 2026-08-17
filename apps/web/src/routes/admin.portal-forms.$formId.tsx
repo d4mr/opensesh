@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 import { RichText } from "@/components/forms/rich-text";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { RouteError } from "@/components/app/route-error";
 import { FormFieldBuilder } from "@/components/forms/form-field-builder";
 import { FormRenderer } from "@/components/forms/form-renderer";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
@@ -85,7 +86,7 @@ function PortalFormEditorRoute() {
   const eventId = eventContext?.event.id ?? "";
   const portal = useSuspenseQuery(adminPortalQuery(eventId));
   if (eventContext === null) return null;
-  if (!portal.data.ok) return <p className="p-6 text-sm">{portal.data.error.message}</p>;
+  if (!portal.data.ok) return <RouteError error={portal.data.error} />;
 
   const existing = portal.data.data.forms.find((form) => form.id === formId);
   if (formId !== "new" && existing === undefined) {

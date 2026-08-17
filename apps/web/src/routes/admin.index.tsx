@@ -6,6 +6,7 @@ import { lazy, Suspense } from "react";
 import { qk } from "@/lib/query-keys";
 import { eventAccessFor } from "@/lib/event-access";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { RouteError } from "@/components/app/route-error";
 import { Timestamp } from "@/components/app/timestamp";
 import { DashboardAttention } from "@/components/dashboard-attention";
 import { ProgramLifecycle } from "@/components/dashboard-lifecycle";
@@ -53,7 +54,7 @@ function Dashboard() {
   const context = useAdminEvent();
   const stats = useSuspenseQuery(dashboardQuery(context?.event.id ?? ""));
 
-  if (!stats.data.ok) return <p className="p-4 text-sm">{stats.data.error.message}</p>;
+  if (!stats.data.ok) return <RouteError error={stats.data.error} />;
   const data = stats.data.data;
 
   return (

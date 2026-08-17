@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { qk } from "@/lib/query-keys";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { RouteError } from "@/components/app/route-error";
 import { EditorHeader } from "@/components/app/editor-header";
 import { SaveStatus } from "@/components/app/save-status";
 import { type EditorFormField, FormFieldBuilder } from "@/components/forms/form-field-builder";
@@ -115,7 +116,7 @@ function FormEditorRoute() {
   const eventId = context?.event.id;
   const editor = useSuspenseQuery(formEditorQuery(eventId ?? "", formId));
   if (context === null || eventId === undefined) return null;
-  if (!editor.data.ok) return <p className="p-6 text-sm">{editor.data.error.message}</p>;
+  if (!editor.data.ok) return <RouteError error={editor.data.error} />;
   return (
     <FormEditor
       key={`${eventId}-${formId}`}

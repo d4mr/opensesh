@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { RouteError } from "@/components/app/route-error";
 import { EvaluationRoundEditor } from "@/components/evaluation/round-editor";
 import { adminEvaluationQuery } from "@/lib/evaluation-queries";
 import { eventAccessFor } from "@/lib/event-access";
@@ -29,7 +30,7 @@ function EvaluationRoundRoute() {
   if (evaluation.data === undefined) {
     return <p className="p-6 text-sm text-muted-foreground">Loading round workspace…</p>;
   }
-  if (!evaluation.data.ok) return <p className="p-6 text-sm">{evaluation.data.error.message}</p>;
+  if (!evaluation.data.ok) return <RouteError error={evaluation.data.error} />;
   const view = evaluation.data.data.rounds.find(
     (round) => round.configuration.round.id === roundId,
   );

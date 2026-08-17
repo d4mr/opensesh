@@ -1,21 +1,39 @@
 import type { DemoPersonaEmail } from "@opensesh/domain/server/schema/auth";
 import { createFileRoute } from "@tanstack/react-router";
+import { LoaderCircleIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { BrandMark } from "@/components/app/brand-mark";
 import { LoginForm } from "@/components/login-form";
 import { switchDemoPersona } from "@/server-fns/auth";
 
-const demoPersonaByRole: Record<string, DemoPersonaEmail> = {
-  organizer: "dana@demo.opensesh.io",
-  reviewer: "rey@demo.opensesh.io",
-  speaker: "maya@demo.opensesh.io",
+const demoPersonaByRole: Record<
+  string,
+  { readonly email: DemoPersonaEmail; readonly name: string; readonly destination: string }
+> = {
+  organizer: {
+    email: "dana@demo.opensesh.io",
+    name: "Dana",
+    destination: "the organizer workspace",
+  },
+  reviewer: { email: "rey@demo.opensesh.io", name: "Rey", destination: "the review queue" },
+  speaker: { email: "maya@demo.opensesh.io", name: "Maya", destination: "the speaker portal" },
 };
+
+const noticeByError = {
+  "portal-link":
+    "That portal link has expired. Enter your email and we'll send a fresh sign-in link.",
+  session: "You were signed out. Sign in again to pick up where you left off.",
+} as const;
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
     demo: typeof search.demo === "string" ? search.demo : undefined,
     email: typeof search.email === "string" ? search.email : undefined,
-    error: search.error === "portal-link" ? ("portal-link" as const) : undefined,
+    error:
+      search.error === "portal-link" || search.error === "session"
+        ? (search.error as keyof typeof noticeByError)
+        : undefined,
     // In-app destination to resume after sign-in (a portal deep link that
     // bounced here). Same-origin paths only.
     redirect:
@@ -28,7 +46,7 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const { demo, email, error, redirect } = Route.useSearch();
-  const demoEmail = demo === undefined ? undefined : demoPersonaByRole[demo];
+  const persona = demo === undefined ? undefined : demoPersonaByRole[demo];
   const [demoFailed, setDemoFailed] = useState(false);
   const attempted = useRef(false);
   // When an OAuth authorize redirect landed here (an MCP client connecting),
@@ -46,25 +64,38 @@ function Login() {
   // Landing-page deep link (/login?demo=organizer): sign straight into the
   // demo-workspace persona; fall back to the normal form if that fails.
   useEffect(() => {
-    if (demoEmail === undefined || attempted.current) {
+    if (persona === undefined || attempted.current) {
       return;
     }
     attempted.current = true;
-    void switchDemoPersona({ data: { email: demoEmail } }).then((result) => {
+    void switchDemoPersona({ data: { email: persona.email } }).then((result) => {
       if (result.ok) {
         window.location.assign(result.data.target);
         return;
       }
       setDemoFailed(true);
     });
-  }, [demoEmail]);
+  }, [persona]);
 
-  if (demoEmail !== undefined && !demoFailed) {
+  if (persona !== undefined && !demoFailed) {
     return (
       <LoginBackdrop>
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          Signing you in to the demo…
-        </p>
+        <div
+          aria-live="polite"
+          className="flex w-full max-w-xs flex-col items-center rounded-xl border bg-card p-8 text-center shadow-lg"
+        >
+          <BrandMark className="size-9" />
+          <h1 className="mt-4 text-base font-semibold tracking-tight">
+            Signing you in to the demo
+          </h1>
+          <p className="mt-1 text-sm text-balance text-muted-foreground">
+            Opening {persona.destination} as {persona.name}…
+          </p>
+          <LoaderCircleIcon className="mt-5 size-4 animate-spin text-muted-foreground" />
+          <p className="mt-5 w-full border-t pt-4 text-xs text-muted-foreground">
+            Shared sandbox — everyone's edits reset every 15 minutes.
+          </p>
+        </div>
       </LoginBackdrop>
     );
   }
@@ -77,9 +108,11 @@ function Login() {
           resumeUrl={resumeUrl}
           redirectPath={redirect}
           notice={
-            error === "portal-link"
-              ? "That portal link has expired. Enter your email and we'll send a fresh sign-in link."
-              : undefined
+            demoFailed
+              ? "Demo sign-in didn't go through — try the link again, or sign in below."
+              : error === undefined
+                ? undefined
+                : noticeByError[error]
           }
         />
       </div>

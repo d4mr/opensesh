@@ -12,6 +12,7 @@ import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { RouteError } from "@/components/app/route-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -71,7 +72,7 @@ function EventLibrary() {
   const eventId = context?.event.id;
   const library = useSuspenseQuery(eventLibraryQuery(eventId ?? ""));
   if (context === null || eventId === undefined) return null;
-  if (!library.data.ok) return <p className="p-6 text-sm">{library.data.error.message}</p>;
+  if (!library.data.ok) return <RouteError error={library.data.error} />;
   const data = library.data.data;
   return (
     // The whole pane scrolls as one region, title included.

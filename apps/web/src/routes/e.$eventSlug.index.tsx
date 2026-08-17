@@ -9,6 +9,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 
+import { RouteError } from "@/components/app/route-error";
 import { RichText } from "@/components/forms/rich-text";
 import { publicProgramQuery } from "@/lib/widget-queries";
 
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/e/$eventSlug/")({
 function PublicEventIndex() {
   const { eventSlug } = Route.useParams();
   const program = useSuspenseQuery(publicProgramQuery(eventSlug));
-  if (!program.data.ok) return <p className="p-6 text-sm">{program.data.error.message}</p>;
+  if (!program.data.ok) return <RouteError error={program.data.error} />;
   const { event, sessions, tracks } = program.data.data;
   const speakerCount = new Set(
     sessions.flatMap((session) => session.speakers.map((speaker) => speaker.id)),

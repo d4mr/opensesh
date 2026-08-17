@@ -11,6 +11,7 @@ import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { qk } from "@/lib/query-keys";
 import { getActiveEventIdCookie } from "@/server-fns/active-event";
 import { AdminShell } from "@/components/app/admin-shell";
+import { RouteError } from "@/components/app/route-error";
 import { CreateEventForm } from "@/components/events/create-event-form";
 import { getStaffViewer } from "@/server-fns/auth";
 
@@ -21,19 +22,24 @@ const staffViewerQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/admin")({
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
     // Cached so in-app navigation stays instant; full-page reloads on
     // login/logout/persona-switch reset the client and force a fresh check.
     const viewer = await context.queryClient.ensureQueryData(staffViewerQuery);
     if (!viewer.ok) {
-      throw redirect({
-        to:
-          viewer.error.status === 401
-            ? "/login"
-            : viewer.error.status === 428
-              ? "/onboarding"
-              : "/portal",
-      });
+      if (viewer.error.status === 401) {
+        throw redirect({
+          to: "/login",
+          search: {
+            demo: undefined,
+            email: undefined,
+            error: undefined,
+            // Sign-in returns to the page the admin was headed for.
+            redirect: location.href,
+          },
+        });
+      }
+      throw redirect({ to: viewer.error.status === 428 ? "/onboarding" : "/portal" });
     }
     // The selected event travels as a cookie so this resolves identically on
     // the server (SSR) and the client (navigations) — child loaders prefetch
@@ -53,7 +59,7 @@ function AdminLayout() {
   const [selectedId, setSelectedId] = useState<string | null>(activeEventId);
   const bootstrap = useSuspenseQuery(adminEventsQuery);
 
-  if (!bootstrap.data.ok) return <p className="p-6">{bootstrap.data.error.message}</p>;
+  if (!bootstrap.data.ok) return <RouteError error={bootstrap.data.error} fullScreen />;
   const event = resolveActiveEvent(bootstrap.data.data, selectedId);
   if (event === undefined)
     return (

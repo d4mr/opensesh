@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronLeftIcon } from "lucide-react";
+import { RouteError } from "@/components/app/route-error";
 import { SessionDetail } from "@/components/public/program-views";
 import { publicProgramQuery, publicSessionQuery } from "@/lib/widget-queries";
 
@@ -13,7 +14,7 @@ function Detail() {
   const { eventSlug, code } = Route.useParams();
   const program = useSuspenseQuery(publicProgramQuery(eventSlug));
   const detail = useSuspenseQuery(publicSessionQuery(eventSlug, code));
-  if (!program.data.ok) return <p className="p-6 text-sm">{program.data.error.message}</p>;
+  if (!program.data.ok) return <RouteError error={program.data.error} />;
   if (!detail.data.ok)
     return (
       <main className="mx-auto max-w-3xl px-4 py-20 text-center">

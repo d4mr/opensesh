@@ -4,6 +4,7 @@ import { ArrowRightIcon, ClipboardCheckIcon, EyeOffIcon, PlusIcon } from "lucide
 
 import { useAdminEvent } from "@/components/app/admin-event-context";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { RouteError } from "@/components/app/route-error";
 import { formatDateTime } from "@/components/forms/datetime-picker";
 import { ReviewerEvaluationWorkspace } from "@/components/evaluation/reviewer-workspace";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,7 @@ function EvaluationRoute() {
     if (reviewer.data === undefined) {
       return <p className="p-6 text-sm text-muted-foreground">Loading your assigned reviews…</p>;
     }
-    if (!reviewer.data.ok) return <p className="p-6 text-sm">{reviewer.data.error.message}</p>;
+    if (!reviewer.data.ok) return <RouteError error={reviewer.data.error} />;
     return (
       <ReviewerEvaluationWorkspace data={reviewer.data.data} timezone={context.event.timezone} />
     );
@@ -53,7 +54,7 @@ function EvaluationRoute() {
   if (admin.data === undefined) {
     return <p className="p-6 text-sm text-muted-foreground">Loading evaluation rounds…</p>;
   }
-  if (!admin.data.ok) return <p className="p-6 text-sm">{admin.data.error.message}</p>;
+  if (!admin.data.ok) return <RouteError error={admin.data.error} />;
 
   const rounds = admin.data.data.rounds;
   return (

@@ -18,6 +18,7 @@ import { adminEventsQuery } from "@/lib/review-desk-queries";
 import { qk } from "@/lib/query-keys";
 import { invalidateAfterMutation } from "@/lib/after-mutation";
 import { useAdminEvent } from "@/components/app/admin-event-context";
+import { RouteError } from "@/components/app/route-error";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { StatusBadge } from "@/components/app/status-badge";
 import { Timestamp } from "@/components/app/timestamp";
@@ -65,7 +66,7 @@ function FormsList() {
   const [creating, setCreating] = useState(false);
   const forms = useSuspenseQuery(formsQuery(eventId ?? ""));
   if (context === null || eventId === undefined) return null;
-  if (!forms.data.ok) return <p className="p-6 text-sm">{forms.data.error.message}</p>;
+  if (!forms.data.ok) return <RouteError error={forms.data.error} />;
   const create = async () => {
     setCreating(true);
     const result = await createForm({ data: { eventId } });
