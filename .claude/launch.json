@@ -11,6 +11,16 @@
       "autoPort": true
     },
     {
+      "name": "email-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@opensesh/email",
+        "dev"
+      ],
+      "port": 3010
+    },
+    {
       "name": "landing-dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [

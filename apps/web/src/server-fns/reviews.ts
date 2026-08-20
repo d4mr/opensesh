@@ -21,6 +21,7 @@ import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/curr
 import { Mail } from "@opensesh/domain/server/mail";
 import { Events, Reviews } from "@opensesh/domain/server/repos";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { runServer } from "@/server/runtime";
@@ -372,7 +373,11 @@ export const sendReviewReminders = createServerFn({ method: "POST" })
         yield* requireAdminEvent(data.eventId);
         yield* requireRound(data.eventId, data.roundId);
         const reviews = yield* Reviews;
-        const reminders = yield* reviews.queueReminders(data.roundId, data.eventMemberIds);
+        const reminders = yield* reviews.queueReminders(
+          data.roundId,
+          data.eventMemberIds,
+          new URL(getRequest().url).origin,
+        );
         const queue = yield* MailQueue;
         yield* queue.enqueue(reminders.map((reminder) => reminder.logId));
         return {

@@ -368,7 +368,11 @@ export const reviewEndpoints: ReadonlyArray<ApiEndpoint> = [
         const roundId = context.params.roundId ?? "";
         yield* requireRound(access.event.id, roundId);
         const reviews = yield* Reviews;
-        const reminders = yield* reviews.queueReminders(roundId, body.eventMemberIds);
+        const reminders = yield* reviews.queueReminders(
+          roundId,
+          body.eventMemberIds,
+          "https://app.opensesh.io",
+        );
         const queue = yield* MailQueue;
         yield* queue.enqueue(reminders.map((reminder) => reminder.logId));
         return {

@@ -1,3 +1,4 @@
+import { reviewReminder, reviewerInvitation } from "@opensesh/email";
 import { and, asc, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { Config, Context, Effect, Layer, Option, Schema } from "effect";
 
@@ -143,6 +144,7 @@ interface ReviewsService {
   readonly queueReminders: (
     roundId: string,
     eventMemberIds: ReadonlyArray<string>,
+    portalOrigin: string,
   ) => Effect.Effect<ReadonlyArray<ReviewReminder>, DbError | NotFound>;
   readonly generateAiResult: (
     roundId: string,
@@ -178,14 +180,6 @@ const AnthropicReviewResponse = Schema.Struct({
     }),
   ),
 });
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
 const requestAiReview = (input: {
   readonly apiKey: string;
   readonly title: string;
@@ -1259,7 +1253,16 @@ export const ReviewsLive = Layer.effect(
             let invitationLogged = false;
             let invitationLogId: string | null = null;
             if (existing === undefined) {
-              const body = `You have been added to ${round.round.name} for ${round.event.name}. Sign in at ${input.accessPath}.`;
+              // The web client passes a full /login URL; API callers may pass a
+              // bare path, which resolves against the canonical origin.
+              const accessUrl = new URL(input.accessPath, "https://app.opensesh.io").toString();
+              const rendered = reviewerInvitation({
+                eventName: round.event.name,
+                logoUrl: round.event.logoUrl,
+                reviewerName: user.name,
+                roundName: round.round.name,
+                accessUrl,
+              });
               const [invitation] = await transaction
                 .insert(emailLog)
                 .values({
@@ -1268,9 +1271,9 @@ export const ReviewsLive = Layer.effect(
                   submissionId: null,
                   type: "custom",
                   recipient: email,
-                  subject: `Review access for ${round.event.name}`,
-                  body,
-                  htmlBody: `<p>${escapeHtml(body)}</p>`,
+                  subject: rendered.subject,
+                  body: rendered.text,
+                  htmlBody: rendered.html,
                   icsAttached: false,
                   icsContent: null,
                   icsSequence: null,
@@ -1723,7 +1726,7 @@ export const ReviewsLive = Layer.effect(
             },
           ),
         ),
-      queueReminders: (roundId, eventMemberIds) =>
+      queueReminders: (roundId, eventMemberIds, portalOrigin) =>
         query(database, "Could not queue review reminders", (db) =>
           db.transaction(async (transaction) => {
             const [round] = await transaction
@@ -1772,16 +1775,27 @@ export const ReviewsLive = Layer.effect(
               .insert(emailLog)
               .values(
                 reminders.map((reminder) => {
-                  const body = `Hello ${reminder.name}, you have ${reminder.pending} pending ${reminder.pending === 1 ? "review" : "reviews"} in ${round.round.name}. The deadline is ${deadline}.`;
+                  // Sign-in link with the reviewer's email prefilled — their
+                  // address is the credential — landing on the review queue.
+                  const reviewUrl = `${portalOrigin}/login?email=${encodeURIComponent(reminder.email)}&redirect=${encodeURIComponent("/admin/evaluation")}`;
+                  const rendered = reviewReminder({
+                    eventName: round.event.name,
+                    logoUrl: round.event.logoUrl,
+                    reviewerName: reminder.name,
+                    roundName: round.round.name,
+                    pending: reminder.pending,
+                    deadline,
+                    reviewUrl,
+                  });
                   return {
                     eventId: round.event.id,
                     contactId: null,
                     submissionId: null,
                     type: "custom" as const,
                     recipient: reminder.email,
-                    subject: `${round.round.name}: ${reminder.pending} pending ${reminder.pending === 1 ? "review" : "reviews"}`,
-                    body,
-                    htmlBody: `<p>${escapeHtml(body)}</p>`,
+                    subject: rendered.subject,
+                    body: rendered.text,
+                    htmlBody: rendered.html,
                     icsAttached: false,
                     icsContent: null,
                     icsSequence: null,

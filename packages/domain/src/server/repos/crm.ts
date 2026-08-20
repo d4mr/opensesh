@@ -39,6 +39,7 @@ import {
   EmailCampaign,
   EmailCampaignRecipient,
   ReminderRule,
+  renderCampaignEmail,
   resolveMergeFields,
 } from "../schema/communications";
 import {
@@ -1359,8 +1360,9 @@ export const CrmLive = Layer.effect(
         query(database, "Could not send email campaign", (db) =>
           db.transaction(async (transaction) => {
             const [campaign] = await transaction
-              .select()
+              .select({ campaign: emailCampaigns, event: events })
               .from(emailCampaigns)
+              .innerJoin(events, eq(events.id, emailCampaigns.eventId))
               .where(eq(emailCampaigns.id, campaignId))
               .limit(1)
               .execute();
@@ -1372,17 +1374,23 @@ export const CrmLive = Layer.effect(
               .execute();
             const now = new Date();
             for (const row of recipients) {
+              const rendered = renderCampaignEmail({
+                eventName: campaign.event.name,
+                logoUrl: campaign.event.logoUrl,
+                subject: row.recipient.resolvedSubject,
+                body: row.recipient.resolvedBody,
+              });
               const [logged] = await transaction
                 .insert(emailLog)
                 .values({
-                  eventId: campaign.eventId,
+                  eventId: campaign.campaign.eventId,
                   contactId: row.recipient.contactId,
                   submissionId: null,
                   type: "custom",
                   recipient: row.recipient.recipientEmail,
-                  subject: row.recipient.resolvedSubject,
-                  body: row.recipient.resolvedBody,
-                  htmlBody: row.recipient.resolvedBody,
+                  subject: rendered.subject,
+                  body: rendered.text,
+                  htmlBody: rendered.html,
                   status: "demo",
                   provider: "demo",
                   sentAt: now,

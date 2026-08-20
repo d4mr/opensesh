@@ -12,6 +12,8 @@ import MagicLink from "../emails/magic-link";
 import OrganizationInvitation, { roleLabel } from "../emails/organization-invitation";
 import Outreach, { type OutreachProps } from "../emails/outreach";
 import Reinstated, { reinstatementIntroduction, type ReinstatedProps } from "../emails/reinstated";
+import ReviewReminder, { type ReviewReminderProps } from "../emails/review-reminder";
+import ReviewerInvitation, { type ReviewerInvitationProps } from "../emails/reviewer-invitation";
 import TaskReminder, { type TaskReminderProps } from "../emails/task-reminder";
 
 export interface RenderedEmail {
@@ -103,6 +105,18 @@ export const reinstated = (input: ReinstatedProps): RenderedEmail => {
     html: html(<Reinstated {...input} />),
   };
 };
+
+export const reviewerInvitation = (input: ReviewerInvitationProps): RenderedEmail => ({
+  subject: `Review access for ${input.eventName}`,
+  text: `Hi ${input.reviewerName},\n\nYou have been added to ${input.roundName} for ${input.eventName}. Sign in with this email address to see your assignments.\n\nStart reviewing: ${input.accessUrl}`,
+  html: html(<ReviewerInvitation {...input} />),
+});
+
+export const reviewReminder = (input: ReviewReminderProps): RenderedEmail => ({
+  subject: `${input.roundName}: ${input.pending} pending ${input.pending === 1 ? "review" : "reviews"}`,
+  text: `Hi ${input.reviewerName},\n\nYou have ${input.pending} pending ${input.pending === 1 ? "review" : "reviews"} in ${input.roundName} for ${input.eventName}. The round closes ${input.deadline}.\n\nReview submissions: ${input.reviewUrl}`,
+  html: html(<ReviewReminder {...input} />),
+});
 
 export const taskReminder = (input: TaskReminderProps): RenderedEmail => ({
   subject: `${input.tasks.length} outstanding ${input.tasks.length === 1 ? "task" : "tasks"} for ${input.eventName}`,
