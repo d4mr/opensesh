@@ -28,6 +28,11 @@ const DecideBody = Schema.Struct({
 const InformBody = Schema.Struct({
   submissionIds: Schema.Array(Schema.String),
   feedback: Schema.optionalKey(Schema.String),
+  // Per-send edits: subject replaces the template subject line (send accepts
+  // and declines separately when using it); replyTo overrides the event's
+  // default reply-to for these emails.
+  subject: Schema.optionalKey(Schema.String),
+  replyTo: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
 const StatusBody = Schema.Struct({
@@ -141,10 +146,14 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
         const body = context.body as typeof InformBody.Type;
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const reviewDesk = yield* ReviewDesk;
+        const subject = body.subject?.trim();
+        const replyTo = body.replyTo?.trim() || null;
         const informed = yield* reviewDesk.inform({
           eventId: access.event.id,
           submissionIds: body.submissionIds,
           feedback: body.feedback ?? "",
+          ...(subject ? { subject } : {}),
+          ...(replyTo === null ? {} : { replyTo }),
           portalOrigin: "https://app.opensesh.io",
           actor: context.actor,
         });

@@ -186,11 +186,20 @@ export const informSubmissions = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const access = yield* requireEventAccess(data.eventId, "admin");
+        const replyTo = data.replyTo?.trim() || null;
+        if (replyTo !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Enter a valid reply-to email address" }),
+          );
+        }
+        const subject = data.subject?.trim();
         const reviewDesk = yield* ReviewDesk;
         const informed = yield* reviewDesk.inform({
           eventId: data.eventId,
           submissionIds: data.submissionIds,
           feedback: data.feedback ?? "",
+          ...(subject ? { subject } : {}),
+          ...(replyTo === null ? {} : { replyTo }),
           portalOrigin: new URL(getRequest().url).origin,
           actor: { kind: "user", userId: access.user.userId, name: access.user.name },
         });

@@ -1216,6 +1216,7 @@ export function SubmissionTablePage({
         eventId={eventId}
         eventName={context.event.name}
         confirmationRequested={context.event.speakerConfirmationEnabled}
+        eventReplyTo={context.event.replyToEmail}
         submissions={decisionTargets}
         initialDecision={decision}
         onOptimistic={applyDecisionOptimistic}

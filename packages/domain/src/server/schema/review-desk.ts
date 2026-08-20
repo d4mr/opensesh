@@ -294,6 +294,12 @@ export const InformRequest = Schema.Struct({
   eventId: Schema.String,
   submissionIds: Schema.Array(Schema.String),
   feedback: Schema.optionalKey(Schema.String),
+  // Per-send edits from the decision dialog. Subject replaces the template
+  // subject line (single-decision sends only — accept and decline carry
+  // different templates); replyTo overrides the event default for these
+  // emails, same precedence as campaign sends.
+  subject: Schema.optionalKey(Schema.String),
+  replyTo: Schema.optionalKey(NullableString),
 });
 
 export const InformResult = Schema.Struct({ queued: Schema.Number });

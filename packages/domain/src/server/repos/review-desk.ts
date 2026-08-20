@@ -478,6 +478,8 @@ export const decisionEmailLogValue = (input: {
   readonly subject: string;
   readonly text: string;
   readonly html: string;
+  // Per-send override; null falls through to the event default at delivery.
+  readonly replyTo: string | null;
 }) => ({
   eventId: input.eventId,
   contactId: input.submitterContactId,
@@ -487,6 +489,7 @@ export const decisionEmailLogValue = (input: {
   subject: input.subject,
   body: input.text,
   htmlBody: input.html,
+  replyTo: input.replyTo,
   icsAttached: false,
   icsContent: null,
   icsSequence: null,
@@ -574,6 +577,10 @@ interface ReviewDeskService {
     readonly eventId: string;
     readonly submissionIds: ReadonlyArray<string>;
     readonly feedback: string;
+    // Per-send edits from the decision dialog; absent = template subject and
+    // the event's default reply-to.
+    readonly subject?: string;
+    readonly replyTo?: string | null;
     readonly portalOrigin: string;
     readonly actor: AuditActor;
   }) => Effect.Effect<
@@ -1716,9 +1723,10 @@ export const ReviewDeskLive = Layer.effect(
                   submitterContactId: row.submitterContactId,
                   decision: row.status,
                   recipient: row.email,
-                  subject: rendered.subject,
+                  subject: input.subject ?? rendered.subject,
                   text: rendered.text,
                   html: rendered.html,
+                  replyTo: input.replyTo ?? null,
                 }),
               );
             }

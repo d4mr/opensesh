@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -52,6 +53,7 @@ export function DecisionDialog({
   eventId,
   eventName,
   confirmationRequested = false,
+  eventReplyTo = null,
   submissions,
   initialDecision,
   onOptimistic,
@@ -65,6 +67,9 @@ export function DecisionDialog({
   // Mirrors the event's speaker-confirmation setting so the preview shows
   // the same acceptance email the server sends (confirm CTA vs. plain).
   readonly confirmationRequested?: boolean;
+  // The event's default reply-to (Settings > Email), shown as the reply-to
+  // placeholder; typing an address overrides it for this send only.
+  readonly eventReplyTo?: string | null;
   readonly submissions: ReadonlyArray<DecisionDialogSubmission>;
   readonly initialDecision: SubmissionDecision;
   readonly onOptimistic: (decision: SubmissionDecision) => void;
@@ -73,6 +78,9 @@ export function DecisionDialog({
 }) {
   const [decision, setDecision] = useState<SubmissionDecision>(initialDecision);
   const [feedback, setFeedback] = useState("");
+  // Empty string = use the template subject / event reply-to.
+  const [subject, setSubject] = useState("");
+  const [replyTo, setReplyTo] = useState("");
   const [sendEmail, setSendEmail] = useState(false);
   const [confirmRedecide, setConfirmRedecide] = useState(false);
   const [approveContent, setApproveContent] = useState(false);
@@ -94,9 +102,17 @@ export function DecisionDialog({
     setConfirmRedecide(false);
     setApproveContent(false);
     setSendEmail(false);
+    setSubject("");
+    setReplyTo("");
     setProgramFormatId("keep");
     setProgramTrackId("keep");
   }, [initialDecision, open, submissions]);
+
+  // Toggling Accept/Decline switches the subject template, so a stale edit
+  // written for the other decision is discarded rather than sent verbatim.
+  useEffect(() => {
+    setSubject("");
+  }, [decision]);
 
   const first = submissions[0];
   // "Program as" needs the event's format/track libraries; only a
@@ -170,6 +186,8 @@ export function DecisionDialog({
           eventId,
           submissionIds: submissions.map((submission) => submission.id),
           feedback,
+          ...(subject.trim() === "" ? {} : { subject: subject.trim() }),
+          ...(replyTo.trim() === "" ? {} : { replyTo: replyTo.trim() }),
         },
       });
       if (!informed.ok) {
@@ -289,6 +307,32 @@ export function DecisionDialog({
             </Label>
             {sendEmail ? (
               <div className="space-y-1.5">
+                <Label htmlFor="decision-subject" className="text-xs">
+                  Subject
+                </Label>
+                <Input
+                  id="decision-subject"
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  placeholder={preview.subject}
+                  className="h-8 px-2.5 text-[13px]"
+                />
+                <Label htmlFor="decision-reply-to" className="text-xs">
+                  Reply-to
+                </Label>
+                <Input
+                  id="decision-reply-to"
+                  type="email"
+                  value={replyTo}
+                  onChange={(event) => setReplyTo(event.target.value)}
+                  placeholder={eventReplyTo ?? "No event reply-to set"}
+                  className="h-8 px-2.5 text-[13px]"
+                />
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  {eventReplyTo === null
+                    ? "Replies are discarded unless you set an address here or in Event Settings."
+                    : `Leave empty to use the event reply-to (${eventReplyTo}).`}
+                </p>
                 <Label htmlFor="decision-feedback" className="text-xs">
                   Personal message
                 </Label>
@@ -337,7 +381,9 @@ export function DecisionDialog({
                   <p className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
                     Email preview
                   </p>
-                  <p className="mt-1 text-[13px] font-semibold">{preview.subject}</p>
+                  <p className="mt-1 text-[13px] font-semibold">
+                    {subject.trim() === "" ? preview.subject : subject.trim()}
+                  </p>
                 </div>
                 <iframe
                   title={`Preview of ${preview.subject}`}

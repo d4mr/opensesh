@@ -77,11 +77,13 @@ describe("decide and inform split", () => {
       subject: "Decision",
       text: "Text",
       html: "<p>Text</p>",
+      replyTo: "program@example.com",
     });
     expect(email).toMatchObject({
       contactId: "submitter-1",
       recipient: "submitter@example.com",
       status: "queued",
+      replyTo: "program@example.com",
     });
     expect(email).not.toHaveProperty("participantContactIds");
     expect(email).not.toHaveProperty("delivery");

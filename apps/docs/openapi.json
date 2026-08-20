@@ -5189,6 +5189,19 @@
          },
          "feedback": {
           "type": "string"
+         },
+         "subject": {
+          "type": "string"
+         },
+         "replyTo": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [

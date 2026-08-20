@@ -609,6 +609,7 @@ export function SubmissionDetail({
         eventId={eventId}
         eventName={context.event.name}
         confirmationRequested={context.event.speakerConfirmationEnabled}
+        eventReplyTo={context.event.replyToEmail}
         submissions={[submission]}
         initialDecision={decision}
         onOptimistic={(next) => {
