@@ -148,8 +148,10 @@ export const eventEndpoints: ReadonlyArray<ApiEndpoint> = [
             backgroundUrl: null,
             defaultSubmissionLimit: 3,
             speakerConfirmationEnabled: true,
+            replyToEmail: null,
             agendaPublishedAt: null,
             publishedAgenda: [],
+            publishedBlocks: [],
             agendaDirty: false,
           },
           // API keys act as the whole organization, not a person — access to

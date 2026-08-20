@@ -36,6 +36,7 @@ const CampaignBody = Schema.Struct({
   templateId: Schema.NullOr(Schema.String),
   subject: Schema.String,
   body: Schema.String,
+  replyTo: Schema.optionalKey(Schema.NullOr(Schema.String)),
   contactIds: Schema.Array(Schema.String),
   segment: AudienceSegment,
 });
@@ -209,6 +210,7 @@ export const speakerEndpoints: ReadonlyArray<ApiEndpoint> = [
           templateId: body.templateId,
           subject: body.subject,
           body: body.body,
+          replyTo: body.replyTo?.trim() || null,
           recipientFilter: { segment: body.segment },
           segment: body.segment,
           contactIds: body.contactIds,

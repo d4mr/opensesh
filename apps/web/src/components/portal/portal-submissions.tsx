@@ -337,6 +337,11 @@ function SubmissionContent({
   }
 
   const sessionCancelled = selected.submission.cancelledAt !== null;
+  // Co-presenters see the shared session read-only — the person who
+  // submitted it keeps sole write access — so every edit affordance keys
+  // off `locked`, not just the form's closed state.
+  const isSubmitter = selected.submission.submitterContactId === data.contact.id;
+  const locked = closed || !isSubmitter;
   const enabledRoles = selected.form?.participantRoles.filter((role) => role.enabled) ?? [];
   const participantRoleCount = (role: string) =>
     participants.filter((participant) => participant.role === role).length;
@@ -347,7 +352,9 @@ function SubmissionContent({
   // Withdrawing is a proposal-stage act; once accepted, the exit is
   // cancelling the session (which notifies the organizers), and a cancelled
   // session offers no further action from here.
-  const withdrawAction = ["draft", "pending", "maybe"].includes(selected.submission.status) ? (
+  const withdrawAction = !isSubmitter ? null : ["draft", "pending", "maybe"].includes(
+      selected.submission.status,
+    ) ? (
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="destructive" size="sm">
@@ -452,11 +459,16 @@ function SubmissionContent({
               <TabsTrigger value="history">History ({history.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="pt-4">
-              {closed ? (
-                <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
-                  <Clock3Icon className="size-4" />
-                  This submission form is closed. Your content is now read-only.
-                </div>
+              {locked ? (
+                <>
+                  <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                    <Clock3Icon className="size-4" />
+                    {closed
+                      ? "This submission form is closed. Your content is now read-only."
+                      : "The original submitter manages this submission. You're viewing it read-only."}
+                  </div>
+                  <RichText markdown={selected.submission.description} className="text-sm" />
+                </>
               ) : fields.length === 0 ? (
                 <RichText markdown={selected.submission.description} className="text-sm" />
               ) : (
@@ -475,23 +487,25 @@ function SubmissionContent({
                       ? "Submit changes for approval"
                       : "Save changes"
                   }
-                  showContinue={!closed}
+                  showContinue={!locked}
                   footerStart={withdrawAction ?? undefined}
                 />
               )}
               {selected.submission.status === "accepted" ? (
                 <SessionFiles data={data} submissionId={selected.submission.id} />
               ) : null}
-              {(closed || fields.length === 0) && withdrawAction !== null ? (
+              {(locked || fields.length === 0) && withdrawAction !== null ? (
                 <div className="mt-5 flex justify-end border-t pt-4">{withdrawAction}</div>
               ) : null}
             </TabsContent>
             {showParticipants ? (
               <TabsContent value="speakers" className="pt-4">
-                {closed ? (
+                {locked ? (
                   <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs">
                     <Clock3Icon className="size-4" />
-                    This submission form is closed. Speakers are read-only.
+                    {closed
+                      ? "This submission form is closed. Speakers are read-only."
+                      : "The original submitter manages this submission's speakers."}
                   </div>
                 ) : null}
                 <div className="grid gap-3">
@@ -500,7 +514,7 @@ function SubmissionContent({
                     return (
                       <section key={index} className="overflow-hidden rounded-lg border">
                         <div className="flex h-10 items-center gap-2 border-b bg-muted/40 pr-1.5 pl-3">
-                          {closed || enabledRoles.length < 2 ? (
+                          {locked || enabledRoles.length < 2 ? (
                             <span className="text-[13px] font-medium">{participant.role}</span>
                           ) : (
                             <Select
@@ -545,7 +559,7 @@ function SubmissionContent({
                             className="ml-auto text-muted-foreground"
                             aria-label={`Remove speaker ${index + 1}`}
                             disabled={
-                              closed ||
+                              locked ||
                               currentRole === undefined ||
                               participantRoleCount(participant.role) <= currentRole.min
                             }
@@ -558,7 +572,7 @@ function SubmissionContent({
                             <Trash2Icon />
                           </Button>
                         </div>
-                        <div className={closed ? "pointer-events-none p-4 opacity-70" : "p-4"}>
+                        <div className={locked ? "pointer-events-none p-4 opacity-70" : "p-4"}>
                           <FormRenderer
                             key={`${selected.submission.id}-${index}`}
                             idPrefix={`portal-participant-${selected.submission.id}-${index}-`}
@@ -582,33 +596,35 @@ function SubmissionContent({
                     );
                   })}
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t pt-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="pressable text-muted-foreground"
-                    disabled={closed || nextParticipantRole === undefined}
-                    onClick={() => {
-                      if (nextParticipantRole === undefined) return;
-                      setParticipants([
-                        ...participants,
-                        participantForRole(participantFields, nextParticipantRole.role),
-                      ]);
-                    }}
-                  >
-                    <PlusIcon /> Add speaker
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="pressable"
-                    disabled={closed || editParticipants.isPending}
-                    onClick={() => editParticipants.mutate()}
-                  >
-                    Save speakers
-                  </Button>
-                </div>
+                {isSubmitter ? (
+                  <div className="mt-4 flex items-center justify-between border-t pt-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="pressable text-muted-foreground"
+                      disabled={locked || nextParticipantRole === undefined}
+                      onClick={() => {
+                        if (nextParticipantRole === undefined) return;
+                        setParticipants([
+                          ...participants,
+                          participantForRole(participantFields, nextParticipantRole.role),
+                        ]);
+                      }}
+                    >
+                      <PlusIcon /> Add speaker
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="pressable"
+                      disabled={locked || editParticipants.isPending}
+                      onClick={() => editParticipants.mutate()}
+                    >
+                      Save speakers
+                    </Button>
+                  </div>
+                ) : null}
               </TabsContent>
             ) : null}
             <TabsContent value="history" className="pt-4">
@@ -648,16 +664,18 @@ function SubmissionContent({
                             </div>
                           ))}
                         </div>
-                        <div className="mt-3 flex justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={restore.isPending}
-                            onClick={() => restore.mutate(entry.id)}
-                          >
-                            <RotateCcwIcon /> Restore
-                          </Button>
-                        </div>
+                        {isSubmitter ? (
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={restore.isPending}
+                              onClick={() => restore.mutate(entry.id)}
+                            >
+                              <RotateCcwIcon /> Restore
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     </details>
                   ))}

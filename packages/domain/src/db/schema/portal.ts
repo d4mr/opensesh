@@ -350,6 +350,7 @@ export const emailLog = pgTable(
     icsAttached: boolean("ics_attached").notNull().default(false),
     icsContent: text("ics_content"),
     icsSequence: integer("ics_sequence"),
+    replyTo: text("reply_to"),
     status: emailStatus("status").notNull(),
     provider: text("provider"),
     providerId: text("provider_id"),

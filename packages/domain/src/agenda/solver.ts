@@ -160,6 +160,19 @@ const workshopStart = (criteria: AgendaDraftCriteria, fallback: number) => {
 const hasRule = (criteria: AgendaDraftCriteria, pattern: RegExp) =>
   criteria.rules.some((rule) => pattern.test(rule));
 
+// Blocks are blackouts: an all-rooms block (lunch, registration) rejects any
+// overlapping placement; a room-scoped block only rejects its own room.
+const overlapsBlock = (
+  placement: Pick<AgendaDraftPlacement, "roomId" | "startsAt" | "endsAt">,
+  blocks: AgendaSolverInput["agenda"]["blocks"],
+) =>
+  blocks.some(
+    (block) =>
+      (block.roomId === null || block.roomId === placement.roomId) &&
+      Date.parse(placement.startsAt) < Date.parse(block.endsAt) &&
+      Date.parse(placement.endsAt) > Date.parse(block.startsAt),
+  );
+
 const isCandidateLegal = (
   input: AgendaSolverInput,
   session: AgendaSession,
@@ -201,6 +214,7 @@ const isCandidateLegal = (
       return false;
     }
   }
+  if (overlapsBlock(placement, input.agenda.blocks)) return false;
   return detectAgendaConflicts([...occupied, scheduledSession(session, placement)]).length === 0;
 };
 

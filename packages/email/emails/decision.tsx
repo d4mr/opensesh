@@ -15,6 +15,9 @@ export interface DecisionProps {
   // Events with speaker confirmation on ask the speaker to confirm their
   // participation in the portal; the acceptance email leads with that ask.
   readonly confirmationRequested?: boolean;
+  // Present when the organizer accepted the session into a different format
+  // or track than submitted — one sentence naming the change.
+  readonly programNote?: string | null;
 }
 
 export const decisionIntroduction = ({
@@ -37,6 +40,7 @@ export default function Decision({
   portalUrl,
   logoUrl = null,
   confirmationRequested,
+  programNote = null,
 }: DecisionProps) {
   const trimmedFeedback = feedback.trim();
   return (
@@ -52,6 +56,7 @@ export default function Decision({
       <Text style={paragraph}>
         {decisionIntroduction({ accepted, submissionTitle, confirmationRequested })}
       </Text>
+      {accepted && programNote !== null ? <Text style={paragraph}>{programNote}</Text> : null}
       {trimmedFeedback.length === 0 ? null : (
         <NoteCard title="Feedback from the review team">{trimmedFeedback}</NoteCard>
       )}

@@ -313,6 +313,43 @@ export const seedData = {
       capacity: 120,
     },
   ],
+  // Non-session agenda structure: registration, breaks, lunch. Room null =
+  // spans every room; the auto-scheduler treats these as blackout windows.
+  agendaBlocks: [
+    {
+      id: "blk_registration_day1",
+      eventId: "evt_aie_nyc_2026",
+      title: "Registration & badge pickup",
+      kind: "registration",
+      roomId: null,
+      startsAt: new Date(1791806400000),
+      endsAt: new Date(1791810000000),
+      createdAt: new Date(1780401600000),
+      updatedAt: new Date(1780401600000),
+    },
+    {
+      id: "blk_break_day1",
+      eventId: "evt_aie_nyc_2026",
+      title: "Coffee & hallway track",
+      kind: "break",
+      roomId: null,
+      startsAt: new Date(1791828000000),
+      endsAt: new Date(1791829800000),
+      createdAt: new Date(1780401600000),
+      updatedAt: new Date(1780401600000),
+    },
+    {
+      id: "blk_lunch_day2",
+      eventId: "evt_aie_nyc_2026",
+      title: "Lunch",
+      kind: "meal",
+      roomId: null,
+      startsAt: new Date(1791907200000),
+      endsAt: new Date(1791910800000),
+      createdAt: new Date(1780401600000),
+      updatedAt: new Date(1780401600000),
+    },
+  ],
   forms: [
     {
       id: "form_sessions",

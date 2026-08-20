@@ -205,6 +205,7 @@ const programFromRows = (rows: ReadonlyArray<ProgramRow>) =>
       formats: unique(sessions.flatMap((item) => (item.format === null ? [] : [item.format]))),
       tags: unique(sessions.flatMap((item) => item.tags)),
       sessions,
+      blocks: event.publishedBlocks,
     });
   });
 

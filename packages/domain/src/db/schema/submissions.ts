@@ -27,6 +27,16 @@ import { users } from "./identity";
 import { apiKeys } from "./integrations";
 import { forms } from "./forms";
 
+// One question as it stood at submit time (see submissions.askedFields).
+interface AskedFieldRecord {
+  readonly id: string;
+  readonly section: string;
+  readonly label: string;
+  readonly fieldType: string;
+  readonly position: number;
+  readonly mapsTo: string | null;
+}
+
 export const contacts = pgTable(
   "contacts",
   {
@@ -108,6 +118,16 @@ export const submissions = pgTable(
     notifiedAt: timestamp("notified_at", { withTimezone: true }),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     answers: jsonb("answers").$type<Readonly<Record<string, Schema.Json>>>().notNull(),
+    // The questions as they stood when this was submitted. Forms are edited
+    // in place (fields renamed, retyped, deleted), so without this record an
+    // old submission's answers would be relabelled or silently hidden by
+    // later edits; the review desk renders old submissions from this
+    // snapshot. Empty for drafts (which follow the live form) and for rows
+    // predating the column.
+    askedFields: jsonb("asked_fields")
+      .$type<ReadonlyArray<AskedFieldRecord>>()
+      .notNull()
+      .default([]),
     approvedSnapshot: jsonb("approved_snapshot")
       .$type<Readonly<Record<string, Schema.Json>>>()
       .notNull()

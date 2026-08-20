@@ -110,8 +110,10 @@ export const createEvent = createServerFn({ method: "POST" })
             backgroundUrl: null,
             defaultSubmissionLimit: 3,
             speakerConfirmationEnabled: true,
+            replyToEmail: null,
             agendaPublishedAt: null,
             publishedAgenda: [],
+            publishedBlocks: [],
             agendaDirty: false,
           },
           user.userId,
@@ -141,6 +143,11 @@ export const updateEventSettings = createServerFn({ method: "POST" })
         if (data.defaultSubmissionLimit < 1 || !Number.isInteger(data.defaultSubmissionLimit)) {
           return yield* Effect.fail(
             new InvalidInput({ message: "Submission limit must be a whole number of at least 1" }),
+          );
+        }
+        if (data.replyToEmail !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.replyToEmail)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Enter a valid reply-to email address" }),
           );
         }
         let logoKey = data.logoUrl === event.logoUrl ? event.logoKey : null;
@@ -192,6 +199,7 @@ export const updateEventSettings = createServerFn({ method: "POST" })
           websiteUrl: data.websiteUrl,
           defaultSubmissionLimit: data.defaultSubmissionLimit,
           speakerConfirmationEnabled: data.speakerConfirmationEnabled,
+          replyToEmail: data.replyToEmail,
           logoUrl,
           logoKey,
         });

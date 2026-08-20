@@ -305,7 +305,20 @@ export function SubmissionDetail({
                 history={contentHistory}
               />
             )}
-            <DetailSection title="Submission answers">
+            <DetailSection
+              title="Submission answers"
+              aside={
+                data.earlierFormVersion ? (
+                  <Badge
+                    variant="outline"
+                    className="rounded-md font-normal text-muted-foreground"
+                    title="The form's questions changed after this was submitted; these answers are shown as originally asked."
+                  >
+                    Earlier form version
+                  </Badge>
+                ) : undefined
+              }
+            >
               <AnswerSection
                 title="Abstract"
                 answers={abstractAnswers}
@@ -699,10 +712,12 @@ function EmptyRow({ children }: { readonly children: React.ReactNode }) {
 // Shared spotlight-panel surface — the tasks board's speaker peek uses it too.
 export function DetailSection({
   title,
+  aside,
   className,
   children,
 }: {
   readonly title: string;
+  readonly aside?: React.ReactNode;
   readonly className?: string;
   readonly children: React.ReactNode;
 }) {
@@ -710,6 +725,7 @@ export function DetailSection({
     <section className="overflow-hidden rounded-lg border bg-card">
       <header className="flex h-9 items-center gap-2 border-b bg-muted/30 px-3">
         <h3 className="text-xs font-medium">{title}</h3>
+        {aside === undefined ? null : <span className="ml-auto">{aside}</span>}
       </header>
       <div className={className}>{children}</div>
     </section>

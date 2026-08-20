@@ -2,6 +2,7 @@ import {
   accounts,
   crmPipelineCards,
   crmPipelineStages,
+  agendaBlocks,
   crmSegments,
   crmStageHistory,
   contactEditHistory,
@@ -342,9 +343,18 @@ const publishedAgenda = submissionRows
     ];
   })
   .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+const publishedBlocks = seedData.agendaBlocks.map((block) => ({
+  id: block.id,
+  title: block.title,
+  kind: block.kind,
+  roomName: block.roomId === null ? null : (roomNameById.get(block.roomId) ?? null),
+  startsAt: block.startsAt.toISOString(),
+  endsAt: block.endsAt.toISOString(),
+}));
 const eventRows = seedData.events.map((event) => ({
   ...event,
   publishedAgenda,
+  publishedBlocks,
   agendaPublishedAt: new Date(1785672000000),
   agendaDirty: false,
 }));
@@ -559,6 +569,7 @@ export const seedDemoOrg = async (transaction: SeedTransaction, withIdentities: 
     transaction.insert(formats).values(rows(seedData.formats)),
     transaction.insert(levels).values(rows(seedData.levels)),
     transaction.insert(rooms).values(rows(seedData.rooms)),
+    transaction.insert(agendaBlocks).values(rows(seedData.agendaBlocks)),
     transaction.insert(forms).values(rows(seedData.forms)),
     transaction.insert(contacts).values(
       seedData.contacts.map((contact) => {

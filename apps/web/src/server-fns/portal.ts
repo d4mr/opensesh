@@ -27,13 +27,14 @@ import {
 } from "@opensesh/domain";
 import { editCfpParticipants } from "@opensesh/domain/server/cfp";
 import { getCurrentUser, requireEventAccess } from "@opensesh/domain/server/current-user";
-import { Contacts, Events, Portal, Sessions } from "@opensesh/domain/server/repos";
+import { Contacts, Events, Portal, Sessions, SpeakerComms } from "@opensesh/domain/server/repos";
 import { Mail } from "@opensesh/domain/server/mail";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { Effect, Schema } from "effect";
 
 import { previewContactIdFromCookieHeader } from "@/lib/portal-preview";
+import { MailQueue } from "@/server/mail-queue";
 import { runServer } from "@/server/runtime";
 
 const requireSpeaker = Effect.fn("requirePortalSpeaker")(function* () {
@@ -363,7 +364,7 @@ export const cancelPortalSession = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const { contactId } = yield* requireSpeaker();
         const portal = yield* Portal;
-        yield* portal.assertParticipant(contactId, data.submissionId);
+        yield* portal.assertSubmitter(contactId, data.submissionId);
         const contacts = yield* Contacts;
         const contact = yield* contacts.get(contactId);
         const sessions = yield* Sessions;
@@ -421,7 +422,21 @@ export const editPortalParticipants = createServerFn({ method: "POST" })
     runServer(
       Effect.gen(function* () {
         const { contactId } = yield* requireSpeaker();
-        return yield* editCfpParticipants(contactId, data.submissionId, data.participants);
+        const result = yield* editCfpParticipants(contactId, data.submissionId, data.participants);
+        // Being added to the lineup grants portal access: newly added
+        // co-speakers get their tokened invitation right away.
+        if (result.addedContactIds.length > 0) {
+          const comms = yield* SpeakerComms;
+          const logIds = yield* comms.queueCoSpeakerInvitations({
+            eventId: result.eventId,
+            submissionId: data.submissionId,
+            contactIds: result.addedContactIds,
+            portalOrigin: new URL(getRequest().url).origin,
+          });
+          const queue = yield* MailQueue;
+          yield* queue.enqueue(logIds);
+        }
+        return result.participants;
       }),
       { require: "speaker" },
     ),

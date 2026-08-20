@@ -320,8 +320,10 @@ interface PortalService {
   // CTA when the event asks for confirmation). Idempotent.
   readonly confirmParticipation: (contactId: string) => Effect.Effect<Contact, DbError | NotFound>;
   // Boundary guard for session actions a speaker takes on their own
-  // submission (cancelling from the portal): participant or submitter.
-  readonly assertParticipant: (
+  // submission (cancelling from the portal). Submitter only: co-presenters
+  // see the shared session but the person who submitted it keeps sole
+  // write access.
+  readonly assertSubmitter: (
     contactId: string,
     submissionId: string,
   ) => Effect.Effect<void, DbError | Forbidden>;
@@ -1447,23 +1449,13 @@ export const PortalLive = Layer.effect(
             .returning()
             .execute(),
         ).pipe(Effect.flatMap((rows) => decodeFound(Contact, "Contact", rows[0]))),
-      assertParticipant: (contactId, submissionId) =>
+      assertSubmitter: (contactId, submissionId) =>
         query(database, "Could not verify session speaker", (db) =>
           db
             .select({ id: submissions.id })
             .from(submissions)
-            .leftJoin(
-              submissionParticipants,
-              eq(submissionParticipants.submissionId, submissions.id),
-            )
             .where(
-              and(
-                eq(submissions.id, submissionId),
-                or(
-                  eq(submissions.submitterContactId, contactId),
-                  eq(submissionParticipants.contactId, contactId),
-                ),
-              ),
+              and(eq(submissions.id, submissionId), eq(submissions.submitterContactId, contactId)),
             )
             .limit(1)
             .execute(),
@@ -1488,16 +1480,9 @@ export const PortalLive = Layer.effect(
                   inArray(submissions.status, ["draft", "pending", "maybe"]),
                   and(eq(submissions.status, "accepted"), isNull(submissions.notifiedAt)),
                 ),
-                or(
-                  eq(submissions.submitterContactId, contactId),
-                  inArray(
-                    submissions.id,
-                    database
-                      .select({ id: submissionParticipants.submissionId })
-                      .from(submissionParticipants)
-                      .where(eq(submissionParticipants.contactId, contactId)),
-                  ),
-                ),
+                // Submitter only: withdrawing is the submitter's call, not a
+                // co-presenter's.
+                eq(submissions.submitterContactId, contactId),
               ),
             )
             .returning()
@@ -1513,21 +1498,16 @@ export const PortalLive = Layer.effect(
         Effect.gen(function* () {
           const owned = yield* query(database, "Could not load submission for editing", (db) =>
             db
+              // Submitter only: co-presenters read the shared session in
+              // their portal but never write to it.
               .selectDistinct({ submission: submissions, form: forms, author: contacts })
               .from(submissions)
               .leftJoin(forms, eq(forms.id, submissions.sourceFormId))
-              .leftJoin(
-                submissionParticipants,
-                eq(submissionParticipants.submissionId, submissions.id),
-              )
               .leftJoin(contacts, eq(contacts.id, contactId))
               .where(
                 and(
                   eq(submissions.id, submissionId),
-                  or(
-                    eq(submissions.submitterContactId, contactId),
-                    eq(submissionParticipants.contactId, contactId),
-                  ),
+                  eq(submissions.submitterContactId, contactId),
                 ),
               )
               .limit(1)
@@ -1568,7 +1548,11 @@ export const PortalLive = Layer.effect(
             ...(typeof description === "string" ? { description } : {}),
             ...(typeof formatId === "string" ? { formatId: formatId || null } : {}),
             ...(typeof levelId === "string" ? { levelId: levelId || null } : {}),
-            answers,
+            // Merge, never replace: the portal form only carries the CURRENT
+            // form's questions, and answers to questions from an earlier
+            // form revision exist only in the stored jsonb — a wholesale
+            // write would silently destroy them.
+            answers: { ...current.answers, ...answers },
           } satisfies ContentSnapshot;
           const before = snapshot(current);
           const changedFields = changedContent(before, next);
@@ -1620,27 +1604,17 @@ export const PortalLive = Layer.effect(
           let authorName = "Speaker";
           if (actor.contactId !== undefined) {
             const actorContactId = actor.contactId;
+            // Submitter only, like every other speaker-side write.
             const allowed = yield* query(database, "Could not verify submission speaker", (db) =>
               db
-                .select({ participantId: submissionParticipants.id, contact: contacts })
+                .select({ contact: contacts })
                 .from(contacts)
-                .leftJoin(
-                  submissionParticipants,
-                  and(
-                    eq(submissionParticipants.submissionId, row.submission.id),
-                    eq(submissionParticipants.contactId, contacts.id),
-                  ),
-                )
                 .where(eq(contacts.id, actorContactId))
                 .limit(1)
                 .execute(),
             );
             const contact = allowed[0];
-            if (
-              contact === undefined ||
-              (row.submission.submitterContactId !== actorContactId &&
-                contact.participantId === null)
-            ) {
+            if (contact === undefined || row.submission.submitterContactId !== actorContactId) {
               return yield* Effect.fail(new Forbidden({ message: "You cannot restore this edit" }));
             }
             authorName = contactName(contact.contact);

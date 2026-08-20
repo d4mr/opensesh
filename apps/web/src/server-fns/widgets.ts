@@ -185,7 +185,13 @@ export const downloadPublicSessionIcs = createServerFn({ method: "GET" })
 export const downloadPersonalScheduleIcs = createServerFn({ method: "POST" })
   .validator(
     Schema.toStandardSchemaV1(
-      Schema.Struct({ eventSlug: Schema.String, sessionIds: Schema.Array(Schema.String) }),
+      Schema.Struct({
+        eventSlug: Schema.String,
+        sessionIds: Schema.Array(Schema.String),
+        // "all" exports the full published agenda; "mine" (default) exports
+        // the visitor's starred selection.
+        scope: Schema.optionalKey(Schema.Literals(["mine", "all"])),
+      }),
     ),
   )
   .handler(async ({ data }) => {
@@ -194,27 +200,51 @@ export const downloadPersonalScheduleIcs = createServerFn({ method: "POST" })
       Effect.gen(function* () {
         const widgets = yield* Widgets;
         const program = yield* widgets.publicProgram(data.eventSlug);
-        const selected = program.sessions.filter((session) => data.sessionIds.includes(session.id));
+        const everything = data.scope === "all";
+        const selected = everything
+          ? [...program.sessions]
+          : program.sessions.filter((session) => data.sessionIds.includes(session.id));
         if (selected.length === 0)
           return yield* Effect.fail(
             new InvalidInput({ message: "Select at least one session to export" }),
           );
         return {
-          filename: `${program.event.slug}-my-schedule.ics`,
+          filename: everything
+            ? `${program.event.slug}-agenda.ics`
+            : `${program.event.slug}-my-schedule.ics`,
           content: buildPersonalScheduleCalendar({
-            name: `${program.event.name} — My Schedule`,
+            name: everything
+              ? `${program.event.name} — Agenda`
+              : `${program.event.name} — My Schedule`,
             timezone: program.event.timezone,
-            events: selected.map((session) => ({
-              id: session.id,
-              title: session.title,
-              startsAt: new Date(session.startsAt),
-              endsAt: new Date(session.endsAt),
-              timezone: program.event.timezone,
-              room: session.roomName,
-              description: plainTextFromRichText(session.description),
-              portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/sessions/${session.code}`,
-              sequence: 0,
-            })),
+            events: [
+              ...selected.map((session) => ({
+                id: session.id,
+                title: session.title,
+                startsAt: new Date(session.startsAt),
+                endsAt: new Date(session.endsAt),
+                timezone: program.event.timezone,
+                room: session.roomName,
+                description: plainTextFromRichText(session.description),
+                portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/sessions/${session.code}`,
+                sequence: 0,
+              })),
+              // The full agenda carries its non-session structure too — a
+              // calendar without lunch is not the agenda.
+              ...(everything
+                ? program.blocks.map((block) => ({
+                    id: block.id,
+                    title: block.title,
+                    startsAt: new Date(block.startsAt),
+                    endsAt: new Date(block.endsAt),
+                    timezone: program.event.timezone,
+                    room: block.roomName ?? "All rooms",
+                    description: "",
+                    portalUrl: `${new URL(request.url).origin}/e/${program.event.slug}/agenda`,
+                    sequence: 0,
+                  }))
+                : []),
+            ].sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime()),
           }),
         };
       }),

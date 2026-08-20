@@ -1,11 +1,23 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "40fb2d82-4928-4c3d-ac83-17293d55f66c",
+  "id": "0b810bdd-fe26-49ae-890d-86f9b2264c0c",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
+    {
+      "values": [
+        "break",
+        "meal",
+        "registration",
+        "social",
+        "other"
+      ],
+      "name": "agenda_block_kind",
+      "entityType": "enums",
+      "schema": "public"
+    },
     {
       "values": [
         "draft",
@@ -319,6 +331,12 @@
       ],
       "name": "tshirt_size",
       "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "agenda_blocks",
+      "entityType": "tables",
       "schema": "public"
     },
     {
@@ -716,6 +734,123 @@
       "name": "submissions",
       "entityType": "tables",
       "schema": "public"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "event_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "title",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "agenda_block_kind",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'break'",
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "room_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "starts_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ends_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "agenda_blocks"
     },
     {
       "type": "text",
@@ -1797,6 +1932,19 @@
       "table": "events"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reply_to_email",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -1818,6 +1966,19 @@
       "generated": null,
       "identity": null,
       "name": "published_agenda",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "events"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "name": "published_blocks",
       "entityType": "columns",
       "schema": "public",
       "table": "events"
@@ -3443,6 +3604,19 @@
       "generated": null,
       "identity": null,
       "name": "recipient_filter",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_campaigns"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reply_to",
       "entityType": "columns",
       "schema": "public",
       "table": "email_campaigns"
@@ -5146,6 +5320,19 @@
       "generated": null,
       "identity": null,
       "name": "ics_sequence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "email_log"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reply_to",
       "entityType": "columns",
       "schema": "public",
       "table": "email_log"
@@ -9133,6 +9320,19 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "name": "asked_fields",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "submissions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
       "default": "'{}'",
       "generated": null,
       "identity": null,
@@ -9205,6 +9405,34 @@
       "entityType": "columns",
       "schema": "public",
       "table": "submissions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "event_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "starts_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "agenda_blocks_event_starts_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "agenda_blocks"
     },
     {
       "nameExplicit": true,
@@ -10899,6 +11127,40 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "submissions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "event_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "events",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "agenda_blocks_event_id_events_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "agenda_blocks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "room_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rooms",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "agenda_blocks_room_id_rooms_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "agenda_blocks"
     },
     {
       "nameExplicit": false,
@@ -13211,6 +13473,16 @@
       "entityType": "fks",
       "schema": "public",
       "table": "submissions"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "agenda_blocks_pkey",
+      "schema": "public",
+      "table": "agenda_blocks",
+      "entityType": "pks"
     },
     {
       "columns": [

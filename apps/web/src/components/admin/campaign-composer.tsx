@@ -51,6 +51,8 @@ interface ComposerState {
   readonly templateId: string | null;
   readonly subject: string;
   readonly body: string;
+  // Empty string = use the event's reply-to; anything else overrides per send.
+  readonly replyTo: string;
 }
 
 const stringIds = (value: unknown): ReadonlyArray<string> =>
@@ -72,6 +74,7 @@ const readDraft = (eventId: string): ComposerState | null => {
       templateId: typeof parsed.templateId === "string" ? parsed.templateId : null,
       subject: typeof parsed.subject === "string" ? parsed.subject : "",
       body: typeof parsed.body === "string" ? parsed.body : "",
+      replyTo: typeof parsed.replyTo === "string" ? parsed.replyTo : "",
     };
   } catch {
     return null;
@@ -86,21 +89,34 @@ interface PageProps {
 export function CampaignComposerPage(props: PageProps) {
   const context = useAdminEvent();
   if (context === null) return null;
-  return <ComposerData eventId={context.event.id} {...props} />;
+  return (
+    <ComposerData eventId={context.event.id} eventReplyTo={context.event.replyToEmail} {...props} />
+  );
 }
 
-function ComposerData({ eventId, ...props }: PageProps & { readonly eventId: string }) {
+function ComposerData({
+  eventId,
+  eventReplyTo,
+  ...props
+}: PageProps & { readonly eventId: string; readonly eventReplyTo: string | null }) {
   const result = useSuspenseQuery(communicationCenterQuery(eventId));
   if (!result.data.ok) return <p className="p-6 text-sm">{result.data.error.message}</p>;
-  return <Composer eventId={eventId} data={result.data.data} {...props} />;
+  return (
+    <Composer eventId={eventId} eventReplyTo={eventReplyTo} data={result.data.data} {...props} />
+  );
 }
 
 function Composer({
   eventId,
+  eventReplyTo,
   data,
   presetAudience,
   fromCampaignId,
-}: PageProps & { readonly eventId: string; readonly data: CommunicationCenter }) {
+}: PageProps & {
+  readonly eventId: string;
+  readonly eventReplyTo: string | null;
+  readonly data: CommunicationCenter;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Prefill precedence: an explicit source campaign wins, then a preset
@@ -125,6 +141,7 @@ function Composer({
         templateId: source.campaign.templateId,
         subject: source.campaign.subjectSnapshot,
         body: source.campaign.bodySnapshot,
+        replyTo: source.campaign.replyTo ?? "",
       };
     }
     return {
@@ -134,6 +151,7 @@ function Composer({
       templateId: null,
       subject: "",
       body: "",
+      replyTo: "",
     };
   }, [data.campaigns, data.speakers, fromCampaignId, presetAudience]);
   const [state, setState] = useState(initial);
@@ -217,6 +235,7 @@ function Composer({
           templateId: state.templateId,
           subject: state.subject,
           body: state.body,
+          replyTo: state.replyTo.trim() || null,
           recipientFilter: { segment: state.segment },
           segment: state.segment,
           contactIds: recipients.map((recipient) => recipient.id),
@@ -409,6 +428,21 @@ function Composer({
                 value={state.subject}
                 onChange={(event) => update({ ...state, subject: event.target.value })}
               />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="campaign-reply-to">Reply-to</Label>
+              <Input
+                id="campaign-reply-to"
+                type="email"
+                placeholder={eventReplyTo ?? "No event reply-to set"}
+                value={state.replyTo}
+                onChange={(event) => update({ ...state, replyTo: event.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {eventReplyTo === null
+                  ? "Replies are discarded unless you set an address here or in Event Settings."
+                  : `Leave empty to use the event reply-to (${eventReplyTo}).`}
+              </p>
             </div>
             <div className="grid gap-1.5">
               <div className="flex items-center justify-between gap-2">

@@ -3,6 +3,7 @@ import { Agenda } from "@opensesh/domain/server/repos";
 import {
   AcceptAgendaDraftResult,
   AgendaAdminData,
+  AgendaBlockKind,
   AgendaDraft,
 } from "@opensesh/domain/server/schema/agenda";
 import { Effect, Schema } from "effect";
@@ -31,6 +32,17 @@ const GenerateDraftBody = Schema.Struct({
 
 const DraftActionBody = Schema.Struct({ action: Schema.Literals(["duplicate", "discard"]) });
 const AcceptDraftBody = Schema.Struct({ submissionIds: Schema.Array(Schema.String) });
+
+const BlockBody = Schema.Struct({
+  id: Schema.NullOr(Schema.String).annotate({ description: "Null creates a new block." }),
+  title: Schema.String,
+  kind: AgendaBlockKind,
+  roomId: Schema.NullOr(Schema.String).annotate({
+    description: "Null spans every room (lunch, registration, plenary breaks).",
+  }),
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+});
 
 export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
   endpoint({
@@ -63,6 +75,40 @@ export const agendaEndpoints: ReadonlyArray<ApiEndpoint> = [
         const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
         const agenda = yield* Agenda;
         return yield* agenda.saveSchedule({ ...body, eventId: access.event.id }, context.actor);
+      }),
+  }),
+  endpoint({
+    method: "PUT",
+    path: "/events/{eventId}/agenda/blocks",
+    operationId: "saveAgendaBlock",
+    summary: "Create or update an agenda block",
+    description: "Non-session structure on the agenda grid — registration, breaks, lunch, socials.",
+    tag: "Agenda",
+    bodySchema: BlockBody,
+    successSchema: AgendaAdminData,
+    handler: (context) =>
+      Effect.gen(function* () {
+        const body = context.body as typeof BlockBody.Type;
+        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
+        const agenda = yield* Agenda;
+        return yield* agenda.saveBlock({ ...body, eventId: access.event.id });
+      }),
+  }),
+  endpoint({
+    method: "DELETE",
+    path: "/events/{eventId}/agenda/blocks/{blockId}",
+    operationId: "deleteAgendaBlock",
+    summary: "Delete an agenda block",
+    tag: "Agenda",
+    successSchema: AgendaAdminData,
+    handler: (context) =>
+      Effect.gen(function* () {
+        const access = yield* requireEventAccess(context.params.eventId ?? "", "admin");
+        const agenda = yield* Agenda;
+        return yield* agenda.deleteBlock({
+          eventId: access.event.id,
+          id: context.params.blockId ?? "",
+        });
       }),
   }),
   endpoint({

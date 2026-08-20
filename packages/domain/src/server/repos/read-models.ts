@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, ne } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import {
@@ -73,7 +73,12 @@ interface ReadModelsService {
     eventId: string,
     formId: string,
   ) => Effect.Effect<
-    FormBundle & { readonly admins: ReadonlyArray<EventAdmin> },
+    FormBundle & {
+      readonly admins: ReadonlyArray<EventAdmin>;
+      // Non-draft submissions made against this form — the editor warns
+      // that their answers reflect the questions as originally asked.
+      readonly submissionCount: number;
+    },
     DbError | NotFound
   >;
   readonly publicForm: (
@@ -209,6 +214,15 @@ export const ReadModelsLive = Layer.effect(
             .orderBy(asc(formFields.position))
             .execute(),
         );
+        // A scalar count, not the summaries query — that one loads every
+        // submission row for the event just to count in JS.
+        const submissionCount = query(database, "Could not count form submissions", (db) =>
+          db
+            .select({ value: count() })
+            .from(submissions)
+            .where(and(eq(submissions.sourceFormId, formId), ne(submissions.status, "draft")))
+            .execute(),
+        ).pipe(Effect.map((rows) => rows[0]?.value ?? 0));
         return Effect.all(
           [
             base,
@@ -217,6 +231,7 @@ export const ReadModelsLive = Layer.effect(
             eventRepo.listTags(eventId),
             eventRepo.listLevels(eventId),
             eventRepo.listAdmins(eventId),
+            submissionCount,
           ],
           { concurrency: 5 },
         ).pipe(
@@ -224,9 +239,9 @@ export const ReadModelsLive = Layer.effect(
             ([baseRows]) => baseRows.length > 0,
             () => new NotFound({ message: "Form not found" }),
           ),
-          Effect.flatMap(([baseRows, trackRows, formatRows, tagRows, levelRows, admins]) =>
+          Effect.flatMap(([baseRows, trackRows, formatRows, tagRows, levelRows, admins, counted]) =>
             decodePublicForm(baseRows, trackRows, formatRows, tagRows, levelRows).pipe(
-              Effect.map((bundle) => ({ ...bundle, admins })),
+              Effect.map((bundle) => ({ ...bundle, admins, submissionCount: counted })),
             ),
           ),
         );

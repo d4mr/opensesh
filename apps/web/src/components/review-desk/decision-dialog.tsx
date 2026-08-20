@@ -1,9 +1,11 @@
 import {
+  programChangeSentence,
   renderDecisionEmail,
   type DecisionResult,
   type ReviewDeskListItem,
   type SubmissionDecision,
 } from "@opensesh/domain";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -18,7 +20,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { adminPortalQuery } from "@/lib/portal-queries";
 import { decideSubmissions, informSubmissions } from "@/server-fns/review-desk";
 
 export interface DecisionDialogSubmission {
@@ -30,6 +40,10 @@ export interface DecisionDialogSubmission {
   readonly submitter: ReviewDeskListItem["submitter"];
   readonly speakers: ReadonlyArray<{ readonly name: string; readonly role: string }>;
   readonly reviewComments?: ReadonlyArray<string>;
+  // Submitted format name and tracks, feeding the accept-time "Program as"
+  // pickers (single-submission decisions only).
+  readonly format?: string | null;
+  readonly tracks?: ReadonlyArray<{ readonly id: string; readonly name: string }>;
 }
 
 export function DecisionDialog({
@@ -62,6 +76,9 @@ export function DecisionDialog({
   const [sendEmail, setSendEmail] = useState(false);
   const [confirmRedecide, setConfirmRedecide] = useState(false);
   const [approveContent, setApproveContent] = useState(false);
+  // "keep" = program as submitted; otherwise a library format/track id.
+  const [programFormatId, setProgramFormatId] = useState("keep");
+  const [programTrackId, setProgramTrackId] = useState("keep");
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
@@ -77,9 +94,34 @@ export function DecisionDialog({
     setConfirmRedecide(false);
     setApproveContent(false);
     setSendEmail(false);
+    setProgramFormatId("keep");
+    setProgramTrackId("keep");
   }, [initialDecision, open, submissions]);
 
   const first = submissions[0];
+  // "Program as" needs the event's format/track libraries; only a
+  // single-submission accept can reprogram, so the fetch is gated to that.
+  const canProgram = submissions.length === 1;
+  const portal = useQuery({ ...adminPortalQuery(eventId), enabled: open && canProgram });
+  const library = portal.data?.ok === true ? portal.data.data.library : null;
+  const submittedFormatId =
+    library?.formats.find((format) => format.name === (first?.format ?? null))?.id ?? null;
+  const submittedTracks = first?.tracks ?? [];
+  const formatChanged = programFormatId !== "keep" && programFormatId !== submittedFormatId;
+  const trackChanged =
+    programTrackId !== "keep" &&
+    !(submittedTracks.length === 1 && submittedTracks[0]?.id === programTrackId);
+  const selectedFormat = library?.formats.find((format) => format.id === programFormatId);
+  const selectedTrack = library?.tracks.find((track) => track.id === programTrackId);
+  const programNote =
+    decision === "accept"
+      ? programChangeSentence({
+          ...(formatChanged && selectedFormat !== undefined
+            ? { format: `${selectedFormat.name} (${selectedFormat.durationMinutes} min)` }
+            : {}),
+          ...(trackChanged && selectedTrack !== undefined ? { track: selectedTrack.name } : {}),
+        })
+      : null;
   const preview = renderDecisionEmail({
     decision,
     eventName,
@@ -88,6 +130,7 @@ export function DecisionDialog({
     feedback,
     portalUrl: `${typeof window === "undefined" ? "https://app.opensesh.io" : window.location.origin}/portal`,
     confirmationRequested,
+    programNote,
   });
   const replacingDecision = submissions.some(
     (submission) =>
@@ -109,6 +152,8 @@ export function DecisionDialog({
         decision,
         confirmRedecide,
         approveContent: decision === "accept" && approveContent,
+        ...(decision === "accept" && canProgram && formatChanged ? { programFormatId } : {}),
+        ...(decision === "accept" && canProgram && trackChanged ? { programTrackId } : {}),
       },
     });
     submittingRef.current = false;
@@ -178,6 +223,63 @@ export function DecisionDialog({
                 </Button>
               </div>
             </div>
+            {decision === "accept" &&
+            canProgram &&
+            library !== null &&
+            (library.formats.length > 0 || library.tracks.length > 0) ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Program as</Label>
+                {library.formats.length > 0 ? (
+                  <Select
+                    value={programFormatId}
+                    onValueChange={(value) => value !== null && setProgramFormatId(value)}
+                  >
+                    <SelectTrigger size="sm" className="w-full" aria-label="Format">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="keep">
+                        {first?.format == null
+                          ? "Format as submitted"
+                          : `As submitted · ${first.format}`}
+                      </SelectItem>
+                      {library.formats.map((format) => (
+                        <SelectItem key={format.id} value={format.id}>
+                          {format.name} ({format.durationMinutes} min)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                {library.tracks.length > 0 ? (
+                  <Select
+                    value={programTrackId}
+                    onValueChange={(value) => value !== null && setProgramTrackId(value)}
+                  >
+                    <SelectTrigger size="sm" className="w-full" aria-label="Track">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="keep">
+                        {submittedTracks.length === 0
+                          ? "Track as submitted"
+                          : `As submitted · ${submittedTracks.map((track) => track.name).join(", ")}`}
+                      </SelectItem>
+                      {library.tracks.map((track) => (
+                        <SelectItem key={track.id} value={track.id}>
+                          {track.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                {formatChanged || trackChanged ? (
+                  <p className="text-[11px] leading-4 text-muted-foreground">
+                    The acceptance email tells the speaker about the change.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <Label className="flex items-start gap-2 rounded-md border p-2 text-xs leading-4 font-normal">
               <Checkbox
                 checked={sendEmail}

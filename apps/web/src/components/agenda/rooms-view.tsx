@@ -1,4 +1,10 @@
-import type { AgendaAdminData, AgendaSession, ScheduleChange } from "@opensesh/domain";
+import type {
+  AgendaAdminData,
+  AgendaBlock,
+  AgendaBlockSaveRequest,
+  AgendaSession,
+  ScheduleChange,
+} from "@opensesh/domain";
 import {
   DndContext,
   DragOverlay,
@@ -13,6 +19,7 @@ import {
 } from "@dnd-kit/core";
 import {
   AlertTriangleIcon,
+  CoffeeIcon,
   GripVerticalIcon,
   MinusIcon,
   PlusIcon,
@@ -54,6 +61,7 @@ import {
   minutesFor,
   zonedDateTimeIso,
 } from "./date-utils";
+import { BlockEditor } from "./block-editor";
 import { AgendaSpeakerNames, SessionPeek } from "./session-peek";
 
 // The grid's increment, open/close times, and zoom are per-user view
@@ -342,6 +350,50 @@ function PoolSession({
   );
 }
 
+// Blocks sit under sessions (z-[5] vs z-10): a band stays clickable in the
+// open grid while an overlapping session keeps priority. All-rooms bands
+// repeat per column; the label renders once, in the first column.
+function BlockBand({
+  block,
+  grid,
+  timezone,
+  showLabel,
+  onClick,
+}: {
+  readonly block: AgendaBlock;
+  readonly grid: GridConfig;
+  readonly timezone: string;
+  readonly showLabel: boolean;
+  readonly onClick: () => void;
+}) {
+  const start = minutesFor(block.startsAt, timezone);
+  const duration = Math.round((Date.parse(block.endsAt) - Date.parse(block.startsAt)) / 60_000);
+  return (
+    <button
+      type="button"
+      aria-label={showLabel ? `Edit ${block.title}` : undefined}
+      tabIndex={showLabel ? 0 : -1}
+      onClick={onClick}
+      style={{
+        top: (start - grid.start) * grid.zoom,
+        height: Math.max(duration * grid.zoom, 14),
+      }}
+      className="absolute inset-x-0 z-[5] cursor-pointer overflow-hidden border-y border-dashed border-border bg-muted/40 text-left transition-colors [background-image:repeating-linear-gradient(-45deg,transparent_0_6px,color-mix(in_srgb,var(--border)_35%,transparent)_6px_7px)] hover:bg-muted/70"
+    >
+      {showLabel ? (
+        <span className="flex items-baseline gap-1.5 px-2 py-1">
+          <span className="truncate text-[11px] font-medium text-muted-foreground">
+            {block.title}
+          </span>
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70 tabular-nums">
+            {formatTime(block.startsAt, timezone)}–{formatTime(block.endsAt, timezone)}
+          </span>
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function AddRoomColumn({ addRoom }: { readonly addRoom: (name: string) => Promise<boolean> }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -391,6 +443,8 @@ export function RoomsView({
   highlightedIds,
   save,
   addRoom,
+  saveBlock,
+  removeBlock,
 }: {
   readonly agenda: AgendaAdminData;
   readonly day: string;
@@ -399,6 +453,8 @@ export function RoomsView({
   readonly highlightedIds: ReadonlySet<string>;
   readonly save: (change: ScheduleChange) => Promise<boolean>;
   readonly addRoom: (name: string) => Promise<boolean>;
+  readonly saveBlock: (input: Omit<AgendaBlockSaveRequest, "eventId">) => Promise<boolean>;
+  readonly removeBlock: (id: string) => Promise<boolean>;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const [activeSession, setActiveSession] = useState<AgendaSession | null>(null);
@@ -412,11 +468,14 @@ export function RoomsView({
   const [search, setSearch] = useState("");
   const [trackId, setTrackId] = useState("all");
   const [gridConfig, setGridConfig] = useState(loadGridConfig);
+  // null = closed; "new" = create; otherwise the block id being edited.
+  const [blockEditor, setBlockEditor] = useState<string | null>(null);
   const timezone = agenda.event.timezone;
   const days = eventDateKeys(agenda.event.startsAt, agenda.event.endsAt, timezone);
   const scheduled = agenda.sessions.filter(
     (session) => session.startsAt !== null && dateKeyFor(session.startsAt, timezone) === day,
   );
+  const dayBlocks = agenda.blocks.filter((block) => dateKeyFor(block.startsAt, timezone) === day);
 
   const updateGridConfig = (patch: Partial<GridConfig>) =>
     setGridConfig((current) => {
@@ -426,18 +485,28 @@ export function RoomsView({
     });
 
   // Effective bounds: the preference, widened to whole hours around any
-  // session scheduled outside it.
-  const scheduledSpans = scheduled.flatMap((session) => {
-    if (session.startsAt === null || session.endsAt === null) return [];
-    const start = minutesFor(session.startsAt, timezone);
-    return [
-      {
+  // session or block scheduled outside it.
+  const scheduledSpans = [
+    ...scheduled.flatMap((session) => {
+      if (session.startsAt === null || session.endsAt === null) return [];
+      const start = minutesFor(session.startsAt, timezone);
+      return [
+        {
+          start,
+          end:
+            start +
+            Math.round((Date.parse(session.endsAt) - Date.parse(session.startsAt)) / 60_000),
+        },
+      ];
+    }),
+    ...dayBlocks.map((block) => {
+      const start = minutesFor(block.startsAt, timezone);
+      return {
         start,
-        end:
-          start + Math.round((Date.parse(session.endsAt) - Date.parse(session.startsAt)) / 60_000),
-      },
-    ];
-  });
+        end: start + Math.round((Date.parse(block.endsAt) - Date.parse(block.startsAt)) / 60_000),
+      };
+    }),
+  ];
   const gridStart = Math.max(
     0,
     Math.floor(Math.min(gridConfig.start, ...scheduledSpans.map((span) => span.start)) / 60) * 60,
@@ -615,6 +684,14 @@ export function RoomsView({
               </p>
             </div>
             <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="pressable"
+                onClick={() => setBlockEditor("new")}
+              >
+                <CoffeeIcon /> Add block
+              </Button>
               <ToggleGroup
                 type="single"
                 value={day}
@@ -775,12 +852,24 @@ export function RoomsView({
                   </span>
                 ))}
               </div>
-              {agenda.rooms.map((room) => (
+              {agenda.rooms.map((room, roomIndex) => (
                 <div
                   key={room.id}
                   className="relative border-l bg-background"
                   style={{ height: columnHeight }}
                 >
+                  {dayBlocks
+                    .filter((block) => block.roomId === null || block.roomId === room.id)
+                    .map((block) => (
+                      <BlockBand
+                        key={block.id}
+                        block={block}
+                        grid={grid}
+                        timezone={timezone}
+                        showLabel={block.roomId !== null || roomIndex === 0}
+                        onClick={() => setBlockEditor(block.id)}
+                      />
+                    ))}
                   {activeSession === null ? (
                     <div
                       aria-hidden
@@ -913,6 +1002,20 @@ export function RoomsView({
         open={peekSession !== null}
         onOpenChange={(open) => !open && setPeekSessionId(null)}
         save={save}
+      />
+
+      <BlockEditor
+        agenda={agenda}
+        block={
+          blockEditor === null || blockEditor === "new"
+            ? null
+            : (agenda.blocks.find((block) => block.id === blockEditor) ?? null)
+        }
+        initialDay={day}
+        open={blockEditor !== null}
+        onOpenChange={(open) => !open && setBlockEditor(null)}
+        save={saveBlock}
+        remove={removeBlock}
       />
     </DndContext>
   );

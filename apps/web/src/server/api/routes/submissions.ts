@@ -19,6 +19,10 @@ const DecideBody = Schema.Struct({
   decision: Schema.Literals(["accept", "decline"]),
   confirmRedecide: Schema.optionalKey(Schema.Boolean),
   approveContent: Schema.optionalKey(Schema.Boolean),
+  // Accept-time reprogram (single-submission accepts only): replace the
+  // submitted format/track; the decision email tells the speaker.
+  programFormatId: Schema.optionalKey(Schema.String),
+  programTrackId: Schema.optionalKey(Schema.String),
 });
 
 const InformBody = Schema.Struct({
@@ -96,7 +100,7 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
     operationId: "decideSubmissions",
     summary: "Accept or decline submissions",
     description:
-      "Applies the decision to every submission id and snapshots accepted content for the program. Set confirmRedecide to change an informed final decision.",
+      "Applies the decision to every submission id and snapshots accepted content for the program. Set confirmRedecide to change an informed final decision. A single-submission accept may pass programFormatId/programTrackId to accept into a different format or track than submitted — the decision email tells the speaker.",
     tag: "Submissions",
     bodySchema: DecideBody,
     successSchema: DecisionResult,
@@ -116,6 +120,8 @@ export const submissionEndpoints: ReadonlyArray<ApiEndpoint> = [
           decision: body.decision,
           confirmRedecide: body.confirmRedecide ?? false,
           approveContent: body.approveContent ?? false,
+          ...(body.programFormatId === undefined ? {} : { programFormatId: body.programFormatId }),
+          ...(body.programTrackId === undefined ? {} : { programTrackId: body.programTrackId }),
           actor: context.actor,
         });
         return decision.result;

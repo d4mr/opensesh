@@ -92,6 +92,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
       logoUrl: event.logoUrl ?? "",
       defaultSubmissionLimit: event.defaultSubmissionLimit,
       speakerConfirmationEnabled: event.speakerConfirmationEnabled,
+      replyToEmail: event.replyToEmail ?? "",
     },
     onSubmit: async ({ value, formApi }) => {
       if (new Date(value.endsAt) <= new Date(value.startsAt)) {
@@ -123,6 +124,7 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
           logoUpload,
           defaultSubmissionLimit: value.defaultSubmissionLimit,
           speakerConfirmationEnabled: value.speakerConfirmationEnabled,
+          replyToEmail: value.replyToEmail.trim() || null,
         },
       });
       if (!result.ok) {
@@ -470,6 +472,28 @@ function EventSettingsForm({ event }: { readonly event: Event }) {
                       onCheckedChange={field.handleChange}
                     />
                   </div>
+                </Field>
+              )}
+            </form.Field>
+          </SettingsSection>
+
+          <SettingsSection title="Email">
+            <form.Field name="replyToEmail">
+              {(field) => (
+                <Field className="max-w-sm">
+                  <FieldLabel htmlFor={field.name}>Reply-to address</FieldLabel>
+                  <Input
+                    id={field.name}
+                    className="h-9"
+                    type="email"
+                    placeholder="program@yourevent.com"
+                    value={field.state.value}
+                    onChange={(inputEvent) => field.handleChange(inputEvent.target.value)}
+                  />
+                  <FieldDescription>
+                    Replies to every email this event sends go here. Campaigns can override it per
+                    send. Leave empty for a no-reply sender.
+                  </FieldDescription>
                 </Field>
               )}
             </form.Field>

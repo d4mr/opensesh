@@ -21,6 +21,7 @@ export const OutboundMail = Schema.Struct({
   subject: Schema.String,
   text: Schema.String,
   html: Schema.String,
+  replyTo: Schema.optionalKey(Schema.String),
   attachment: Schema.optionalKey(MailAttachment),
 });
 export type OutboundMail = typeof OutboundMail.Type;
@@ -115,19 +116,28 @@ const makeMailLayer = (
             .execute(),
         ).pipe(Effect.asVoid);
 
-      // Whether a logged email belongs to the demo workspace. The demo org is
-      // a public sandbox with fictional contacts, so its outbound mail is
-      // recorded but never delivered.
-      const demoOrgLog = (logId: string) =>
+      // Per-log delivery policy: whether the email belongs to the demo
+      // workspace (a public sandbox with fictional contacts, so its outbound
+      // mail is recorded but never delivered) and the owning event's default
+      // Reply-To.
+      const logPolicy = (logId: string) =>
         query(database, "Could not resolve email workspace", (db) =>
           db
-            .select({ organizationId: events.organizationId })
+            .select({
+              organizationId: events.organizationId,
+              replyToEmail: events.replyToEmail,
+            })
             .from(emailLog)
             .innerJoin(events, eq(emailLog.eventId, events.id))
             .where(eq(emailLog.id, logId))
             .limit(1)
             .execute(),
-        ).pipe(Effect.map((rows) => rows[0]?.organizationId === DEMO_ORG_ID));
+        ).pipe(
+          Effect.map((rows) => ({
+            demoOrg: rows[0]?.organizationId === DEMO_ORG_ID,
+            eventReplyTo: rows[0]?.replyToEmail ?? null,
+          })),
+        );
 
       const updateCampaignDelivery = (logId: string, deliveryStatus: "sent" | "failed") =>
         query(database, "Could not update campaign delivery", (db) =>
@@ -165,7 +175,10 @@ const makeMailLayer = (
         mail: OutboundMail,
       ): Effect.Effect<MailDeliveryResult, DbError> =>
         Effect.gen(function* () {
-          const logOnly = demoMode || !deliverableRecipient(mail.to) || (yield* demoOrgLog(logId));
+          const policy = yield* logPolicy(logId);
+          const logOnly = demoMode || !deliverableRecipient(mail.to) || policy.demoOrg;
+          const replyTo = mail.replyTo ?? policy.eventReplyTo ?? undefined;
+          const outbound: OutboundMail = replyTo === undefined ? mail : { ...mail, replyTo };
           yield* updateLog(
             logId,
             {
@@ -185,7 +198,7 @@ const makeMailLayer = (
             yield* updateCampaignDelivery(logId, "sent");
             return { id: logId, status: "demo", error: null } as const;
           }
-          return yield* deliver(mail).pipe(
+          return yield* deliver(outbound).pipe(
             Effect.matchEffect({
               onFailure: (error): Effect.Effect<MailDeliveryResult, DbError> => {
                 const message = failureMessage(error);
@@ -244,6 +257,7 @@ const makeMailLayer = (
                   subject: entry.subject,
                   text: entry.body,
                   html: entry.htmlBody,
+                  ...(entry.replyTo == null ? {} : { replyTo: entry.replyTo }),
                   ...(entry.icsContent === null
                     ? {}
                     : {

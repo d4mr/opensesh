@@ -53,6 +53,16 @@ interface SpeakerCommsService {
     contactIds: ReadonlyArray<string>,
     portalOrigin: string,
   ) => Effect.Effect<ReadonlyArray<PortalInvitationResult>, DbError | InvalidInput>;
+  // Portal invitations for people just added to a submission's speaker
+  // lineup. Unlike queuePortalInvitations there is no speaker-eligibility
+  // gate — a co-presenter on a still-pending proposal is exactly who this is
+  // for. Idempotent per contact via the portal_invitation email log.
+  readonly queueCoSpeakerInvitations: (input: {
+    readonly eventId: string;
+    readonly submissionId: string;
+    readonly contactIds: ReadonlyArray<string>;
+    readonly portalOrigin: string;
+  }) => Effect.Effect<ReadonlyArray<string>, DbError>;
   readonly saveTemplate: (input: {
     readonly eventId: string;
     readonly id: string | null;
@@ -66,6 +76,7 @@ interface SpeakerCommsService {
     readonly templateId: string | null;
     readonly subject: string;
     readonly body: string;
+    readonly replyTo: string | null;
     readonly recipientFilter: Readonly<Record<string, Schema.Json>>;
     readonly segment: import("../schema/communications").AudienceSegment;
     readonly contactIds: ReadonlyArray<string>;
@@ -669,6 +680,90 @@ export const SpeakerCommsLive = Layer.effect(
             }),
           );
         }),
+      queueCoSpeakerInvitations: (input) =>
+        query(database, "Could not queue co-speaker invitations", (db) =>
+          db.transaction(async (transaction) => {
+            if (input.contactIds.length === 0) return [];
+            const [event] = await transaction
+              .select()
+              .from(events)
+              .where(eq(events.id, input.eventId))
+              .limit(1)
+              .execute();
+            const [submission] = await transaction
+              .select({ title: submissions.title })
+              .from(submissions)
+              .where(eq(submissions.id, input.submissionId))
+              .limit(1)
+              .execute();
+            if (event === undefined || submission === undefined) return [];
+            const selected = await transaction
+              .select()
+              .from(contacts)
+              .where(
+                and(eq(contacts.eventId, input.eventId), inArray(contacts.id, input.contactIds)),
+              )
+              .execute();
+            const existing = await transaction
+              .select({ contactId: emailLog.contactId })
+              .from(emailLog)
+              .where(
+                and(eq(emailLog.eventId, input.eventId), eq(emailLog.type, "portal_invitation")),
+              )
+              .execute();
+            const invited = new Set(
+              existing.flatMap((row) => (row.contactId === null ? [] : [row.contactId])),
+            );
+            const logIds: Array<string> = [];
+            for (const contact of selected) {
+              if (invited.has(contact.id)) continue;
+              const subject = `You're on “${submission.title}” at ${event.name}`;
+              const bodyText = `Hi ${contact.firstName},\n\nYou've been added as a speaker on “${submission.title}” for ${event.name}. Your speaker portal has the session, your profile, and your tasks in one place.`;
+              const access = await mintPortalAccess({
+                origin: input.portalOrigin,
+                to: `/portal/submissions?spotlight=${input.submissionId}`,
+                grant: {
+                  email: contact.email,
+                  name: speakerName(contact),
+                  contactId: contact.id,
+                  eventId: input.eventId,
+                  eventSlug: event.slug,
+                },
+                now: new Date(),
+              });
+              await transaction.insert(verifications).values(access.verification).execute();
+              const rendered = outreach({
+                eventName: event.name,
+                logoUrl: event.logoUrl ?? null,
+                subject,
+                bodyHtml: freeformToHtml(bodyText),
+                bodyText,
+                cta: { label: "Open your portal", url: access.url },
+              });
+              const [logged] = await transaction
+                .insert(emailLog)
+                .values({
+                  eventId: input.eventId,
+                  contactId: contact.id,
+                  submissionId: input.submissionId,
+                  type: "portal_invitation",
+                  recipient: contact.email,
+                  subject,
+                  body: rendered.text,
+                  htmlBody: rendered.html,
+                  status: "queued",
+                  provider: null,
+                  providerId: null,
+                  error: null,
+                  sentAt: null,
+                })
+                .returning({ id: emailLog.id })
+                .execute();
+              if (logged !== undefined) logIds.push(logged.id);
+            }
+            return logIds;
+          }),
+        ),
       saveTemplate: (input) => {
         const templateId = input.id;
         const values = {
@@ -752,6 +847,7 @@ export const SpeakerCommsLive = Layer.effect(
                   templateId: input.templateId,
                   subjectSnapshot: input.subject,
                   bodySnapshot: input.body,
+                  replyTo: input.replyTo,
                   recipientFilter: input.recipientFilter,
                   status: "sending",
                   ...createdBy(input.actor),
@@ -834,6 +930,7 @@ export const SpeakerCommsLive = Layer.effect(
                     subject: recipient.resolvedSubject,
                     body: recipient.resolvedBody,
                     htmlBody: rendered.html,
+                    replyTo: input.replyTo,
                     status: "queued",
                     provider: null,
                     providerId: null,

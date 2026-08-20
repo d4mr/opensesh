@@ -8,6 +8,7 @@ import {
   type PublicProgram,
   type PublicSession,
   type PublicSpeaker,
+  type PublishedAgendaBlock,
   type WidgetOptions,
   type WidgetView,
 } from "@opensesh/domain";
@@ -34,6 +35,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { downloadPersonalScheduleIcs, downloadPublicSessionIcs } from "@/server-fns/widgets";
@@ -830,6 +837,28 @@ export function Agenda({
   const groups = new Map<string, Array<PublicSession>>();
   for (const session of current)
     groups.set(session.startsAt, [...(groups.get(session.startsAt) ?? []), session]);
+  const rows: ReadonlyArray<
+    | {
+        readonly key: string;
+        readonly startsAt: string;
+        readonly sessions: ReadonlyArray<PublicSession>;
+      }
+    | { readonly key: string; readonly startsAt: string; readonly block: PublishedAgendaBlock }
+  > = [
+    ...Array.from(groups, ([startsAt, group]) => ({
+      key: `sessions:${startsAt}`,
+      startsAt,
+      sessions: group,
+    })),
+    ...program.blocks
+      .filter((block) => publicDateKey(block.startsAt, program.event.timezone) === selectedDay)
+      .map((block) => ({ key: `block:${block.id}`, startsAt: block.startsAt, block })),
+  ].sort(
+    (left, right) =>
+      left.startsAt.localeCompare(right.startsAt) ||
+      // Blocks lead a shared start time — lunch reads before the 1pm talks.
+      ("block" in left ? -1 : 1) - ("block" in right ? -1 : 1),
+  );
   return (
     <>
       <div className="grid gap-4">
@@ -841,67 +870,82 @@ export function Agenda({
             timezone={program.event.timezone}
             onSelect={setSelectedDay}
           />
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {current.length} {current.length === 1 ? "session" : "sessions"}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {current.length} {current.length === 1 ? "session" : "sessions"}
+            </p>
+            {(options?.showAddToCalendar ?? true) && sessions.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="pressable print:hidden">
+                    <CalendarPlusIcon /> Add to calendar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      void downloadSchedule(
+                        program,
+                        sessions.map((session) => session.id),
+                        "all",
+                      )
+                    }
+                  >
+                    Full agenda ({sessions.length})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!schedule.ready || schedule.selectedIds.length === 0}
+                    onSelect={() => void downloadSchedule(program, schedule.selectedIds, "mine")}
+                  >
+                    My Schedule ({schedule.selectedIds.length})
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
         </div>
         <div className="os-list divide-y overflow-hidden rounded-lg border bg-card">
-          {Array.from(groups, ([startsAt, group]) => (
-            <div
-              key={startsAt}
-              className="os-agenda-slot grid grid-cols-[82px_1fr] gap-3 px-3 py-3"
-            >
-              <div className="os-agenda-time text-xs tabular-nums">
-                <p className="font-medium">
-                  {timeLabel(startsAt, program.event.timezone, options?.dateFormat ?? "12h")}
-                </p>
-                <p className="mt-0.5 text-muted-foreground">
-                  {timeLabel(
-                    group[0]?.endsAt ?? startsAt,
-                    program.event.timezone,
-                    options?.dateFormat ?? "12h",
+          {rows.map((row) =>
+            "block" in row ? (
+              <div
+                key={row.key}
+                className="os-agenda-slot grid grid-cols-[82px_1fr] gap-3 bg-muted/40 px-3 py-2"
+              >
+                <div className="os-agenda-time text-xs tabular-nums">
+                  <p className="font-medium text-muted-foreground">
+                    {timeLabel(
+                      row.block.startsAt,
+                      program.event.timezone,
+                      options?.dateFormat ?? "12h",
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-muted-foreground/70">
+                    {timeLabel(
+                      row.block.endsAt,
+                      program.event.timezone,
+                      options?.dateFormat ?? "12h",
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-baseline gap-2 self-center">
+                  <p className="text-sm font-medium text-muted-foreground">{row.block.title}</p>
+                  {row.block.roomName === null ? null : (
+                    <p className="text-[11px] text-muted-foreground/70">{row.block.roomName}</p>
                   )}
-                </p>
+                </div>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {group.map((session) => (
-                  <article
-                    key={session.id}
-                    className="os-session relative min-w-0 border-l-2 pl-2"
-                    style={{ borderLeftColor: session.tracks[0]?.color }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setDetail(session)}
-                      className={cn(
-                        "pressable-row block w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50",
-                        (options?.showAddToCalendar ?? true) && "pr-10",
-                      )}
-                    >
-                      <p className="text-sm font-medium">{session.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {session.speakers.map(publicSpeakerName).join(", ") || "Speaker TBA"}
-                      </p>
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {session.roomName} ·{" "}
-                        {[...session.tracks.map((track) => track.name), session.format?.name]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    </button>
-                    {(options?.showAddToCalendar ?? true) ? (
-                      <ScheduleAction
-                        session={session}
-                        selected={schedule.selectedIds.includes(session.id)}
-                        onToggle={() => schedule.toggle(session.id)}
-                        className="absolute top-2 right-1"
-                      />
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            </div>
-          ))}
+            ) : (
+              <BlockedAgendaSlot
+                key={row.key}
+                startsAt={row.startsAt}
+                group={row.sessions}
+                program={program}
+                options={options}
+                schedule={schedule}
+                onDetail={setDetail}
+              />
+            ),
+          )}
         </div>
       </div>
       <SessionDialog
@@ -911,6 +955,76 @@ export function Agenda({
         onClose={() => setDetail(null)}
       />
     </>
+  );
+}
+
+function BlockedAgendaSlot({
+  startsAt,
+  group,
+  program,
+  options,
+  schedule,
+  onDetail,
+}: {
+  readonly startsAt: string;
+  readonly group: ReadonlyArray<PublicSession>;
+  readonly program: PublicProgram;
+  readonly options?: WidgetOptions;
+  readonly schedule: ReturnType<typeof usePersonalSchedule>;
+  readonly onDetail: (session: PublicSession) => void;
+}) {
+  return (
+    <div className="os-agenda-slot grid grid-cols-[82px_1fr] gap-3 px-3 py-3">
+      <div className="os-agenda-time text-xs tabular-nums">
+        <p className="font-medium">
+          {timeLabel(startsAt, program.event.timezone, options?.dateFormat ?? "12h")}
+        </p>
+        <p className="mt-0.5 text-muted-foreground">
+          {timeLabel(
+            group[0]?.endsAt ?? startsAt,
+            program.event.timezone,
+            options?.dateFormat ?? "12h",
+          )}
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {group.map((session) => (
+          <article
+            key={session.id}
+            className="os-session relative min-w-0 border-l-2 pl-2"
+            style={{ borderLeftColor: session.tracks[0]?.color }}
+          >
+            <button
+              type="button"
+              onClick={() => onDetail(session)}
+              className={cn(
+                "pressable-row block w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50",
+                (options?.showAddToCalendar ?? true) && "pr-10",
+              )}
+            >
+              <p className="text-sm font-medium">{session.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {session.speakers.map(publicSpeakerName).join(", ") || "Speaker TBA"}
+              </p>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {session.roomName} ·{" "}
+                {[...session.tracks.map((track) => track.name), session.format?.name]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </button>
+            {(options?.showAddToCalendar ?? true) ? (
+              <ScheduleAction
+                session={session}
+                selected={schedule.selectedIds.includes(session.id)}
+                onToggle={() => schedule.toggle(session.id)}
+                className="absolute top-2 right-1"
+              />
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -995,6 +1109,24 @@ export function Itinerary({
           const current = sessions.filter(
             (item) => publicDateKey(item.startsAt, program.event.timezone) === day,
           );
+          const dayBlocks = program.blocks.filter(
+            (block) => publicDateKey(block.startsAt, program.event.timezone) === day,
+          );
+          const entries: ReadonlyArray<
+            | { readonly kind: "session"; readonly session: PublicSession }
+            | { readonly kind: "block"; readonly block: PublishedAgendaBlock }
+          > = [
+            ...current.map((session) => ({ kind: "session" as const, session })),
+            ...dayBlocks.map((block) => ({ kind: "block" as const, block })),
+          ].sort((left, right) => {
+            const leftStart = left.kind === "session" ? left.session.startsAt : left.block.startsAt;
+            const rightStart =
+              right.kind === "session" ? right.session.startsAt : right.block.startsAt;
+            return (
+              leftStart.localeCompare(rightStart) ||
+              (left.kind === "block" ? -1 : 0) - (right.kind === "block" ? -1 : 0)
+            );
+          });
           return (
             <section key={day}>
               <h2 className="os-day-heading mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -1003,7 +1135,35 @@ export function Itinerary({
                   : dayLabel(current[0].startsAt, program.event.timezone, true)}
               </h2>
               <div className="os-list divide-y overflow-hidden rounded-lg border bg-card">
-                {current.map((session) => {
+                {entries.map((entry) => {
+                  if (entry.kind === "block") {
+                    const block = entry.block;
+                    return (
+                      <div
+                        key={`block:${block.id}`}
+                        className="flex flex-wrap items-baseline gap-x-2 bg-muted/40 px-3 py-2"
+                      >
+                        <p className="text-xs font-medium text-muted-foreground tabular-nums">
+                          {timeLabel(
+                            block.startsAt,
+                            program.event.timezone,
+                            options?.dateFormat ?? "12h",
+                          )}
+                          –
+                          {timeLabel(
+                            block.endsAt,
+                            program.event.timezone,
+                            options?.dateFormat ?? "12h",
+                          )}
+                        </p>
+                        <p className="text-sm font-medium text-muted-foreground">{block.title}</p>
+                        {block.roomName === null ? null : (
+                          <p className="text-[11px] text-muted-foreground/70">{block.roomName}</p>
+                        )}
+                      </div>
+                    );
+                  }
+                  const session = entry.session;
                   const isExpanded = expanded.includes(session.id);
                   return (
                     <article key={session.id} className="os-session px-3 py-3">
@@ -1211,9 +1371,13 @@ const downloadIcs = async (program: PublicProgram, session: PublicSession) => {
   toast.success(`Downloaded ${result.data.filename}`);
 };
 
-const downloadSchedule = async (program: PublicProgram, sessionIds: ReadonlyArray<string>) => {
+const downloadSchedule = async (
+  program: PublicProgram,
+  sessionIds: ReadonlyArray<string>,
+  scope: "mine" | "all" = "mine",
+) => {
   const result = await downloadPersonalScheduleIcs({
-    data: { eventSlug: program.event.slug, sessionIds: [...sessionIds] },
+    data: { eventSlug: program.event.slug, sessionIds: [...sessionIds], scope },
   });
   if (!result.ok) return toast.error(result.error.message);
   downloadFile(result.data.filename, result.data.content);

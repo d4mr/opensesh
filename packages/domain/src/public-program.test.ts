@@ -81,6 +81,7 @@ const program: PublicProgram = {
       roomName: "Workshop Lab",
     },
   ],
+  blocks: [],
 };
 
 describe("public program utilities", () => {

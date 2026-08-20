@@ -1,3 +1,4 @@
+CREATE TYPE "agenda_block_kind" AS ENUM('break', 'meal', 'registration', 'social', 'other');--> statement-breakpoint
 CREATE TYPE "agenda_draft_status" AS ENUM('draft', 'generated', 'committed', 'discarded');--> statement-breakpoint
 CREATE TYPE "campaign_delivery_status" AS ENUM('pending', 'sent', 'failed');--> statement-breakpoint
 CREATE TYPE "contact_participation" AS ENUM('submitter', 'speaker', 'organizer');--> statement-breakpoint
@@ -27,6 +28,18 @@ CREATE TYPE "submission_status" AS ENUM('draft', 'pending', 'maybe', 'accepted',
 CREATE TYPE "target_type" AS ENUM('contact', 'submission');--> statement-breakpoint
 CREATE TYPE "task_status" AS ENUM('todo', 'done', 'waived');--> statement-breakpoint
 CREATE TYPE "tshirt_size" AS ENUM('XS', 'S', 'M', 'L', 'XL', 'XXL');--> statement-breakpoint
+CREATE TABLE "agenda_blocks" (
+	"id" text PRIMARY KEY,
+	"event_id" text NOT NULL,
+	"title" text NOT NULL,
+	"kind" "agenda_block_kind" DEFAULT 'break'::"agenda_block_kind" NOT NULL,
+	"room_id" text,
+	"starts_at" timestamp with time zone NOT NULL,
+	"ends_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "agenda_drafts" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
@@ -137,8 +150,10 @@ CREATE TABLE "events" (
 	"background_url" text,
 	"default_submission_limit" integer DEFAULT 3 NOT NULL,
 	"speaker_confirmation_enabled" boolean DEFAULT true NOT NULL,
+	"reply_to_email" text,
 	"agenda_published_at" timestamp with time zone,
 	"published_agenda" jsonb DEFAULT '[]' NOT NULL,
+	"published_blocks" jsonb DEFAULT '[]' NOT NULL,
 	"agenda_dirty" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
@@ -328,6 +343,7 @@ CREATE TABLE "email_campaigns" (
 	"subject_snapshot" text NOT NULL,
 	"body_snapshot" text NOT NULL,
 	"recipient_filter" jsonb DEFAULT '{}' NOT NULL,
+	"reply_to" text,
 	"status" "email_campaign_status" DEFAULT 'draft'::"email_campaign_status" NOT NULL,
 	"created_by_user_id" text,
 	"created_by_api_key_id" text,
@@ -498,6 +514,7 @@ CREATE TABLE "email_log" (
 	"ics_attached" boolean DEFAULT false NOT NULL,
 	"ics_content" text,
 	"ics_sequence" integer,
+	"reply_to" text,
 	"status" "email_status" NOT NULL,
 	"provider" text,
 	"provider_id" text,
@@ -910,6 +927,7 @@ CREATE TABLE "submissions" (
 	"notified_at" timestamp with time zone,
 	"submitted_at" timestamp with time zone,
 	"answers" jsonb NOT NULL,
+	"asked_fields" jsonb DEFAULT '[]' NOT NULL,
 	"approved_snapshot" jsonb DEFAULT '{}' NOT NULL,
 	"content_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
 	"cancelled_at" timestamp with time zone,
@@ -919,6 +937,7 @@ CREATE TABLE "submissions" (
 	CONSTRAINT "submissions_event_code_unique" UNIQUE("event_id","code")
 );
 --> statement-breakpoint
+CREATE INDEX "agenda_blocks_event_starts_idx" ON "agenda_blocks" ("event_id","starts_at");--> statement-breakpoint
 CREATE INDEX "agenda_drafts_event_created_idx" ON "agenda_drafts" ("event_id","created_at");--> statement-breakpoint
 CREATE INDEX "accounts_user_id_idx" ON "accounts" ("user_id");--> statement-breakpoint
 CREATE INDEX "organization_invitations_org_idx" ON "organization_invitations" ("organization_id");--> statement-breakpoint
@@ -994,6 +1013,8 @@ CREATE INDEX "submission_tags_tag_idx" ON "submission_tags" ("tag_id");--> state
 CREATE INDEX "submission_tracks_track_idx" ON "submission_tracks" ("track_id");--> statement-breakpoint
 CREATE INDEX "submissions_event_status_idx" ON "submissions" ("event_id","status");--> statement-breakpoint
 CREATE INDEX "submissions_schedule_idx" ON "submissions" ("event_id","room_id","starts_at");--> statement-breakpoint
+ALTER TABLE "agenda_blocks" ADD CONSTRAINT "agenda_blocks_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "agenda_blocks" ADD CONSTRAINT "agenda_blocks_room_id_rooms_id_fkey" FOREIGN KEY ("room_id") REFERENCES "rooms"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "agenda_drafts" ADD CONSTRAINT "agenda_drafts_event_id_events_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "organization_invitations" ADD CONSTRAINT "organization_invitations_organization_id_organizations_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE;--> statement-breakpoint

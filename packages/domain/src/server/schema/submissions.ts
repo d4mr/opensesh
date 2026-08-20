@@ -10,6 +10,7 @@ import {
   Score,
   Text255,
 } from "./common";
+import { FormFieldType, FormSection } from "./forms";
 
 // The acceptance pipeline. A session is the projection of an accepted
 // submission (status "accepted" and not cancelled) — never a stored kind.
@@ -176,7 +177,25 @@ export const sessionIsActive = (submission: {
   readonly cancelledAt: Date | null;
 }) => submission.status === "accepted" && submission.cancelledAt === null;
 
-export const Submission = Schema.Struct({ ...EntityFields, ...submissionFields });
+// One question as it stood at submit time. Forms are edited in place, so
+// review surfaces render old submissions from this snapshot instead of the
+// live (editable) field rows; empty for drafts and pre-snapshot rows.
+export const AskedField = Schema.Struct({
+  id: Schema.String,
+  section: FormSection,
+  label: Schema.String,
+  fieldType: FormFieldType,
+  position: Schema.Number,
+  mapsTo: NullableString,
+});
+export type AskedField = typeof AskedField.Type;
+
+export const Submission = Schema.Struct({
+  ...EntityFields,
+  ...submissionFields,
+  // Read-only fact set once at submit; never part of create/update inputs.
+  askedFields: Schema.Array(AskedField),
+});
 export type Submission = typeof Submission.Type;
 
 export const DashboardSubmissionRow = Schema.Struct({

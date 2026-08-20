@@ -1,6 +1,7 @@
 import {
   detectAgendaConflicts,
   type AgendaAdminData,
+  type AgendaBlockSaveRequest,
   type AgendaConflict,
   type AgendaDraft,
   type AgendaView,
@@ -38,9 +39,11 @@ import {
   acceptAgendaDraft,
   changeAgendaDraft,
   changeAgendaPublication,
+  deleteAgendaBlock,
   generateAgendaDraft,
   getAgenda,
   listAgendaDrafts,
+  saveAgendaBlock,
   saveAgendaSchedule,
 } from "@/server-fns/agenda";
 import { deleteLibraryItem, saveLibraryItem } from "@/server-fns/admin";
@@ -263,6 +266,30 @@ export function AgendaPage({
         },
       },
     });
+    return true;
+  };
+
+  const saveBlock = async (input: Omit<AgendaBlockSaveRequest, "eventId">) => {
+    const result = await saveAgendaBlock({ data: { ...input, eventId } });
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return false;
+    }
+    setAgenda(result.data);
+    void invalidateAfterMutation(queryClient, eventId);
+    toast.success(input.id === null ? "Block added" : "Block updated");
+    return true;
+  };
+
+  const removeBlock = async (id: string) => {
+    const result = await deleteAgendaBlock({ data: { eventId, id } });
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return false;
+    }
+    setAgenda(result.data);
+    void invalidateAfterMutation(queryClient, eventId);
+    toast.success("Block removed");
     return true;
   };
 
@@ -553,6 +580,8 @@ export function AgendaPage({
             highlightedIds={highlightedIds}
             save={save}
             addRoom={addRoom}
+            saveBlock={saveBlock}
+            removeBlock={removeBlock}
           />
         </TabsContent>
         <TabsContent value="list" className="mt-1 min-h-0 overflow-y-auto">

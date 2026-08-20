@@ -28,6 +28,15 @@ interface PublishedAgendaRecord {
   readonly speakers: ReadonlyArray<{ readonly id: string; readonly name: string }>;
 }
 
+interface PublishedAgendaBlockRecord {
+  readonly id: string;
+  readonly title: string;
+  readonly kind: "break" | "meal" | "registration" | "social" | "other";
+  readonly roomName: string | null;
+  readonly startsAt: string;
+  readonly endsAt: string;
+}
+
 export const events = pgTable("events", {
   id: id(),
   organizationId: text("organization_id")
@@ -52,9 +61,15 @@ export const events = pgTable("events", {
   // participation themselves (contacts.confirmed_at stays null until they
   // do). When off, acceptance auto-confirms every participant.
   speakerConfirmationEnabled: boolean("speaker_confirmation_enabled").notNull().default(true),
+  // Reply-To for every event-plane email; campaigns may override per send.
+  replyToEmail: text("reply_to_email"),
   agendaPublishedAt: timestamp("agenda_published_at", { withTimezone: true }),
   publishedAgenda: jsonb("published_agenda")
     .$type<ReadonlyArray<PublishedAgendaRecord>>()
+    .notNull()
+    .default([]),
+  publishedBlocks: jsonb("published_blocks")
+    .$type<ReadonlyArray<PublishedAgendaBlockRecord>>()
     .notNull()
     .default([]),
   agendaDirty: boolean("agenda_dirty").notNull().default(false),

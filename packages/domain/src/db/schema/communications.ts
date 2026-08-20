@@ -56,6 +56,8 @@ export const emailCampaigns = pgTable(
       .$type<Readonly<Record<string, Schema.Json>>>()
       .notNull()
       .default({}),
+    // Per-send Reply-To override; null falls back to the event's reply-to.
+    replyTo: text("reply_to"),
     status: emailCampaignStatus("status").notNull().default("draft"),
     createdByUserId: text("created_by_user_id").references(() => users.id, {
       onDelete: "restrict",

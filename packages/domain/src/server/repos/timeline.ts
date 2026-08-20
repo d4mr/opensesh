@@ -76,12 +76,27 @@ const activityEntry = (
   }
   if (row.type === "decided") {
     const decision = payloadString(payload, "decision");
+    // Accept-time reprogram labels, when the organizer accepted the session
+    // into a different format or track than submitted.
+    const programmedAs =
+      typeof payload["programmedAs"] === "object" && payload["programmedAs"] !== null
+        ? (payload["programmedAs"] as Readonly<Record<string, unknown>>)
+        : null;
+    const programParts =
+      programmedAs === null
+        ? []
+        : [
+            typeof programmedAs["format"] === "string" ? `as ${programmedAs["format"]}` : null,
+            typeof programmedAs["track"] === "string"
+              ? `in the ${programmedAs["track"]} track`
+              : null,
+          ].filter((part) => part !== null);
     return {
       id: `act_${row.id}`,
       at: row.createdAt,
       kind: "decided",
       label: decision === "accept" ? "Accepted" : "Declined",
-      detail: null,
+      detail: programParts.length === 0 ? null : `programmed ${programParts.join(", ")}`,
       actorName: row.actorName,
     };
   }

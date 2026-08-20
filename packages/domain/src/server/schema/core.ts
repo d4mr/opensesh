@@ -2,7 +2,7 @@ import { Schema, Struct } from "effect";
 
 import { EntityFields, NullableNumber, NullableString, Text1000 } from "./common";
 
-import { PublishedAgendaSession } from "./agenda";
+import { PublishedAgendaBlock, PublishedAgendaSession } from "./agenda";
 
 export const EventMemberRole = Schema.Literals(["admin", "reviewer"]);
 export const EventType = Schema.Literals(["conference", "summit", "meetup"]);
@@ -26,8 +26,10 @@ const eventFields = {
   backgroundUrl: NullableString,
   defaultSubmissionLimit: Schema.Number,
   speakerConfirmationEnabled: Schema.Boolean,
+  replyToEmail: NullableString,
   agendaPublishedAt: Schema.NullOr(Schema.Date),
   publishedAgenda: Schema.Array(PublishedAgendaSession),
+  publishedBlocks: Schema.Array(PublishedAgendaBlock),
   agendaDirty: Schema.Boolean,
 };
 
@@ -192,6 +194,7 @@ export const EventSettingsRequest = Schema.Struct({
   websiteUrl: NullableString,
   defaultSubmissionLimit: Schema.Number,
   speakerConfirmationEnabled: Schema.Boolean,
+  replyToEmail: NullableString,
   logoUrl: NullableString,
   logoUpload: Schema.NullOr(
     Schema.Struct({

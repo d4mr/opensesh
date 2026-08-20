@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 
 import { resolveActiveEvent } from "@/lib/active-event";
 import { PagePlaceholder } from "@/components/app/page-placeholder";
@@ -27,6 +27,10 @@ export const Route = createFileRoute("/admin/$section")({
     spotlight: typeof search.spotlight === "string" ? search.spotlight : undefined,
     fileRequest: typeof search.fileRequest === "string" ? search.fileRequest : undefined,
   }),
+  beforeLoad: ({ params }) => {
+    // Bare /admin/settings has no screen of its own — land on the Event tab.
+    if (params.section === "settings") throw redirect({ to: "/admin/settings/event" });
+  },
   loader: async ({ context, params }) => {
     if (
       !["tasks", "portal-forms", "file-requests", "content", "resources"].includes(params.section)

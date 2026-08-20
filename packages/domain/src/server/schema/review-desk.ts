@@ -131,6 +131,9 @@ export type ReviewDeskParticipantAnswers = typeof ReviewDeskParticipantAnswers.T
 
 export const ReviewDeskDetail = Schema.Struct({
   submission: ReviewDeskDetailItem,
+  // True when the form's questions changed after this was submitted — the
+  // answers below come from the submit-time snapshot of the form.
+  earlierFormVersion: Schema.Boolean,
   answers: Schema.Array(ReviewDeskAnswer),
   participants: Schema.Array(ReviewDeskParticipantAnswers),
   reviews: Schema.Array(ReviewDeskReview),
@@ -207,6 +210,12 @@ export const DecisionRequest = Schema.Struct({
   // off public surfaces until their content is approved. This flag collapses
   // the two when the organizer explicitly opts in at decision time.
   approveContent: Schema.Boolean,
+  // Accepting can reprogram in the same stroke — a different format or track
+  // than submitted (a talk accepted as a lightning slot, a spillover track).
+  // Single-submission accepts only; absent keeps what was submitted, and the
+  // decision email tells the speaker about the change.
+  programFormatId: Schema.optionalKey(Schema.String),
+  programTrackId: Schema.optionalKey(Schema.String),
 });
 
 export const CsvColumn = Schema.Literals([
@@ -242,12 +251,32 @@ export interface DecisionEmailInput {
   // True when the event asks speakers to confirm participation themselves —
   // the acceptance email then leads with the confirm CTA.
   readonly confirmationRequested?: boolean;
+  // Sentence telling the speaker their session was programmed differently
+  // than submitted (see programChangeSentence); shown above the personal
+  // message in acceptance emails.
+  readonly programNote?: string | null;
 }
 
 export const renderDecisionEmail = (input: DecisionEmailInput) => {
   const render = input.decision === "accept" ? accepted : declined;
   return render(input);
 };
+
+// Display labels for an accept-time reprogram, e.g.
+// { format: "Lightning talk (10 min)", track: "AI in Production" }.
+export interface ProgramChange {
+  readonly format?: string;
+  readonly track?: string;
+}
+
+export const programChangeSentence = (change: ProgramChange): string | null =>
+  change.format !== undefined && change.track !== undefined
+    ? `We'd like to program this as a ${change.format}, in the ${change.track} track.`
+    : change.format !== undefined
+      ? `We'd like to program this as a ${change.format}.`
+      : change.track !== undefined
+        ? `We'd like to program this in the ${change.track} track.`
+        : null;
 
 export const DecisionResult = Schema.Struct({
   submissions: Schema.Array(

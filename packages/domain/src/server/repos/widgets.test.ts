@@ -73,6 +73,7 @@ const program: PublicProgram = {
   formats: [],
   tags: [],
   sessions: [],
+  blocks: [],
 };
 
 describe("public content approval", () => {

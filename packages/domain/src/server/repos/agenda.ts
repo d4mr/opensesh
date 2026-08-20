@@ -2,13 +2,14 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { Clock, Config, Context, Effect, Layer, Option, Schema } from "effect";
 
 import { detectAgendaConflicts } from "../../agenda/conflicts";
-import { validateScheduleChange } from "../../agenda/schedule";
+import { validateBlockPlacement, validateScheduleChange } from "../../agenda/schedule";
 import {
   dayWindow,
   solveAgendaDeterministically,
   validateAndRepairAgendaProposal,
 } from "../../agenda/solver";
 import {
+  agendaBlocks,
   agendaDrafts,
   contacts,
   events,
@@ -35,6 +36,8 @@ import {
 } from "../errors";
 import {
   AcceptAgendaDraftResult,
+  type AgendaBlockDeleteRequest,
+  type AgendaBlockSaveRequest,
   AgendaDraft,
   type AgendaDraftActionRequest,
   type AgendaDraft as AgendaDraftData,
@@ -45,6 +48,7 @@ import {
   type AgendaSession,
   type GenerateAgendaDraftRequest,
   PublicAgenda,
+  PublishedAgendaBlock,
   PublishedAgendaSession,
   type ScheduleChange,
 } from "../schema/agenda";
@@ -66,6 +70,12 @@ interface AgendaService {
     input: ScheduleChange,
     actor: AuditActor,
   ) => Effect.Effect<AgendaAdminData, DbError | InvalidInput | NotFound>;
+  readonly saveBlock: (
+    input: AgendaBlockSaveRequest,
+  ) => Effect.Effect<AgendaAdminData, DbError | InvalidInput | NotFound>;
+  readonly deleteBlock: (
+    input: AgendaBlockDeleteRequest,
+  ) => Effect.Effect<AgendaAdminData, DbError | NotFound>;
   readonly publish: (eventId: string) => Effect.Effect<AgendaAdminData, DbError | NotFound>;
   readonly unpublish: (eventId: string) => Effect.Effect<AgendaAdminData, DbError | NotFound>;
   readonly public: (eventSlug: string) => Effect.Effect<PublicAgenda | null, DbError | NotFound>;
@@ -124,7 +134,7 @@ const requestAnthropicProposal = (
             max_tokens: 8_192,
             temperature: 0.1,
             system:
-              "You schedule conference sessions. Return every session exactly once. Use only the supplied room ids and event days, preserve exact durations, use 15-minute starts inside the supplied dailyWindow (local time), and never overlap a room or speaker. Reasons must be one concise line. Respect all criteria rules when possible.",
+              "You schedule conference sessions. Return every session exactly once. Use only the supplied room ids and event days, preserve exact durations, use 15-minute starts inside the supplied dailyWindow (local time), and never overlap a room, a speaker, or a supplied blackout window. Reasons must be one concise line. Respect all criteria rules when possible.",
             messages: [
               {
                 role: "user",
@@ -140,6 +150,14 @@ const requestAnthropicProposal = (
                   rooms: agenda.rooms
                     .filter((room) => input.criteria.roomIds.includes(room.id))
                     .map((room) => ({ id: room.id, name: room.name })),
+                  // Fixed blackouts (breaks, lunch, registration): never place
+                  // a session overlapping one; roomId null blocks every room.
+                  blackouts: agenda.blocks.map((block) => ({
+                    title: block.title,
+                    roomId: block.roomId,
+                    startsAt: block.startsAt,
+                    endsAt: block.endsAt,
+                  })),
                   sessions: agenda.sessions.map((session) => ({
                     id: session.id,
                     title: session.title,
@@ -250,7 +268,7 @@ export const AgendaLive = Layer.effect(
           db.select().from(events).where(eq(events.id, eventId)).limit(1).execute(),
         );
         const event = yield* decodeFound(Event, "Event", eventRows[0]);
-        const [roomRows, formatRows, submissionRows, trackRows, participantRows] =
+        const [roomRows, formatRows, submissionRows, trackRows, participantRows, blockRows] =
           yield* Effect.all(
             [
               query(database, "Could not list agenda rooms", (db) =>
@@ -292,8 +310,16 @@ export const AgendaLive = Layer.effect(
                   .orderBy(asc(submissionParticipants.position))
                   .execute(),
               ),
+              query(database, "Could not list agenda blocks", (db) =>
+                db
+                  .select()
+                  .from(agendaBlocks)
+                  .where(eq(agendaBlocks.eventId, eventId))
+                  .orderBy(asc(agendaBlocks.startsAt))
+                  .execute(),
+              ),
             ],
-            { concurrency: 5 },
+            { concurrency: 6 },
           );
 
         const [decodedRooms, decodedFormats, decodedSubmissions] = yield* Effect.all(
@@ -375,6 +401,14 @@ export const AgendaLive = Layer.effect(
             .filter((track, index, all) => all.findIndex((item) => item.id === track.id) === index)
             .map((track) => ({ id: track.id, name: track.name, color: track.color })),
           sessions,
+          blocks: blockRows.map((block) => ({
+            id: block.id,
+            title: block.title,
+            kind: block.kind,
+            roomId: block.roomId,
+            startsAt: block.startsAt.toISOString(),
+            endsAt: block.endsAt.toISOString(),
+          })),
           aiConfigured: Option.isSome(apiKey) && apiKey.value.trim().length > 0,
         });
       });
@@ -514,12 +548,27 @@ export const AgendaLive = Layer.effect(
           "published agenda session",
           snapshot,
         );
+        const blockSnapshot = yield* decodeMany(
+          PublishedAgendaBlock,
+          "published agenda block",
+          [...agenda.blocks]
+            .sort((left, right) => left.startsAt.localeCompare(right.startsAt))
+            .map((block) => ({
+              id: block.id,
+              title: block.title,
+              kind: block.kind,
+              roomName: block.roomId === null ? null : (roomById.get(block.roomId) ?? null),
+              startsAt: block.startsAt,
+              endsAt: block.endsAt,
+            })),
+        );
         yield* query(database, "Could not update agenda publication", (db) =>
           db
             .update(events)
             .set({
               agendaPublishedAt: publish ? now : null,
               publishedAgenda: publish ? decodedSnapshot : [],
+              publishedBlocks: publish ? blockSnapshot : [],
               agendaDirty: !publish,
               updatedAt: now,
             })
@@ -551,6 +600,72 @@ export const AgendaLive = Layer.effect(
           }
           const now = new Date(yield* Clock.currentTimeMillis);
           yield* persistScheduleChanges(input.eventId, [input], now, actor);
+          return yield* loadAdmin(input.eventId);
+        }),
+      saveBlock: (input) =>
+        Effect.gen(function* () {
+          const agenda = yield* loadAdmin(input.eventId);
+          const validation = validateBlockPlacement(input, {
+            timezone: agenda.event.timezone,
+            startsAt: agenda.event.startsAt,
+            endsAt: agenda.event.endsAt,
+            roomIds: agenda.rooms.map((room) => room.id),
+          });
+          if (validation !== null) {
+            return yield* Effect.fail(new InvalidInputError({ message: validation }));
+          }
+          if (input.id !== null && !agenda.blocks.some((block) => block.id === input.id)) {
+            return yield* Effect.fail(new InvalidInputError({ message: "Choose a block to edit" }));
+          }
+          const now = new Date(yield* Clock.currentTimeMillis);
+          const values = {
+            eventId: input.eventId,
+            title: input.title.trim(),
+            kind: input.kind,
+            roomId: input.roomId,
+            startsAt: new Date(input.startsAt),
+            endsAt: new Date(input.endsAt),
+          };
+          yield* query(database, "Could not save agenda block", (db) =>
+            db.transaction(async (transaction) => {
+              if (input.id === null) {
+                await transaction.insert(agendaBlocks).values(values).execute();
+              } else {
+                await transaction
+                  .update(agendaBlocks)
+                  .set({ ...values, updatedAt: now })
+                  .where(
+                    and(eq(agendaBlocks.id, input.id), eq(agendaBlocks.eventId, input.eventId)),
+                  )
+                  .execute();
+              }
+              // Blocks are part of the published snapshot, so any change makes
+              // the live publication stale.
+              await transaction
+                .update(events)
+                .set({ agendaDirty: true, updatedAt: now })
+                .where(eq(events.id, input.eventId))
+                .execute();
+            }),
+          );
+          return yield* loadAdmin(input.eventId);
+        }),
+      deleteBlock: (input) =>
+        Effect.gen(function* () {
+          const now = new Date(yield* Clock.currentTimeMillis);
+          yield* query(database, "Could not delete agenda block", (db) =>
+            db.transaction(async (transaction) => {
+              await transaction
+                .delete(agendaBlocks)
+                .where(and(eq(agendaBlocks.id, input.id), eq(agendaBlocks.eventId, input.eventId)))
+                .execute();
+              await transaction
+                .update(events)
+                .set({ agendaDirty: true, updatedAt: now })
+                .where(eq(events.id, input.eventId))
+                .execute();
+            }),
+          );
           return yield* loadAdmin(input.eventId);
         }),
       publish: (eventId) => setPublication(eventId, true),

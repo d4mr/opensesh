@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { PublishedAgendaBlock } from "./agenda";
 import { EntityFields, JsonObject, NullableDate, NullableString } from "./common";
 import { EmailStatus, EmailType, FileKind, TaskStatus } from "./portal";
 import { SpeakerPipeline, SubmissionStatus } from "./submissions";
@@ -132,6 +133,7 @@ export const PublicProgram = Schema.Struct({
   formats: Schema.Array(PublicLibraryItem),
   tags: Schema.Array(PublicLibraryItem),
   sessions: Schema.Array(PublicSession),
+  blocks: Schema.Array(PublishedAgendaBlock),
 });
 export type PublicProgram = typeof PublicProgram.Type;
 

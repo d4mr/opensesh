@@ -73,11 +73,12 @@ export const outreach = (
 
 const decision = (input: DecisionProps): RenderedEmail => {
   const feedback = input.feedback.trim();
+  const programNote = input.accepted ? (input.programNote ?? null) : null;
   return {
     subject: input.accepted
       ? `You're speaking at ${input.eventName}`
       : `An update on your ${input.eventName} submission`,
-    text: `Hi ${input.speakerName},\n\n${decisionIntroduction(input)}${feedback.length === 0 ? "" : `\n\nFeedback from the review team:\n${feedback}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe ${input.eventName} program team`,
+    text: `Hi ${input.speakerName},\n\n${decisionIntroduction(input)}${programNote === null ? "" : `\n\n${programNote}`}${feedback.length === 0 ? "" : `\n\nFeedback from the review team:\n${feedback}`}\n\nSpeaker portal: ${input.portalUrl}\n\nThe ${input.eventName} program team`,
     html: html(<Decision {...input} />),
   };
 };

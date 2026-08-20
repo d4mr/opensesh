@@ -197,12 +197,11 @@ export const editCfpParticipants = Effect.fn("editCfpParticipants")(function* (
   const submissions = yield* Submissions;
   const submission = yield* submissions.get(submissionId);
   const currentParticipants = yield* submissions.listParticipants(submissionId);
-  if (
-    submission.submitterContactId !== contactId &&
-    !currentParticipants.some((participant) => participant.contactId === contactId)
-  ) {
+  // The submitter keeps sole write access to the lineup: co-presenters see
+  // the shared session in their portal but cannot rearrange it.
+  if (submission.submitterContactId !== contactId) {
     return yield* Effect.fail(
-      new Forbidden({ message: "You cannot edit this submission's speakers" }),
+      new Forbidden({ message: "Only the original submitter can edit this submission's speakers" }),
     );
   }
   if (submission.sourceFormId === null) {
@@ -241,13 +240,23 @@ export const editCfpParticipants = Effect.fn("editCfpParticipants")(function* (
       ),
     );
   }
-  return yield* upsertParticipants(
+  const previousIds = new Set(currentParticipants.map((participant) => participant.contactId));
+  const updated = yield* upsertParticipants(
     submission.eventId,
     submissionId,
     participants,
     participantFields,
     bundle.form.participantRoles,
   );
+  // Newly added people get a portal invitation from the caller — the speaker
+  // email is the credential, so being added is what grants access.
+  return {
+    eventId: submission.eventId,
+    participants: updated,
+    addedContactIds: updated
+      .map((participant) => participant.contactId)
+      .filter((id) => !previousIds.has(id) && id !== contactId),
+  };
 });
 
 export const saveCfpDraft = Effect.fn("saveCfpDraft")(function* (input: CfpDraftInput) {

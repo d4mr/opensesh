@@ -16,6 +16,7 @@ import {
   ClipboardIcon,
   ExternalLinkIcon,
   EyeIcon,
+  InfoIcon,
   ListChecksIcon,
   PanelTopIcon,
   Settings2Icon,
@@ -139,6 +140,7 @@ function FormEditor({
     readonly fields: ReadonlyArray<FormField>;
     readonly admins: ReadonlyArray<EventAdmin>;
     readonly library: FormRendererLibrary;
+    readonly submissionCount: number;
   };
   readonly eventSlug: string;
   readonly eventTimezone: string;
@@ -395,6 +397,7 @@ function FormEditor({
                     <SectionSettings value={field.state.value} onChange={field.handleChange} />
                   )}
                 </form.Field>
+                <EditedFormNotice count={data.submissionCount} />
                 <FormFieldBuilder
                   section="abstract"
                   fields={fields}
@@ -461,6 +464,7 @@ function FormEditor({
                     </SettingRow>
                   </SettingPanel>
                 </div>
+                <EditedFormNotice count={data.submissionCount} />
                 <FormFieldBuilder
                   section="participant"
                   fields={fields}
@@ -659,6 +663,20 @@ function FormEditor({
         )}
       </form.Subscribe>
     </main>
+  );
+}
+
+// Quiet heads-up next to the question editors once real submissions exist:
+// their answers render from a submit-time snapshot, so edits here only shape
+// what new submitters see.
+function EditedFormNotice({ count }: { readonly count: number }) {
+  if (count === 0) return null;
+  return (
+    <p className="flex items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
+      <InfoIcon className="size-3.5 shrink-0" />
+      {count} submission{count === 1 ? " was" : "s were"} made with this form. Their answers stay
+      shown as originally asked — changes here apply to new submissions.
+    </p>
   );
 }
 

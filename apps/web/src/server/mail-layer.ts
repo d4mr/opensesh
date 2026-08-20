@@ -24,6 +24,7 @@ const cloudflareTransport =
         env.EMAIL.send({
           to: mail.to,
           from: { email: env.MAIL_FROM, name: "opensesh" },
+          ...(mail.replyTo === undefined ? {} : { replyTo: mail.replyTo }),
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
@@ -78,6 +79,7 @@ const resendTransport =
           body: JSON.stringify({
             from: env.MAIL_FROM,
             to: [mail.to],
+            ...(mail.replyTo === undefined ? {} : { reply_to: mail.replyTo }),
             subject: mail.subject,
             html: mail.html,
             text: mail.text,

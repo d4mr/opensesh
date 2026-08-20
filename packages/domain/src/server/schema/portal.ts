@@ -200,6 +200,8 @@ const emailLogFields = {
   icsAttached: Schema.Boolean,
   icsContent: NullableString,
   icsSequence: NullableNumber,
+  // optionalKey so the many enqueue sites that never set a Reply-To stay as-is.
+  replyTo: Schema.optionalKey(NullableString),
   status: EmailStatus,
   provider: NullableString,
   providerId: NullableString,

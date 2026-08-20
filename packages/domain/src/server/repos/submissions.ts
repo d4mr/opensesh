@@ -6,6 +6,7 @@ import {
   embeds,
   events,
   fileUploads,
+  formFields,
   formats,
   forms,
   organizationMembers,
@@ -770,10 +771,33 @@ export const SubmissionsLive = Layer.effect(
           }
           const form = yield* loadForm(submission.sourceFormId);
           yield* assertOpen(form);
+          // Submitting freezes the questions as asked: forms are edited in
+          // place, so review surfaces render this submission from the
+          // snapshot rather than whatever the fields later become.
+          const askedFields = yield* query(database, "Could not snapshot form fields", (db) =>
+            db
+              .select({
+                id: formFields.id,
+                section: formFields.section,
+                label: formFields.label,
+                fieldType: formFields.fieldType,
+                position: formFields.position,
+                mapsTo: formFields.mapsTo,
+              })
+              .from(formFields)
+              .where(eq(formFields.formId, form.id))
+              .orderBy(asc(formFields.position))
+              .execute(),
+          );
           const rows = yield* query(database, "Could not submit draft", (db) =>
             db
               .update(submissions)
-              .set({ status: "pending", submittedAt: new Date(), updatedAt: new Date() })
+              .set({
+                status: "pending",
+                submittedAt: new Date(),
+                updatedAt: new Date(),
+                askedFields,
+              })
               .where(eq(submissions.id, id))
               .returning()
               .execute(),

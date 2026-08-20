@@ -149,11 +149,11 @@ export const getFormEditor = createServerFn({ method: "GET" })
       Effect.gen(function* () {
         yield* requireEventAccess(data.eventId, "admin");
         const reads = yield* ReadModels;
-        const { form, fields, library, admins } = yield* reads.formEditorForAdmin(
+        const { form, fields, library, admins, submissionCount } = yield* reads.formEditorForAdmin(
           data.eventId,
           data.formId,
         );
-        return { form, fields, library, admins };
+        return { form, fields, library, admins, submissionCount };
       }),
       { require: "staff" },
     ),

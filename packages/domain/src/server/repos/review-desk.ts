@@ -58,6 +58,8 @@ import {
   type ReviewDeskTrack,
   StatusChangeResult,
   renderDecisionEmail,
+  programChangeSentence,
+  type ProgramChange,
   type SubmissionDecision,
 } from "../schema/review-desk";
 import {
@@ -66,7 +68,12 @@ import {
   ReviewAssignment,
   ReviewCriterion,
 } from "../schema/reviews";
-import { ReviewDecision, SessionCancelledBy, SubmissionStatus } from "../schema/submissions";
+import {
+  AskedField,
+  ReviewDecision,
+  SessionCancelledBy,
+  SubmissionStatus,
+} from "../schema/submissions";
 import { activityActorColumns, decode, decodeFound, decodeMany, query } from "./shared";
 import { loadTimeline } from "./timeline";
 
@@ -121,6 +128,7 @@ type RawListRow = typeof RawListRow.Type;
 
 const RawDetailRow = Schema.Struct({
   ...RawListRow.fields,
+  askedFields: Schema.Array(AskedField),
   fieldId: NullableString,
   fieldSection: Schema.NullOr(FormSection),
   fieldLabel: NullableString,
@@ -448,6 +456,19 @@ export const informValidationError = (
 
 export const informFactUpdate = (now: Date) => ({ notifiedAt: now, updatedAt: now });
 
+// Reads the accept-time reprogram labels back out of a decided-activity
+// payload; the decision email tells the speaker about the change.
+export const programChangeFrom = (payload: unknown): ProgramChange | null => {
+  if (typeof payload !== "object" || payload === null) return null;
+  const value = (payload as { readonly programmedAs?: unknown }).programmedAs;
+  if (typeof value !== "object" || value === null) return null;
+  const raw = value as { readonly format?: unknown; readonly track?: unknown };
+  const change: { format?: string; track?: string } = {};
+  if (typeof raw.format === "string") change.format = raw.format;
+  if (typeof raw.track === "string") change.track = raw.track;
+  return change.format === undefined && change.track === undefined ? null : change;
+};
+
 export const decisionEmailLogValue = (input: {
   readonly eventId: string;
   readonly submissionId: string;
@@ -543,6 +564,10 @@ interface ReviewDeskService {
     readonly decision: SubmissionDecision;
     readonly confirmRedecide: boolean;
     readonly approveContent: boolean;
+    // Accept-time reprogram: replace the submitted format/track with these.
+    // Only valid for a single-submission accept.
+    readonly programFormatId?: string;
+    readonly programTrackId?: string;
     readonly actor: AuditActor;
   }) => Effect.Effect<DecisionSuccess, ReviewDeskFailure>;
   readonly inform: (input: {
@@ -633,6 +658,7 @@ export const ReviewDeskLive = Layer.effect(
           db
             .select({
               ...rawListSelection,
+              askedFields: submissions.askedFields,
               fieldId: formFields.id,
               fieldSection: formFields.section,
               fieldLabel: formFields.label,
@@ -780,8 +806,73 @@ export const ReviewDeskLive = Layer.effect(
                 }
                 return [];
               };
-              const answerValue = (row: RawDetailRow): string | ReadonlyArray<string> => {
-                const mapped = row.fieldMapsTo;
+              // Live rows describe the form as it is NOW; askedFields is the
+              // submit-time snapshot of what was actually asked. Old
+              // submissions render from the snapshot so later form edits
+              // cannot relabel or hide their answers.
+              interface FieldDescriptor {
+                readonly id: string;
+                readonly section: typeof FormSection.Type;
+                readonly label: string;
+                readonly fieldType: typeof FormFieldType.Type;
+                readonly position: number;
+                readonly mapsTo: string | null;
+              }
+              const liveFields = new Map<string, FieldDescriptor>();
+              for (const row of rows) {
+                if (
+                  row.fieldId === null ||
+                  row.fieldSection === null ||
+                  row.fieldLabel === null ||
+                  row.fieldType === null ||
+                  row.fieldPosition === null ||
+                  liveFields.has(row.fieldId)
+                ) {
+                  continue;
+                }
+                liveFields.set(row.fieldId, {
+                  id: row.fieldId,
+                  section: row.fieldSection,
+                  label: row.fieldLabel,
+                  fieldType: row.fieldType,
+                  position: row.fieldPosition,
+                  mapsTo: row.fieldMapsTo,
+                });
+              }
+              const asked = submission.askedFields;
+              const askedIds = new Set(asked.map((field) => field.id));
+              const hasStoredValue = (field: FieldDescriptor) =>
+                field.section === "participant"
+                  ? Array.from(speakers.values()).some(
+                      (speaker) => answerStrings(speaker.contactCustom?.[field.id]).length > 0,
+                    )
+                  : answerStrings(submission.answers[field.id]).length > 0;
+              const renderFields: ReadonlyArray<FieldDescriptor> =
+                asked.length === 0
+                  ? Array.from(liveFields.values())
+                  : [
+                      ...asked,
+                      // Questions added after this was submitted appear only
+                      // when a later edit actually answered them; the mapped
+                      // basics are locked fields and always in the snapshot.
+                      ...Array.from(liveFields.values()).filter(
+                        (field) =>
+                          !askedIds.has(field.id) && field.mapsTo === null && hasStoredValue(field),
+                      ),
+                    ];
+              const earlierFormVersion =
+                asked.length > 0 &&
+                (asked.length !== liveFields.size ||
+                  asked.some((field) => {
+                    const live = liveFields.get(field.id);
+                    return (
+                      live === undefined ||
+                      live.label !== field.label ||
+                      live.fieldType !== field.fieldType
+                    );
+                  }));
+              const answerValue = (field: FieldDescriptor): string | ReadonlyArray<string> => {
+                const mapped = field.mapsTo;
                 if (mapped === "title") return submission.title;
                 if (mapped === "description") return submission.description;
                 if (mapped === "format_id") return submission.formatName ?? "Not provided";
@@ -804,58 +895,44 @@ export const ReviewDeskLive = Layer.effect(
                   return Array.from(speakers.values()).flatMap((speaker) =>
                     speaker.contactBio === null ? [] : [speaker.contactBio],
                   );
-                if (row.fieldId === null) return "Not provided";
                 const values =
-                  row.fieldSection === "participant"
-                    ? Array.from(speakers.values()).flatMap((speaker) => {
-                        const value = speaker.contactCustom?.[row.fieldId ?? ""];
-                        return answerStrings(value);
-                      })
-                    : (() => {
-                        const value = submission.answers[row.fieldId ?? ""];
-                        return answerStrings(value);
-                      })();
+                  field.section === "participant"
+                    ? Array.from(speakers.values()).flatMap((speaker) =>
+                        answerStrings(speaker.contactCustom?.[field.id]),
+                      )
+                    : answerStrings(submission.answers[field.id]);
                 return values.length === 0 ? "Not provided" : values;
               };
-              const participantFields = new Map<string, RawDetailRow>();
-              for (const row of rows) {
-                if (
-                  row.fieldId === null ||
-                  row.fieldSection === null ||
-                  row.fieldLabel === null ||
-                  row.fieldType === null ||
-                  row.fieldPosition === null
-                ) {
-                  continue;
-                }
+              const participantFields: Array<FieldDescriptor> = [];
+              for (const field of renderFields) {
                 // Participant answers render one box per person below, never
                 // merged across participants into a single field value.
-                if (row.fieldSection === "participant") {
-                  if (!participantFields.has(row.fieldId)) {
-                    participantFields.set(row.fieldId, row);
+                if (field.section === "participant") {
+                  if (!participantFields.some((item) => item.id === field.id)) {
+                    participantFields.push(field);
                   }
                   continue;
                 }
-                if (answerMap.has(row.fieldId)) continue;
-                answerMap.set(row.fieldId, {
-                  id: row.fieldId,
-                  section: row.fieldSection,
-                  label: row.fieldLabel,
-                  fieldType: row.fieldType,
-                  position: row.fieldPosition,
-                  value: answerValue(row),
+                if (answerMap.has(field.id)) continue;
+                answerMap.set(field.id, {
+                  id: field.id,
+                  section: field.section,
+                  label: field.label,
+                  fieldType: field.fieldType,
+                  position: field.position,
+                  value: answerValue(field),
                 });
               }
               const participantAnswerValue = (
                 speaker: RawDetailRow,
-                field: RawDetailRow,
+                field: FieldDescriptor,
               ): string | ReadonlyArray<string> => {
-                const mapped = field.fieldMapsTo;
+                const mapped = field.mapsTo;
                 if (mapped === "first_name") return speaker.contactFirstName ?? "Not provided";
                 if (mapped === "last_name") return speaker.contactLastName ?? "Not provided";
                 if (mapped === "email") return speaker.contactEmail ?? "Not provided";
                 if (mapped === "bio") return speaker.contactBio ?? "Not provided";
-                const values = answerStrings(speaker.contactCustom?.[field.fieldId ?? ""]);
+                const values = answerStrings(speaker.contactCustom?.[field.id]);
                 return values.length === 0 ? "Not provided" : values;
               };
               const participants = Array.from(speakers.values())
@@ -871,17 +948,14 @@ export const ReviewDeskLive = Layer.effect(
                           contactId: speaker.contactId,
                           name: `${speaker.contactFirstName ?? ""} ${speaker.contactLastName ?? ""}`.trim(),
                           role: speaker.participantRole ?? "Speaker",
-                          answers: Array.from(participantFields.values())
-                            .sort(
-                              (left, right) =>
-                                (left.fieldPosition ?? 0) - (right.fieldPosition ?? 0),
-                            )
+                          answers: [...participantFields]
+                            .sort((left, right) => left.position - right.position)
                             .map((field) => ({
-                              id: `${field.fieldId ?? ""}:${speaker.contactId ?? ""}`,
+                              id: `${field.id}:${speaker.contactId ?? ""}`,
                               section: "participant" as const,
-                              label: field.fieldLabel ?? "",
-                              fieldType: field.fieldType ?? "text",
-                              position: field.fieldPosition ?? 0,
+                              label: field.label,
+                              fieldType: field.fieldType,
+                              position: field.position,
                               value: participantAnswerValue(speaker, field),
                             })),
                         },
@@ -895,6 +969,7 @@ export const ReviewDeskLive = Layer.effect(
                   ...item,
                   reviewCount: item.reviewCount + roundReviews.length,
                 },
+                earlierFormVersion,
                 answers: Array.from(answerMap.values()),
                 participants,
                 reviews: Array.from(reviewMap.values()),
@@ -1218,12 +1293,23 @@ export const ReviewDeskLive = Layer.effect(
         if (uniqueIds.length === 0) {
           return Effect.fail(new InvalidInput({ message: "Select at least one submission" }));
         }
+        if (
+          (input.programFormatId !== undefined || input.programTrackId !== undefined) &&
+          (input.decision !== "accept" || uniqueIds.length !== 1)
+        ) {
+          return Effect.fail(
+            new InvalidInput({
+              message: "Programming changes apply to a single accepted submission",
+            }),
+          );
+        }
         return query(database, "Could not apply submission decision", (db) =>
           db.transaction(async (transaction): Promise<DecisionTransaction> => {
             const targetRows = await transaction
               .select({
                 submissionId: submissions.id,
                 status: submissions.status,
+                formatId: submissions.formatId,
                 cancelledAt: submissions.cancelledAt,
                 notifiedAt: submissions.notifiedAt,
                 speakerConfirmationEnabled: events.speakerConfirmationEnabled,
@@ -1386,6 +1472,67 @@ export const ReviewDeskLive = Layer.effect(
                   .onConflictDoNothing();
               }
             }
+            // Accept-time reprogram: applied before the status update so an
+            // approve-on-accept snapshot captures the programmed format, and
+            // recorded as display labels for the activity log and the
+            // decision email.
+            let programmedAs: { format?: string; track?: string } | null = null;
+            if (
+              input.decision === "accept" &&
+              (input.programFormatId !== undefined || input.programTrackId !== undefined)
+            ) {
+              const targetId = uniqueIds[0] ?? "";
+              const change: { format?: string; track?: string } = {};
+              if (input.programFormatId !== undefined) {
+                const [format] = await transaction
+                  .select({
+                    id: formats.id,
+                    name: formats.name,
+                    durationMinutes: formats.durationMinutes,
+                  })
+                  .from(formats)
+                  .where(
+                    and(eq(formats.id, input.programFormatId), eq(formats.eventId, input.eventId)),
+                  );
+                if (format === undefined) {
+                  return { kind: "invalid", message: "That format is not in this event's library" };
+                }
+                if (format.id !== targetRows[0]?.formatId) {
+                  await transaction
+                    .update(submissions)
+                    .set({ formatId: format.id, updatedAt: now })
+                    .where(eq(submissions.id, targetId));
+                  change.format = `${format.name} (${format.durationMinutes} min)`;
+                }
+              }
+              if (input.programTrackId !== undefined) {
+                const [track] = await transaction
+                  .select({ id: tracks.id, name: tracks.name })
+                  .from(tracks)
+                  .where(
+                    and(eq(tracks.id, input.programTrackId), eq(tracks.eventId, input.eventId)),
+                  );
+                if (track === undefined) {
+                  return { kind: "invalid", message: "That track is not in this event's library" };
+                }
+                const currentTracks = await transaction
+                  .select({ trackId: submissionTracks.trackId })
+                  .from(submissionTracks)
+                  .where(eq(submissionTracks.submissionId, targetId));
+                if (currentTracks.length !== 1 || currentTracks[0]?.trackId !== track.id) {
+                  await transaction
+                    .delete(submissionTracks)
+                    .where(eq(submissionTracks.submissionId, targetId));
+                  await transaction
+                    .insert(submissionTracks)
+                    .values({ submissionId: targetId, trackId: track.id });
+                  change.track = track.name;
+                }
+              }
+              if (change.format !== undefined || change.track !== undefined) {
+                programmedAs = change;
+              }
+            }
             const updated = await transaction
               .update(submissions)
               // Accepting makes the row a session (the Sessions surface is
@@ -1415,18 +1562,25 @@ export const ReviewDeskLive = Layer.effect(
                 status: submissions.status,
                 notifiedAt: submissions.notifiedAt,
               });
-            if (updated.length > 0) {
-              const previousStatus = new Map(
-                targetRows.map((row) => [row.submissionId, row.status]),
-              );
+            const previousStatus = new Map(targetRows.map((row) => [row.submissionId, row.status]));
+            const activityIds = new Set(updated.map((submission) => submission.id));
+            // A pure reprogram (re-accepting into a new format or track) is
+            // still a decision worth a timeline entry — and it is what the
+            // decision email reads the program change from — even though the
+            // status column did not move.
+            if (programmedAs !== null) activityIds.add(uniqueIds[0] ?? "");
+            if (activityIds.size > 0) {
               await transaction.insert(submissionActivity).values(
-                updated.map((submission) => ({
-                  submissionId: submission.id,
+                Array.from(activityIds, (submissionId) => ({
+                  submissionId,
                   type: "decided" as const,
                   ...activityActorColumns(input.actor),
                   payload: {
                     decision: input.decision,
-                    from: previousStatus.get(submission.id) ?? "pending",
+                    from: previousStatus.get(submissionId) ?? "pending",
+                    ...(programmedAs !== null && submissionId === uniqueIds[0]
+                      ? { programmedAs }
+                      : {}),
                   },
                 })),
               );
@@ -1495,6 +1649,31 @@ export const ReviewDeskLive = Layer.effect(
             if (rows.length !== uniqueIds.length) return { kind: "notFound" };
             const validationError = informValidationError(rows);
             if (validationError !== null) return { kind: "invalid", message: validationError };
+            // Only the LATEST decided entry speaks for the decision being
+            // informed: it carries the accept-time reprogram, if any, and an
+            // older reprogram superseded by a plain re-decide stays silent.
+            const decidedRows = await transaction
+              .select({
+                submissionId: submissionActivity.submissionId,
+                payload: submissionActivity.payload,
+              })
+              .from(submissionActivity)
+              .where(
+                and(
+                  inArray(submissionActivity.submissionId, uniqueIds),
+                  eq(submissionActivity.type, "decided"),
+                ),
+              )
+              .orderBy(desc(submissionActivity.createdAt));
+            const programNotes = new Map<string, string>();
+            const latestDecided = new Set<string>();
+            for (const decided of decidedRows) {
+              if (latestDecided.has(decided.submissionId)) continue;
+              latestDecided.add(decided.submissionId);
+              const change = programChangeFrom(decided.payload);
+              const note = change === null ? null : programChangeSentence(change);
+              if (note !== null) programNotes.set(decided.submissionId, note);
+            }
             const now = new Date();
             const candidates = [];
             const accessRows = [];
@@ -1528,6 +1707,7 @@ export const ReviewDeskLive = Layer.effect(
                 feedback: input.feedback,
                 portalUrl: access.url,
                 confirmationRequested: row.speakerConfirmationEnabled,
+                programNote: row.status === "accepted" ? (programNotes.get(row.id) ?? null) : null,
               });
               candidates.push(
                 decisionEmailLogValue({

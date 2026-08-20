@@ -92,6 +92,13 @@ export const agendaDraftStatus = pgEnum("agenda_draft_status", [
   "committed",
   "discarded",
 ]);
+export const agendaBlockKind = pgEnum("agenda_block_kind", [
+  "break",
+  "meal",
+  "registration",
+  "social",
+  "other",
+]);
 export const reviewDecision = pgEnum("review_decision", ["approve", "maybe", "deny"]);
 export const reviewRoundStatus = pgEnum("review_round_status", ["draft", "open", "closed"]);
 export const reviewCriterionType = pgEnum("review_criterion_type", ["numeric", "dropdown", "text"]);

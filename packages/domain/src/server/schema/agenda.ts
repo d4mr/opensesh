@@ -42,6 +42,26 @@ export const AgendaSession = Schema.Struct({
 });
 export type AgendaSession = typeof AgendaSession.Type;
 
+export const AgendaBlockKind = Schema.Literals([
+  "break",
+  "meal",
+  "registration",
+  "social",
+  "other",
+]);
+export type AgendaBlockKind = typeof AgendaBlockKind.Type;
+
+export const AgendaBlock = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  kind: AgendaBlockKind,
+  // null spans every room.
+  roomId: Schema.NullOr(Schema.String),
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+});
+export type AgendaBlock = typeof AgendaBlock.Type;
+
 export const AgendaAdminData = Schema.Struct({
   event: Schema.Struct({
     id: Schema.String,
@@ -56,6 +76,7 @@ export const AgendaAdminData = Schema.Struct({
   rooms: Schema.Array(AgendaRoom),
   tracks: Schema.Array(AgendaTrack),
   sessions: Schema.Array(AgendaSession),
+  blocks: Schema.Array(AgendaBlock),
   aiConfigured: Schema.Boolean,
 });
 export type AgendaAdminData = typeof AgendaAdminData.Type;
@@ -85,6 +106,24 @@ export const ScheduleChange = Schema.Struct({
 });
 export type ScheduleChange = typeof ScheduleChange.Type;
 
+export const AgendaBlockSaveRequest = Schema.Struct({
+  eventId: Schema.String,
+  // null creates a new block.
+  id: Schema.NullOr(Schema.String),
+  title: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(120)),
+  kind: AgendaBlockKind,
+  roomId: Schema.NullOr(Schema.String),
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+});
+export type AgendaBlockSaveRequest = typeof AgendaBlockSaveRequest.Type;
+
+export const AgendaBlockDeleteRequest = Schema.Struct({
+  eventId: Schema.String,
+  id: Schema.String,
+});
+export type AgendaBlockDeleteRequest = typeof AgendaBlockDeleteRequest.Type;
+
 export const AgendaPublicationAction = Schema.Literals(["publish", "unpublish"]);
 export const AgendaPublicationRequest = Schema.Struct({
   eventId: Schema.String,
@@ -103,6 +142,16 @@ export const PublishedAgendaSession = Schema.Struct({
   speakers: Schema.Array(AgendaSpeaker),
 });
 export type PublishedAgendaSession = typeof PublishedAgendaSession.Type;
+
+export const PublishedAgendaBlock = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  kind: AgendaBlockKind,
+  roomName: Schema.NullOr(Schema.String),
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+});
+export type PublishedAgendaBlock = typeof PublishedAgendaBlock.Type;
 
 export const PublicAgenda = Schema.Struct({
   event: Schema.Struct({

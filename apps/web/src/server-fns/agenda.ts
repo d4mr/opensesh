@@ -1,5 +1,7 @@
 import {
   AcceptAgendaDraftRequest,
+  AgendaBlockDeleteRequest,
+  AgendaBlockSaveRequest,
   AgendaDraftActionRequest,
   AgendaDraftsRequest,
   AgendaPublicationRequest,
@@ -51,6 +53,32 @@ export const saveAgendaSchedule = createServerFn({ method: "POST" })
           userId: user.userId,
           name: user.name,
         });
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const saveAgendaBlock = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(AgendaBlockSaveRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const agenda = yield* Agenda;
+        yield* requireAgendaEvent(data.eventId);
+        return yield* agenda.saveBlock(data);
+      }),
+      { require: "admin" },
+    ),
+  );
+
+export const deleteAgendaBlock = createServerFn({ method: "POST" })
+  .validator(Schema.toStandardSchemaV1(AgendaBlockDeleteRequest))
+  .handler(async ({ data }) =>
+    runServer(
+      Effect.gen(function* () {
+        const agenda = yield* Agenda;
+        yield* requireAgendaEvent(data.eventId);
+        return yield* agenda.deleteBlock(data);
       }),
       { require: "admin" },
     ),

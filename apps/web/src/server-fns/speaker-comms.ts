@@ -204,9 +204,16 @@ export const sendSpeakerCampaign = createServerFn({ method: "POST" })
           requiredText(data.subject, "Enter a campaign subject"),
           requiredText(data.body, "Enter a campaign message"),
         ]);
+        const replyTo = data.replyTo?.trim() || null;
+        if (replyTo !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
+          return yield* Effect.fail(
+            new InvalidInput({ message: "Enter a valid reply-to email address" }),
+          );
+        }
         const communications = yield* SpeakerComms;
         const queued = yield* communications.createCampaign({
           ...data,
+          replyTo,
           actor: { kind: "user", userId: user.userId, name: user.name },
           portalOrigin: origin,
         });
