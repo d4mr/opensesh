@@ -1,38 +1,8 @@
-CREATE TYPE "agenda_block_kind" AS ENUM('break', 'meal', 'registration', 'social', 'other');--> statement-breakpoint
-CREATE TYPE "agenda_draft_status" AS ENUM('draft', 'generated', 'committed', 'discarded');--> statement-breakpoint
-CREATE TYPE "campaign_delivery_status" AS ENUM('pending', 'sent', 'failed');--> statement-breakpoint
-CREATE TYPE "contact_participation" AS ENUM('submitter', 'speaker', 'organizer');--> statement-breakpoint
-CREATE TYPE "content_approval_status" AS ENUM('approved', 'pending_review', 'rejected');--> statement-breakpoint
-CREATE TYPE "crm_semantic_status" AS ENUM('open', 'won', 'lost');--> statement-breakpoint
-CREATE TYPE "deliverable_status" AS ENUM('outstanding', 'uploaded');--> statement-breakpoint
-CREATE TYPE "dietary_requirement" AS ENUM('none', 'vegetarian', 'vegan', 'gluten_free', 'other');--> statement-breakpoint
-CREATE TYPE "email_campaign_status" AS ENUM('draft', 'sending', 'sent');--> statement-breakpoint
-CREATE TYPE "email_status" AS ENUM('queued', 'sending', 'demo', 'sent', 'failed');--> statement-breakpoint
-CREATE TYPE "email_type" AS ENUM('confirmation', 'magic_link', 'accepted', 'declined', 'cancelled', 'reinstated', 'task_reminder', 'calendar_invite', 'portal_invitation', 'custom');--> statement-breakpoint
-CREATE TYPE "embed_view" AS ENUM('sessions', 'speakers', 'speaker_gallery', 'agenda', 'itinerary');--> statement-breakpoint
-CREATE TYPE "event_member_role" AS ENUM('admin', 'reviewer');--> statement-breakpoint
-CREATE TYPE "file_kind" AS ENUM('request', 'headshot', 'slides');--> statement-breakpoint
-CREATE TYPE "form_field_type" AS ENUM('text', 'textarea', 'richtext', 'email', 'phone', 'dropdown', 'checkbox', 'file', 'datetime');--> statement-breakpoint
-CREATE TYPE "form_section" AS ENUM('abstract', 'participant');--> statement-breakpoint
-CREATE TYPE "form_status" AS ENUM('open', 'closed');--> statement-breakpoint
-CREATE TYPE "invitation_status" AS ENUM('pending', 'accepted', 'rejected', 'canceled');--> statement-breakpoint
-CREATE TYPE "resource_attachment_kind" AS ENUM('link', 'file', 'embed');--> statement-breakpoint
-CREATE TYPE "resource_audience_mode" AS ENUM('all', 'tracks', 'contacts');--> statement-breakpoint
-CREATE TYPE "review_assignment_status" AS ENUM('pending', 'completed', 'recused');--> statement-breakpoint
-CREATE TYPE "review_criterion_type" AS ENUM('numeric', 'dropdown', 'text');--> statement-breakpoint
-CREATE TYPE "review_decision" AS ENUM('approve', 'maybe', 'deny');--> statement-breakpoint
-CREATE TYPE "review_round_status" AS ENUM('draft', 'open', 'closed');--> statement-breakpoint
-CREATE TYPE "session_cancelled_by" AS ENUM('organizer', 'speaker');--> statement-breakpoint
-CREATE TYPE "submission_activity_type" AS ENUM('status_changed', 'decided', 'informed', 'cancelled', 'reinstated', 'scheduled', 'content_approved');--> statement-breakpoint
-CREATE TYPE "submission_status" AS ENUM('draft', 'pending', 'maybe', 'accepted', 'declined', 'withdrawn');--> statement-breakpoint
-CREATE TYPE "target_type" AS ENUM('contact', 'submission');--> statement-breakpoint
-CREATE TYPE "task_status" AS ENUM('todo', 'done', 'waived');--> statement-breakpoint
-CREATE TYPE "tshirt_size" AS ENUM('XS', 'S', 'M', 'L', 'XL', 'XXL');--> statement-breakpoint
 CREATE TABLE "agenda_blocks" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"title" text NOT NULL,
-	"kind" "agenda_block_kind" DEFAULT 'break'::"agenda_block_kind" NOT NULL,
+	"kind" text DEFAULT 'break' NOT NULL,
 	"room_id" text,
 	"starts_at" timestamp with time zone NOT NULL,
 	"ends_at" timestamp with time zone NOT NULL,
@@ -44,7 +14,7 @@ CREATE TABLE "agenda_drafts" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"name" text NOT NULL,
-	"status" "agenda_draft_status" DEFAULT 'draft'::"agenda_draft_status" NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
 	"criteria" jsonb NOT NULL,
 	"proposal" jsonb DEFAULT '{"placements":[]}' NOT NULL,
 	"generated_at" timestamp with time zone,
@@ -74,7 +44,7 @@ CREATE TABLE "organization_invitations" (
 	"organization_id" text NOT NULL,
 	"email" text NOT NULL,
 	"role" text,
-	"status" "invitation_status" DEFAULT 'pending'::"invitation_status" NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
 	"inviter_id" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL
@@ -114,7 +84,7 @@ CREATE TABLE "embeds" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"name" text NOT NULL,
-	"view" "embed_view" NOT NULL,
+	"view" text NOT NULL,
 	"enabled" boolean DEFAULT true NOT NULL,
 	"options" jsonb DEFAULT '{}' NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
@@ -125,7 +95,7 @@ CREATE TABLE "event_members" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"user_id" text NOT NULL,
-	"role" "event_member_role" NOT NULL,
+	"role" text NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "event_members_event_user_unique" UNIQUE("event_id","user_id")
@@ -235,7 +205,7 @@ CREATE TABLE "crm_pipeline_stages" (
 	"id" text PRIMARY KEY,
 	"organization_id" text NOT NULL,
 	"name" text NOT NULL,
-	"semantic_status" "crm_semantic_status" NOT NULL,
+	"semantic_status" text NOT NULL,
 	"position" integer NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
@@ -329,7 +299,7 @@ CREATE TABLE "email_campaign_recipients" (
 	"recipient_email" text NOT NULL,
 	"resolved_subject" text NOT NULL,
 	"resolved_body" text NOT NULL,
-	"delivery_status" "campaign_delivery_status" DEFAULT 'pending'::"campaign_delivery_status" NOT NULL,
+	"delivery_status" text DEFAULT 'pending' NOT NULL,
 	"email_log_id" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
@@ -344,7 +314,7 @@ CREATE TABLE "email_campaigns" (
 	"body_snapshot" text NOT NULL,
 	"recipient_filter" jsonb DEFAULT '{}' NOT NULL,
 	"reply_to" text,
-	"status" "email_campaign_status" DEFAULT 'draft'::"email_campaign_status" NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
 	"created_by_user_id" text,
 	"created_by_api_key_id" text,
 	"sent_at" timestamp with time zone,
@@ -367,7 +337,7 @@ CREATE TABLE "email_templates" (
 CREATE TABLE "reminder_rules" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
-	"scope" "target_type" NOT NULL,
+	"scope" text NOT NULL,
 	"task_type" text NOT NULL,
 	"days_before_due" integer NOT NULL,
 	"enabled" boolean DEFAULT false NOT NULL,
@@ -380,9 +350,9 @@ CREATE TABLE "reminder_rules" (
 CREATE TABLE "form_fields" (
 	"id" text PRIMARY KEY,
 	"form_id" text NOT NULL,
-	"section" "form_section" NOT NULL,
+	"section" text NOT NULL,
 	"label" text NOT NULL,
-	"field_type" "form_field_type" NOT NULL,
+	"field_type" text NOT NULL,
 	"max_chars" integer,
 	"required" boolean DEFAULT false NOT NULL,
 	"locked" boolean DEFAULT false NOT NULL,
@@ -400,7 +370,7 @@ CREATE TABLE "forms" (
 	"internal_name" text NOT NULL,
 	"external_title" text NOT NULL,
 	"collect_participants" boolean DEFAULT true NOT NULL,
-	"status" "form_status" DEFAULT 'open'::"form_status" NOT NULL,
+	"status" text DEFAULT 'open' NOT NULL,
 	"welcome_heading" text NOT NULL,
 	"welcome_message" text NOT NULL,
 	"show_welcome" boolean DEFAULT true NOT NULL,
@@ -506,7 +476,7 @@ CREATE TABLE "email_log" (
 	"event_id" text NOT NULL,
 	"contact_id" text,
 	"submission_id" text,
-	"type" "email_type" NOT NULL,
+	"type" text NOT NULL,
 	"recipient" text NOT NULL,
 	"subject" text NOT NULL,
 	"body" text NOT NULL,
@@ -515,7 +485,7 @@ CREATE TABLE "email_log" (
 	"ics_content" text,
 	"ics_sequence" integer,
 	"reply_to" text,
-	"status" "email_status" NOT NULL,
+	"status" text NOT NULL,
 	"provider" text,
 	"provider_id" text,
 	"error" text,
@@ -539,7 +509,7 @@ CREATE TABLE "file_requests" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"title" text NOT NULL,
-	"target_type" "target_type" NOT NULL,
+	"target_type" text NOT NULL,
 	"instructions" text NOT NULL,
 	"due_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
@@ -551,7 +521,7 @@ CREATE TABLE "file_uploads" (
 	"file_request_id" text,
 	"requirement_id" text,
 	"assignment_id" text CONSTRAINT "file_uploads_assignment_unique" UNIQUE,
-	"kind" "file_kind" NOT NULL,
+	"kind" text NOT NULL,
 	"contact_id" text NOT NULL,
 	"submission_id" text,
 	"speaker_last_read_at" timestamp with time zone,
@@ -591,7 +561,7 @@ CREATE TABLE "portal_forms" (
 	"event_id" text NOT NULL,
 	"name" text NOT NULL,
 	"title" text NOT NULL,
-	"target_type" "target_type" NOT NULL,
+	"target_type" text NOT NULL,
 	"sections" jsonb NOT NULL,
 	"confirmation_email_enabled" boolean DEFAULT false NOT NULL,
 	"confirmation_email_body" text,
@@ -625,8 +595,8 @@ CREATE TABLE "resources" (
 	"body" text NOT NULL,
 	"position" integer NOT NULL,
 	"published" boolean DEFAULT false NOT NULL,
-	"audience_mode" "resource_audience_mode" DEFAULT 'all'::"resource_audience_mode" NOT NULL,
-	"attachment_kind" "resource_attachment_kind",
+	"audience_mode" text DEFAULT 'all' NOT NULL,
+	"attachment_kind" text,
 	"link_url" text,
 	"embed_url" text,
 	"file_storage_key" text CONSTRAINT "resources_file_storage_key_unique" UNIQUE,
@@ -648,7 +618,7 @@ CREATE TABLE "session_file_requirement_assignments" (
 	"requirement_id" text NOT NULL,
 	"submission_id" text NOT NULL,
 	"contact_id" text,
-	"status" "deliverable_status" DEFAULT 'outstanding'::"deliverable_status" NOT NULL,
+	"status" text DEFAULT 'outstanding' NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "session_file_requirement_assignments_target_unique" UNIQUE NULLS NOT DISTINCT("requirement_id","submission_id","contact_id")
@@ -662,7 +632,7 @@ CREATE TABLE "session_file_requirements" (
 	"due_at" timestamp with time zone,
 	"accept_types" text,
 	"max_size_mb" integer,
-	"scope" "target_type" DEFAULT 'contact'::"target_type" NOT NULL,
+	"scope" text DEFAULT 'contact' NOT NULL,
 	"position" integer NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
@@ -673,7 +643,7 @@ CREATE TABLE "task_assignments" (
 	"task_template_id" text NOT NULL,
 	"contact_id" text,
 	"submission_id" text,
-	"status" "task_status" DEFAULT 'todo'::"task_status" NOT NULL,
+	"status" text DEFAULT 'todo' NOT NULL,
 	"completed_at" timestamp with time zone,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
@@ -686,7 +656,7 @@ CREATE TABLE "task_templates" (
 	"event_id" text NOT NULL,
 	"title" text NOT NULL,
 	"instructions" text NOT NULL,
-	"scope" "target_type" NOT NULL,
+	"scope" text NOT NULL,
 	"portal_form_id" text,
 	"file_request_id" text,
 	"auto_assign_on_accept" boolean DEFAULT true NOT NULL,
@@ -731,7 +701,7 @@ CREATE TABLE "review_assignments" (
 	"round_id" text NOT NULL,
 	"submission_id" text NOT NULL,
 	"event_member_id" text NOT NULL,
-	"status" "review_assignment_status" DEFAULT 'pending'::"review_assignment_status" NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
 	"assigned_at" timestamp with time zone NOT NULL,
 	"completed_at" timestamp with time zone,
 	"recused_at" timestamp with time zone,
@@ -745,7 +715,7 @@ CREATE TABLE "review_criteria" (
 	"id" text PRIMARY KEY,
 	"round_id" text NOT NULL,
 	"label" text NOT NULL,
-	"type" "review_criterion_type" NOT NULL,
+	"type" text NOT NULL,
 	"min" double precision,
 	"max" double precision,
 	"options" jsonb DEFAULT '[]' NOT NULL,
@@ -776,7 +746,7 @@ CREATE TABLE "review_rounds" (
 	"blind" boolean DEFAULT false NOT NULL,
 	"reviews_per_submission" integer DEFAULT 2 NOT NULL,
 	"position" integer NOT NULL,
-	"status" "review_round_status" DEFAULT 'draft'::"review_round_status" NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "review_rounds_event_name_unique" UNIQUE("event_id","name")
@@ -792,7 +762,7 @@ CREATE TABLE "contact_edit_history" (
 	"changed_fields" jsonb NOT NULL,
 	"previous_values" jsonb NOT NULL,
 	"new_values" jsonb NOT NULL,
-	"approval_status" "content_approval_status" NOT NULL,
+	"approval_status" text NOT NULL,
 	"reviewed_at" timestamp with time zone,
 	"reviewed_by_user_id" text,
 	"reviewed_by_api_key_id" text,
@@ -806,7 +776,7 @@ CREATE TABLE "contacts" (
 	"email" text NOT NULL,
 	"first_name" text NOT NULL,
 	"last_name" text NOT NULL,
-	"participation" "contact_participation" NOT NULL,
+	"participation" text NOT NULL,
 	"title" text,
 	"company" text,
 	"salutation" text,
@@ -816,8 +786,8 @@ CREATE TABLE "contacts" (
 	"bio" text,
 	"headshot_url" text,
 	"headshot_key" text,
-	"dietary_requirements" "dietary_requirement" DEFAULT 'none'::"dietary_requirement" NOT NULL,
-	"tshirt_size" "tshirt_size",
+	"dietary_requirements" text DEFAULT 'none' NOT NULL,
+	"tshirt_size" text,
 	"phone" text,
 	"linkedin_url" text,
 	"twitter_url" text,
@@ -826,7 +796,7 @@ CREATE TABLE "contacts" (
 	"confirmed_at" timestamp with time zone,
 	"custom" jsonb NOT NULL,
 	"approved_profile" jsonb DEFAULT '{}' NOT NULL,
-	"profile_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
+	"profile_review_status" text DEFAULT 'approved' NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "contacts_event_email_unique" UNIQUE("event_id","email")
@@ -836,7 +806,7 @@ CREATE TABLE "reviews" (
 	"id" text PRIMARY KEY,
 	"submission_id" text NOT NULL,
 	"reviewer_id" text NOT NULL,
-	"decision" "review_decision" NOT NULL,
+	"decision" text NOT NULL,
 	"score" integer,
 	"comment" text,
 	"created_at" timestamp with time zone NOT NULL,
@@ -847,7 +817,7 @@ CREATE TABLE "reviews" (
 CREATE TABLE "submission_activity" (
 	"id" text PRIMARY KEY,
 	"submission_id" text NOT NULL,
-	"type" "submission_activity_type" NOT NULL,
+	"type" text NOT NULL,
 	"actor_contact_id" text,
 	"actor_user_id" text,
 	"actor_api_key_id" text,
@@ -867,7 +837,7 @@ CREATE TABLE "submission_edit_history" (
 	"changed_fields" jsonb NOT NULL,
 	"previous_values" jsonb NOT NULL,
 	"new_values" jsonb NOT NULL,
-	"approval_status" "content_approval_status" NOT NULL,
+	"approval_status" text NOT NULL,
 	"reviewed_at" timestamp with time zone,
 	"reviewed_by_user_id" text,
 	"reviewed_by_api_key_id" text,
@@ -908,7 +878,7 @@ CREATE TABLE "submissions" (
 	"id" text PRIMARY KEY,
 	"event_id" text NOT NULL,
 	"code" text NOT NULL,
-	"status" "submission_status" NOT NULL,
+	"status" text NOT NULL,
 	"source_form_id" text,
 	"submitter_contact_id" text,
 	"title" text NOT NULL,
@@ -929,9 +899,9 @@ CREATE TABLE "submissions" (
 	"answers" jsonb NOT NULL,
 	"asked_fields" jsonb DEFAULT '[]' NOT NULL,
 	"approved_snapshot" jsonb DEFAULT '{}' NOT NULL,
-	"content_review_status" "content_approval_status" DEFAULT 'approved'::"content_approval_status" NOT NULL,
+	"content_review_status" text DEFAULT 'approved' NOT NULL,
 	"cancelled_at" timestamp with time zone,
-	"cancelled_by" "session_cancelled_by",
+	"cancelled_by" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "submissions_event_code_unique" UNIQUE("event_id","code")

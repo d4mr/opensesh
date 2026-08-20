@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { pgEnum, text, timestamp } from "drizzle-orm/pg-core";
+import { text, timestamp } from "drizzle-orm/pg-core";
 
 export const id = () => text("id").primaryKey().$defaultFn(nanoid);
 
@@ -12,10 +12,21 @@ export const timestamps = {
     .$defaultFn(() => new Date()),
 };
 
-export const eventMemberRole = pgEnum("event_member_role", ["admin", "reviewer"]);
-export const formStatus = pgEnum("form_status", ["open", "closed"]);
-export const formSection = pgEnum("form_section", ["abstract", "participant"]);
-export const formFieldType = pgEnum("form_field_type", [
+// Constrained text columns, deliberately NOT Postgres enum types. The domain
+// layer's Effect Schema literals are the authority on legal values; pg enums
+// duplicated that fact in DDL and made every value addition a hand-run prod
+// `ALTER TYPE ADD VALUE` event (missing-value drift once broke the prod mail
+// queue). Drizzle's enum option keeps the compile-time literal union; the
+// database stores plain text.
+const textEnum =
+  <const Values extends readonly [string, ...string[]]>(values: Values) =>
+  (name: string) =>
+    text(name, { enum: values });
+
+export const eventMemberRole = textEnum(["admin", "reviewer"]);
+export const formStatus = textEnum(["open", "closed"]);
+export const formSection = textEnum(["abstract", "participant"]);
+export const formFieldType = textEnum([
   "text",
   "textarea",
   "richtext",
@@ -26,24 +37,14 @@ export const formFieldType = pgEnum("form_field_type", [
   "file",
   "datetime",
 ]);
-export const targetType = pgEnum("target_type", ["contact", "submission"]);
-export const taskStatus = pgEnum("task_status", ["todo", "done", "waived"]);
-export const deliverableStatus = pgEnum("deliverable_status", ["outstanding", "uploaded"]);
-export const fileKind = pgEnum("file_kind", ["request", "headshot", "slides"]);
-export const contentApprovalStatus = pgEnum("content_approval_status", [
-  "approved",
-  "pending_review",
-  "rejected",
-]);
-export const dietaryRequirement = pgEnum("dietary_requirement", [
-  "none",
-  "vegetarian",
-  "vegan",
-  "gluten_free",
-  "other",
-]);
-export const tshirtSize = pgEnum("tshirt_size", ["XS", "S", "M", "L", "XL", "XXL"]);
-export const emailType = pgEnum("email_type", [
+export const targetType = textEnum(["contact", "submission"]);
+export const taskStatus = textEnum(["todo", "done", "waived"]);
+export const deliverableStatus = textEnum(["outstanding", "uploaded"]);
+export const fileKind = textEnum(["request", "headshot", "slides"]);
+export const contentApprovalStatus = textEnum(["approved", "pending_review", "rejected"]);
+export const dietaryRequirement = textEnum(["none", "vegetarian", "vegan", "gluten_free", "other"]);
+export const tshirtSize = textEnum(["XS", "S", "M", "L", "XL", "XXL"]);
+export const emailType = textEnum([
   "confirmation",
   "magic_link",
   "accepted",
@@ -55,13 +56,9 @@ export const emailType = pgEnum("email_type", [
   "portal_invitation",
   "custom",
 ]);
-export const emailStatus = pgEnum("email_status", ["queued", "sending", "demo", "sent", "failed"]);
-export const contactParticipation = pgEnum("contact_participation", [
-  "submitter",
-  "speaker",
-  "organizer",
-]);
-export const submissionStatus = pgEnum("submission_status", [
+export const emailStatus = textEnum(["queued", "sending", "demo", "sent", "failed"]);
+export const contactParticipation = textEnum(["submitter", "speaker", "organizer"]);
+export const submissionStatus = textEnum([
   "draft",
   "pending",
   "maybe",
@@ -72,12 +69,12 @@ export const submissionStatus = pgEnum("submission_status", [
 // Cancellation is a session lifecycle event, not an acceptance decision: the
 // submission stays "accepted" as historical fact, and the cause records who
 // pulled out. "Declined"/"withdrawn" are strictly pre-acceptance exits.
-export const sessionCancelledBy = pgEnum("session_cancelled_by", ["organizer", "speaker"]);
+export const sessionCancelledBy = textEnum(["organizer", "speaker"]);
 // Append-only log of the lifecycle transitions that would otherwise be lossy
 // (columns overwritten in place). Events with their own durable record —
 // emails, edit history, file versions, task completions — are NOT dual-written
 // here; the timeline read model merges all sources.
-export const submissionActivityType = pgEnum("submission_activity_type", [
+export const submissionActivityType = textEnum([
   "status_changed",
   "decided",
   "informed",
@@ -86,46 +83,22 @@ export const submissionActivityType = pgEnum("submission_activity_type", [
   "scheduled",
   "content_approved",
 ]);
-export const agendaDraftStatus = pgEnum("agenda_draft_status", [
-  "draft",
-  "generated",
-  "committed",
-  "discarded",
-]);
-export const agendaBlockKind = pgEnum("agenda_block_kind", [
-  "break",
-  "meal",
-  "registration",
-  "social",
-  "other",
-]);
-export const reviewDecision = pgEnum("review_decision", ["approve", "maybe", "deny"]);
-export const reviewRoundStatus = pgEnum("review_round_status", ["draft", "open", "closed"]);
-export const reviewCriterionType = pgEnum("review_criterion_type", ["numeric", "dropdown", "text"]);
-export const reviewAssignmentStatus = pgEnum("review_assignment_status", [
-  "pending",
-  "completed",
-  "recused",
-]);
-export const emailCampaignStatus = pgEnum("email_campaign_status", ["draft", "sending", "sent"]);
-export const campaignDeliveryStatus = pgEnum("campaign_delivery_status", [
-  "pending",
-  "sent",
-  "failed",
-]);
-export const crmSemanticStatus = pgEnum("crm_semantic_status", ["open", "won", "lost"]);
-export const invitationStatus = pgEnum("invitation_status", [
-  "pending",
-  "accepted",
-  "rejected",
-  "canceled",
-]);
-export const embedView = pgEnum("embed_view", [
+export const agendaDraftStatus = textEnum(["draft", "generated", "committed", "discarded"]);
+export const agendaBlockKind = textEnum(["break", "meal", "registration", "social", "other"]);
+export const reviewDecision = textEnum(["approve", "maybe", "deny"]);
+export const reviewRoundStatus = textEnum(["draft", "open", "closed"]);
+export const reviewCriterionType = textEnum(["numeric", "dropdown", "text"]);
+export const reviewAssignmentStatus = textEnum(["pending", "completed", "recused"]);
+export const emailCampaignStatus = textEnum(["draft", "sending", "sent"]);
+export const campaignDeliveryStatus = textEnum(["pending", "sent", "failed"]);
+export const crmSemanticStatus = textEnum(["open", "won", "lost"]);
+export const invitationStatus = textEnum(["pending", "accepted", "rejected", "canceled"]);
+export const embedView = textEnum([
   "sessions",
   "speakers",
   "speaker_gallery",
   "agenda",
   "itinerary",
 ]);
-export const resourceAudienceMode = pgEnum("resource_audience_mode", ["all", "tracks", "contacts"]);
-export const resourceAttachmentKind = pgEnum("resource_attachment_kind", ["link", "file", "embed"]);
+export const resourceAudienceMode = textEnum(["all", "tracks", "contacts"]);
+export const resourceAttachmentKind = textEnum(["link", "file", "embed"]);

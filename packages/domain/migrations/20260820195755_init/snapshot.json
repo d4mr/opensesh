@@ -1,338 +1,11 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0b810bdd-fe26-49ae-890d-86f9b2264c0c",
+  "id": "0a689e44-b6f6-4233-b1e4-34d3afd67fee",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
-    {
-      "values": [
-        "break",
-        "meal",
-        "registration",
-        "social",
-        "other"
-      ],
-      "name": "agenda_block_kind",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "draft",
-        "generated",
-        "committed",
-        "discarded"
-      ],
-      "name": "agenda_draft_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "pending",
-        "sent",
-        "failed"
-      ],
-      "name": "campaign_delivery_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "submitter",
-        "speaker",
-        "organizer"
-      ],
-      "name": "contact_participation",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "approved",
-        "pending_review",
-        "rejected"
-      ],
-      "name": "content_approval_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "open",
-        "won",
-        "lost"
-      ],
-      "name": "crm_semantic_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "outstanding",
-        "uploaded"
-      ],
-      "name": "deliverable_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "none",
-        "vegetarian",
-        "vegan",
-        "gluten_free",
-        "other"
-      ],
-      "name": "dietary_requirement",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "draft",
-        "sending",
-        "sent"
-      ],
-      "name": "email_campaign_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "queued",
-        "sending",
-        "demo",
-        "sent",
-        "failed"
-      ],
-      "name": "email_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "confirmation",
-        "magic_link",
-        "accepted",
-        "declined",
-        "cancelled",
-        "reinstated",
-        "task_reminder",
-        "calendar_invite",
-        "portal_invitation",
-        "custom"
-      ],
-      "name": "email_type",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "sessions",
-        "speakers",
-        "speaker_gallery",
-        "agenda",
-        "itinerary"
-      ],
-      "name": "embed_view",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "admin",
-        "reviewer"
-      ],
-      "name": "event_member_role",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "request",
-        "headshot",
-        "slides"
-      ],
-      "name": "file_kind",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "text",
-        "textarea",
-        "richtext",
-        "email",
-        "phone",
-        "dropdown",
-        "checkbox",
-        "file",
-        "datetime"
-      ],
-      "name": "form_field_type",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "abstract",
-        "participant"
-      ],
-      "name": "form_section",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "open",
-        "closed"
-      ],
-      "name": "form_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "pending",
-        "accepted",
-        "rejected",
-        "canceled"
-      ],
-      "name": "invitation_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "link",
-        "file",
-        "embed"
-      ],
-      "name": "resource_attachment_kind",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "all",
-        "tracks",
-        "contacts"
-      ],
-      "name": "resource_audience_mode",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "pending",
-        "completed",
-        "recused"
-      ],
-      "name": "review_assignment_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "numeric",
-        "dropdown",
-        "text"
-      ],
-      "name": "review_criterion_type",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "approve",
-        "maybe",
-        "deny"
-      ],
-      "name": "review_decision",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "draft",
-        "open",
-        "closed"
-      ],
-      "name": "review_round_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "organizer",
-        "speaker"
-      ],
-      "name": "session_cancelled_by",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "status_changed",
-        "decided",
-        "informed",
-        "cancelled",
-        "reinstated",
-        "scheduled",
-        "content_approved"
-      ],
-      "name": "submission_activity_type",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "draft",
-        "pending",
-        "maybe",
-        "accepted",
-        "declined",
-        "withdrawn"
-      ],
-      "name": "submission_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "contact",
-        "submission"
-      ],
-      "name": "target_type",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "todo",
-        "done",
-        "waived"
-      ],
-      "name": "task_status",
-      "entityType": "enums",
-      "schema": "public"
-    },
-    {
-      "values": [
-        "XS",
-        "S",
-        "M",
-        "L",
-        "XL",
-        "XXL"
-      ],
-      "name": "tshirt_size",
-      "entityType": "enums",
-      "schema": "public"
-    },
     {
       "isRlsEnabled": false,
       "name": "agenda_blocks",
@@ -775,8 +448,8 @@
       "table": "agenda_blocks"
     },
     {
-      "type": "agenda_block_kind",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'break'",
@@ -892,8 +565,8 @@
       "table": "agenda_drafts"
     },
     {
-      "type": "agenda_draft_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'draft'",
@@ -1204,8 +877,8 @@
       "table": "organization_invitations"
     },
     {
-      "type": "invitation_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'pending'",
@@ -1555,8 +1228,8 @@
       "table": "embeds"
     },
     {
-      "type": "embed_view",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -1659,8 +1332,8 @@
       "table": "event_members"
     },
     {
-      "type": "event_member_role",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -2647,8 +2320,8 @@
       "table": "crm_pipeline_stages"
     },
     {
-      "type": "crm_semantic_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -3479,8 +3152,8 @@
       "table": "email_campaign_recipients"
     },
     {
-      "type": "campaign_delivery_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'pending'",
@@ -3622,8 +3295,8 @@
       "table": "email_campaigns"
     },
     {
-      "type": "email_campaign_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'draft'",
@@ -3830,8 +3503,8 @@
       "table": "reminder_rules"
     },
     {
-      "type": "target_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -3947,8 +3620,8 @@
       "table": "form_fields"
     },
     {
-      "type": "form_section",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -3973,8 +3646,8 @@
       "table": "form_fields"
     },
     {
-      "type": "form_field_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -4168,8 +3841,8 @@
       "table": "forms"
     },
     {
-      "type": "form_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'open'",
@@ -5221,8 +4894,8 @@
       "table": "email_log"
     },
     {
-      "type": "email_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -5338,8 +5011,8 @@
       "table": "email_log"
     },
     {
-      "type": "email_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -5572,8 +5245,8 @@
       "table": "file_requests"
     },
     {
-      "type": "target_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -5689,8 +5362,8 @@
       "table": "file_uploads"
     },
     {
-      "type": "file_kind",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -6092,8 +5765,8 @@
       "table": "portal_forms"
     },
     {
-      "type": "target_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -6391,8 +6064,8 @@
       "table": "resources"
     },
     {
-      "type": "resource_audience_mode",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'all'",
@@ -6404,8 +6077,8 @@
       "table": "resources"
     },
     {
-      "type": "resource_attachment_kind",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
@@ -6573,8 +6246,8 @@
       "table": "session_file_requirement_assignments"
     },
     {
-      "type": "deliverable_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'outstanding'",
@@ -6703,8 +6376,8 @@
       "table": "session_file_requirements"
     },
     {
-      "type": "target_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'contact'",
@@ -6807,8 +6480,8 @@
       "table": "task_assignments"
     },
     {
-      "type": "task_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'todo'",
@@ -6911,8 +6584,8 @@
       "table": "task_templates"
     },
     {
-      "type": "target_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -7353,8 +7026,8 @@
       "table": "review_assignments"
     },
     {
-      "type": "review_assignment_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'pending'",
@@ -7483,8 +7156,8 @@
       "table": "review_criteria"
     },
     {
-      "type": "review_criterion_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -7782,8 +7455,8 @@
       "table": "review_rounds"
     },
     {
-      "type": "review_round_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'draft'",
@@ -7938,8 +7611,8 @@
       "table": "contact_edit_history"
     },
     {
-      "type": "content_approval_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8081,8 +7754,8 @@
       "table": "contacts"
     },
     {
-      "type": "contact_participation",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8211,8 +7884,8 @@
       "table": "contacts"
     },
     {
-      "type": "dietary_requirement",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'none'",
@@ -8224,8 +7897,8 @@
       "table": "contacts"
     },
     {
-      "type": "tshirt_size",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
@@ -8341,8 +8014,8 @@
       "table": "contacts"
     },
     {
-      "type": "content_approval_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'approved'",
@@ -8419,8 +8092,8 @@
       "table": "reviews"
     },
     {
-      "type": "review_decision",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8510,8 +8183,8 @@
       "table": "submission_activity"
     },
     {
-      "type": "submission_activity_type",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -8731,8 +8404,8 @@
       "table": "submission_edit_history"
     },
     {
-      "type": "content_approval_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -9069,8 +8742,8 @@
       "table": "submissions"
     },
     {
-      "type": "submission_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -9342,8 +9015,8 @@
       "table": "submissions"
     },
     {
-      "type": "content_approval_status",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "'approved'",
@@ -9368,8 +9041,8 @@
       "table": "submissions"
     },
     {
-      "type": "session_cancelled_by",
-      "typeSchema": "public",
+      "type": "text",
+      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
